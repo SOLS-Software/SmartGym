@@ -1,0 +1,718 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Empresa {
+  id          Int      @id @default(autoincrement())
+  idTema      Int?
+  dsEmpresa   String   @db.VarChar(255)
+  caCNPJ      String   @db.VarChar(14)
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  pontos               Ponto[]
+  atividades           Atividade[]
+  exercicios           Exercicio[]
+  produtos             Produto[]
+  treinos              Treino[]
+  promocoes            Promocao[]
+  planoAtividades      PlanoAtividade[]
+  planoProdutos        PlanoProduto[]
+  planoEmpresas        PlanoEmpresa[]
+  planoValores         PlanoValor[]
+  promocaoPlanos       PromocaoPlano[]
+  promocaoProdutos     PromocaoProduto[]
+  alunoPlanos          AlunoPlano[]
+  pagamentos           Pagamento[]
+  treinoExercicios     TreinoExercicio[]
+  alunosPontos         AlunoPonto[]
+  produtoMovimentacoes ProdutoMovimentacao[]
+  empresaArquivos      EmpresaArquivo[]
+  alunoCheckIns        AlunoCheckIn[]
+  funcionarios         Funcionario[]
+  tema                 Tema?                 @relation(fields: [idTema], references: [id])
+
+  @@map("tb_Empresas")
+}
+
+model Plano {
+  id           Int      @id @default(autoincrement())
+  dsPlano      String   @db.VarChar(255)
+  idFrequencia Int?
+  dtCadastro   DateTime @default(now())
+  dtAlteracao  DateTime @updatedAt
+  boInativo    Int      @default(0)
+
+  frequencia      Frequencia?      @relation(fields: [idFrequencia], references: [id])
+  planoAtividades PlanoAtividade[]
+  planoProdutos   PlanoProduto[]
+  planoEmpresas   PlanoEmpresa[]
+  planoValores    PlanoValor[]
+  promocaoPlanos  PromocaoPlano[]
+  alunoPlanos     AlunoPlano[]
+
+  @@map("tb_Planos")
+}
+
+model Ponto {
+  id          Int      @id @default(autoincrement())
+  idEmpresa   Int?
+  dsPontos    String   @db.VarChar(255)
+  qtPontos    Int      @default(0)
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  empresa       Empresa?       @relation(fields: [idEmpresa], references: [id])
+  alunosPontos  AlunoPonto[]
+  alunoCheckIns AlunoCheckIn[]
+
+  @@map("tb_Pontos")
+}
+
+model Atividade {
+  id          Int      @id @default(autoincrement())
+  idEmpresa   Int?
+  dsAtividade String   @db.VarChar(255)
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  empresa         Empresa?         @relation(fields: [idEmpresa], references: [id])
+  planoAtividades PlanoAtividade[]
+
+  @@map("tb_Atividades")
+}
+
+model Exercicio {
+  id          Int      @id @default(autoincrement())
+  idEmpresa   Int?
+  dsExercicio String   @db.VarChar(255)
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  empresa           Empresa?           @relation(fields: [idEmpresa], references: [id])
+  treinoExercicios  TreinoExercicio[]
+  exercicioArquivos ExercicioArquivo[]
+
+  @@map("tb_Exercicios")
+}
+
+model Produto {
+  id          Int      @id @default(autoincrement())
+  idEmpresa   Int?
+  dsProduto   String   @db.VarChar(255)
+  qtEstoque   Int      @default(0)
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  empresa              Empresa?              @relation(fields: [idEmpresa], references: [id])
+  planoProdutos        PlanoProduto[]
+  promocaoProdutos     PromocaoProduto[]
+  produtoMovimentacoes ProdutoMovimentacao[]
+  produtoArquivos      ProdutoArquivo[]
+
+  @@map("tb_Produtos")
+}
+
+model Treino {
+  id          Int      @id @default(autoincrement())
+  idEmpresa   Int?
+  idNivel     Int?
+  dsTreino    String   @db.VarChar(255)
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  empresa          Empresa?          @relation(fields: [idEmpresa], references: [id])
+  nivel            Nivel?            @relation(fields: [idNivel], references: [id])
+  treinoExercicios TreinoExercicio[]
+  alunoTreinos     AlunoTreino[]
+
+  @@map("tb_Treinos")
+}
+
+model Aluno {
+  id           Int       @id @default(autoincrement())
+  nmAluno      String    @default("") @db.VarChar(255)
+  caCPF        String    @default("") @db.VarChar(11)
+  dtNascimento DateTime? @db.Date
+  nrDDD        Int       @default(0)
+  nrContato    String?   @db.VarChar(9)
+  anEmail      String    @default("") @db.VarChar(100)
+  anCEP        String    @default("") @db.VarChar(100)
+  anLogradouro String    @default("") @db.VarChar(100)
+  anCoplemento String    @default("") @db.VarChar(100)
+  anBairro     String    @default("") @db.VarChar(100)
+  nrEndereco   Int?
+  dtCadastro   DateTime  @default(now())
+  dtAlteracao  DateTime  @updatedAt
+  boInativo    Int       @default(0)
+
+  alunoEvolucoes       AlunoEvolucao[]
+  alunoPlanos          AlunoPlano[]
+  alunoTreinos         AlunoTreino[]
+  alunosPontos         AlunoPonto[]
+  produtoMovimentacoes ProdutoMovimentacao[]
+  alunoArquivos        AlunoArquivo[]
+  usuarios             Usuario[]
+
+  @@map("tb_Alunos")
+}
+
+model Funcionario {
+  id            Int       @id @default(autoincrement())
+  idEmpresa     Int?
+  idCargo       Int?
+  nmFuncionario String    @default("") @db.VarChar(255)
+  caCPF         String    @default("") @db.VarChar(11)
+  dtNascimento  DateTime? @db.Date
+  nrDDD         Int       @default(0)
+  nrContato     Int       @default(0)
+  anEmail       String    @default("") @db.VarChar(100)
+  dtAdmissao    DateTime  @default(now())
+  dtCadastro    DateTime  @default(now())
+  dtAlteracao   DateTime  @updatedAt
+  boInativo     Int       @default(0)
+
+  empresa        Empresa?        @relation(fields: [idEmpresa], references: [id])
+  cargo          Cargo?          @relation(fields: [idCargo], references: [id])
+  usuarios       Usuario[]
+  alunoTreinos   AlunoTreino[]
+  alunoEvolucoes AlunoEvolucao[]
+
+  @@map("tb_Funcionarios")
+}
+
+model Usuario {
+  id             Int       @id @default(autoincrement())
+  idFuncionario  Int?
+  idAluno        Int?
+  dsLogin        String    @default("") @db.VarChar(100)
+  dtUltimoAcesso DateTime?
+  dtCadastro     DateTime  @default(now())
+  dtAlteracao    DateTime  @updatedAt
+  boInativo      Int       @default(0)
+
+  funcionario Funcionario? @relation(fields: [idFuncionario], references: [id])
+  aluno       Aluno?       @relation(fields: [idAluno], references: [id])
+  senhas      Senha[]
+
+  @@map("tb_Usuarios")
+}
+
+model Senha {
+  id                 Int       @id @default(autoincrement())
+  idUsuario          Int?
+  dsSenha            String?   @db.VarChar(255)
+  cnTipoHash         Int?
+  dtExpiracao        DateTime?
+  boTrocaObrigatoria Int       @default(0)
+  dtCadastro         DateTime  @default(now())
+  dtAlteracao        DateTime  @updatedAt
+  boInativo          Int       @default(0)
+
+  usuario Usuario? @relation(fields: [idUsuario], references: [id])
+
+  @@map("tb_Senhas")
+}
+
+model Promocao {
+  id             Int       @id @default(autoincrement())
+  idEmpresa      Int?
+  dsPromocao     String    @default("") @db.VarChar(255)
+  qtPeriodo      Int       @default(0)
+  idUnidadeTempo Int?
+  vlDesconto     Decimal?  @default(0) @db.Decimal(10, 2)
+  pcDesconto     Decimal?  @default(0) @db.Decimal(10, 2)
+  dtInicio       DateTime  @default(now())
+  dtEncerramento DateTime?
+  dtCadastro     DateTime  @default(now())
+  dtAlteracao    DateTime  @updatedAt
+  boInativo      Int       @default(0)
+
+  empresa          Empresa?          @relation(fields: [idEmpresa], references: [id])
+  unidadeTempo     UnidadeTempo?     @relation(fields: [idUnidadeTempo], references: [id])
+  promocaoPlanos   PromocaoPlano[]
+  promocaoProdutos PromocaoProduto[]
+  promocaoArquivos PromocaoArquivo[]
+
+  @@map("tb_Promocoes")
+}
+
+model PlanoAtividade {
+  id          Int      @id @default(autoincrement())
+  idEmpresa   Int?
+  idPlano     Int?
+  idAtividade Int?
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  empresa   Empresa?   @relation(fields: [idEmpresa], references: [id])
+  plano     Plano?     @relation(fields: [idPlano], references: [id])
+  atividade Atividade? @relation(fields: [idAtividade], references: [id])
+
+  @@map("tb_PlanoAtividades")
+}
+
+model PlanoProduto {
+  id          Int      @id @default(autoincrement())
+  idEmpresa   Int?
+  idPlano     Int?
+  idProduto   Int?
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  empresa Empresa? @relation(fields: [idEmpresa], references: [id])
+  plano   Plano?   @relation(fields: [idPlano], references: [id])
+  produto Produto? @relation(fields: [idProduto], references: [id])
+
+  @@map("tb_PlanoProdutos")
+}
+
+model PlanoEmpresa {
+  id          Int      @id @default(autoincrement())
+  idEmpresa   Int?
+  idPlano     Int?
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  empresa Empresa? @relation(fields: [idEmpresa], references: [id])
+  plano   Plano?   @relation(fields: [idPlano], references: [id])
+
+  @@map("tb_PlanoEmpresas")
+}
+
+model PlanoValor {
+  id          Int      @id @default(autoincrement())
+  idEmpresa   Int?
+  idPlano     Int?
+  vlVenda     Decimal? @default(0) @db.Decimal(10, 2)
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  empresa Empresa? @relation(fields: [idEmpresa], references: [id])
+  plano   Plano?   @relation(fields: [idPlano], references: [id])
+
+  @@map("tb_PlanoValores")
+}
+
+model PromocaoPlano {
+  id             Int       @id @default(autoincrement())
+  idEmpresa      Int?
+  idPromocao     Int?
+  idPlano        Int?
+  qtDisponivel   Int       @default(0)
+  dtInicio       DateTime  @default(now())
+  dtEncerramento DateTime?
+  dtCadastro     DateTime  @default(now())
+  dtAlteracao    DateTime  @updatedAt
+  boInativo      Int       @default(0)
+
+  empresa     Empresa?     @relation(fields: [idEmpresa], references: [id])
+  promocao    Promocao?    @relation(fields: [idPromocao], references: [id])
+  plano       Plano?       @relation(fields: [idPlano], references: [id])
+  alunoPlanos AlunoPlano[]
+
+  @@map("tb_PromocaoPlanos")
+}
+
+model PromocaoProduto {
+  id           Int      @id @default(autoincrement())
+  idEmpresa    Int?
+  idPromocao   Int?
+  idProduto    Int?
+  qtDisponivel Int?
+  dtCadastro   DateTime @default(now())
+  dtAlteracao  DateTime @updatedAt
+  boInativo    Int      @default(0)
+
+  empresa  Empresa?  @relation(fields: [idEmpresa], references: [id])
+  promocao Promocao? @relation(fields: [idPromocao], references: [id])
+  produto  Produto?  @relation(fields: [idProduto], references: [id])
+
+  @@map("tb_PromocaoProdutos")
+}
+
+model AlunoEvolucao {
+  id            Int      @id @default(autoincrement())
+  idAluno       Int?
+  idFuncionario Int?
+  vlAltura      Decimal? @default(0) @db.Decimal(5, 2)
+  vlPeso        Decimal? @default(0) @db.Decimal(5, 2)
+  dtCadastro    DateTime @default(now())
+  dtAlteracao   DateTime @updatedAt
+  boInativo     Int      @default(0)
+
+  aluno       Aluno?       @relation(fields: [idAluno], references: [id])
+  funcionario Funcionario? @relation(fields: [idFuncionario], references: [id])
+
+  @@map("tb_AlunoEvolucoes")
+}
+
+model AlunoPlano {
+  id              Int      @id @default(autoincrement())
+  idEmpresa       Int?
+  idAluno         Int?
+  idPlano         Int?
+  idPromocaoPlano Int?
+  nrDiaPagamento  Int      @default(1)
+  dtAdmissao      DateTime @default(now())
+  dtCadastro      DateTime @default(now())
+  dtAlteracao     DateTime @updatedAt
+  boInativo       Int      @default(0)
+
+  empresa       Empresa?       @relation(fields: [idEmpresa], references: [id])
+  aluno         Aluno?         @relation(fields: [idAluno], references: [id])
+  plano         Plano?         @relation(fields: [idPlano], references: [id])
+  promocaoPlano PromocaoPlano? @relation(fields: [idPromocaoPlano], references: [id])
+  pagamentos    Pagamento[]
+  alunoCheckIns AlunoCheckIn[]
+
+  @@map("tb_AlunoPlanos")
+}
+
+model Pagamento {
+  id                    Int      @id @default(autoincrement())
+  idEmpresa             Int?
+  idAlunoPlano          Int?
+  idProdutoMovimentacao Int?
+  vlPagamento           Decimal? @db.Decimal(7, 2)
+  idStatusPagamento     Int?
+  idFormaPagamento      Int?
+  dtPagamento           DateTime @default(now())
+  dtCadastro            DateTime @default(now())
+  dtAlteracao           DateTime @updatedAt
+  boInativo             Int      @default(0)
+
+  empresa             Empresa?             @relation(fields: [idEmpresa], references: [id])
+  alunoPlano          AlunoPlano?          @relation(fields: [idAlunoPlano], references: [id])
+  produtoMovimentacao ProdutoMovimentacao? @relation(fields: [idProdutoMovimentacao], references: [id])
+  statusPagamento     StatusPagamento?     @relation(fields: [idStatusPagamento], references: [id])
+  formaPagamento      FormaPagamento?      @relation(fields: [idFormaPagamento], references: [id])
+
+  @@map("tb_Pagamentos")
+}
+
+model TreinoExercicio {
+  id             Int      @id @default(autoincrement())
+  idEmpresa      Int?
+  idTreino       Int?
+  idExercicio    Int?
+  idMetodoTreino Int?
+  nrOrdem        Int      @default(0)
+  nrSeries       Int      @default(0)
+  nrRepeticoes   Int      @default(0)
+  qtDescanso     Int      @default(0)
+  dtCadastro     DateTime @default(now())
+  dtAlteracao    DateTime @updatedAt
+  boInativo      Int      @default(0)
+
+  empresa      Empresa?      @relation(fields: [idEmpresa], references: [id])
+  treino       Treino?       @relation(fields: [idTreino], references: [id])
+  exercicio    Exercicio?    @relation(fields: [idExercicio], references: [id])
+  metodoTreino MetodoTreino? @relation(fields: [idMetodoTreino], references: [id])
+
+  @@map("tb_TreinoExercicios")
+}
+
+model AlunoTreino {
+  id            Int      @id @default(autoincrement())
+  idAluno       Int?
+  idFuncionario Int?
+  idTreino      Int?
+  dtCadastro    DateTime @default(now())
+  dtAlteracao   DateTime @updatedAt
+  boInativo     Int      @default(0)
+
+  aluno                  Aluno?                 @relation(fields: [idAluno], references: [id])
+  funcionario            Funcionario?           @relation(fields: [idFuncionario], references: [id])
+  treino                 Treino?                @relation(fields: [idTreino], references: [id])
+  alunoTreinosSequencias AlunoTreinoSequencia[]
+
+  @@map("tb_AlunoTreinos")
+}
+
+model AlunoPonto {
+  id           Int      @id @default(autoincrement())
+  idEmpresa    Int?
+  idPontos     Int?
+  idAluno      Int?
+  qtDisponivel Int      @default(0)
+  dtCadastro   DateTime @default(now())
+  dtAlteracao  DateTime @updatedAt
+  boInativo    Int      @default(0)
+
+  empresa Empresa? @relation(fields: [idEmpresa], references: [id])
+  ponto   Ponto?   @relation(fields: [idPontos], references: [id])
+  aluno   Aluno?   @relation(fields: [idAluno], references: [id])
+
+  @@map("tb_AlunosPontos")
+}
+
+model ProdutoMovimentacao {
+  id            Int      @id @default(autoincrement())
+  idEmpresa     Int?
+  idProduto     Int?
+  idAluno       Int?
+  qtMovimentada Int      @default(0)
+  vlUnitario    Decimal? @default(0) @db.Decimal(10, 2)
+  qtDisponivel  Int      @default(0)
+  dtCadastro    DateTime @default(now())
+  dtAlteracao   DateTime @updatedAt
+  boInativo     Int      @default(0)
+
+  empresa    Empresa?    @relation(fields: [idEmpresa], references: [id])
+  produto    Produto?    @relation(fields: [idProduto], references: [id])
+  aluno      Aluno?      @relation(fields: [idAluno], references: [id])
+  pagamentos Pagamento[]
+
+  @@map("tb_ProdutoMovimentacoes")
+}
+
+model EmpresaArquivo {
+  id              Int      @id @default(autoincrement())
+  idEmpresa       Int?
+  idTiposArquivos Int?
+  dsArquivo       String   @default("") @db.VarChar(255)
+  anCaminho       String   @default("") @db.VarChar(255)
+  cnChaveAcesso   Int?
+  cnDistribuidor  Int?
+  dtCadastro      DateTime @default(now())
+  dtAlteracao     DateTime @updatedAt
+  boInativo       Int      @default(0)
+
+  empresa     Empresa?     @relation(fields: [idEmpresa], references: [id])
+  tipoArquivo TipoArquivo? @relation(fields: [idTiposArquivos], references: [id])
+
+  @@map("tb_EmpresasArquivos")
+}
+
+model AlunoArquivo {
+  id              Int      @id @default(autoincrement())
+  idAluno         Int?
+  idTiposArquivos Int?
+  dsArquivo       String   @default("") @db.VarChar(255)
+  anCaminho       String   @default("") @db.VarChar(255)
+  cnChaveAcesso   Int?
+  cnDistribuidor  Int?
+  dtCadastro      DateTime @default(now())
+  dtAlteracao     DateTime @updatedAt
+  boInativo       Int      @default(0)
+
+  aluno       Aluno?       @relation(fields: [idAluno], references: [id])
+  tipoArquivo TipoArquivo? @relation(fields: [idTiposArquivos], references: [id])
+
+  @@map("tb_AlunoArquivos")
+}
+
+model ExercicioArquivo {
+  id              Int      @id @default(autoincrement())
+  idExercicio     Int?
+  idTiposArquivos Int?
+  dsArquivo       String   @default("") @db.VarChar(255)
+  anCaminho       String   @default("") @db.VarChar(255)
+  cnChaveAcesso   Int?
+  cnDistribuidor  Int?
+  dtCadastro      DateTime @default(now())
+  dtAlteracao     DateTime @updatedAt
+  boInativo       Int      @default(0)
+
+  exercicio   Exercicio?   @relation(fields: [idExercicio], references: [id])
+  tipoArquivo TipoArquivo? @relation(fields: [idTiposArquivos], references: [id])
+
+  @@map("tb_ExercicioArquivos")
+}
+
+model ProdutoArquivo {
+  id              Int      @id @default(autoincrement())
+  idProduto       Int?
+  idTiposArquivos Int?
+  dsArquivo       String   @default("") @db.VarChar(255)
+  anCaminho       String   @default("") @db.VarChar(255)
+  cnChaveAcesso   Int?
+  cnDistribuidor  Int?
+  dtCadastro      DateTime @default(now())
+  dtAlteracao     DateTime @updatedAt
+  boInativo       Int      @default(0)
+
+  produto     Produto?     @relation(fields: [idProduto], references: [id])
+  tipoArquivo TipoArquivo? @relation(fields: [idTiposArquivos], references: [id])
+
+  @@map("tb_ProdutoArquivos")
+}
+
+model PromocaoArquivo {
+  id              Int      @id @default(autoincrement())
+  idPromocao      Int?
+  idTiposArquivos Int?
+  dsArquivo       String   @default("") @db.VarChar(255)
+  anCaminho       String   @default("") @db.VarChar(255)
+  cnChaveAcesso   Int?
+  cnDistribuidor  Int?
+  dtCadastro      DateTime @default(now())
+  dtAlteracao     DateTime @updatedAt
+  boInativo       Int      @default(0)
+
+  promocao    Promocao?    @relation(fields: [idPromocao], references: [id])
+  tipoArquivo TipoArquivo? @relation(fields: [idTiposArquivos], references: [id])
+
+  @@map("tb_PromocaoArquivos")
+}
+
+model AlunoCheckIn {
+  id                      Int      @id @default(autoincrement())
+  idEmpresa               Int?
+  idAlunoPlano            Int?
+  idAlunoTreinosSequencia Int?
+  idPontos                Int?
+  dtCadastro              DateTime @default(now())
+  dtAlteracao             DateTime @updatedAt
+  boInativo               Int      @default(0)
+
+  empresa              Empresa?              @relation(fields: [idEmpresa], references: [id])
+  alunoPlano           AlunoPlano?           @relation(fields: [idAlunoPlano], references: [id])
+  alunoTreinoSequencia AlunoTreinoSequencia? @relation(fields: [idAlunoTreinosSequencia], references: [id])
+  ponto                Ponto?                @relation(fields: [idPontos], references: [id])
+
+  @@map("tb_AlunoCheckIns")
+}
+
+model AlunoTreinoSequencia {
+  id            Int      @id @default(autoincrement())
+  idAlunoTreino Int?
+  nrOrdem       Int      @default(0)
+  dtCadastro    DateTime @default(now())
+  dtAlteracao   DateTime @updatedAt
+  boInativo     Int      @default(0)
+
+  alunoTreino   AlunoTreino?   @relation(fields: [idAlunoTreino], references: [id])
+  alunoCheckIns AlunoCheckIn[]
+
+  @@map("tb_AlunoTreinosSequencias")
+}
+
+model Cargo {
+  id          Int      @id @default(autoincrement())
+  dsCargo     String   @default("") @db.VarChar(255)
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  funcionarios Funcionario[]
+
+  @@map("tb_Cargos")
+}
+
+model Tema {
+  id          Int      @id @default(autoincrement())
+  dsTema      String   @default("") @db.VarChar(255)
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  empresas Empresa[]
+
+  @@map("tb_Temas")
+}
+
+model Frequencia {
+  id           Int      @id @default(autoincrement())
+  dsFrequencia String   @default("") @db.VarChar(255)
+  dtCadastro   DateTime @default(now())
+  dtAlteracao  DateTime @updatedAt
+  boInativo    Int      @default(0)
+
+  planos Plano[]
+
+  @@map("tb_Frequencias")
+}
+
+model Nivel {
+  id          Int      @id @default(autoincrement())
+  dsNivel     String   @default("") @db.VarChar(255)
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  treinos Treino[]
+
+  @@map("tb_Niveis")
+}
+
+model UnidadeTempo {
+  id             Int      @id @default(autoincrement())
+  dsUnidadeTempo String   @default("") @db.VarChar(255)
+  dtCadastro     DateTime @default(now())
+  dtAlteracao    DateTime @updatedAt
+  boInativo      Int      @default(0)
+
+  promocoes Promocao[]
+
+  @@map("tb_UnidadesTempo")
+}
+
+model StatusPagamento {
+  id                Int      @id @default(autoincrement())
+  dsStatusPagamento String   @default("") @db.VarChar(255)
+  dtCadastro        DateTime @default(now())
+  dtAlteracao       DateTime @updatedAt
+  boInativo         Int      @default(0)
+
+  pagamentos Pagamento[]
+
+  @@map("tb_StatusPagamento")
+}
+
+model FormaPagamento {
+  id               Int      @id @default(autoincrement())
+  dsFormaPagamento String   @default("") @db.VarChar(255)
+  dtCadastro       DateTime @default(now())
+  dtAlteracao      DateTime @updatedAt
+  boInativo        Int      @default(0)
+
+  pagamentos Pagamento[]
+
+  @@map("tb_FormasPagamento")
+}
+
+model MetodoTreino {
+  id             Int      @id @default(autoincrement())
+  nmMetodoTreino String   @default("") @db.VarChar(255)
+  dsMetodoTreino String   @default("") @db.VarChar(255)
+  dtCadastro     DateTime @default(now())
+  dtAlteracao    DateTime @updatedAt
+  boInativo      Int      @default(0)
+
+  treinoExercicios TreinoExercicio[]
+
+  @@map("tb_MetodosTreino")
+}
+
+model TipoArquivo {
+  id          Int      @id @default(autoincrement())
+  dsTipo      String   @default("") @db.VarChar(255)
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  empresasArquivos   EmpresaArquivo[]
+  alunosArquivos     AlunoArquivo[]
+  exerciciosArquivos ExercicioArquivo[]
+  produtosArquivos   ProdutoArquivo[]
+  promocoesArquivos  PromocaoArquivo[]
+
+  @@map("tb_TiposArquivos")
+}

@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "SmartGym",
+    "slug": "smartgym",
+    "scheme": "smartgym",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir que o SmartGym use a camera para anexar fotos ao cadastro do aluno."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
