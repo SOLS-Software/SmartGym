@@ -1620,103 +1620,103 @@ function CompanyRegistration() {
 
             {!isCompanyFieldsCollapsed ? (
               <>
-            {!isFormEnabled ? (
-              <div className="form-hint">
-                Selecione uma empresa acima para editar ou clique em Nova empresa.
-              </div>
-            ) : null}
+                {!isFormEnabled ? (
+                  <div className="form-hint">
+                    Selecione uma empresa acima para editar ou clique em Nova empresa.
+                  </div>
+                ) : null}
 
-            {feedback ? <div className="form-feedback">{feedback}</div> : null}
+                {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
-            <div className="field">
-              <label htmlFor="dsEmpresa">Empresa</label>
-              <input
-                className={touchedCompanyFields.name && companyErrors.name ? 'invalid' : ''}
-                disabled={!isFormEnabled}
-                id="dsEmpresa"
-                maxLength={100}
-                name="dsEmpresa"
-                onBlur={() => validateCompanyField('name')}
-                onChange={(event) => {
-                  const value = event.target.value.slice(0, 100);
-                  setCompanyName(value);
+                <div className="field">
+                  <label htmlFor="dsEmpresa">Empresa</label>
+                  <input
+                    className={touchedCompanyFields.name && companyErrors.name ? 'invalid' : ''}
+                    disabled={!isFormEnabled}
+                    id="dsEmpresa"
+                    maxLength={100}
+                    name="dsEmpresa"
+                    onBlur={() => validateCompanyField('name')}
+                    onChange={(event) => {
+                      const value = event.target.value.slice(0, 100);
+                      setCompanyName(value);
 
-                  if (touchedCompanyFields.name) {
-                    setCompanyErrors((current) => ({
-                      ...current,
-                      name: value.trim() ? undefined : 'Informe o nome da empresa.',
-                    }));
-                  }
-                }}
-                placeholder="Ex.: Academia Cliente"
-                required
-                type="text"
-                value={companyName}
-              />
-              {touchedCompanyFields.name && companyErrors.name ? (
-                <span className="field-error">{companyErrors.name}</span>
-              ) : null}
-            </div>
+                      if (touchedCompanyFields.name) {
+                        setCompanyErrors((current) => ({
+                          ...current,
+                          name: value.trim() ? undefined : 'Informe o nome da empresa.',
+                        }));
+                      }
+                    }}
+                    placeholder="Ex.: Academia Cliente"
+                    required
+                    type="text"
+                    value={companyName}
+                  />
+                  {touchedCompanyFields.name && companyErrors.name ? (
+                    <span className="field-error">{companyErrors.name}</span>
+                  ) : null}
+                </div>
 
-            <div className="field">
-              <label htmlFor="caCNPJ">CNPJ</label>
-              <input
-                className={touchedCompanyFields.cnpj && companyErrors.cnpj ? 'invalid' : ''}
-                disabled={!isFormEnabled}
-                id="caCNPJ"
-                maxLength={18}
-                name="caCNPJ"
-                onBlur={() => validateCompanyField('cnpj')}
-                onChange={(event) => {
-                  const formattedCnpj = formatCnpj(event.target.value);
-                  setCompanyCnpj(formattedCnpj);
+                <div className="field">
+                  <label htmlFor="caCNPJ">CNPJ</label>
+                  <input
+                    className={touchedCompanyFields.cnpj && companyErrors.cnpj ? 'invalid' : ''}
+                    disabled={!isFormEnabled}
+                    id="caCNPJ"
+                    maxLength={18}
+                    name="caCNPJ"
+                    onBlur={() => validateCompanyField('cnpj')}
+                    onChange={(event) => {
+                      const formattedCnpj = formatCnpj(event.target.value);
+                      setCompanyCnpj(formattedCnpj);
 
-                  if (touchedCompanyFields.cnpj) {
-                    setCompanyErrors((current) => ({
-                      ...current,
-                      cnpj: isValidCnpj(formattedCnpj)
-                        ? undefined
-                        : 'Informe um CNPJ valido.',
-                    }));
-                  }
-                }}
-                placeholder="00.000.000/0000-00"
-                required
-                type="text"
-                value={companyCnpj}
-              />
-              {touchedCompanyFields.cnpj && companyErrors.cnpj ? (
-                <span className="field-error">{companyErrors.cnpj}</span>
-              ) : null}
-            </div>
+                      if (touchedCompanyFields.cnpj) {
+                        setCompanyErrors((current) => ({
+                          ...current,
+                          cnpj: isValidCnpj(formattedCnpj)
+                            ? undefined
+                            : 'Informe um CNPJ valido.',
+                        }));
+                      }
+                    }}
+                    placeholder="00.000.000/0000-00"
+                    required
+                    type="text"
+                    value={companyCnpj}
+                  />
+                  {touchedCompanyFields.cnpj && companyErrors.cnpj ? (
+                    <span className="field-error">{companyErrors.cnpj}</span>
+                  ) : null}
+                </div>
 
-            <div className="field">
-              <label htmlFor="empresaStatus">Status</label>
-              <button
-                aria-pressed={isCompanyActive}
-                className={`status-toggle ${isCompanyActive ? 'active' : ''}`}
-                disabled={!isFormEnabled}
-                id="empresaStatus"
-                onClick={handleToggleStatus}
-                type="button"
-              >
-                <span>{isCompanyActive ? 'Ativo' : 'Inativo'}</span>
-              </button>
-            </div>
+                <div className="field">
+                  <label htmlFor="empresaStatus">Status</label>
+                  <button
+                    aria-pressed={isCompanyActive}
+                    className={`status-toggle ${isCompanyActive ? 'active' : ''}`}
+                    disabled={!isFormEnabled}
+                    id="empresaStatus"
+                    onClick={handleToggleStatus}
+                    type="button"
+                  >
+                    <span>{isCompanyActive ? 'Ativo' : 'Inativo'}</span>
+                  </button>
+                </div>
 
-            <div className="form-actions">
-              <button
-                className="secondary-button"
-                disabled={!isFormEnabled}
-                onClick={clearForm}
-                type="button"
-              >
-                Limpar
-              </button>
-              <button disabled={!isFormEnabled} type="submit">
-                Salvar empresa
-              </button>
-            </div>
+                <div className="form-actions">
+                  <button
+                    className="secondary-button"
+                    disabled={!isFormEnabled}
+                    onClick={clearForm}
+                    type="button"
+                  >
+                    Limpar
+                  </button>
+                  <button disabled={!isFormEnabled} type="submit">
+                    Salvar empresa
+                  </button>
+                </div>
               </>
             ) : null}
           </form>
@@ -1742,226 +1742,226 @@ function CompanyRegistration() {
 
               {!isChildFieldsCollapsed ? (
                 <>
-                {!selectedCompanyId ? (
-                  <div className="form-hint">
-                    Selecione uma empresa para preencher os campos filhos.
-                  </div>
-                ) : null}
-
-                {childFeedback ? <div className="form-feedback">{childFeedback}</div> : null}
-
-                {selectedChildTable === 'companyFiles' ? (
-              <>
-                <div className="company-child-fields">
-                  <div className="field">
-                    <label htmlFor="companyFileType">Tipo de arquivo</label>
-                    <select
-                      disabled={!selectedCompanyId || isUploadingCompanyFile}
-                      id="companyFileType"
-                      onChange={(event) =>
-                        setChildFormValues((current) => ({
-                          ...current,
-                          idTiposArquivos: event.target.value,
-                        }))
-                      }
-                      value={childFormValues.idTiposArquivos ?? ''}
-                    >
-                      <option value="">Selecione</option>
-                      {(childLookups.idTiposArquivos ?? []).map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {getLookupLabel(option, {
-                            key: 'idTiposArquivos',
-                            label: 'Tipo arquivo',
-                            lookupLabelKey: 'dsTipo',
-                            type: 'number',
-                          })}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="field">
-                    <label htmlFor="companyFileName">Arquivo selecionado</label>
-                    <input
-                      disabled
-                      id="companyFileName"
-                      type="text"
-                      value={
-                        selectedChildRecord
-                          ? String(selectedChildRecord.dsArquivo ?? `Arquivo ${selectedChildRecord.id}`)
-                          : 'Selecione no grid ou clique em Novo'
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="field">
-                  <label htmlFor="companyFile">
-                    {selectedChildRecordId && !isCreatingChild ? 'Alterar arquivo' : 'Arquivo'}
-                  </label>
-                  <div className="file-upload-controls">
-                    <input
-                      disabled={!selectedCompanyId || isUploadingCompanyFile}
-                      id="companyFile"
-                      onChange={(event) =>
-                        void handleUploadCompanyFile(event.target.files?.[0] ?? null)
-                      }
-                      ref={companyFileInputRef}
-                      type="file"
-                    />
-                  </div>
-                  {selectedChildRecordId && !isCreatingChild ? (
-                    <span className="field-error">
-                      Selecionar um novo arquivo vai alterar o arquivo selecionado.
-                    </span>
+                  {!selectedCompanyId ? (
+                    <div className="form-hint">
+                      Selecione uma empresa para preencher os campos filhos.
+                    </div>
                   ) : null}
-                </div>
 
-                {selectedChildRecord ? (
-                  <div className="student-files-list">
-                    <div className="student-file-row">
-                      {companyFilePreviewUrls[selectedChildRecord.id] ? (
-                        <button
-                          className="file-preview-button"
-                          onClick={() => void handleOpenCompanyFile(selectedChildRecord.id)}
-                          type="button"
-                        >
-                          <img
-                            alt={String(
-                              selectedChildRecord.dsArquivo ??
-                              selectedChildRecord.anCaminho ??
-                              `Arquivo ${selectedChildRecord.id}`,
-                            )}
-                            className="student-file-preview"
-                            src={companyFilePreviewUrls[selectedChildRecord.id]}
+                  {childFeedback ? <div className="form-feedback">{childFeedback}</div> : null}
+
+                  {selectedChildTable === 'companyFiles' ? (
+                    <>
+                      <div className="company-child-fields">
+                        <div className="field">
+                          <label htmlFor="companyFileType">Tipo de arquivo</label>
+                          <select
+                            disabled={!selectedCompanyId || isUploadingCompanyFile}
+                            id="companyFileType"
+                            onChange={(event) =>
+                              setChildFormValues((current) => ({
+                                ...current,
+                                idTiposArquivos: event.target.value,
+                              }))
+                            }
+                            value={childFormValues.idTiposArquivos ?? ''}
+                          >
+                            <option value="">Selecione</option>
+                            {(childLookups.idTiposArquivos ?? []).map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {getLookupLabel(option, {
+                                  key: 'idTiposArquivos',
+                                  label: 'Tipo arquivo',
+                                  lookupLabelKey: 'dsTipo',
+                                  type: 'number',
+                                })}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="field">
+                          <label htmlFor="companyFileName">Arquivo selecionado</label>
+                          <input
+                            disabled
+                            id="companyFileName"
+                            type="text"
+                            value={
+                              selectedChildRecord
+                                ? String(selectedChildRecord.dsArquivo ?? `Arquivo ${selectedChildRecord.id}`)
+                                : 'Selecione no grid ou clique em Novo'
+                            }
                           />
-                        </button>
+                        </div>
+                      </div>
+
+                      <div className="field">
+                        <label htmlFor="companyFile">
+                          {selectedChildRecordId && !isCreatingChild ? 'Alterar arquivo' : 'Arquivo'}
+                        </label>
+                        <div className="file-upload-controls">
+                          <input
+                            disabled={!selectedCompanyId || isUploadingCompanyFile}
+                            id="companyFile"
+                            onChange={(event) =>
+                              void handleUploadCompanyFile(event.target.files?.[0] ?? null)
+                            }
+                            ref={companyFileInputRef}
+                            type="file"
+                          />
+                        </div>
+                        {selectedChildRecordId && !isCreatingChild ? (
+                          <span className="field-error">
+                            Selecionar um novo arquivo vai alterar o arquivo selecionado.
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {selectedChildRecord ? (
+                        <div className="student-files-list">
+                          <div className="student-file-row">
+                            {companyFilePreviewUrls[selectedChildRecord.id] ? (
+                              <button
+                                className="file-preview-button"
+                                onClick={() => void handleOpenCompanyFile(selectedChildRecord.id)}
+                                type="button"
+                              >
+                                <img
+                                  alt={String(
+                                    selectedChildRecord.dsArquivo ??
+                                    selectedChildRecord.anCaminho ??
+                                    `Arquivo ${selectedChildRecord.id}`,
+                                  )}
+                                  className="student-file-preview"
+                                  src={companyFilePreviewUrls[selectedChildRecord.id]}
+                                />
+                              </button>
+                            ) : null}
+                            <div className="student-file-row-info">
+                              <strong>
+                                {String(
+                                  selectedChildRecord.dsArquivo ??
+                                  selectedChildRecord.anCaminho ??
+                                  `Arquivo ${selectedChildRecord.id}`,
+                                )}
+                              </strong>
+                            </div>
+                            <div className="student-file-actions">
+                              <button
+                                className="secondary-button"
+                                onClick={() => void handleOpenCompanyFile(selectedChildRecord.id)}
+                                type="button"
+                              >
+                                Visualizar
+                              </button>
+                              <button
+                                className="secondary-button"
+                                onClick={() => {
+                                  companyFileInputRef.current?.click();
+                                }}
+                                type="button"
+                              >
+                                Alterar
+                              </button>
+                              <button
+                                className="danger"
+                                onClick={() => void handleRemoveCompanyFile(selectedChildRecord.id)}
+                                type="button"
+                              >
+                                Remover
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : selectedCompanyId && childRecords.length === 0 ? (
+                        <div className="empty-row">Nenhum arquivo anexado.</div>
+                      ) : selectedCompanyId ? (
+                        <div className="form-hint">Selecione um arquivo no grid para visualizar ou alterar.</div>
                       ) : null}
-                      <div className="student-file-row-info">
-                        <strong>
-                          {String(
-                            selectedChildRecord.dsArquivo ??
-                            selectedChildRecord.anCaminho ??
-                            `Arquivo ${selectedChildRecord.id}`,
-                          )}
-                        </strong>
+                    </>
+                  ) : (
+                    <>
+                      <div className="company-child-fields">
+                        {childTableConfig.fields.map((field) => (
+                          <div className="field" key={field.key}>
+                            <label htmlFor={`companyChild-${field.key}`}>
+                              {field.label}
+                              {field.required ? ' *' : ''}
+                            </label>
+                            {field.lookupEndpoint ? (
+                              <select
+                                disabled={!isChildFormEnabled}
+                                id={`companyChild-${field.key}`}
+                                onChange={(event) =>
+                                  setChildFormValues((current) => ({
+                                    ...current,
+                                    [field.key]: event.target.value,
+                                  }))
+                                }
+                                required={field.required}
+                                value={childFormValues[field.key] ?? ''}
+                              >
+                                <option value="">Selecione</option>
+                                {(childLookups[field.key] ?? []).map((option) => (
+                                  <option key={option.id} value={option.id}>
+                                    {getLookupLabel(option, field)}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                disabled={!isChildFormEnabled}
+                                id={`companyChild-${field.key}`}
+                                onChange={(event) =>
+                                  setChildFormValues((current) => ({
+                                    ...current,
+                                    [field.key]: event.target.value,
+                                  }))
+                                }
+                                required={field.required}
+                                type={field.type}
+                                value={childFormValues[field.key] ?? ''}
+                              />
+                            )}
+                          </div>
+                        ))}
                       </div>
-                      <div className="student-file-actions">
+
+                      {!isChildFormEnabled ? (
+                        <div className="form-hint">
+                          Selecione um registro filho acima ou clique em Novo.
+                        </div>
+                      ) : null}
+
+                      <div className="field">
+                        <label htmlFor="companyChildStatus">Status</label>
+                        <button
+                          aria-pressed={isChildActive}
+                          className={`status-toggle ${isChildActive ? 'active' : ''}`}
+                          disabled={!isChildFormEnabled}
+                          id="companyChildStatus"
+                          onClick={handleToggleChildStatus}
+                          type="button"
+                        >
+                          <span>{isChildActive ? 'Ativo' : 'Inativo'}</span>
+                        </button>
+                      </div>
+
+                      <div className="form-actions">
                         <button
                           className="secondary-button"
-                          onClick={() => void handleOpenCompanyFile(selectedChildRecord.id)}
+                          disabled={!selectedCompanyId}
+                          onClick={clearChildForm}
                           type="button"
                         >
-                          Visualizar
+                          Limpar
                         </button>
-                        <button
-                          className="secondary-button"
-                          onClick={() => {
-                            companyFileInputRef.current?.click();
-                          }}
-                          type="button"
-                        >
-                          Alterar
-                        </button>
-                        <button
-                          className="danger"
-                          onClick={() => void handleRemoveCompanyFile(selectedChildRecord.id)}
-                          type="button"
-                        >
-                          Remover
+                        <button disabled={!isChildFormEnabled} type="submit">
+                          Salvar {childTableConfig.label}
                         </button>
                       </div>
-                    </div>
-                  </div>
-                ) : selectedCompanyId && childRecords.length === 0 ? (
-                  <div className="empty-row">Nenhum arquivo anexado.</div>
-                ) : selectedCompanyId ? (
-                  <div className="form-hint">Selecione um arquivo no grid para visualizar ou alterar.</div>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <div className="company-child-fields">
-                  {childTableConfig.fields.map((field) => (
-                    <div className="field" key={field.key}>
-                      <label htmlFor={`companyChild-${field.key}`}>
-                        {field.label}
-                        {field.required ? ' *' : ''}
-                      </label>
-                      {field.lookupEndpoint ? (
-                        <select
-                          disabled={!isChildFormEnabled}
-                          id={`companyChild-${field.key}`}
-                          onChange={(event) =>
-                            setChildFormValues((current) => ({
-                              ...current,
-                              [field.key]: event.target.value,
-                            }))
-                          }
-                          required={field.required}
-                          value={childFormValues[field.key] ?? ''}
-                        >
-                          <option value="">Selecione</option>
-                          {(childLookups[field.key] ?? []).map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {getLookupLabel(option, field)}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          disabled={!isChildFormEnabled}
-                          id={`companyChild-${field.key}`}
-                          onChange={(event) =>
-                            setChildFormValues((current) => ({
-                              ...current,
-                              [field.key]: event.target.value,
-                            }))
-                          }
-                          required={field.required}
-                          type={field.type}
-                          value={childFormValues[field.key] ?? ''}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {!isChildFormEnabled ? (
-                  <div className="form-hint">
-                    Selecione um registro filho acima ou clique em Novo.
-                  </div>
-                ) : null}
-
-                <div className="field">
-                  <label htmlFor="companyChildStatus">Status</label>
-                  <button
-                    aria-pressed={isChildActive}
-                    className={`status-toggle ${isChildActive ? 'active' : ''}`}
-                    disabled={!isChildFormEnabled}
-                    id="companyChildStatus"
-                    onClick={handleToggleChildStatus}
-                    type="button"
-                  >
-                    <span>{isChildActive ? 'Ativo' : 'Inativo'}</span>
-                  </button>
-                </div>
-
-                <div className="form-actions">
-                  <button
-                    className="secondary-button"
-                    disabled={!selectedCompanyId}
-                    onClick={clearChildForm}
-                    type="button"
-                  >
-                    Limpar
-                  </button>
-                  <button disabled={!isChildFormEnabled} type="submit">
-                    Salvar {childTableConfig.label}
-                  </button>
-                </div>
-              </>
-                )}
+                    </>
+                  )}
                 </>
               ) : null}
             </form>
@@ -3803,379 +3803,379 @@ function StudentRegistration() {
 
             {!isStudentFieldsCollapsed ? (
               <>
-            {!isFormEnabled ? (
-              <div className="form-hint">
-                Selecione um aluno acima para editar ou clique em Novo aluno.
-              </div>
-            ) : null}
-
-            {feedback ? <div className="form-feedback">{feedback}</div> : null}
-
-            <div className="field">
-              <label htmlFor="nmAluno">Nome *</label>
-              <input
-                className={
-                  touchedStudentFields.name && studentErrors.name ? 'invalid' : ''
-                }
-                disabled={!isFormEnabled}
-                id="nmAluno"
-                maxLength={255}
-                onBlur={() => validateStudentField('name')}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setStudentName(value);
-
-                  if (touchedStudentFields.name) {
-                    setStudentErrors((current) => ({
-                      ...current,
-                      name: value.trim() ? undefined : 'Informe o nome do aluno.',
-                    }));
-                  }
-                }}
-                placeholder="Ex.: Maria Souza"
-                ref={nameInputRef}
-                type="text"
-                value={studentName}
-              />
-              {touchedStudentFields.name && studentErrors.name ? (
-                <span className="field-error">{studentErrors.name}</span>
-              ) : null}
-            </div>
-
-            <div className="field two-columns">
-              <div>
-                <label htmlFor="caCPF">CPF</label>
-                <input
-                  className={
-                    touchedStudentFields.cpf && studentErrors.cpf ? 'invalid' : ''
-                  }
-                  disabled={!isFormEnabled}
-                  id="caCPF"
-                  maxLength={14}
-                  onBlur={() => validateStudentField('cpf')}
-                  onChange={(event) => {
-                    const formattedCpf = formatCpf(event.target.value);
-                    setStudentCpf(formattedCpf);
-
-                    if (touchedStudentFields.cpf) {
-                      setStudentErrors((current) => ({
-                        ...current,
-                        cpf: isValidCpf(formattedCpf)
-                          ? undefined
-                          : 'Informe um CPF valido.',
-                      }));
-                    }
-                  }}
-                  placeholder="000.000.000-00"
-                  ref={cpfInputRef}
-                  type="text"
-                  value={studentCpf}
-                />
-                {touchedStudentFields.cpf && studentErrors.cpf ? (
-                  <span className="field-error">{studentErrors.cpf}</span>
+                {!isFormEnabled ? (
+                  <div className="form-hint">
+                    Selecione um aluno acima para editar ou clique em Novo aluno.
+                  </div>
                 ) : null}
-              </div>
-              <div>
-                <label htmlFor="dtNascimento">Data de nascimento *</label>
-                <input
-                  className={
-                    touchedStudentFields.birthDate && studentErrors.birthDate
-                      ? 'invalid'
-                      : ''
-                  }
-                  disabled={!isFormEnabled}
-                  id="dtNascimento"
-                  max={new Date().toISOString().slice(0, 10)}
-                  onBlur={() => validateStudentField('birthDate')}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setStudentBirthDate(value);
 
-                    if (touchedStudentFields.birthDate) {
-                      setStudentErrors((current) => ({
-                        ...current,
-                        birthDate: isValidBirthDate(value)
-                          ? undefined
-                          : 'Informe uma data de nascimento valida.',
-                      }));
+                {feedback ? <div className="form-feedback">{feedback}</div> : null}
+
+                <div className="field">
+                  <label htmlFor="nmAluno">Nome *</label>
+                  <input
+                    className={
+                      touchedStudentFields.name && studentErrors.name ? 'invalid' : ''
                     }
-                  }}
-                  ref={birthDateInputRef}
-                  type="date"
-                  value={studentBirthDate}
-                />
-                {touchedStudentFields.birthDate && studentErrors.birthDate ? (
-                  <span className="field-error">{studentErrors.birthDate}</span>
-                ) : null}
-              </div>
-            </div>
+                    disabled={!isFormEnabled}
+                    id="nmAluno"
+                    maxLength={255}
+                    onBlur={() => validateStudentField('name')}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setStudentName(value);
 
-            <div className="field two-columns">
-              <div>
-                <label htmlFor="nrDDD">DDD</label>
-                <input
-                  disabled={!isFormEnabled}
-                  id="nrDDD"
-                  maxLength={2}
-                  onChange={(event) => setStudentDdd(event.target.value)}
-                  placeholder="11"
-                  type="text"
-                  value={studentDdd}
-                />
-              </div>
-              <div>
-                <label htmlFor="nrContato">Telefone</label>
-                <input
-                  disabled={!isFormEnabled}
-                  id="nrContato"
-                  maxLength={10}
-                  onChange={(event) => setStudentPhone(formatPhone(event.target.value))}
-                  placeholder="00000-0000"
-                  type="text"
-                  value={studentPhone}
-                />
-              </div>
-            </div>
+                      if (touchedStudentFields.name) {
+                        setStudentErrors((current) => ({
+                          ...current,
+                          name: value.trim() ? undefined : 'Informe o nome do aluno.',
+                        }));
+                      }
+                    }}
+                    placeholder="Ex.: Maria Souza"
+                    ref={nameInputRef}
+                    type="text"
+                    value={studentName}
+                  />
+                  {touchedStudentFields.name && studentErrors.name ? (
+                    <span className="field-error">{studentErrors.name}</span>
+                  ) : null}
+                </div>
 
-            <div className="field">
-              <label htmlFor="anEmail">Email</label>
-              <input
-                className={
-                  touchedStudentFields.email && studentErrors.email ? 'invalid' : ''
-                }
-                disabled={!isFormEnabled}
-                id="anEmail"
-                maxLength={100}
-                onBlur={() => validateStudentField('email')}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setStudentEmail(value);
+                <div className="field two-columns">
+                  <div>
+                    <label htmlFor="caCPF">CPF</label>
+                    <input
+                      className={
+                        touchedStudentFields.cpf && studentErrors.cpf ? 'invalid' : ''
+                      }
+                      disabled={!isFormEnabled}
+                      id="caCPF"
+                      maxLength={14}
+                      onBlur={() => validateStudentField('cpf')}
+                      onChange={(event) => {
+                        const formattedCpf = formatCpf(event.target.value);
+                        setStudentCpf(formattedCpf);
 
-                  if (touchedStudentFields.email) {
-                    const trimmedEmail = value.trim();
-                    setStudentErrors((current) => ({
-                      ...current,
-                      email:
-                        trimmedEmail && !isValidEmail(trimmedEmail)
-                          ? 'Informe um email valido.'
-                          : undefined,
-                    }));
-                  }
-                }}
-                placeholder="aluno@email.com"
-                ref={emailInputRef}
-                type="email"
-                value={studentEmail}
-              />
-              {touchedStudentFields.email && studentErrors.email ? (
-                <span className="field-error">{studentErrors.email}</span>
-              ) : null}
-            </div>
+                        if (touchedStudentFields.cpf) {
+                          setStudentErrors((current) => ({
+                            ...current,
+                            cpf: isValidCpf(formattedCpf)
+                              ? undefined
+                              : 'Informe um CPF valido.',
+                          }));
+                        }
+                      }}
+                      placeholder="000.000.000-00"
+                      ref={cpfInputRef}
+                      type="text"
+                      value={studentCpf}
+                    />
+                    {touchedStudentFields.cpf && studentErrors.cpf ? (
+                      <span className="field-error">{studentErrors.cpf}</span>
+                    ) : null}
+                  </div>
+                  <div>
+                    <label htmlFor="dtNascimento">Data de nascimento *</label>
+                    <input
+                      className={
+                        touchedStudentFields.birthDate && studentErrors.birthDate
+                          ? 'invalid'
+                          : ''
+                      }
+                      disabled={!isFormEnabled}
+                      id="dtNascimento"
+                      max={new Date().toISOString().slice(0, 10)}
+                      onBlur={() => validateStudentField('birthDate')}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setStudentBirthDate(value);
 
-            <div className="field">
-              <label htmlFor="anLogradouro">Logradouro</label>
-              <input
-                disabled={!isFormEnabled}
-                id="anLogradouro"
-                maxLength={100}
-                onChange={(event) => setStudentAddress(event.target.value)}
-                placeholder="Rua, avenida..."
-                type="text"
-                value={studentAddress}
-              />
-            </div>
+                        if (touchedStudentFields.birthDate) {
+                          setStudentErrors((current) => ({
+                            ...current,
+                            birthDate: isValidBirthDate(value)
+                              ? undefined
+                              : 'Informe uma data de nascimento valida.',
+                          }));
+                        }
+                      }}
+                      ref={birthDateInputRef}
+                      type="date"
+                      value={studentBirthDate}
+                    />
+                    {touchedStudentFields.birthDate && studentErrors.birthDate ? (
+                      <span className="field-error">{studentErrors.birthDate}</span>
+                    ) : null}
+                  </div>
+                </div>
 
-            <div className="field two-columns">
-              <div>
-                <label htmlFor="anCEP">CEP</label>
-                <input
-                  disabled={!isFormEnabled}
-                  id="anCEP"
-                  maxLength={8}
-                  onChange={(event) => setStudentCep(event.target.value)}
-                  placeholder="Somente numeros"
-                  type="text"
-                  value={studentCep}
-                />
-              </div>
-              <div>
-                <label htmlFor="nrEndereco">Número</label>
-                <input
-                  disabled={!isFormEnabled}
-                  id="nrEndereco"
-                  onChange={(event) => setStudentAddressNumber(event.target.value)}
-                  placeholder="0"
-                  type="number"
-                  value={studentAddressNumber}
-                />
-              </div>
-            </div>
+                <div className="field two-columns">
+                  <div>
+                    <label htmlFor="nrDDD">DDD</label>
+                    <input
+                      disabled={!isFormEnabled}
+                      id="nrDDD"
+                      maxLength={2}
+                      onChange={(event) => setStudentDdd(event.target.value)}
+                      placeholder="11"
+                      type="text"
+                      value={studentDdd}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="nrContato">Telefone</label>
+                    <input
+                      disabled={!isFormEnabled}
+                      id="nrContato"
+                      maxLength={10}
+                      onChange={(event) => setStudentPhone(formatPhone(event.target.value))}
+                      placeholder="00000-0000"
+                      type="text"
+                      value={studentPhone}
+                    />
+                  </div>
+                </div>
 
-            <div className="field">
-              <label htmlFor="studentStatus">Status</label>
-              <button
-                aria-pressed={isStudentActive}
-                className={`status-toggle ${isStudentActive ? 'active' : ''}`}
-                disabled={!isFormEnabled}
-                id="studentStatus"
-                onClick={handleToggleStatus}
-                type="button"
-              >
-                <span>{isStudentActive ? 'Ativo' : 'Inativo'}</span>
-              </button>
-            </div>
+                <div className="field">
+                  <label htmlFor="anEmail">Email</label>
+                  <input
+                    className={
+                      touchedStudentFields.email && studentErrors.email ? 'invalid' : ''
+                    }
+                    disabled={!isFormEnabled}
+                    id="anEmail"
+                    maxLength={100}
+                    onBlur={() => validateStudentField('email')}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setStudentEmail(value);
 
-            <div className="form-actions">
-              <button
-                className="secondary-button"
-                disabled={!isFormEnabled}
-                onClick={clearForm}
-                type="button"
-              >
-                Limpar
-              </button>
-              <button disabled={!isFormEnabled} type="submit">
-                Salvar aluno
-              </button>
-            </div>
+                      if (touchedStudentFields.email) {
+                        const trimmedEmail = value.trim();
+                        setStudentErrors((current) => ({
+                          ...current,
+                          email:
+                            trimmedEmail && !isValidEmail(trimmedEmail)
+                              ? 'Informe um email valido.'
+                              : undefined,
+                        }));
+                      }
+                    }}
+                    placeholder="aluno@email.com"
+                    ref={emailInputRef}
+                    type="email"
+                    value={studentEmail}
+                  />
+                  {touchedStudentFields.email && studentErrors.email ? (
+                    <span className="field-error">{studentErrors.email}</span>
+                  ) : null}
+                </div>
+
+                <div className="field">
+                  <label htmlFor="anLogradouro">Logradouro</label>
+                  <input
+                    disabled={!isFormEnabled}
+                    id="anLogradouro"
+                    maxLength={100}
+                    onChange={(event) => setStudentAddress(event.target.value)}
+                    placeholder="Rua, avenida..."
+                    type="text"
+                    value={studentAddress}
+                  />
+                </div>
+
+                <div className="field two-columns">
+                  <div>
+                    <label htmlFor="anCEP">CEP</label>
+                    <input
+                      disabled={!isFormEnabled}
+                      id="anCEP"
+                      maxLength={8}
+                      onChange={(event) => setStudentCep(event.target.value)}
+                      placeholder="Somente numeros"
+                      type="text"
+                      value={studentCep}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="nrEndereco">Número</label>
+                    <input
+                      disabled={!isFormEnabled}
+                      id="nrEndereco"
+                      onChange={(event) => setStudentAddressNumber(event.target.value)}
+                      placeholder="0"
+                      type="number"
+                      value={studentAddressNumber}
+                    />
+                  </div>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="studentStatus">Status</label>
+                  <button
+                    aria-pressed={isStudentActive}
+                    className={`status-toggle ${isStudentActive ? 'active' : ''}`}
+                    disabled={!isFormEnabled}
+                    id="studentStatus"
+                    onClick={handleToggleStatus}
+                    type="button"
+                  >
+                    <span>{isStudentActive ? 'Ativo' : 'Inativo'}</span>
+                  </button>
+                </div>
+
+                <div className="form-actions">
+                  <button
+                    className="secondary-button"
+                    disabled={!isFormEnabled}
+                    onClick={clearForm}
+                    type="button"
+                  >
+                    Limpar
+                  </button>
+                  <button disabled={!isFormEnabled} type="submit">
+                    Salvar aluno
+                  </button>
+                </div>
               </>
             ) : null}
           </form>
 
           {selectedStudentRelatedTable === 'files' ? (
-          <section className={`registration-form student-files-section ${isStudentFilesCollapsed ? 'collapsed' : ''}`}>
-            <div className="student-files-header collapsible-panel-header">
-              <div>
-                <p className="section-label">Arquivos</p>
-              </div>
-              <button
-                aria-expanded={!isStudentFilesCollapsed}
-                className="secondary-button"
-                onClick={() => setIsStudentFilesCollapsed((current) => !current)}
-                type="button"
-              >
-                {isStudentFilesCollapsed ? '+' : '-'}
-              </button>
-            </div>
-
-            {!isStudentFilesCollapsed ? (
-              <>
-            {!selectedStudentId ? (
-              <div className="form-hint">
-                Salve ou selecione um aluno para anexar arquivos.
-              </div>
-            ) : null}
-
-            {fileFeedback ? <div className="form-feedback">{fileFeedback}</div> : null}
-
-            <div className="field">
-              <label htmlFor="studentFile">Selecionar arquivo</label>
-              <div className="file-upload-controls">
-                <input
-                  disabled={!selectedStudentId || isUploadingFile}
-                  id="studentFile"
-                  onChange={(event) =>
-                    void handleUploadStudentFile(event.target.files?.[0] ?? null)
-                  }
-                  ref={fileInputRef}
-                  type="file"
-                />
+            <section className={`registration-form student-files-section ${isStudentFilesCollapsed ? 'collapsed' : ''}`}>
+              <div className="student-files-header collapsible-panel-header">
+                <div>
+                  <p className="section-label">Arquivos</p>
+                </div>
                 <button
+                  aria-expanded={!isStudentFilesCollapsed}
                   className="secondary-button"
-                  disabled={!selectedStudentId || isUploadingFile}
-                  onClick={handleOpenCameraCapture}
+                  onClick={() => setIsStudentFilesCollapsed((current) => !current)}
                   type="button"
                 >
-                  Tirar foto
+                  {isStudentFilesCollapsed ? '+' : '-'}
                 </button>
               </div>
-              <input
-                accept="image/*"
-                capture="environment"
-                className="camera-capture-input"
-                disabled={!selectedStudentId || isUploadingFile}
-                onChange={(event) =>
-                  void handleUploadStudentFile(event.target.files?.[0] ?? null)
-                }
-                ref={cameraInputRef}
-                type="file"
-              />
-            </div>
 
-            {isCameraModalOpen ? (
-              <div className="camera-modal-overlay" role="dialog" aria-modal="true">
-                <div className="camera-modal">
-                  <h4>Capturar foto</h4>
-                  <video
-                    autoPlay
-                    className="camera-live-preview"
-                    muted
-                    playsInline
-                    ref={cameraVideoRef}
-                  />
-                  {cameraFeedback ? (
-                    <p className="camera-modal-feedback">{cameraFeedback}</p>
+              {!isStudentFilesCollapsed ? (
+                <>
+                  {!selectedStudentId ? (
+                    <div className="form-hint">
+                      Salve ou selecione um aluno para anexar arquivos.
+                    </div>
                   ) : null}
-                  <div className="camera-modal-actions">
-                    <button
-                      className="secondary-button"
-                      onClick={handleCloseCameraCapture}
-                      type="button"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      disabled={isCapturingPhoto || isUploadingFile}
-                      onClick={() => void handleCaptureCameraPhoto()}
-                      type="button"
-                    >
-                      {isCapturingPhoto ? 'Capturando...' : 'Capturar'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
 
-            <div className="student-files-list">
-              {studentFiles.map((file) => (
-                <div className="student-file-row" key={file.id}>
-                  {previewUrls[file.id] ? (
-                    <img
-                      alt={file.anCaminho.split('/').pop()}
-                      className="student-file-preview"
-                      src={previewUrls[file.id]}
+                  {fileFeedback ? <div className="form-feedback">{fileFeedback}</div> : null}
+
+                  <div className="field">
+                    <label htmlFor="studentFile">Selecionar arquivo</label>
+                    <div className="file-upload-controls">
+                      <input
+                        disabled={!selectedStudentId || isUploadingFile}
+                        id="studentFile"
+                        onChange={(event) =>
+                          void handleUploadStudentFile(event.target.files?.[0] ?? null)
+                        }
+                        ref={fileInputRef}
+                        type="file"
+                      />
+                      <button
+                        className="secondary-button"
+                        disabled={!selectedStudentId || isUploadingFile}
+                        onClick={handleOpenCameraCapture}
+                        type="button"
+                      >
+                        Tirar foto
+                      </button>
+                    </div>
+                    <input
+                      accept="image/*"
+                      capture="environment"
+                      className="camera-capture-input"
+                      disabled={!selectedStudentId || isUploadingFile}
+                      onChange={(event) =>
+                        void handleUploadStudentFile(event.target.files?.[0] ?? null)
+                      }
+                      ref={cameraInputRef}
+                      type="file"
                     />
-                  ) : null}
-                  <div className="student-file-row-info">
-                    <strong>{file.anCaminho.split('/').pop()}</strong>
-                    <span>{file.anCaminho}</span>
                   </div>
-                  <div className="student-file-actions">
-                    <button
-                      className="secondary-button"
-                      onClick={() => void handleOpenStudentFile(file.id)}
-                      type="button"
-                    >
-                      Abrir
-                    </button>
-                    <button
-                      className="secondary-button danger"
-                      onClick={() => void handleRemoveStudentFile(file.id)}
-                      type="button"
-                    >
-                      Remover
-                    </button>
-                  </div>
-                </div>
-              ))}
 
-              {selectedStudentId && studentFiles.length === 0 ? (
-                <div className="empty-row">Nenhum arquivo anexado.</div>
+                  {isCameraModalOpen ? (
+                    <div className="camera-modal-overlay" role="dialog" aria-modal="true">
+                      <div className="camera-modal">
+                        <h4>Capturar foto</h4>
+                        <video
+                          autoPlay
+                          className="camera-live-preview"
+                          muted
+                          playsInline
+                          ref={cameraVideoRef}
+                        />
+                        {cameraFeedback ? (
+                          <p className="camera-modal-feedback">{cameraFeedback}</p>
+                        ) : null}
+                        <div className="camera-modal-actions">
+                          <button
+                            className="secondary-button"
+                            onClick={handleCloseCameraCapture}
+                            type="button"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            disabled={isCapturingPhoto || isUploadingFile}
+                            onClick={() => void handleCaptureCameraPhoto()}
+                            type="button"
+                          >
+                            {isCapturingPhoto ? 'Capturando...' : 'Capturar'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="student-files-list">
+                    {studentFiles.map((file) => (
+                      <div className="student-file-row" key={file.id}>
+                        {previewUrls[file.id] ? (
+                          <img
+                            alt={file.anCaminho.split('/').pop()}
+                            className="student-file-preview"
+                            src={previewUrls[file.id]}
+                          />
+                        ) : null}
+                        <div className="student-file-row-info">
+                          <strong>{file.anCaminho.split('/').pop()}</strong>
+                          <span>{file.anCaminho}</span>
+                        </div>
+                        <div className="student-file-actions">
+                          <button
+                            className="secondary-button"
+                            onClick={() => void handleOpenStudentFile(file.id)}
+                            type="button"
+                          >
+                            Abrir
+                          </button>
+                          <button
+                            className="secondary-button danger"
+                            onClick={() => void handleRemoveStudentFile(file.id)}
+                            type="button"
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {selectedStudentId && studentFiles.length === 0 ? (
+                      <div className="empty-row">Nenhum arquivo anexado.</div>
+                    ) : null}
+                  </div>
+                </>
               ) : null}
-            </div>
-              </>
-            ) : null}
-          </section>
+            </section>
           ) : selectedStudentRelatedTable ? (
             <section className="registration-form student-files-section">
               <div className="collapsible-panel-header">
@@ -4211,10 +4211,288 @@ function StudentRegistration() {
   );
 }
 
+type RegisterLookupRecord = {
+  id: number;
+  type: 'student' | 'employee';
+  name: string;
+  cpf: string;
+  birthDate: string | null;
+  ddd: number | string;
+  phone: number | string | null;
+  email: string;
+  hasUser: boolean;
+};
+
+function getPasswordValidationMessage(password: string) {
+  if (password.length < 6) {
+    return 'A senha deve ter pelo menos 6 caracteres.';
+  }
+
+  if (password.length > 20) {
+    return 'A senha deve ter no máximo 20 caracteres.';
+  }
+
+  if (/\s/.test(password)) {
+    return 'A senha não pode conter espaços.';
+  }
+
+  if (!/\d/.test(password)) {
+    return 'A senha deve conter pelo menos 1 número.';
+  }
+
+  if ((password.match(/[a-zA-Z]/g) ?? []).length < 3) {
+    return 'A senha deve conter pelo menos 3 letras.';
+  }
+
+  return '';
+}
+
 export default function HomePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeItem, setActiveItem] = useState('Meu Treino');
   const [isMenuOpen, setIsMenuOpen] = useState(true);
+  const [authUserName, setAuthUserName] = useState('Joao Silva');
+  const [authUserRole, setAuthUserRole] = useState('Administrador');
+  const [loginMode, setLoginMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [loginCpf, setLoginCpf] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [forgotCpf, setForgotCpf] = useState('');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [registerType, setRegisterType] = useState<'student' | 'employee'>('student');
+  const [registerCpf, setRegisterCpf] = useState('');
+  const [registerLookup, setRegisterLookup] = useState<RegisterLookupRecord | null>(null);
+  const [authFeedback, setAuthFeedback] = useState('');
+  const [registerLookupFeedback, setRegisterLookupFeedback] = useState('');
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+  const [isLookingUpRegister, setIsLookingUpRegister] = useState(false);
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const passwordRequirements = [
+    {
+      label: 'Pelo menos 1 número',
+      met: /\d/.test(registerPassword),
+    },
+    {
+      label: 'Pelo menos 3 letras',
+      met: (registerPassword.match(/[a-zA-Z]/g) ?? []).length >= 3,
+    },
+    {
+      label: 'Pelo menos 6 caracteres',
+      met: registerPassword.length >= 6,
+    },
+    {
+      label: 'No máximo 20 caracteres',
+      met: registerPassword.length > 0 && registerPassword.length <= 20,
+    },
+    {
+      label: 'Sem espaços',
+      met: registerPassword.length > 0 && !/\s/.test(registerPassword),
+    },
+  ];
+
+  async function lookupRegisterCpf(type = registerType, cpfValue = registerCpf) {
+    const cpf = cpfValue.replace(/\D/g, '');
+
+    setRegisterLookup(null);
+    setRegisterLookupFeedback('');
+
+    if (!cpf) {
+      return;
+    }
+
+    if (cpf.length !== 11 || !isValidCpf(cpf)) {
+      setRegisterLookupFeedback('Informe um CPF válido para buscar o cadastro.');
+      return;
+    }
+
+    try {
+      setIsLookingUpRegister(true);
+      const response = await fetch(
+        `${apiUrl}/auth/register-lookup?type=${type}&cpf=${cpf}`,
+      );
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'CPF não encontrado.');
+      }
+
+      const data = (await response.json()) as RegisterLookupRecord;
+      setRegisterLookup(data);
+      setRegisterLookupFeedback(
+        data.hasUser
+          ? 'Este CPF já possui usuário cadastrado.'
+          : 'Cadastro encontrado. Confira os dados e crie sua senha.',
+      );
+    } catch (error) {
+      setRegisterLookupFeedback(
+        error instanceof Error ? error.message : 'CPF não encontrado no cadastro.',
+      );
+    } finally {
+      setIsLookingUpRegister(false);
+    }
+  }
+
+  function handleChangeRegisterType(type: 'student' | 'employee') {
+    setRegisterType(type);
+    setRegisterLookup(null);
+    setRegisterLookupFeedback('');
+
+    if (registerCpf.replace(/\D/g, '').length === 11) {
+      void lookupRegisterCpf(type, registerCpf);
+    }
+  }
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAuthFeedback('');
+
+    const formData = new FormData(event.currentTarget);
+
+    try {
+      setIsSubmittingAuth(true);
+      const response = await fetch(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          login: String(formData.get('user') ?? ''),
+          password: String(formData.get('password') ?? ''),
+        }),
+      });
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Nao foi possivel entrar.');
+      }
+
+      const user = (await response.json()) as {
+        name: string;
+        type: 'student' | 'employee';
+      };
+      setAuthUserName(user.name);
+      setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
+      setIsLoggedIn(true);
+    } catch (error) {
+      setAuthFeedback(error instanceof Error ? error.message : 'Erro ao entrar.');
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  }
+
+  async function handleForgotPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAuthFeedback('');
+    setForgotEmail('');
+
+    try {
+      setIsSubmittingAuth(true);
+      const response = await fetch(`${apiUrl}/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cpf: forgotCpf,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Nao foi possivel enviar o email.');
+      }
+
+      const data = (await response.json()) as {
+        email: string;
+        message: string;
+      };
+      setForgotEmail(data.email);
+      setAuthFeedback(data.message);
+    } catch (error) {
+      setAuthFeedback(
+        error instanceof Error ? error.message : 'Erro ao enviar email de redefinicao.',
+      );
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  }
+
+  async function handleRegister(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAuthFeedback('');
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const payload = {
+      type: registerType,
+      cpf: String(formData.get('cpf') ?? ''),
+      email: registerLookup?.email ?? '',
+      password: String(formData.get('password') ?? ''),
+    };
+    const passwordMessage = getPasswordValidationMessage(payload.password);
+
+    if (passwordMessage) {
+      setAuthFeedback(passwordMessage);
+      return;
+    }
+
+    if (!registerLookup || registerLookup.hasUser) {
+      setRegisterLookupFeedback('Busque um CPF cadastrado e disponível antes de criar o usuário.');
+      return;
+    }
+
+    try {
+      setIsSubmittingAuth(true);
+      const response = await fetch(`${apiUrl}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Nao foi possivel criar o cadastro.');
+      }
+
+      const loginResponse = await fetch(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          login: payload.cpf,
+          password: payload.password,
+        }),
+      });
+
+      if (!loginResponse.ok) {
+        const errorBody = (await loginResponse.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Cadastro criado, mas nao foi possivel entrar automaticamente.');
+      }
+
+      const user = (await loginResponse.json()) as {
+        name: string;
+        type: 'student' | 'employee';
+      };
+      form.reset();
+      setRegisterCpf('');
+      setRegisterLookup(null);
+      setRegisterLookupFeedback('');
+      setRegisterPassword('');
+      setShowRegisterPassword(false);
+      setAuthFeedback('');
+      setAuthUserName(user.name);
+      setAuthUserRole(user.type === 'student' ? 'Aluno' : 'FuncionÃ¡rio');
+      setIsLoggedIn(true);
+    } catch (error) {
+      setAuthFeedback(
+        error instanceof Error ? error.message : 'Erro ao criar cadastro.',
+      );
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  }
 
   if (isLoggedIn) {
     return (
@@ -4232,11 +4510,17 @@ export default function HomePage() {
 
           <div className="user-profile">
             <div className="user-avatar" aria-hidden="true">
-              JS
+              {authUserName
+                .split(' ')
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((name) => name[0])
+                .join('')
+                .toUpperCase()}
             </div>
             <div>
-              <strong>Joao Silva</strong>
-              <span>Administrador</span>
+              <strong>{authUserName}</strong>
+              <span>{authUserRole}</span>
             </div>
           </div>
         </header>
@@ -4320,41 +4604,264 @@ export default function HomePage() {
           </div>
           <div>
             <p className="eyebrow">SmartGym</p>
-            <h1 id="login-title">Entrar na sua conta</h1>
+            <h1 id="login-title">
+              {loginMode === 'login'
+                ? 'Entrar na sua conta'
+                : loginMode === 'register'
+                  ? 'Criar cadastro'
+                  : 'Redefinir senha'}
+            </h1>
           </div>
         </div>
 
-        <form
-          className="login-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setIsLoggedIn(true);
-          }}
-        >
-          <label htmlFor="user">Usuário</label>
-          <input
-            id="user"
-            name="user"
-            type="text"
-            autoComplete="username"
-            placeholder="seu@email.com"
-          />
+        <div className="login-mode-toggle" role="tablist" aria-label="Acesso">
+          <button
+            aria-selected={loginMode === 'login'}
+            className={loginMode === 'login' ? 'active' : ''}
+            onClick={() => {
+              setLoginMode('login');
+              setAuthFeedback('');
+              setForgotEmail('');
+            }}
+            role="tab"
+            type="button"
+          >
+            Entrar
+          </button>
+          <button
+            aria-selected={loginMode === 'register'}
+            className={loginMode === 'register' ? 'active' : ''}
+            onClick={() => {
+              setLoginMode('register');
+              setAuthFeedback('');
+              setForgotEmail('');
+            }}
+            role="tab"
+            type="button"
+          >
+            Criar cadastro
+          </button>
+        </div>
 
-          <label htmlFor="password">Senha</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="Digite sua senha"
-          />
+        {authFeedback ? <div className="login-feedback">{authFeedback}</div> : null}
 
-          <a className="forgot-link" href="/esqueci-senha">
-            Esqueci minha senha
-          </a>
+        {loginMode === 'login' ? (
+          <form
+            className="login-form"
+            onSubmit={handleLogin}
+          >
+            <label htmlFor="user">CPF</label>
+            <input
+              id="user"
+              name="user"
+              onChange={(event) => setLoginCpf(formatCpf(event.target.value))}
+              type="text"
+              autoComplete="username"
+              placeholder="000.000.000-00"
+              value={loginCpf}
+            />
 
-          <button type="submit">Entrar</button>
-        </form>
+            <label htmlFor="password">Senha</label>
+            <div className="password-field">
+              <input
+                id="password"
+                name="password"
+                type={showLoginPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                placeholder="Digite sua senha"
+              />
+              <button
+                aria-label={showLoginPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                aria-pressed={showLoginPassword}
+                className="password-eye-button"
+                onClick={() => setShowLoginPassword((current) => !current)}
+                type="button"
+              >
+                <span aria-hidden="true" />
+              </button>
+            </div>
+
+            <a
+              className="forgot-link"
+              onClick={() => {
+                setLoginMode('forgot');
+                setAuthFeedback('');
+                setForgotEmail('');
+              }}
+              type="button"
+            >
+              Esqueci minha senha
+            </a>
+
+            <button disabled={isSubmittingAuth} type="submit">
+              {isSubmittingAuth ? 'Entrando...' : 'Entrar'}
+            </button>
+          </form>
+        ) : loginMode === 'forgot' ? (
+          <form className="login-form" onSubmit={handleForgotPassword}>
+            <label htmlFor="forgotCpf">CPF</label>
+            <input
+              id="forgotCpf"
+              name="cpf"
+              onChange={(event) => {
+                setForgotCpf(formatCpf(event.target.value));
+                setForgotEmail('');
+                setAuthFeedback('');
+              }}
+              placeholder="000.000.000-00"
+              required
+              type="text"
+              value={forgotCpf}
+            />
+
+            {forgotEmail ? (
+              <>
+                <label>Email cadastrado</label>
+                <div aria-label="Email cadastrado" className="login-locked-value">
+                  {forgotEmail}
+                </div>
+              </>
+            ) : null}
+
+            <button disabled={isSubmittingAuth} type="submit">
+              {isSubmittingAuth ? 'Enviando...' : 'Enviar email de teste'}
+            </button>
+
+            <button
+              className="secondary-login-button"
+              onClick={() => {
+                setLoginMode('login');
+                setAuthFeedback('');
+                setForgotEmail('');
+              }}
+              type="button"
+            >
+              Voltar para entrar
+            </button>
+          </form>
+        ) : (
+          <form className="login-form" onSubmit={handleRegister}>
+            <label htmlFor="registerCpf">CPF</label>
+            <input
+              id="registerCpf"
+              name="cpf"
+              onBlur={() => void lookupRegisterCpf()}
+              onChange={(event) => {
+                setRegisterCpf(formatCpf(event.target.value));
+                setRegisterLookup(null);
+                setRegisterLookupFeedback('');
+              }}
+              placeholder="000.000.000-00"
+              required
+              type="text"
+              value={registerCpf}
+            />
+
+            <div className="account-type-toggle" role="radiogroup" aria-label="Tipo de cadastro">
+              <button
+                aria-checked={registerType === 'student'}
+                className={registerType === 'student' ? 'active' : ''}
+                onClick={() => handleChangeRegisterType('student')}
+                role="radio"
+                type="button"
+              >
+                Aluno
+              </button>
+              <button
+                aria-checked={registerType === 'employee'}
+                className={registerType === 'employee' ? 'active' : ''}
+                onClick={() => handleChangeRegisterType('employee')}
+                role="radio"
+                type="button"
+              >
+                Funcionário
+              </button>
+            </div>
+
+            {registerLookupFeedback ? (
+              <div className="login-feedback">{registerLookupFeedback}</div>
+            ) : null}
+
+            <label htmlFor="registerName">Nome</label>
+            <div aria-label="Nome" className="login-locked-value" id="registerName">
+              {registerLookup?.name ?? ''}
+            </div>
+
+            <label htmlFor="registerBirthDate">Data de nascimento</label>
+            <div
+              aria-label="Data de nascimento"
+              className="login-locked-value"
+              id="registerBirthDate"
+            >
+              {registerLookup?.birthDate ? formatDateInput(registerLookup.birthDate) : ''}
+            </div>
+
+            <div className="login-inline-fields">
+              <div>
+                <label htmlFor="registerDdd">DDD</label>
+                <div aria-label="DDD" className="login-locked-value" id="registerDdd">
+                  {registerLookup?.ddd ? String(registerLookup.ddd) : ''}
+                </div>
+              </div>
+              <div>
+                <label htmlFor="registerPhone">Telefone</label>
+                <div aria-label="Telefone" className="login-locked-value" id="registerPhone">
+                  {registerLookup?.phone ? String(registerLookup.phone) : ''}
+                </div>
+              </div>
+            </div>
+
+            <label htmlFor="registerEmail">Email</label>
+            <div aria-label="Email" className="login-locked-value" id="registerEmail">
+              {registerLookup?.email ?? ''}
+            </div>
+
+            <label htmlFor="registerPassword">Senha</label>
+            <div className="password-field">
+              <input
+                id="registerPassword"
+                name="password"
+                autoComplete="new-password"
+                maxLength={20}
+                minLength={6}
+                onChange={(event) => setRegisterPassword(event.target.value)}
+                pattern="(?=.*\d)\S{6,20}"
+                placeholder="6 a 20 caracteres, com número"
+                required
+                type={showRegisterPassword ? 'text' : 'password'}
+                value={registerPassword}
+              />
+              <button
+                aria-label={showRegisterPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                aria-pressed={showRegisterPassword}
+                className="password-eye-button"
+                onClick={() => setShowRegisterPassword((current) => !current)}
+                type="button"
+              >
+                <span aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="password-checklist" aria-label="Requisitos da senha">
+              {passwordRequirements.map((requirement) => (
+                <div
+                  className={requirement.met ? 'met' : ''}
+                  key={requirement.label}
+                >
+                  <span aria-hidden="true">{requirement.met ? '✓' : '•'}</span>
+                  {requirement.label}
+                </div>
+              ))}
+            </div>
+
+            <button
+              disabled={isSubmittingAuth || isLookingUpRegister || !registerLookup || registerLookup.hasUser}
+              type="submit"
+            >
+              {isSubmittingAuth ? 'Criando...' : isLookingUpRegister ? 'Buscando...' : 'Criar cadastro'}
+            </button>
+          </form>
+        )}
       </section>
     </main>
   );
