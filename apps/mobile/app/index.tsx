@@ -3,6 +3,7 @@ import {
   useCameraPermissions,
   type CameraType,
 } from 'expo-camera';
+import Constants from 'expo-constants';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Linking from 'expo-linking';
 import { useEffect, useRef, useState } from 'react';
@@ -17,7 +18,24 @@ import {
   View,
 } from 'react-native';
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3333';
+function getApiUrl() {
+  const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
+
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  const hostUri = Constants.expoConfig?.hostUri;
+  const host = hostUri?.split(':')[0];
+
+  if (host) {
+    return `http://${host}:3333`;
+  }
+
+  return 'http://10.0.2.2:3333';
+}
+
+const apiUrl = getApiUrl();
 
 type AppTab = 'EMPRESA' | 'HOME' | 'CADASTROS' | 'PROFILE';
 type RegistrationScreen =
@@ -2024,11 +2042,71 @@ function StudentRegistration() {
   );
 }
 
+type RegisterLookupRecord = {
+  id: number;
+  type: 'student' | 'employee';
+  name: string;
+  cpf: string;
+  birthDate: string | null;
+  ddd: number | string;
+  phone: number | string | null;
+  email: string;
+  hasUser: boolean;
+};
+
+function getPasswordValidationMessage(password: string) {
+  if (password.length < 6) {
+    return 'A senha deve ter pelo menos 6 caracteres.';
+  }
+
+  if (password.length > 20) {
+    return 'A senha deve ter no maximo 20 caracteres.';
+  }
+
+  if (/\s/.test(password)) {
+    return 'A senha nao pode conter espacos.';
+  }
+
+  if (!/\d/.test(password)) {
+    return 'A senha deve conter pelo menos 1 numero.';
+  }
+
+  if ((password.match(/[a-zA-Z]/g) ?? []).length < 3) {
+    return 'A senha deve conter pelo menos 3 letras.';
+  }
+
+  return '';
+}
+
 export default function HomeScreen() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState<AppTab>('HOME');
   const [activeRegistration, setActiveRegistration] =
     useState<RegistrationScreen | null>(null);
+  const [authUserName, setAuthUserName] = useState('');
+  const [authUserRole, setAuthUserRole] = useState('');
+  const [loginMode, setLoginMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [loginCpf, setLoginCpf] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [forgotCpf, setForgotCpf] = useState('');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [registerType, setRegisterType] = useState<'student' | 'employee'>('student');
+  const [registerCpf, setRegisterCpf] = useState('');
+  const [registerLookup, setRegisterLookup] = useState<RegisterLookupRecord | null>(null);
+  const [registerLookupFeedback, setRegisterLookupFeedback] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [authFeedback, setAuthFeedback] = useState('');
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+  const [isLookingUpRegister, setIsLookingUpRegister] = useState(false);
+  const passwordRequirements = [
+    { label: 'Pelo menos 1 numero', met: /\d/.test(registerPassword) },
+    { label: 'Pelo menos 3 letras', met: (registerPassword.match(/[a-zA-Z]/g) ?? []).length >= 3 },
+    { label: 'Pelo menos 6 caracteres', met: registerPassword.length >= 6 },
+    { label: 'No maximo 20 caracteres', met: registerPassword.length > 0 && registerPassword.length <= 20 },
+    { label: 'Sem espacos', met: registerPassword.length > 0 && !/\s/.test(registerPassword) },
+  ];
   const [selectedDomain, setSelectedDomain] = useState<DomainItem>(domainItems[0]);
   const [domainRecords, setDomainRecords] = useState<DomainRecord[]>([]);
   const [domainSearch, setDomainSearch] = useState('');
@@ -2041,9 +2119,179 @@ export default function HomeScreen() {
   const currentDomainConfig =
     domainConfig[selectedDomain as keyof typeof domainConfig];
 
-  function handleLogin() {
-    setIsLoggedIn(true);
-    setActiveTab('HOME');
+  async function lookupRegisterCpf(type = registerType, cpfValue = registerCpf) {
+    const cpf = cpfValue.replace(/\D/g, '');
+
+    setRegisterLookup(null);
+    setRegisterLookupFeedback('');
+
+    if (!cpf) return;
+
+    if (cpf.length !== 11 || !isValidCpf(cpf)) {
+      setRegisterLookupFeedback('Informe um CPF valido para buscar o cadastro.');
+      return;
+    }
+
+    try {
+      setIsLookingUpRegister(true);
+      const response = await fetch(
+        `${apiUrl}/auth/register-lookup?type=${type}&cpf=${cpf}`,
+      );
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'CPF nao encontrado.');
+      }
+
+      const data = (await response.json()) as RegisterLookupRecord;
+      setRegisterLookup(data);
+      setRegisterLookupFeedback(
+        data.hasUser
+          ? 'Este CPF ja possui usuario cadastrado.'
+          : 'Cadastro encontrado. Confira os dados e crie sua senha.',
+      );
+    } catch (error) {
+      setRegisterLookupFeedback(
+        error instanceof Error ? error.message : 'CPF nao encontrado no cadastro.',
+      );
+    } finally {
+      setIsLookingUpRegister(false);
+    }
+  }
+
+  function handleChangeRegisterType(type: 'student' | 'employee') {
+    setRegisterType(type);
+    setRegisterLookup(null);
+    setRegisterLookupFeedback('');
+
+    if (registerCpf.replace(/\D/g, '').length === 11) {
+      void lookupRegisterCpf(type, registerCpf);
+    }
+  }
+
+  async function handleLogin() {
+    setAuthFeedback('');
+
+    try {
+      setIsSubmittingAuth(true);
+      const response = await fetch(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          login: loginCpf.replace(/\D/g, ''),
+          password: loginPassword,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Nao foi possivel entrar.');
+      }
+
+      const user = (await response.json()) as { name: string; type: 'student' | 'employee' };
+      setAuthUserName(user.name);
+      setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionario');
+      setIsLoggedIn(true);
+      setActiveTab('HOME');
+    } catch (error) {
+      setAuthFeedback(error instanceof Error ? error.message : 'Erro ao entrar.');
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    setAuthFeedback('');
+    setForgotEmail('');
+
+    try {
+      setIsSubmittingAuth(true);
+      const response = await fetch(`${apiUrl}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cpf: forgotCpf.replace(/\D/g, '') }),
+      });
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Nao foi possivel enviar o email.');
+      }
+
+      const data = (await response.json()) as { email: string; message: string };
+      setForgotEmail(data.email);
+      setAuthFeedback(data.message);
+    } catch (error) {
+      setAuthFeedback(
+        error instanceof Error ? error.message : 'Erro ao enviar email de redefinicao.',
+      );
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  }
+
+  async function handleRegister() {
+    setAuthFeedback('');
+
+    const passwordMessage = getPasswordValidationMessage(registerPassword);
+
+    if (passwordMessage) {
+      setAuthFeedback(passwordMessage);
+      return;
+    }
+
+    if (!registerLookup || registerLookup.hasUser) {
+      setRegisterLookupFeedback('Busque um CPF cadastrado e disponivel antes de criar o usuario.');
+      return;
+    }
+
+    try {
+      setIsSubmittingAuth(true);
+      const payload = {
+        type: registerType,
+        cpf: registerCpf.replace(/\D/g, ''),
+        email: registerLookup.email,
+        password: registerPassword,
+      };
+
+      const response = await fetch(`${apiUrl}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Nao foi possivel criar o cadastro.');
+      }
+
+      const loginResponse = await fetch(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login: payload.cpf, password: payload.password }),
+      });
+
+      if (!loginResponse.ok) {
+        const errorBody = (await loginResponse.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Cadastro criado, mas nao foi possivel entrar automaticamente.');
+      }
+
+      const user = (await loginResponse.json()) as { name: string; type: 'student' | 'employee' };
+      setRegisterCpf('');
+      setRegisterLookup(null);
+      setRegisterLookupFeedback('');
+      setRegisterPassword('');
+      setShowRegisterPassword(false);
+      setAuthFeedback('');
+      setAuthUserName(user.name);
+      setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionario');
+      setIsLoggedIn(true);
+      setActiveTab('HOME');
+    } catch (error) {
+      setAuthFeedback(
+        error instanceof Error ? error.message : 'Erro ao criar cadastro.',
+      );
+    } finally {
+      setIsSubmittingAuth(false);
+    }
   }
 
   async function loadDomainRecords() {
@@ -2138,11 +2386,11 @@ export default function HomeScreen() {
 
           return record.id === Number(updated.id)
             ? {
-                id: Number(updated.id),
-                name: String(updated[config.field] ?? ''),
-                description: updatedDescription,
-                boInativo: Number(updated.boInativo ?? 0),
-              }
+              id: Number(updated.id),
+              name: String(updated[config.field] ?? ''),
+              description: updatedDescription,
+              boInativo: Number(updated.boInativo ?? 0),
+            }
             : record;
         }),
       );
@@ -2410,8 +2658,8 @@ export default function HomeScreen() {
                     style={[
                       styles.statusToggle,
                       !isCreatingDomainRecord &&
-                        !selectedDomainRecordId &&
-                        styles.disabledControl,
+                      !selectedDomainRecordId &&
+                      styles.disabledControl,
                     ]}
                   >
                     <View
@@ -2432,8 +2680,8 @@ export default function HomeScreen() {
                       style={[
                         styles.clearButton,
                         !isCreatingDomainRecord &&
-                          !selectedDomainRecordId &&
-                          styles.disabledControl,
+                        !selectedDomainRecordId &&
+                        styles.disabledControl,
                       ]}
                     >
                       <Text style={styles.clearButtonText}>Limpar</Text>
@@ -2444,8 +2692,8 @@ export default function HomeScreen() {
                       style={[
                         styles.saveButton,
                         !isCreatingDomainRecord &&
-                          !selectedDomainRecordId &&
-                          styles.disabledControl,
+                        !selectedDomainRecordId &&
+                        styles.disabledControl,
                       ]}
                     >
                       <Text style={styles.saveButtonText}>
@@ -2565,11 +2813,11 @@ export default function HomeScreen() {
           <View style={styles.form}>
             <Text style={styles.label}>Usuario</Text>
             <View style={styles.selectLike}>
-              <Text style={styles.selectLikeText}>Joao Silva</Text>
+              <Text style={styles.selectLikeText}>{authUserName}</Text>
             </View>
             <Text style={styles.label}>Perfil</Text>
             <View style={styles.selectLike}>
-              <Text style={styles.selectLikeText}>Administrador</Text>
+              <Text style={styles.selectLikeText}>{authUserRole}</Text>
             </View>
             <Pressable
               onPress={() => {
@@ -2589,7 +2837,7 @@ export default function HomeScreen() {
   if (!isLoggedIn) {
     return (
       <View style={styles.appShell}>
-        <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.loginScroller}>
           <View style={styles.card}>
             <View style={styles.brand}>
               <View style={styles.logo}>
@@ -2597,40 +2845,260 @@ export default function HomeScreen() {
               </View>
               <View>
                 <Text style={styles.eyebrow}>SmartGym</Text>
-                <Text style={styles.title}>Entrar na sua conta</Text>
+                <Text style={styles.title}>
+                  {loginMode === 'login'
+                    ? 'Entrar na sua conta'
+                    : loginMode === 'register'
+                      ? 'Criar cadastro'
+                      : 'Redefinir senha'}
+                </Text>
               </View>
             </View>
 
-            <View style={styles.form}>
-              <Text style={styles.label}>Usuario</Text>
-              <TextInput
-                autoCapitalize="none"
-                autoComplete="username"
-                keyboardType="email-address"
-                placeholder="seu@email.com"
-                placeholderTextColor="#82918a"
-                style={styles.input}
-              />
+            {loginMode !== 'forgot' ? (
+              <View style={styles.loginModeToggle}>
+                <Pressable
+                  onPress={() => {
+                    setLoginMode('login');
+                    setAuthFeedback('');
+                    setForgotEmail('');
+                  }}
+                  style={[styles.loginModeButton, loginMode === 'login' && styles.loginModeButtonActive]}
+                >
+                  <Text style={[styles.loginModeText, loginMode === 'login' && styles.loginModeTextActive]}>Entrar</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setLoginMode('register');
+                    setAuthFeedback('');
+                    setForgotEmail('');
+                  }}
+                  style={[styles.loginModeButton, loginMode === 'register' && styles.loginModeButtonActive]}
+                >
+                  <Text style={[styles.loginModeText, loginMode === 'register' && styles.loginModeTextActive]}>Criar cadastro</Text>
+                </Pressable>
+              </View>
+            ) : null}
 
-              <Text style={styles.label}>Senha</Text>
-              <TextInput
-                autoComplete="password"
-                placeholder="Digite sua senha"
-                placeholderTextColor="#82918a"
-                secureTextEntry
-                style={styles.input}
-              />
+            {authFeedback ? (
+              <View style={styles.authFeedback}>
+                <Text style={styles.authFeedbackText}>{authFeedback}</Text>
+              </View>
+            ) : null}
 
-              <Pressable style={styles.forgotButton}>
-                <Text style={styles.forgotText}>Esqueci minha senha</Text>
-              </Pressable>
+            {loginMode === 'login' ? (
+              <View style={styles.form}>
+                <Text style={styles.label}>CPF</Text>
+                <TextInput
+                  autoCapitalize="none"
+                  autoComplete="username"
+                  keyboardType="numeric"
+                  onChangeText={(value) => setLoginCpf(formatCpf(value))}
+                  placeholder="000.000.000-00"
+                  placeholderTextColor="#82918a"
+                  style={styles.input}
+                  value={loginCpf}
+                />
 
-              <Pressable onPress={handleLogin} style={styles.submitButton}>
-                <Text style={styles.submitText}>Entrar</Text>
-              </Pressable>
-            </View>
+                <Text style={styles.label}>Senha</Text>
+                <View style={styles.passwordField}>
+                  <TextInput
+                    autoComplete="current-password"
+                    onChangeText={setLoginPassword}
+                    placeholder="Digite sua senha"
+                    placeholderTextColor="#82918a"
+                    secureTextEntry={!showLoginPassword}
+                    style={[styles.input, styles.passwordInput]}
+                    value={loginPassword}
+                  />
+                  <Pressable
+                    onPress={() => setShowLoginPassword((current) => !current)}
+                    style={styles.passwordEyeButton}
+                  >
+                    <Text style={styles.passwordEyeText}>{showLoginPassword ? 'Ocultar' : 'Ver'}</Text>
+                  </Pressable>
+                </View>
+
+                <Pressable
+                  onPress={() => {
+                    setLoginMode('forgot');
+                    setAuthFeedback('');
+                    setForgotEmail('');
+                  }}
+                  style={styles.forgotButton}
+                >
+                  <Text style={styles.forgotText}>Esqueci minha senha</Text>
+                </Pressable>
+
+                <Pressable
+                  disabled={isSubmittingAuth}
+                  onPress={() => void handleLogin()}
+                  style={[styles.submitButton, isSubmittingAuth && styles.disabledControl]}
+                >
+                  <Text style={styles.submitText}>{isSubmittingAuth ? 'Entrando...' : 'Entrar'}</Text>
+                </Pressable>
+              </View>
+            ) : loginMode === 'forgot' ? (
+              <View style={styles.form}>
+                <Text style={styles.label}>CPF</Text>
+                <TextInput
+                  autoCapitalize="none"
+                  keyboardType="numeric"
+                  onChangeText={(value) => {
+                    setForgotCpf(formatCpf(value));
+                    setForgotEmail('');
+                    setAuthFeedback('');
+                  }}
+                  placeholder="000.000.000-00"
+                  placeholderTextColor="#82918a"
+                  style={styles.input}
+                  value={forgotCpf}
+                />
+
+                {forgotEmail ? (
+                  <>
+                    <Text style={styles.label}>Email cadastrado</Text>
+                    <View style={styles.lockedValue}>
+                      <Text style={styles.lockedValueText}>{forgotEmail}</Text>
+                    </View>
+                  </>
+                ) : null}
+
+                <Pressable
+                  disabled={isSubmittingAuth}
+                  onPress={() => void handleForgotPassword()}
+                  style={[styles.submitButton, isSubmittingAuth && styles.disabledControl]}
+                >
+                  <Text style={styles.submitText}>{isSubmittingAuth ? 'Enviando...' : 'Enviar email de redefinicao'}</Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => {
+                    setLoginMode('login');
+                    setAuthFeedback('');
+                    setForgotEmail('');
+                  }}
+                  style={styles.secondaryButton}
+                >
+                  <Text style={styles.secondaryButtonText}>Voltar para entrar</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.form}>
+                <Text style={styles.label}>CPF</Text>
+                <TextInput
+                  autoCapitalize="none"
+                  keyboardType="numeric"
+                  onChangeText={(value) => {
+                    const formatted = formatCpf(value);
+                    setRegisterCpf(formatted);
+                    setRegisterLookup(null);
+                    setRegisterLookupFeedback('');
+
+                    if (formatted.replace(/\D/g, '').length === 11) {
+                      void lookupRegisterCpf(registerType, formatted);
+                    }
+                  }}
+                  placeholder="000.000.000-00"
+                  placeholderTextColor="#82918a"
+                  style={styles.input}
+                  value={registerCpf}
+                />
+
+                <View style={styles.loginModeToggle}>
+                  <Pressable
+                    onPress={() => handleChangeRegisterType('student')}
+                    style={[styles.loginModeButton, registerType === 'student' && styles.loginModeButtonActive]}
+                  >
+                    <Text style={[styles.loginModeText, registerType === 'student' && styles.loginModeTextActive]}>Aluno</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => handleChangeRegisterType('employee')}
+                    style={[styles.loginModeButton, registerType === 'employee' && styles.loginModeButtonActive]}
+                  >
+                    <Text style={[styles.loginModeText, registerType === 'employee' && styles.loginModeTextActive]}>Funcionario</Text>
+                  </Pressable>
+                </View>
+
+                {registerLookupFeedback ? (
+                  <View style={styles.authFeedback}>
+                    <Text style={styles.authFeedbackText}>{registerLookupFeedback}</Text>
+                  </View>
+                ) : null}
+
+                <Text style={styles.label}>Nome</Text>
+                <View style={styles.lockedValue}>
+                  <Text style={styles.lockedValueText}>{registerLookup?.name ?? ''}</Text>
+                </View>
+
+                <Text style={styles.label}>Data de nascimento</Text>
+                <View style={styles.lockedValue}>
+                  <Text style={styles.lockedValueText}>
+                    {registerLookup?.birthDate ? formatDateInput(registerLookup.birthDate) : ''}
+                  </Text>
+                </View>
+
+                <View style={styles.inlineFields}>
+                  <View style={styles.dddInput}>
+                    <Text style={styles.label}>DDD</Text>
+                    <View style={styles.lockedValue}>
+                      <Text style={styles.lockedValueText}>{registerLookup?.ddd ? String(registerLookup.ddd) : ''}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.flexInput}>
+                    <Text style={styles.label}>Telefone</Text>
+                    <View style={styles.lockedValue}>
+                      <Text style={styles.lockedValueText}>{registerLookup?.phone ? String(registerLookup.phone) : ''}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <Text style={styles.label}>Email</Text>
+                <View style={styles.lockedValue}>
+                  <Text style={styles.lockedValueText}>{registerLookup?.email ?? ''}</Text>
+                </View>
+
+                <Text style={styles.label}>Senha</Text>
+                <View style={styles.passwordField}>
+                  <TextInput
+                    autoComplete="new-password"
+                    maxLength={20}
+                    onChangeText={setRegisterPassword}
+                    placeholder="6 a 20 caracteres, com numero"
+                    placeholderTextColor="#82918a"
+                    secureTextEntry={!showRegisterPassword}
+                    style={[styles.input, styles.passwordInput]}
+                    value={registerPassword}
+                  />
+                  <Pressable
+                    onPress={() => setShowRegisterPassword((current) => !current)}
+                    style={styles.passwordEyeButton}
+                  >
+                    <Text style={styles.passwordEyeText}>{showRegisterPassword ? 'Ocultar' : 'Ver'}</Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.passwordChecklist}>
+                  {passwordRequirements.map((req) => (
+                    <Text key={req.label} style={[styles.passwordCheckItem, req.met && styles.passwordCheckItemMet]}>
+                      {req.met ? '✓' : '•'} {req.label}
+                    </Text>
+                  ))}
+                </View>
+
+                <Pressable
+                  disabled={isSubmittingAuth || isLookingUpRegister || !registerLookup || registerLookup.hasUser}
+                  onPress={() => void handleRegister()}
+                  style={[styles.submitButton, (isSubmittingAuth || isLookingUpRegister || !registerLookup || registerLookup?.hasUser) && styles.disabledControl]}
+                >
+                  <Text style={styles.submitText}>
+                    {isSubmittingAuth ? 'Criando...' : isLookingUpRegister ? 'Buscando...' : 'Criar cadastro'}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </View>
-        </View>
+        </ScrollView>
       </View>
     );
   }
@@ -2889,6 +3357,109 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 14,
     minHeight: 44,
+  },
+  loginScroller: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  loginModeToggle: {
+    backgroundColor: '#f0f2f1',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 16,
+    padding: 4,
+  },
+  loginModeButton: {
+    alignItems: 'center',
+    borderRadius: 6,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 40,
+  },
+  loginModeButtonActive: {
+    backgroundColor: '#ffffff',
+  },
+  loginModeText: {
+    color: '#52605a',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  loginModeTextActive: {
+    color: '#1f7a53',
+  },
+  authFeedback: {
+    backgroundColor: '#fff3cd',
+    borderColor: '#ffc107',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12,
+    padding: 12,
+  },
+  authFeedbackText: {
+    color: '#856404',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  passwordField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  passwordInput: {
+    flex: 1,
+  },
+  passwordEyeButton: {
+    alignItems: 'center',
+    backgroundColor: '#e8f4ed',
+    borderRadius: 6,
+    justifyContent: 'center',
+    marginLeft: 8,
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  passwordEyeText: {
+    color: '#1f7a53',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  lockedValue: {
+    backgroundColor: '#f8faf8',
+    borderColor: '#ccd8d0',
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingHorizontal: 14,
+  },
+  lockedValueText: {
+    color: '#17211c',
+    fontSize: 15,
+  },
+  passwordChecklist: {
+    gap: 4,
+    marginBottom: 4,
+  },
+  passwordCheckItem: {
+    color: '#82918a',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  passwordCheckItemMet: {
+    color: '#1f7a53',
+  },
+  secondaryButton: {
+    alignItems: 'center',
+    backgroundColor: '#e8f4ed',
+    borderRadius: 8,
+    justifyContent: 'center',
+    marginTop: 8,
+    minHeight: 48,
+  },
+  secondaryButtonText: {
+    color: '#1f7a53',
+    fontSize: 15,
+    fontWeight: '800',
   },
   forgotButton: {
     alignSelf: 'flex-end',

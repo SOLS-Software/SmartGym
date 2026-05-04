@@ -971,6 +971,11 @@ button.domain-select-row.selected {
   grid-template-columns: minmax(28rem, 1fr) minmax(32rem, 1.1fr) 12rem;
 }
 
+.plan-split-layout {
+  gap: 1.23rem;
+  grid-template-columns: minmax(28rem, 1fr) minmax(30rem, 1fr) 12rem;
+}
+
 .product-row.company-grid>span {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -985,8 +990,12 @@ button.domain-select-row.selected {
   justify-content: start;
 }
 
-.company-grid-section .grid-toolbar>div {
+.company-grid-section .grid-toolbar>.child-grid-toolbar-label {
   display: none;
+}
+
+.company-grid-section .grid-toolbar>.child-grid-toolbar-actions {
+  display: grid;
 }
 
 .company-grid-section .search-field input {
