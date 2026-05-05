@@ -58,7 +58,47 @@ export function formatDateInput(value: string | null) {
   return value ? value.slice(0, 10) : '';
 }
 
-export function formatChildCell(record: CompanyChildRecord, column: CompanyChildColumn) {
+export function formatDateDisplay(value: string | null) {
+  const inputDate = formatDateInput(value);
+
+  if (!inputDate) {
+    return '';
+  }
+
+  const [year, month, day] = inputDate.split('-');
+
+  return `${day}/${month}/${year}`;
+}
+
+function getLookupValue(option: LookupRecord, lookupLabelKey?: string) {
+  if (!lookupLabelKey) {
+    return undefined;
+  }
+
+  return lookupLabelKey.split('.').reduce<unknown>((current, key) => {
+    if (!current || typeof current !== 'object') {
+      return undefined;
+    }
+
+    return (current as Record<string, unknown>)[key];
+  }, option);
+}
+
+function getLookupDescription(option: LookupRecord, lookupLabelKey?: string) {
+  const labelValue = getLookupValue(option, lookupLabelKey);
+
+  if (labelValue === undefined || labelValue === null || labelValue === '') {
+    return String(option.id);
+  }
+
+  return String(labelValue);
+}
+
+export function formatChildCell(
+  record: CompanyChildRecord,
+  column: CompanyChildColumn,
+  lookupOptions: LookupRecord[] = [],
+) {
   const value = record[column.key];
 
   if (column.type === 'status') {
@@ -75,8 +115,13 @@ export function formatChildCell(record: CompanyChildRecord, column: CompanyChild
     return '-';
   }
 
+  if (column.lookupLabelKey) {
+    const option = lookupOptions.find((lookupOption) => String(lookupOption.id) === String(value));
+    return option ? getLookupDescription(option, column.lookupLabelKey) : String(value);
+  }
+
   if (column.type === 'date') {
-    return formatDateInput(String(value));
+    return formatDateDisplay(String(value));
   }
 
   if (column.type === 'money') {
@@ -89,7 +134,11 @@ export function formatChildCell(record: CompanyChildRecord, column: CompanyChild
   return String(value);
 }
 
-export function formatChildSearchValue(record: CompanyChildRecord, column: CompanyChildColumn) {
+export function formatChildSearchValue(
+  record: CompanyChildRecord,
+  column: CompanyChildColumn,
+  lookupOptions: LookupRecord[] = [],
+) {
   const value = record[column.key];
 
   if (column.type === 'status') {
@@ -100,17 +149,28 @@ export function formatChildSearchValue(record: CompanyChildRecord, column: Compa
     return '';
   }
 
+  if (column.lookupLabelKey) {
+    const option = lookupOptions.find((lookupOption) => String(lookupOption.id) === String(value));
+    return option
+      ? `${option.id} ${getLookupDescription(option, column.lookupLabelKey)}`.toLowerCase()
+      : String(value).toLowerCase();
+  }
+
   if (column.type === 'date') {
-    return formatDateInput(String(value)).toLowerCase();
+    return `${formatDateInput(String(value))} ${formatDateDisplay(String(value))}`.toLowerCase();
   }
 
   return String(value).toLowerCase();
 }
 
 export function getLookupLabel(option: LookupRecord, field: CompanyChildField) {
-  const labelValue = field.lookupLabelKey ? option[field.lookupLabelKey] : undefined;
+  const labelValue = getLookupValue(option, field.lookupLabelKey);
 
   if (labelValue === undefined || labelValue === null || labelValue === '') {
+    return String(option.id);
+  }
+
+  if (String(labelValue) === String(option.id)) {
     return String(option.id);
   }
 

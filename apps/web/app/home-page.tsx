@@ -10,6 +10,7 @@ import { StudentRegistration } from './student-registration';
 import { DomainRegistration } from './domain-registration';
 import { ProductRegistration } from './product-registration';
 import { ExerciseRegistration } from './exercise-registration';
+import { EmployeeRegistration } from './employee-registration';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
 
@@ -39,6 +40,8 @@ const menuGroups = [
     items: ['Domínios'],
   },
 ];
+
+type AuthUserType = 'student' | 'employee';
 
 function getPasswordValidationMessage(password: string) {
   if (password.length < 6) {
@@ -70,6 +73,7 @@ export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [authUserName, setAuthUserName] = useState('Joao Silva');
   const [authUserRole, setAuthUserRole] = useState('Administrador');
+  const [authUserType, setAuthUserType] = useState<AuthUserType>('employee');
   const [loginMode, setLoginMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [loginCpf, setLoginCpf] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -184,10 +188,12 @@ export default function HomePage() {
 
       const user = (await response.json()) as {
         name: string;
-        type: 'student' | 'employee';
+        type: AuthUserType;
       };
       setAuthUserName(user.name);
       setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
+      setAuthUserType(user.type);
+      setActiveItem(user.type === 'student' ? 'Meu Treino' : activeItem);
       setIsLoggedIn(true);
     } catch (error) {
       setAuthFeedback(error instanceof Error ? error.message : 'Erro ao entrar.');
@@ -290,7 +296,7 @@ export default function HomePage() {
 
       const user = (await loginResponse.json()) as {
         name: string;
-        type: 'student' | 'employee';
+        type: AuthUserType;
       };
       form.reset();
       setRegisterCpf('');
@@ -301,6 +307,8 @@ export default function HomePage() {
       setAuthFeedback('');
       setAuthUserName(user.name);
       setAuthUserRole(user.type === 'student' ? 'Aluno' : 'FuncionÃ¡rio');
+      setAuthUserType(user.type);
+      setActiveItem(user.type === 'student' ? 'Meu Treino' : activeItem);
       setIsLoggedIn(true);
     } catch (error) {
       setAuthFeedback(
@@ -312,6 +320,11 @@ export default function HomePage() {
   }
 
   if (isLoggedIn) {
+    const visibleMenuGroups =
+      authUserType === 'employee'
+        ? menuGroups
+        : menuGroups.filter((group) => group.title === 'TREINO' || group.title === 'ALUNOS');
+
     return (
       <main className={`home-page ${isMenuOpen ? '' : 'menu-collapsed'}`}>
         <header className="app-header">
@@ -363,7 +376,7 @@ export default function HomePage() {
               </div>
 
               <nav className="menu-nav">
-                {menuGroups.map((group) => (
+                {visibleMenuGroups.map((group) => (
                   <div className="menu-group" key={group.title}>
                     <p>{group.title}</p>
                     {group.items.map((item) => (
@@ -397,6 +410,8 @@ export default function HomePage() {
             <StudentRegistration />
           ) : activeItem === 'Planos' ? (
             <PlanRegistration />
+          ) : activeItem === 'Profissionais' ? (
+            <EmployeeRegistration />
           ) : activeItem === 'Domínios' ? (
             <DomainRegistration />
           ) : (

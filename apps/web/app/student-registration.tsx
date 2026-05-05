@@ -2,12 +2,16 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, isImageFile, isValidCpf, onlyDigits, paginateItems } from './registration-helpers';
-import type { CompanyChildColumn, CompanyChildRecord, Student, StudentFile, StudentRelatedTable, StudentValidationErrors, StudentValidationField } from './registration-types';
+import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from './registration-helpers';
+import type { CompanyChildColumn, CompanyChildField, CompanyChildRecord, LookupRecord, Student, StudentFile, StudentRelatedTable, StudentValidationErrors, StudentValidationField } from './registration-types';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
 
-const studentRelatedTables: StudentRelatedTable[] = [
+type StudentRelatedConfig = StudentRelatedTable & {
+  fields: CompanyChildField[];
+};
+
+const studentRelatedTables: StudentRelatedConfig[] = [
   {
     key: 'files',
     endpoint: 'files',
@@ -17,6 +21,7 @@ const studentRelatedTables: StudentRelatedTable[] = [
       { key: 'dsArquivo', label: 'Arquivo' },
       { key: 'boInativo', label: 'Status', type: 'status' },
     ],
+    fields: [],
   },
   {
     key: 'plans',
@@ -24,10 +29,17 @@ const studentRelatedTables: StudentRelatedTable[] = [
     label: 'Planos',
     title: 'Planos do aluno',
     columns: [
-      { key: 'idPlano', label: 'ID plano' },
+      { key: 'idPlano', label: 'Plano', lookupLabelKey: 'dsPlano' },
       { key: 'nrDiaPagamento', label: 'Dia pgto' },
       { key: 'dtAdmissao', label: 'Admissão', type: 'date' },
       { key: 'boInativo', label: 'Status', type: 'status' },
+    ],
+    fields: [
+      { key: 'idEmpresa', label: 'Empresa', type: 'number', lookupEndpoint: 'companies', lookupLabelKey: 'dsEmpresa' },
+      { key: 'idPlano', label: 'Plano', type: 'number', lookupEndpoint: 'plans', lookupLabelKey: 'dsPlano', required: true },
+      { key: 'idPromocaoPlano', label: 'Promocao do plano', type: 'number', lookupEndpoint: 'promotion-plans', lookupLabelKey: 'id' },
+      { key: 'nrDiaPagamento', label: 'Dia pagamento', type: 'number' },
+      { key: 'dtAdmissao', label: 'Admissao', type: 'date' },
     ],
   },
   {
@@ -36,10 +48,18 @@ const studentRelatedTables: StudentRelatedTable[] = [
     label: 'Pagamentos',
     title: 'Pagamentos do aluno',
     columns: [
-      { key: 'idAlunoPlano', label: 'ID plano aluno' },
+      { key: 'idAlunoPlano', label: 'Plano do aluno', lookupLabelKey: 'plano.dsPlano' },
       { key: 'vlPagamento', label: 'Valor', type: 'money' },
       { key: 'dtPagamento', label: 'Pagamento', type: 'date' },
       { key: 'boInativo', label: 'Status', type: 'status' },
+    ],
+    fields: [
+      { key: 'idAlunoPlano', label: 'Plano do aluno', type: 'number', lookupEndpoint: 'students/{studentId}/related/plans', lookupLabelKey: 'plano.dsPlano', required: true },
+      { key: 'idProdutoMovimentacao', label: 'Movimentacao produto', type: 'number' },
+      { key: 'vlPagamento', label: 'Valor', type: 'number' },
+      { key: 'idStatusPagamento', label: 'Status pagamento', type: 'number', lookupEndpoint: 'payment-statuses', lookupLabelKey: 'dsStatusPagamento' },
+      { key: 'idFormaPagamento', label: 'Forma pagamento', type: 'number', lookupEndpoint: 'payment-methods', lookupLabelKey: 'dsFormaPagamento' },
+      { key: 'dtPagamento', label: 'Data pagamento', type: 'date' },
     ],
   },
   {
@@ -48,10 +68,15 @@ const studentRelatedTables: StudentRelatedTable[] = [
     label: 'Check-ins',
     title: 'Check-ins do aluno',
     columns: [
-      { key: 'idAlunoPlano', label: 'ID plano aluno' },
-      { key: 'idPontos', label: 'ID pontos' },
+      { key: 'idAlunoPlano', label: 'Plano do aluno', lookupLabelKey: 'plano.dsPlano' },
+      { key: 'idPontos', label: 'Pontos', lookupLabelKey: 'dsPontos' },
       { key: 'dtCadastro', label: 'Cadastro', type: 'date' },
       { key: 'boInativo', label: 'Status', type: 'status' },
+    ],
+    fields: [
+      { key: 'idAlunoPlano', label: 'Plano do aluno', type: 'number', lookupEndpoint: 'students/{studentId}/related/plans', lookupLabelKey: 'plano.dsPlano', required: true },
+      { key: 'idAlunoTreinosSequencia', label: 'Sequencia treino', type: 'number', lookupEndpoint: 'student-training-sequences', lookupLabelKey: 'nrOrdem' },
+      { key: 'idPontos', label: 'Pontos', type: 'number', lookupEndpoint: 'points', lookupLabelKey: 'dsPontos' },
     ],
   },
 ];
@@ -128,6 +153,8 @@ export function StudentRegistration() {
   const [studentEmail, setStudentEmail] = useState('');
   const [studentCep, setStudentCep] = useState('');
   const [studentAddress, setStudentAddress] = useState('');
+  const [studentComplement, setStudentComplement] = useState('');
+  const [studentDistrict, setStudentDistrict] = useState('');
   const [studentAddressNumber, setStudentAddressNumber] = useState('');
   const [isStudentActive, setIsStudentActive] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -139,6 +166,13 @@ export function StudentRegistration() {
   const [studentRelatedRecords, setStudentRelatedRecords] = useState<CompanyChildRecord[]>([]);
   const [isLoadingStudentRelatedRecords, setIsLoadingStudentRelatedRecords] = useState(false);
   const [studentRelatedSearchTerm, setStudentRelatedSearchTerm] = useState('');
+  const [selectedStudentRelatedRecordId, setSelectedStudentRelatedRecordId] = useState<number | null>(null);
+  const [isCreatingStudentRelated, setIsCreatingStudentRelated] = useState(false);
+  const [studentRelatedFormValues, setStudentRelatedFormValues] = useState<Record<string, string>>({});
+  const [isStudentRelatedActive, setIsStudentRelatedActive] = useState(true);
+  const [studentRelatedFeedback, setStudentRelatedFeedback] = useState('');
+  const [studentRelatedLookups, setStudentRelatedLookups] = useState<Record<string, LookupRecord[]>>({});
+  const [isStudentRelatedFieldsCollapsed, setIsStudentRelatedFieldsCollapsed] = useState(false);
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
   const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
   const [cameraFeedback, setCameraFeedback] = useState('');
@@ -149,10 +183,18 @@ export function StudentRegistration() {
   const isFormEnabled = selectedStudentId !== null || isCreating;
   const studentRelatedConfig =
     studentRelatedTables.find((table) => table.key === selectedStudentRelatedTable) ?? null;
+  const isStudentRelatedFormEnabled =
+    Boolean(selectedStudentId) &&
+    studentRelatedConfig?.key !== 'files' &&
+    (selectedStudentRelatedRecordId !== null || isCreatingStudentRelated);
   const filteredStudentRelatedRecords = studentRelatedRecords.filter((record) =>
     studentRelatedConfig
       ? studentRelatedConfig.columns.some((column) =>
-        formatChildSearchValue(record, column).includes(studentRelatedSearchTerm.toLowerCase()),
+        formatChildSearchValue(
+          record,
+          column,
+          studentRelatedLookups[column.key],
+        ).includes(studentRelatedSearchTerm.toLowerCase()),
       )
       : false,
   );
@@ -213,8 +255,52 @@ export function StudentRegistration() {
 
   useEffect(() => {
     setStudentRelatedSearchTerm('');
+    setSelectedStudentRelatedRecordId(null);
+    setIsCreatingStudentRelated(false);
+    setStudentRelatedFormValues({});
+    setIsStudentRelatedActive(true);
+    setStudentRelatedFeedback('');
     void loadStudentRelatedRecords();
   }, [selectedStudentId, selectedStudentRelatedTable]);
+
+  useEffect(() => {
+    async function loadStudentRelatedLookups() {
+      if (!studentRelatedConfig || studentRelatedConfig.key === 'files' || !selectedStudentId) {
+        return;
+      }
+
+      const lookupFields = studentRelatedConfig.fields.filter((field) => field.lookupEndpoint);
+      const nextLookups: Record<string, LookupRecord[]> = {};
+
+      await Promise.all(
+        lookupFields.map(async (field) => {
+          if (!field.lookupEndpoint) {
+            return;
+          }
+
+          const endpoint = field.lookupEndpoint.replace('{studentId}', String(selectedStudentId));
+          const response = await fetch(`${apiUrl}/${endpoint}`);
+
+          if (!response.ok) {
+            throw new Error(`Nao foi possivel carregar ${field.label}.`);
+          }
+
+          nextLookups[field.key] = (await response.json()) as LookupRecord[];
+        }),
+      );
+
+      setStudentRelatedLookups((current) => ({
+        ...current,
+        ...nextLookups,
+      }));
+    }
+
+    void loadStudentRelatedLookups().catch((error) => {
+      setStudentRelatedFeedback(
+        error instanceof Error ? error.message : 'Erro ao carregar listas relacionadas.',
+      );
+    });
+  }, [selectedStudentId, studentRelatedConfig]);
 
   useEffect(() => {
     if (!isCameraModalOpen || !cameraStreamRef.current || !cameraVideoRef.current) {
@@ -337,6 +423,8 @@ export function StudentRegistration() {
     setStudentEmail('');
     setStudentCep('');
     setStudentAddress('');
+    setStudentComplement('');
+    setStudentDistrict('');
     setStudentAddressNumber('');
     setIsStudentActive(false);
     setStudentErrors({});
@@ -348,6 +436,11 @@ export function StudentRegistration() {
     setPreviewUrls({});
     setStudentRelatedRecords([]);
     setStudentRelatedSearchTerm('');
+    setSelectedStudentRelatedRecordId(null);
+    setIsCreatingStudentRelated(false);
+    setStudentRelatedFormValues({});
+    setIsStudentRelatedActive(true);
+    setStudentRelatedFeedback('');
     setIsCameraModalOpen(false);
     setIsCapturingPhoto(false);
     stopCameraStream();
@@ -378,6 +471,8 @@ export function StudentRegistration() {
     setStudentEmail(student.anEmail);
     setStudentCep(student.anCEP);
     setStudentAddress(student.anLogradouro);
+    setStudentComplement(student.anCoplemento);
+    setStudentDistrict(student.anBairro);
     setStudentAddressNumber(
       student.nrEndereco === null ? '' : String(student.nrEndereco),
     );
@@ -392,6 +487,11 @@ export function StudentRegistration() {
     setSelectedStudentRelatedTable(tableKey);
     setIsStudentFilesCollapsed(false);
     setFileFeedback('');
+    setStudentRelatedFeedback('');
+    setSelectedStudentRelatedRecordId(null);
+    setIsCreatingStudentRelated(false);
+    setStudentRelatedFormValues({});
+    setIsStudentRelatedActive(true);
 
     if (tableKey !== 'files') {
       setIsCameraModalOpen(false);
@@ -399,6 +499,50 @@ export function StudentRegistration() {
       setCameraFeedback('');
       stopCameraStream();
     }
+  }
+
+  function clearStudentRelatedForm() {
+    setSelectedStudentRelatedRecordId(null);
+    setIsCreatingStudentRelated(false);
+    setStudentRelatedFormValues({});
+    setIsStudentRelatedActive(true);
+    setStudentRelatedFeedback('');
+  }
+
+  function handleNewStudentRelated() {
+    setSelectedStudentRelatedRecordId(null);
+    setIsCreatingStudentRelated(true);
+    setStudentRelatedFormValues(
+      studentRelatedConfig?.fields.reduce<Record<string, string>>((current, field) => {
+        if (field.key === 'nrDiaPagamento') {
+          current[field.key] = '1';
+        } else if (field.type === 'date') {
+          current[field.key] = new Date().toISOString().slice(0, 10);
+        }
+
+        return current;
+      }, {}) ?? {},
+    );
+    setIsStudentRelatedActive(true);
+    setStudentRelatedFeedback('');
+  }
+
+  function handleSelectStudentRelatedRecord(record: CompanyChildRecord) {
+    if (!studentRelatedConfig || studentRelatedConfig.key === 'files') {
+      return;
+    }
+
+    const values = studentRelatedConfig.fields.reduce<Record<string, string>>((current, field) => {
+      const value = record[field.key];
+      current[field.key] = field.type === 'date' ? formatDateInput(String(value ?? '')) : String(value ?? '');
+      return current;
+    }, {});
+
+    setSelectedStudentRelatedRecordId(record.id);
+    setIsCreatingStudentRelated(false);
+    setStudentRelatedFormValues(values);
+    setIsStudentRelatedActive(Number(record.boInativo ?? 0) === 0);
+    setStudentRelatedFeedback('');
   }
 
   function getStudentValidationErrors() {
@@ -529,6 +673,8 @@ export function StudentRegistration() {
         anEmail: trimmedEmail,
         anCEP: studentCep,
         anLogradouro: studentAddress,
+        anCoplemento: studentComplement,
+        anBairro: studentDistrict,
         nrEndereco: studentAddressNumber ? Number(studentAddressNumber) : null,
         boInativo: isStudentActive ? 0 : 1,
       };
@@ -567,6 +713,111 @@ export function StudentRegistration() {
       setFeedback('Aluno salvo com sucesso.');
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar.');
+    }
+  }
+
+  async function handleToggleStudentRelatedStatus() {
+    if (!studentRelatedConfig || studentRelatedConfig.key === 'files') {
+      return;
+    }
+
+    const nextActive = !isStudentRelatedActive;
+    setIsStudentRelatedActive(nextActive);
+
+    if (!selectedStudentId || !selectedStudentRelatedRecordId) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${apiUrl}/students/${selectedStudentId}/related/${studentRelatedConfig.endpoint}/${selectedStudentRelatedRecordId}/status`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            boInativo: nextActive ? 0 : 1,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Nao foi possivel alterar o status.');
+      }
+
+      const updatedRecord = (await response.json()) as CompanyChildRecord;
+      setStudentRelatedRecords((current) =>
+        current.map((record) => (record.id === updatedRecord.id ? updatedRecord : record)),
+      );
+    } catch (error) {
+      setIsStudentRelatedActive(!nextActive);
+      setStudentRelatedFeedback(error instanceof Error ? error.message : 'Erro ao alterar status.');
+    }
+  }
+
+  async function handleSaveStudentRelated(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!studentRelatedConfig || studentRelatedConfig.key === 'files') {
+      setStudentRelatedFeedback('Selecione uma tabela relacionada antes de salvar.');
+      return;
+    }
+
+    if (!selectedStudentId) {
+      setStudentRelatedFeedback('Selecione um aluno antes de salvar.');
+      return;
+    }
+
+    const missingRequiredField = studentRelatedConfig.fields.find(
+      (field) => field.required && !studentRelatedFormValues[field.key],
+    );
+
+    if (missingRequiredField) {
+      setStudentRelatedFeedback(`Informe ${missingRequiredField.label}.`);
+      return;
+    }
+
+    try {
+      const payload = studentRelatedConfig.fields.reduce<Record<string, string | number | null>>(
+        (current, field) => {
+          const value = studentRelatedFormValues[field.key] ?? '';
+          current[field.key] = field.type === 'number' ? (value ? Number(value) : null) : value;
+          return current;
+        },
+        {
+          boInativo: isStudentRelatedActive ? 0 : 1,
+        },
+      );
+
+      const response = await fetch(
+        selectedStudentRelatedRecordId
+          ? `${apiUrl}/students/${selectedStudentId}/related/${studentRelatedConfig.endpoint}/${selectedStudentRelatedRecordId}`
+          : `${apiUrl}/students/${selectedStudentId}/related/${studentRelatedConfig.endpoint}`,
+        {
+          method: selectedStudentRelatedRecordId ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Nao foi possivel salvar o registro relacionado.');
+      }
+
+      const savedRecord = (await response.json()) as CompanyChildRecord;
+      await loadStudentRelatedRecords(selectedStudentId, studentRelatedConfig);
+      setSelectedStudentRelatedRecordId(savedRecord.id);
+      setIsCreatingStudentRelated(false);
+      setStudentRelatedFeedback(`${studentRelatedConfig.label} salvo com sucesso.`);
+    } catch (error) {
+      setStudentRelatedFeedback(
+        error instanceof Error ? error.message : 'Erro ao salvar registro relacionado.',
+      );
     }
   }
 
@@ -848,6 +1099,16 @@ export function StudentRegistration() {
                           value={studentRelatedSearchTerm}
                         />
                       </label>
+                      {studentRelatedConfig.key !== 'files' ? (
+                        <button
+                          className="new-button"
+                          disabled={!selectedStudentId}
+                          onClick={handleNewStudentRelated}
+                          type="button"
+                        >
+                          Novo
+                        </button>
+                      ) : null}
                     </div>
                   </div>
 
@@ -878,20 +1139,26 @@ export function StudentRegistration() {
 
                     {!isLoadingStudentRelatedRecords
                       ? filteredStudentRelatedRecords.map((record) => (
-                        <div
-                          className="product-row company-child-grid-row"
+                        <button
+                          className={`product-row company-child-grid-row ${studentRelatedConfig.key !== 'files' ? 'selectable' : ''} ${record.id === selectedStudentRelatedRecordId ? 'selected' : ''}`}
                           key={record.id}
+                          onClick={() => handleSelectStudentRelatedRecord(record)}
                           role="row"
                           style={{
                             gridTemplateColumns: `repeat(${studentRelatedConfig.columns.length}, minmax(0, 1fr))`,
                           }}
+                          type="button"
                         >
                           {studentRelatedConfig.columns.map((column) => (
                             <span key={column.key} role="cell">
-                              {formatChildCell(record, column)}
+                              {formatChildCell(
+                                record,
+                                column,
+                                studentRelatedLookups[column.key],
+                              )}
                             </span>
                           ))}
-                        </div>
+                        </button>
                       ))
                       : null}
 
@@ -1112,6 +1379,33 @@ export function StudentRegistration() {
 
                 <div className="field two-columns">
                   <div>
+                    <label htmlFor="anBairro">Bairro</label>
+                    <input
+                      disabled={!isFormEnabled}
+                      id="anBairro"
+                      maxLength={100}
+                      onChange={(event) => setStudentDistrict(event.target.value)}
+                      placeholder="Bairro"
+                      type="text"
+                      value={studentDistrict}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="anCoplemento">Complemento</label>
+                    <input
+                      disabled={!isFormEnabled}
+                      id="anCoplemento"
+                      maxLength={100}
+                      onChange={(event) => setStudentComplement(event.target.value)}
+                      placeholder="Apartamento, bloco..."
+                      type="text"
+                      value={studentComplement}
+                    />
+                  </div>
+                </div>
+
+                <div className="field two-columns">
+                  <div>
                     <label htmlFor="anCEP">CEP</label>
                     <input
                       disabled={!isFormEnabled}
@@ -1301,17 +1595,118 @@ export function StudentRegistration() {
                 </>
               ) : null}
             </section>
-          ) : selectedStudentRelatedTable ? (
-            <section className="registration-form student-files-section">
+          ) : studentRelatedConfig ? (
+            <form
+              className={`registration-form student-files-section ${isStudentRelatedFieldsCollapsed ? 'collapsed' : ''}`}
+              onSubmit={handleSaveStudentRelated}
+            >
               <div className="collapsible-panel-header">
                 <div>
-                  <p className="section-label">
-                    {studentRelatedTables.find((table) => table.key === selectedStudentRelatedTable)?.label}
-                  </p>
+                  <p className="section-label">{studentRelatedConfig.label}</p>
                 </div>
+                <button
+                  aria-expanded={!isStudentRelatedFieldsCollapsed}
+                  className="secondary-button"
+                  onClick={() => setIsStudentRelatedFieldsCollapsed((current) => !current)}
+                  type="button"
+                >
+                  {isStudentRelatedFieldsCollapsed ? '+' : '-'}
+                </button>
               </div>
-              <div className="form-hint">Tabela relacionada preparada para os próximos cadastros.</div>
-            </section>
+              {!isStudentRelatedFieldsCollapsed ? (
+                <>
+                  {studentRelatedFeedback ? (
+                    <div className="form-feedback">{studentRelatedFeedback}</div>
+                  ) : null}
+
+                  {!selectedStudentId ? (
+                    <div className="form-hint">
+                      Selecione um aluno antes de cadastrar registros relacionados.
+                    </div>
+                  ) : null}
+
+                  {!isStudentRelatedFormEnabled && selectedStudentId ? (
+                    <div className="form-hint">
+                      Selecione um registro relacionado acima ou clique em Novo.
+                    </div>
+                  ) : null}
+
+                  <div className="company-child-fields">
+                    {studentRelatedConfig.fields.map((field) => (
+                      <div className="field" key={field.key}>
+                        <label htmlFor={`studentRelated-${field.key}`}>
+                          {field.label}
+                          {field.required ? ' *' : ''}
+                        </label>
+                        {field.lookupEndpoint ? (
+                          <select
+                            disabled={!isStudentRelatedFormEnabled}
+                            id={`studentRelated-${field.key}`}
+                            onChange={(event) =>
+                              setStudentRelatedFormValues((current) => ({
+                                ...current,
+                                [field.key]: event.target.value,
+                              }))
+                            }
+                            required={field.required}
+                            value={studentRelatedFormValues[field.key] ?? ''}
+                          >
+                            <option value="">Selecione</option>
+                            {(studentRelatedLookups[field.key] ?? []).map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {getLookupLabel(option, field)}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            disabled={!isStudentRelatedFormEnabled}
+                            id={`studentRelated-${field.key}`}
+                            onChange={(event) =>
+                              setStudentRelatedFormValues((current) => ({
+                                ...current,
+                                [field.key]: event.target.value,
+                              }))
+                            }
+                            required={field.required}
+                            type={field.type}
+                            value={studentRelatedFormValues[field.key] ?? ''}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="studentRelatedStatus">Status</label>
+                    <button
+                      aria-pressed={isStudentRelatedActive}
+                      className={`status-toggle ${isStudentRelatedActive ? 'active' : ''}`}
+                      disabled={!isStudentRelatedFormEnabled}
+                      id="studentRelatedStatus"
+                      onClick={handleToggleStudentRelatedStatus}
+                      type="button"
+                    >
+                      <span>{isStudentRelatedActive ? 'Ativo' : 'Inativo'}</span>
+                    </button>
+                  </div>
+
+                  <div className="form-actions">
+                    <button
+                      className="secondary-button"
+                      disabled={!selectedStudentId}
+                      onClick={clearStudentRelatedForm}
+                      type="button"
+                    >
+                      Limpar
+                    </button>
+                    <button disabled={!isStudentRelatedFormEnabled} type="submit">
+                      Salvar {studentRelatedConfig.label}
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </form>
           ) : null}
         </div>
 

@@ -39,6 +39,8 @@ export type Student = {
   anEmail: string;
   anCEP: string;
   anLogradouro: string;
+  anCoplemento: string;
+  anBairro: string;
   nrEndereco: number | null;
   boInativo: number;
 };
@@ -56,6 +58,26 @@ export type Plan = {
   id: number;
   dsPlano: string;
   idFrequencia: number | null;
+  boInativo: number;
+};
+
+export type Employee = {
+  id: number;
+  idEmpresa: number | null;
+  idCargo: number | null;
+  nmFuncionario: string;
+  caCPF: string;
+  dtNascimento: string | null;
+  nrDDD: number;
+  nrContato: number;
+  anEmail: string;
+  dtAdmissao: string;
+  boInativo: number;
+};
+
+export type Role = {
+  id: number;
+  dsCargo: string;
   boInativo: number;
 };
 
@@ -103,6 +125,7 @@ export type CompanyChildColumn = {
   key: string;
   label: string;
   type?: 'date' | 'money' | 'status';
+  lookupLabelKey?: string;
 };
 
 export type CompanyChildTable = {

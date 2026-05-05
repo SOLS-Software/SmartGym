@@ -86,6 +86,8 @@ type StudentPayload = {
   anEmail?: string;
   anCEP?: string;
   anLogradouro?: string;
+  anCoplemento?: string;
+  anBairro?: string;
   nrEndereco?: number | string | null;
   boInativo?: number;
 };
@@ -93,6 +95,19 @@ type StudentPayload = {
 type PlanPayload = {
   dsPlano?: string;
   idFrequencia?: number | string | null;
+  boInativo?: number;
+};
+
+type EmployeePayload = {
+  idEmpresa?: number | string | null;
+  idCargo?: number | string | null;
+  nmFuncionario?: string;
+  caCPF?: string;
+  dtNascimento?: string | null;
+  nrDDD?: number | string;
+  nrContato?: string | number | null;
+  anEmail?: string;
+  dtAdmissao?: string | null;
   boInativo?: number;
 };
 
@@ -129,6 +144,8 @@ type CompanyChildResource =
   | 'company-files'
   | 'student-check-ins'
   | 'themes';
+
+type StudentChildResource = 'plans' | 'payments' | 'check-ins';
 
 type PlanChildResource =
   | 'values'
@@ -410,6 +427,8 @@ function normalizeStudentPayload(payload: StudentPayload) {
     anEmail,
     anCEP: payload.anCEP?.replace(/\D/g, '') ?? '',
     anLogradouro: payload.anLogradouro?.trim() ?? '',
+    anCoplemento: payload.anCoplemento?.trim() ?? '',
+    anBairro: payload.anBairro?.trim() ?? '',
     nrEndereco:
       payload.nrEndereco === null || payload.nrEndereco === ''
         ? null
@@ -428,6 +447,61 @@ function normalizePlanPayload(payload: PlanPayload) {
   return {
     dsPlano,
     idFrequencia: optionalNumber(payload.idFrequencia),
+    boInativo: Number(payload.boInativo ?? 0),
+  };
+}
+
+function normalizeEmployeePayload(payload: EmployeePayload) {
+  const nmFuncionario = payload.nmFuncionario?.trim();
+  const caCPF = payload.caCPF?.replace(/\D/g, '') ?? '';
+  const nrContato = String(payload.nrContato ?? '').replace(/\D/g, '');
+  const anEmail = payload.anEmail?.trim() ?? '';
+  const dtNascimento = parseBirthDate(payload.dtNascimento);
+  const dtAdmissao = parseBirthDate(payload.dtAdmissao);
+
+  if (!nmFuncionario) {
+    throw new Error('Informe o nome do funcionario.');
+  }
+
+  if (!caCPF) {
+    throw new Error('Informe o CPF do funcionario.');
+  }
+
+  if (!isValidCpf(caCPF)) {
+    throw new Error('Informe um CPF valido.');
+  }
+
+  if (anEmail && !isValidEmail(anEmail)) {
+    throw new Error('Informe um email valido.');
+  }
+
+  if (dtNascimento && Number.isNaN(dtNascimento.getTime())) {
+    throw new Error('Informe uma data de nascimento valida.');
+  }
+
+  if (dtAdmissao && Number.isNaN(dtAdmissao.getTime())) {
+    throw new Error('Informe uma data de admissao valida.');
+  }
+
+  if (dtNascimento) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (dtNascimento > today) {
+      throw new Error('A data de nascimento nao pode ser futura.');
+    }
+  }
+
+  return {
+    idEmpresa: optionalNumber(payload.idEmpresa),
+    idCargo: optionalNumber(payload.idCargo),
+    nmFuncionario,
+    caCPF,
+    dtNascimento,
+    nrDDD: Number(payload.nrDDD ?? 0),
+    nrContato: Number(nrContato || 0),
+    anEmail,
+    dtAdmissao: dtAdmissao ?? new Date(),
     boInativo: Number(payload.boInativo ?? 0),
   };
 }
@@ -490,7 +564,7 @@ function normalizeRegisterCpf(cpf: string | undefined) {
   return value;
 }
 
-function normalizeEmployeePayload(payload: RegisterPayload) {
+function normalizeRegisterEmployeePayload(payload: RegisterPayload) {
   const nmFuncionario = payload.name?.trim();
   const caCPF = payload.cpf?.replace(/\D/g, '') ?? '';
   const anEmail = normalizeRegisterLogin(payload.email);
@@ -533,6 +607,8 @@ function normalizeRegisterStudentPayload(payload: RegisterPayload): StudentPaylo
     anEmail: payload.email,
     anCEP: '',
     anLogradouro: '',
+    anCoplemento: '',
+    anBairro: '',
     nrEndereco: null,
     boInativo: 0,
   };
@@ -796,6 +872,14 @@ function getChildResourceConfig(resource: string) {
   }
 
   return config;
+}
+
+function getStudentChildResourceConfig(resource: string) {
+  if (resource !== 'plans' && resource !== 'payments' && resource !== 'check-ins') {
+    throw new Error('Tabela relacionada invalida.');
+  }
+
+  return resource;
 }
 
 function getPlanChildResourceConfig(resource: string) {
@@ -1068,19 +1152,6 @@ app.post<{
       throw new Error('Selecione aluno ou funcionario.');
     }
 
-    const existingUser = await prisma.usuario.findFirst({
-      where: {
-        dsLogin,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (existingUser) {
-      throw new Error('Ja existe um usuario com este email.');
-    }
-
     const createdUser = await prisma.$transaction(async (transaction) => {
       if (type === 'student') {
         const student = await transaction.aluno.findFirst({
@@ -1296,6 +1367,112 @@ app.patch<{
 });
 
 app.get<{
+  Querystring: {
+    search?: string;
+  };
+}>('/employees', async (request) => {
+  const search = request.query.search?.trim();
+
+  return prisma.funcionario.findMany({
+    where: search
+      ? {
+        OR: [
+          {
+            nmFuncionario: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+          {
+            caCPF: {
+              contains: search.replace(/\D/g, ''),
+            },
+          },
+          {
+            anEmail: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+        ],
+      }
+      : undefined,
+    orderBy: {
+      nmFuncionario: 'asc',
+    },
+  });
+});
+
+app.post<{
+  Body: EmployeePayload;
+}>('/employees', async (request, reply) => {
+  try {
+    const data = normalizeEmployeePayload(request.body);
+    const employee = await prisma.funcionario.create({
+      data,
+    });
+
+    return reply.code(201).send(employee);
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao criar funcionario.',
+    });
+  }
+});
+
+app.put<{
+  Params: {
+    id: string;
+  };
+  Body: EmployeePayload;
+}>('/employees/:id', async (request, reply) => {
+  try {
+    const id = Number(request.params.id);
+    const data = normalizeEmployeePayload(request.body);
+
+    return prisma.funcionario.update({
+      where: {
+        id,
+      },
+      data,
+    });
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao atualizar funcionario.',
+    });
+  }
+});
+
+app.patch<{
+  Params: {
+    id: string;
+  };
+  Body: {
+    boInativo?: number;
+  };
+}>('/employees/:id/status', async (request, reply) => {
+  try {
+    const id = Number(request.params.id);
+    const boInativo = Number(request.body.boInativo ?? 0);
+
+    return prisma.funcionario.update({
+      where: {
+        id,
+      },
+      data: {
+        boInativo,
+      },
+    });
+  } catch {
+    return reply.code(400).send({
+      message: 'Erro ao alterar status do funcionario.',
+    });
+  }
+});
+
+app.get<{
   Params: {
     id: string;
   };
@@ -1491,6 +1668,9 @@ app.get<{
       where: {
         idAluno,
       },
+      include: {
+        plano: true,
+      },
       orderBy: {
         dtCadastro: 'desc',
       },
@@ -1553,6 +1733,344 @@ app.get<{
     return reply.code(400).send({
       message:
         error instanceof Error ? error.message : 'Erro ao listar check-ins do aluno.',
+    });
+  }
+});
+
+app.post<{
+  Params: {
+    id: string;
+    resource: string;
+  };
+  Body: CompanyChildPayload;
+}>('/students/:id/related/:resource', async (request, reply) => {
+  try {
+    const idAluno = Number(request.params.id);
+    const resource = getStudentChildResourceConfig(request.params.resource);
+    assertValidId(idAluno, 'Aluno invalido.');
+
+    const student = await prisma.aluno.findUnique({
+      where: {
+        id: idAluno,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!student) {
+      return reply.code(404).send({
+        message: 'Aluno nao encontrado.',
+      });
+    }
+
+    if (resource === 'plans') {
+      const record = await prisma.alunoPlano.create({
+        data: {
+          idAluno,
+          idEmpresa: optionalNumber(request.body.idEmpresa),
+          idPlano: optionalNumber(request.body.idPlano),
+          idPromocaoPlano: optionalNumber(request.body.idPromocaoPlano),
+          nrDiaPagamento: Number(request.body.nrDiaPagamento ?? 1),
+          dtAdmissao: optionalDate(request.body.dtAdmissao) ?? new Date(),
+          boInativo: Number(request.body.boInativo ?? 0),
+        },
+      });
+
+      return reply.code(201).send(record);
+    }
+
+    const idAlunoPlano = optionalNumber(request.body.idAlunoPlano);
+
+    if (!idAlunoPlano) {
+      throw new Error('Selecione um plano do aluno.');
+    }
+
+    const studentPlan = await prisma.alunoPlano.findFirst({
+      where: {
+        id: idAlunoPlano,
+        idAluno,
+      },
+      select: {
+        id: true,
+        idEmpresa: true,
+      },
+    });
+
+    if (!studentPlan) {
+      throw new Error('Plano do aluno invalido.');
+    }
+
+    if (resource === 'payments') {
+      const record = await prisma.pagamento.create({
+        data: {
+          idEmpresa: optionalNumber(request.body.idEmpresa) ?? studentPlan.idEmpresa,
+          idAlunoPlano,
+          idProdutoMovimentacao: optionalNumber(request.body.idProdutoMovimentacao),
+          vlPagamento: Number(request.body.vlPagamento ?? 0),
+          idStatusPagamento: optionalNumber(request.body.idStatusPagamento),
+          idFormaPagamento: optionalNumber(request.body.idFormaPagamento),
+          dtPagamento: optionalDate(request.body.dtPagamento) ?? new Date(),
+          boInativo: Number(request.body.boInativo ?? 0),
+        },
+      });
+
+      return reply.code(201).send(record);
+    }
+
+    const record = await prisma.alunoCheckIn.create({
+      data: {
+        idEmpresa: optionalNumber(request.body.idEmpresa) ?? studentPlan.idEmpresa,
+        idAlunoPlano,
+        idAlunoTreinosSequencia: optionalNumber(request.body.idAlunoTreinosSequencia),
+        idPontos: optionalNumber(request.body.idPontos),
+        boInativo: Number(request.body.boInativo ?? 0),
+      },
+    });
+
+    return reply.code(201).send(record);
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao criar registro relacionado.',
+    });
+  }
+});
+
+app.put<{
+  Params: {
+    id: string;
+    resource: string;
+    childId: string;
+  };
+  Body: CompanyChildPayload;
+}>('/students/:id/related/:resource/:childId', async (request, reply) => {
+  try {
+    const idAluno = Number(request.params.id);
+    const childId = Number(request.params.childId);
+    const resource = getStudentChildResourceConfig(request.params.resource);
+    assertValidId(idAluno, 'Aluno invalido.');
+    assertValidId(childId, 'Registro invalido.');
+
+    if (resource === 'plans') {
+      const current = await prisma.alunoPlano.findFirst({
+        where: {
+          id: childId,
+          idAluno,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!current) {
+        throw new Error('Plano do aluno invalido.');
+      }
+
+      return prisma.alunoPlano.update({
+        where: {
+          id: childId,
+        },
+        data: {
+          idEmpresa: optionalNumber(request.body.idEmpresa),
+          idPlano: optionalNumber(request.body.idPlano),
+          idPromocaoPlano: optionalNumber(request.body.idPromocaoPlano),
+          nrDiaPagamento: Number(request.body.nrDiaPagamento ?? 1),
+          dtAdmissao: optionalDate(request.body.dtAdmissao) ?? new Date(),
+          boInativo: Number(request.body.boInativo ?? 0),
+        },
+      });
+    }
+
+    const idAlunoPlano = optionalNumber(request.body.idAlunoPlano);
+
+    if (!idAlunoPlano) {
+      throw new Error('Selecione um plano do aluno.');
+    }
+
+    const studentPlan = await prisma.alunoPlano.findFirst({
+      where: {
+        id: idAlunoPlano,
+        idAluno,
+      },
+      select: {
+        id: true,
+        idEmpresa: true,
+      },
+    });
+
+    if (!studentPlan) {
+      throw new Error('Plano do aluno invalido.');
+    }
+
+    if (resource === 'payments') {
+      const current = await prisma.pagamento.findFirst({
+        where: {
+          id: childId,
+          alunoPlano: {
+            idAluno,
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!current) {
+        throw new Error('Pagamento invalido.');
+      }
+
+      return prisma.pagamento.update({
+        where: {
+          id: childId,
+        },
+        data: {
+          idEmpresa: optionalNumber(request.body.idEmpresa) ?? studentPlan.idEmpresa,
+          idAlunoPlano,
+          idProdutoMovimentacao: optionalNumber(request.body.idProdutoMovimentacao),
+          vlPagamento: Number(request.body.vlPagamento ?? 0),
+          idStatusPagamento: optionalNumber(request.body.idStatusPagamento),
+          idFormaPagamento: optionalNumber(request.body.idFormaPagamento),
+          dtPagamento: optionalDate(request.body.dtPagamento) ?? new Date(),
+          boInativo: Number(request.body.boInativo ?? 0),
+        },
+      });
+    }
+
+    const current = await prisma.alunoCheckIn.findFirst({
+      where: {
+        id: childId,
+        alunoPlano: {
+          idAluno,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!current) {
+      throw new Error('Check-in invalido.');
+    }
+
+    return prisma.alunoCheckIn.update({
+      where: {
+        id: childId,
+      },
+      data: {
+        idEmpresa: optionalNumber(request.body.idEmpresa) ?? studentPlan.idEmpresa,
+        idAlunoPlano,
+        idAlunoTreinosSequencia: optionalNumber(request.body.idAlunoTreinosSequencia),
+        idPontos: optionalNumber(request.body.idPontos),
+        boInativo: Number(request.body.boInativo ?? 0),
+      },
+    });
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao atualizar registro relacionado.',
+    });
+  }
+});
+
+app.patch<{
+  Params: {
+    id: string;
+    resource: string;
+    childId: string;
+  };
+  Body: {
+    boInativo?: number;
+  };
+}>('/students/:id/related/:resource/:childId/status', async (request, reply) => {
+  try {
+    const idAluno = Number(request.params.id);
+    const childId = Number(request.params.childId);
+    const resource = getStudentChildResourceConfig(request.params.resource);
+    const boInativo = Number(request.body.boInativo ?? 0);
+    assertValidId(idAluno, 'Aluno invalido.');
+    assertValidId(childId, 'Registro invalido.');
+
+    if (resource === 'plans') {
+      const current = await prisma.alunoPlano.findFirst({
+        where: {
+          id: childId,
+          idAluno,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!current) {
+        throw new Error('Plano do aluno invalido.');
+      }
+
+      return prisma.alunoPlano.update({
+        where: {
+          id: childId,
+        },
+        data: {
+          boInativo,
+        },
+      });
+    }
+
+    if (resource === 'payments') {
+      const current = await prisma.pagamento.findFirst({
+        where: {
+          id: childId,
+          alunoPlano: {
+            idAluno,
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!current) {
+        throw new Error('Pagamento invalido.');
+      }
+
+      return prisma.pagamento.update({
+        where: {
+          id: childId,
+        },
+        data: {
+          boInativo,
+        },
+      });
+    }
+
+    const current = await prisma.alunoCheckIn.findFirst({
+      where: {
+        id: childId,
+        alunoPlano: {
+          idAluno,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!current) {
+      throw new Error('Check-in invalido.');
+    }
+
+    return prisma.alunoCheckIn.update({
+      where: {
+        id: childId,
+      },
+      data: {
+        boInativo,
+      },
+    });
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao alterar status do registro relacionado.',
     });
   }
 });
