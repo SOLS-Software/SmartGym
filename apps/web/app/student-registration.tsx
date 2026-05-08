@@ -54,7 +54,7 @@ const studentRelatedTables: StudentRelatedConfig[] = [
     ],
     fields: [
       { key: 'idAlunoPlano', label: 'Plano do aluno', type: 'number', lookupEndpoint: 'students/{studentId}/related/plans', lookupLabelKey: 'plano.dsPlano', required: true },
-      { key: 'idProdutoMovimentacao', label: 'Movimentacao produto', type: 'number' },
+      { key: 'idProdutoMovimentacao', label: 'Movimentação produto', type: 'number' },
       { key: 'vlPagamento', label: 'Valor', type: 'number' },
       { key: 'idStatusPagamento', label: 'Status pagamento', type: 'number', lookupEndpoint: 'payment-statuses', lookupLabelKey: 'dsStatusPagamento' },
       { key: 'idFormaPagamento', label: 'Forma pagamento', type: 'number', lookupEndpoint: 'payment-methods', lookupLabelKey: 'dsFormaPagamento' },
@@ -214,7 +214,7 @@ export function StudentRegistration() {
       const response = await fetch(`${apiUrl}/students`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os alunos.');
+        throw new Error('Não foi possível carregar os alunos.');
       }
 
       const data = (await response.json()) as Student[];
@@ -281,7 +281,7 @@ export function StudentRegistration() {
           const response = await fetch(`${apiUrl}/${endpoint}`);
 
           if (!response.ok) {
-            throw new Error(`Nao foi possivel carregar ${field.label}.`);
+            throw new Error(`Não foi possível carregar ${field.label}.`);
           }
 
           nextLookups[field.key] = (await response.json()) as LookupRecord[];
@@ -339,7 +339,7 @@ export function StudentRegistration() {
       const response = await fetch(`${apiUrl}/students/${studentId}/files`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os arquivos do aluno.');
+        throw new Error('Não foi possível carregar os arquivos do aluno.');
       }
 
       const data = (await response.json()) as StudentFile[];
@@ -396,7 +396,7 @@ export function StudentRegistration() {
       );
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os registros relacionados.');
+        throw new Error('Não foi possível carregar os registros relacionados.');
       }
 
       const data = (await response.json()) as CompanyChildRecord[];
@@ -553,7 +553,7 @@ export function StudentRegistration() {
     }
 
     if (!isValidCpf(studentCpf)) {
-      errors.cpf = 'Informe um CPF valido.';
+      errors.cpf = 'Informe um CPF válido.';
     }
 
     if (!studentBirthDate) {
@@ -563,7 +563,7 @@ export function StudentRegistration() {
     }
 
     if (trimmedEmail && !isValidEmail(trimmedEmail)) {
-      errors.email = 'Informe um email valido.';
+      errors.email = 'Informe um email válido.';
     }
 
     return errors;
@@ -625,7 +625,7 @@ export function StudentRegistration() {
       });
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel alterar o status.');
+        throw new Error('Não foi possível alterar o status.');
       }
 
       const updatedStudent = (await response.json()) as Student;
@@ -692,7 +692,7 @@ export function StudentRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar.');
       }
 
       const savedStudent = (await response.json()) as Student;
@@ -743,7 +743,7 @@ export function StudentRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel alterar o status.');
+        throw new Error(errorBody.message ?? 'Não foi possível alterar o status.');
       }
 
       const updatedRecord = (await response.json()) as CompanyChildRecord;
@@ -805,7 +805,7 @@ export function StudentRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar o registro relacionado.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar o registro relacionado.');
       }
 
       const savedRecord = (await response.json()) as CompanyChildRecord;
@@ -844,7 +844,7 @@ export function StudentRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel enviar o arquivo.');
+        throw new Error(errorBody.message ?? 'Não foi possível enviar o arquivo.');
       }
 
       await loadStudentFiles(selectedStudentId);
@@ -875,7 +875,7 @@ export function StudentRegistration() {
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setFileFeedback('Camera nao suportada neste navegador.');
+      setFileFeedback('Câmera não suportada neste navegador.');
       cameraInputRef.current?.click();
       return;
     }
@@ -896,7 +896,7 @@ export function StudentRegistration() {
         cameraStreamRef.current = stream;
         setIsCameraModalOpen(true);
       } catch {
-        setFileFeedback('Nao foi possivel acessar a camera. Selecione um arquivo.');
+        setFileFeedback('Não foi possível acessar a câmera. Selecione um arquivo.');
         cameraInputRef.current?.click();
       }
     })();
@@ -928,7 +928,7 @@ export function StudentRegistration() {
       const context = canvas.getContext('2d');
 
       if (!context) {
-        throw new Error('Nao foi possivel capturar a imagem.');
+        throw new Error('Não foi possível capturar a imagem.');
       }
 
       context.drawImage(video, 0, 0, width, height);
@@ -938,7 +938,7 @@ export function StudentRegistration() {
       });
 
       if (!blob) {
-        throw new Error('Nao foi possivel capturar a imagem.');
+        throw new Error('Não foi possível capturar a imagem.');
       }
 
       const file = new File([blob], `aluno-${selectedStudentId}-${Date.now()}.jpg`, {
@@ -967,7 +967,7 @@ export function StudentRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel abrir o arquivo.');
+        throw new Error(errorBody.message ?? 'Não foi possível abrir o arquivo.');
       }
 
       const data = (await response.json()) as { url: string };
@@ -994,7 +994,7 @@ export function StudentRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel remover o arquivo.');
+        throw new Error(errorBody.message ?? 'Não foi possível remover o arquivo.');
       }
 
       await loadStudentFiles(selectedStudentId);
@@ -1253,7 +1253,7 @@ export function StudentRegistration() {
                             ...current,
                             cpf: isValidCpf(formattedCpf)
                               ? undefined
-                              : 'Informe um CPF valido.',
+                              : 'Informe um CPF válido.',
                           }));
                         }
                       }}
@@ -1348,7 +1348,7 @@ export function StudentRegistration() {
                           ...current,
                           email:
                             trimmedEmail && !isValidEmail(trimmedEmail)
-                              ? 'Informe um email valido.'
+                              ? 'Informe um email válido.'
                               : undefined,
                         }));
                       }

@@ -10,8 +10,8 @@ const trainingRelatedTables: CompanyChildTable[] = [
   {
     key: 'exercises',
     endpoint: 'exercises',
-    label: 'Exercicios',
-    title: 'Exercicios do treino',
+    label: 'Exercícios',
+    title: 'Exercícios do treino',
     columns: [
       { key: 'nrOrdem', label: 'Ordem' },
       { key: 'idExercicio', label: 'Exercicio', lookupLabelKey: 'dsExercicio' },
@@ -22,7 +22,7 @@ const trainingRelatedTables: CompanyChildTable[] = [
     fields: [
       { key: 'idEmpresa', label: 'Empresa', type: 'number', lookupEndpoint: 'companies', lookupLabelKey: 'dsEmpresa' },
       { key: 'idExercicio', label: 'Exercicio', type: 'number', lookupEndpoint: 'exercises', lookupLabelKey: 'dsExercicio', required: true },
-      { key: 'idMetodoTreino', label: 'Metodo de treino', type: 'number', lookupEndpoint: 'training-methods', lookupLabelKey: 'nmMetodoTreino' },
+      { key: 'idMetodoTreino', label: 'Método de treino', type: 'number', lookupEndpoint: 'training-methods', lookupLabelKey: 'nmMetodoTreino' },
       { key: 'nrOrdem', label: 'Ordem', type: 'number' },
       { key: 'nrSeries', label: 'Series', type: 'number' },
       { key: 'nrRepeticoes', label: 'Repeticoes', type: 'number' },
@@ -99,7 +99,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
       const response = await fetch(`${apiUrl}/trainings?includeInactive=true`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os treinos.');
+        throw new Error('Não foi possível carregar os treinos.');
       }
 
       setTrainings((await response.json()) as Training[]);
@@ -119,7 +119,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
       ]);
 
       if (!companiesResponse.ok || !levelsResponse.ok) {
-        throw new Error('Nao foi possivel carregar empresas e niveis.');
+        throw new Error('Não foi possível carregar empresas e níveis.');
       }
 
       const companiesData = (await companiesResponse.json()) as Company[];
@@ -146,7 +146,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
       const response = await fetch(`${apiUrl}/trainings/${trainingId}/related/${config.endpoint}`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os registros relacionados.');
+        throw new Error('Não foi possível carregar os registros relacionados.');
       }
 
       setTrainingRelatedRecords((await response.json()) as CompanyChildRecord[]);
@@ -204,7 +204,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
           const response = await fetch(`${apiUrl}/${field.lookupEndpoint}`);
 
           if (!response.ok) {
-            throw new Error(`Nao foi possivel carregar ${field.label}.`);
+            throw new Error(`Não foi possível carregar ${field.label}.`);
           }
 
           nextLookups[field.key] = (await response.json()) as LookupRecord[];
@@ -329,7 +329,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
       });
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel alterar o status.');
+        throw new Error('Não foi possível alterar o status.');
       }
 
       const updatedTraining = (await response.json()) as Training;
@@ -372,7 +372,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar o treino.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar o treino.');
       }
 
       const savedTraining = (await response.json()) as Training;
@@ -413,7 +413,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel alterar o status.');
+        throw new Error(errorBody.message ?? 'Não foi possível alterar o status.');
       }
 
       const updatedRecord = (await response.json()) as CompanyChildRecord;
@@ -475,7 +475,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar o registro relacionado.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar o registro relacionado.');
       }
 
       const savedRecord = (await response.json()) as CompanyChildRecord;
@@ -523,7 +523,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
           <div className="product-table" role="table" aria-label="Treinos cadastrados">
             <div className="product-row header" role="row">
               <span role="columnheader">Treino</span>
-              <span role="columnheader">Nivel</span>
+              <span role="columnheader">Nível</span>
               <span role="columnheader">Status</span>
             </div>
 
@@ -665,7 +665,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
         >
           <div className="collapsible-panel-header">
             <div>
-              <p className="section-label">Cadastro Treino</p>
+              <p className="section-label">Cadastro de Treino</p>
             </div>
             <button
               aria-expanded={!isTrainingFieldsCollapsed}
@@ -718,7 +718,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
               </div>
 
               <div className="field">
-                <label htmlFor="trainingLevel">Nivel</label>
+                <label htmlFor="trainingLevel">Nível</label>
                 <select
                   disabled={!isFormEnabled}
                   id="trainingLevel"

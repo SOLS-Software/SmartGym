@@ -75,7 +75,7 @@ const registrationInfo: Record<
     accent: '#2563eb',
     group: 'Treino',
     shortLabel: 'EX',
-    title: 'Exercicios',
+    title: 'Exercícios',
   },
   'Treino Cadastro': {
     accent: '#7c3aed',
@@ -105,7 +105,7 @@ const registrationInfo: Record<
     accent: '#0369a1',
     group: 'Alunos',
     shortLabel: 'AL',
-    title: 'Matriculas',
+    title: 'Matrículas',
   },
   Profissionais: {
     accent: '#4d7c0f',
@@ -117,7 +117,7 @@ const registrationInfo: Record<
     accent: '#475569',
     group: 'Config',
     shortLabel: 'DM',
-    title: 'Dominios',
+    title: 'Domínios',
   },
 };
 
@@ -191,18 +191,18 @@ const domainConfig: Record<
   }
 > = {
   Cargo: { endpoint: 'roles', field: 'dsCargo', label: 'Cargo', saveLabel: 'Salvar cargo' },
-  Frequencia: { endpoint: 'frequencies', field: 'dsFrequencia', label: 'Frequencia', saveLabel: 'Salvar frequencia' },
-  Nivel: { endpoint: 'levels', field: 'dsNivel', label: 'Nivel', saveLabel: 'Salvar nivel' },
+  Frequencia: { endpoint: 'frequencies', field: 'dsFrequencia', label: 'Frequência', saveLabel: 'Salvar frequência' },
+  Nivel: { endpoint: 'levels', field: 'dsNivel', label: 'Nível', saveLabel: 'Salvar nível' },
   UnidadeTempo: { endpoint: 'time-units', field: 'dsUnidadeTempo', label: 'Unidade de tempo', saveLabel: 'Salvar unidade' },
   StatusPagamento: { endpoint: 'payment-statuses', field: 'dsStatusPagamento', label: 'Status de pagamento', saveLabel: 'Salvar status' },
   FormaPagamento: { endpoint: 'payment-methods', field: 'dsFormaPagamento', label: 'Forma de pagamento', saveLabel: 'Salvar forma' },
   MetodoTreino: {
     endpoint: 'training-methods',
     field: 'nmMetodoTreino',
-    label: 'Metodo de treino',
-    saveLabel: 'Salvar metodo',
+    label: 'Método de treino',
+    saveLabel: 'Salvar método',
     secondField: 'dsMetodoTreino',
-    secondFieldLabel: 'Descricao',
+    secondFieldLabel: 'Descrição',
   },
   TipoArquivo: { endpoint: 'file-types', field: 'dsTipo', label: 'Tipo de arquivo', saveLabel: 'Salvar tipo' },
 };
@@ -235,7 +235,7 @@ function CompanyRegistration() {
       const response = await fetch(`${apiUrl}/companies`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar as empresas.');
+        throw new Error('Não foi possível carregar as empresas.');
       }
 
       const data = (await response.json()) as Company[];
@@ -301,7 +301,7 @@ function CompanyRegistration() {
       });
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel alterar o status.');
+        throw new Error('Não foi possível alterar o status.');
       }
 
       const updatedCompany = (await response.json()) as Company;
@@ -341,7 +341,7 @@ function CompanyRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar.');
       }
 
       const savedCompany = (await response.json()) as Company;
@@ -530,7 +530,7 @@ function ProductRegistration() {
       const response = await fetch(`${apiUrl}/products`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os produtos.');
+        throw new Error('Não foi possível carregar os produtos.');
       }
 
       const data = (await response.json()) as Product[];
@@ -548,7 +548,7 @@ function ProductRegistration() {
       const response = await fetch(`${apiUrl}/companies`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar as empresas.');
+        throw new Error('Não foi possível carregar as empresas.');
       }
 
       const data = (await response.json()) as Company[];
@@ -614,7 +614,7 @@ function ProductRegistration() {
       });
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel alterar o status.');
+        throw new Error('Não foi possível alterar o status.');
       }
 
       const updatedProduct = (await response.json()) as Product;
@@ -654,7 +654,7 @@ function ProductRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar.');
       }
 
       const savedProduct = (await response.json()) as Product;
@@ -686,7 +686,7 @@ function ProductRegistration() {
       <Text style={styles.formTitle}>Cadastro de Produto</Text>
       <Text style={styles.formDescription}>
         Informe os dados basicos do produto para controlar estoque e
-        movimentacoes.
+        movimentações.
       </Text>
 
       <View style={styles.productGridSection}>
@@ -1046,7 +1046,7 @@ function StudentRegistration() {
       const response = await fetch(`${apiUrl}/students`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os alunos.');
+        throw new Error('Não foi possível carregar os alunos.');
       }
 
       const data = (await response.json()) as Student[];
@@ -1079,7 +1079,7 @@ function StudentRegistration() {
       const response = await fetch(`${apiUrl}/students/${studentId}/files`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os arquivos do aluno.');
+        throw new Error('Não foi possível carregar os arquivos do aluno.');
       }
 
       const data = (await response.json()) as StudentFile[];
@@ -1188,7 +1188,7 @@ function StudentRegistration() {
     }
 
     if (!isValidCpf(studentCpf)) {
-      errors.cpf = 'Informe um CPF valido.';
+      errors.cpf = 'Informe um CPF válido.';
     }
 
     if (!studentBirthDate) {
@@ -1198,7 +1198,7 @@ function StudentRegistration() {
     }
 
     if (trimmedEmail && !isValidEmail(trimmedEmail)) {
-      errors.email = 'Informe um email valido.';
+      errors.email = 'Informe um email válido.';
     }
 
     return errors;
@@ -1289,7 +1289,7 @@ function StudentRegistration() {
       });
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel alterar o status.');
+        throw new Error('Não foi possível alterar o status.');
       }
 
       const updatedStudent = (await response.json()) as Student;
@@ -1352,7 +1352,7 @@ function StudentRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar.');
       }
 
       const savedStudent = (await response.json()) as Student;
@@ -1405,7 +1405,7 @@ function StudentRegistration() {
 
     if (!response.ok) {
       const errorBody = (await response.json()) as { message?: string };
-      throw new Error(errorBody.message ?? 'Nao foi possivel enviar o arquivo.');
+      throw new Error(errorBody.message ?? 'Não foi possível enviar o arquivo.');
     }
 
     await loadStudentFiles(selectedStudentId);
@@ -1452,7 +1452,7 @@ function StudentRegistration() {
       }
 
       if (!permission.granted) {
-        setFileFeedback('Permissao da camera nao concedida.');
+        setFileFeedback('Permissão da câmera não concedida.');
         return;
       }
 
@@ -1460,7 +1460,7 @@ function StudentRegistration() {
       setIsCameraOpen(true);
     } catch (error) {
       setFileFeedback(
-        error instanceof Error ? error.message : 'Erro ao abrir a camera.',
+        error instanceof Error ? error.message : 'Erro ao abrir a câmera.',
       );
     }
   }
@@ -1479,7 +1479,7 @@ function StudentRegistration() {
       });
 
       if (!photo?.uri) {
-        throw new Error('Nao foi possivel capturar a foto.');
+        throw new Error('Não foi possível capturar a foto.');
       }
 
       await uploadStudentFile({
@@ -1511,7 +1511,7 @@ function StudentRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel abrir o arquivo.');
+        throw new Error(errorBody.message ?? 'Não foi possível abrir o arquivo.');
       }
 
       const data = (await response.json()) as { url: string };
@@ -1538,7 +1538,7 @@ function StudentRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel remover o arquivo.');
+        throw new Error(errorBody.message ?? 'Não foi possível remover o arquivo.');
       }
 
       await loadStudentFiles(selectedStudentId);
@@ -1661,7 +1661,7 @@ function StudentRegistration() {
             if (touchedStudentFields.cpf) {
               setStudentErrors((current) => ({
                 ...current,
-                cpf: isValidCpf(formattedCpf) ? undefined : 'Informe um CPF valido.',
+                cpf: isValidCpf(formattedCpf) ? undefined : 'Informe um CPF válido.',
               }));
             }
           }}
@@ -1827,7 +1827,7 @@ function StudentRegistration() {
                 ...current,
                 email:
                   trimmedEmail && !isValidEmail(trimmedEmail)
-                    ? 'Informe um email valido.'
+                    ? 'Informe um email válido.'
                     : undefined,
               }));
             }
@@ -1844,7 +1844,7 @@ function StudentRegistration() {
           <Text style={styles.fieldErrorText}>{studentErrors.email}</Text>
         ) : null}
 
-        <Text style={styles.label}>Endereco</Text>
+        <Text style={styles.label}>Endereço</Text>
         <TextInput
           editable={isFormEnabled}
           maxLength={100}
@@ -1950,7 +1950,7 @@ function StudentRegistration() {
               (!selectedStudentId || isUploadingFile) && styles.disabledControl,
             ]}
           >
-            <Text style={styles.cameraButtonText}>Usar camera</Text>
+            <Text style={styles.cameraButtonText}>Usar câmera</Text>
           </Pressable>
         </View>
 
@@ -2064,7 +2064,7 @@ function getPasswordValidationMessage(password: string) {
   }
 
   if (/\s/.test(password)) {
-    return 'A senha nao pode conter espacos.';
+    return 'A senha não pode conter espaços.';
   }
 
   if (!/\d/.test(password)) {
@@ -2105,7 +2105,7 @@ export default function HomeScreen() {
     { label: 'Pelo menos 3 letras', met: (registerPassword.match(/[a-zA-Z]/g) ?? []).length >= 3 },
     { label: 'Pelo menos 6 caracteres', met: registerPassword.length >= 6 },
     { label: 'No maximo 20 caracteres', met: registerPassword.length > 0 && registerPassword.length <= 20 },
-    { label: 'Sem espacos', met: registerPassword.length > 0 && !/\s/.test(registerPassword) },
+    { label: 'Sem espaços', met: registerPassword.length > 0 && !/\s/.test(registerPassword) },
   ];
   const [selectedDomain, setSelectedDomain] = useState<DomainItem>(domainItems[0]);
   const [domainRecords, setDomainRecords] = useState<DomainRecord[]>([]);
@@ -2128,7 +2128,7 @@ export default function HomeScreen() {
     if (!cpf) return;
 
     if (cpf.length !== 11 || !isValidCpf(cpf)) {
-      setRegisterLookupFeedback('Informe um CPF valido para buscar o cadastro.');
+      setRegisterLookupFeedback('Informe um CPF válido para buscar o cadastro.');
       return;
     }
 
@@ -2139,19 +2139,19 @@ export default function HomeScreen() {
       );
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'CPF nao encontrado.');
+        throw new Error(errorBody.message ?? 'CPF não encontrado.');
       }
 
       const data = (await response.json()) as RegisterLookupRecord;
       setRegisterLookup(data);
       setRegisterLookupFeedback(
         data.hasUser
-          ? 'Este CPF ja possui usuario cadastrado.'
+          ? 'Este CPF já possui usuário cadastrado.'
           : 'Cadastro encontrado. Confira os dados e crie sua senha.',
       );
     } catch (error) {
       setRegisterLookupFeedback(
-        error instanceof Error ? error.message : 'CPF nao encontrado no cadastro.',
+        error instanceof Error ? error.message : 'CPF não encontrado no cadastro.',
       );
     } finally {
       setIsLookingUpRegister(false);
@@ -2184,12 +2184,12 @@ export default function HomeScreen() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel entrar.');
+        throw new Error(errorBody.message ?? 'Não foi possível entrar.');
       }
 
       const user = (await response.json()) as { name: string; type: 'student' | 'employee' };
       setAuthUserName(user.name);
-      setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionario');
+      setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
       setIsLoggedIn(true);
       setActiveTab('HOME');
     } catch (error) {
@@ -2213,7 +2213,7 @@ export default function HomeScreen() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel enviar o email.');
+        throw new Error(errorBody.message ?? 'Não foi possível enviar o email.');
       }
 
       const data = (await response.json()) as { email: string; message: string };
@@ -2239,7 +2239,7 @@ export default function HomeScreen() {
     }
 
     if (!registerLookup || registerLookup.hasUser) {
-      setRegisterLookupFeedback('Busque um CPF cadastrado e disponivel antes de criar o usuario.');
+      setRegisterLookupFeedback('Busque um CPF cadastrado e disponível antes de criar o usuário.');
       return;
     }
 
@@ -2260,7 +2260,7 @@ export default function HomeScreen() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel criar o cadastro.');
+        throw new Error(errorBody.message ?? 'Não foi possível criar o cadastro.');
       }
 
       const loginResponse = await fetch(`${apiUrl}/auth/login`, {
@@ -2271,7 +2271,7 @@ export default function HomeScreen() {
 
       if (!loginResponse.ok) {
         const errorBody = (await loginResponse.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Cadastro criado, mas nao foi possivel entrar automaticamente.');
+        throw new Error(errorBody.message ?? 'Cadastro criado, mas não foi possível entrar automaticamente.');
       }
 
       const user = (await loginResponse.json()) as { name: string; type: 'student' | 'employee' };
@@ -2282,7 +2282,7 @@ export default function HomeScreen() {
       setShowRegisterPassword(false);
       setAuthFeedback('');
       setAuthUserName(user.name);
-      setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionario');
+      setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
       setIsLoggedIn(true);
       setActiveTab('HOME');
     } catch (error) {
@@ -2302,7 +2302,7 @@ export default function HomeScreen() {
       const response = await fetch(`${apiUrl}/${config.endpoint}`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar o dominio.');
+        throw new Error('Não foi possível carregar o domínio.');
       }
 
       const data = (await response.json()) as Array<Record<string, unknown>>;
@@ -2323,7 +2323,7 @@ export default function HomeScreen() {
       setDomainFeedback('');
     } catch (error) {
       setDomainFeedback(
-        error instanceof Error ? error.message : 'Erro ao carregar dominio.',
+        error instanceof Error ? error.message : 'Erro ao carregar domínio.',
       );
       setDomainRecords([]);
       clearDomainForm();
@@ -2374,7 +2374,7 @@ export default function HomeScreen() {
       });
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel alterar o status.');
+        throw new Error('Não foi possível alterar o status.');
       }
 
       const updated = (await response.json()) as Record<string, unknown>;
@@ -2429,7 +2429,7 @@ export default function HomeScreen() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar.');
       }
 
       const saved = (await response.json()) as Record<string, unknown>;
@@ -2488,13 +2488,13 @@ export default function HomeScreen() {
           <Text style={styles.sectionLabel}>SmartGym</Text>
           <Text style={styles.selectedTitle}>Painel principal</Text>
           <Text style={styles.selectedText}>
-            Acompanhe os modulos da academia e acesse os cadastros pela barra
+            Acompanhe os módulos da academia e acesse os cadastros pela barra
             inferior.
           </Text>
 
           <View style={styles.summaryCard}>
             <Text style={styles.gridTitle}>Academia Cliente</Text>
-            <Text style={styles.selectedText}>Usuario: Joao Silva</Text>
+            <Text style={styles.selectedText}>Usuário: João Silva</Text>
             <Text style={styles.selectedText}>Perfil: Administrador</Text>
           </View>
         </ScrollView>
@@ -2513,7 +2513,7 @@ export default function HomeScreen() {
           <Text style={styles.sectionLabel}>Empresa</Text>
           <Text style={styles.selectedTitle}>Academia Cliente</Text>
           <Text style={styles.selectedText}>
-            Informacoes principais da empresa ativa na plataforma SmartGym.
+            Informações principais da empresa ativa na plataforma SmartGym.
           </Text>
 
           <View style={styles.summaryCard}>
@@ -2539,8 +2539,8 @@ export default function HomeScreen() {
             style={styles.productScroller}
             contentContainerStyle={styles.productView}
           >
-            <Text style={styles.sectionLabel}>Dominios</Text>
-            <Text style={styles.formTitle}>Cadastro de Dominios</Text>
+            <Text style={styles.sectionLabel}>Domínios</Text>
+            <Text style={styles.formTitle}>Cadastro de Domínios</Text>
             <Text style={styles.formDescription}>
               Tabelas de apoio para tipos e configuracoes gerais.
             </Text>
@@ -2717,7 +2717,7 @@ export default function HomeScreen() {
             <Text style={styles.selectedTitle}>{activeRegistration}</Text>
             <Text style={styles.selectedText}>
               Esta tela vai receber o formulario deste modulo conforme
-              avancarmos os proximos cadastros.
+              avançarmos os próximos cadastros.
             </Text>
           </View>
         );
@@ -2811,7 +2811,7 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.form}>
-            <Text style={styles.label}>Usuario</Text>
+            <Text style={styles.label}>Usuário</Text>
             <View style={styles.selectLike}>
               <Text style={styles.selectLikeText}>{authUserName}</Text>
             </View>
@@ -3016,7 +3016,7 @@ export default function HomeScreen() {
                     onPress={() => handleChangeRegisterType('employee')}
                     style={[styles.loginModeButton, registerType === 'employee' && styles.loginModeButtonActive]}
                   >
-                    <Text style={[styles.loginModeText, registerType === 'employee' && styles.loginModeTextActive]}>Funcionario</Text>
+                    <Text style={[styles.loginModeText, registerType === 'employee' && styles.loginModeTextActive]}>Funcionário</Text>
                   </Pressable>
                 </View>
 

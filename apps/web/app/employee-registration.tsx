@@ -110,13 +110,13 @@ export function EmployeeRegistration() {
       const response = await fetch(`${apiUrl}/employees`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os funcionarios.');
+        throw new Error('Não foi possível carregar os funcionários.');
       }
 
       setEmployees((await response.json()) as Employee[]);
       setFeedback('');
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : 'Erro ao carregar funcionarios.');
+      setFeedback(error instanceof Error ? error.message : 'Erro ao carregar funcionários.');
     } finally {
       setIsLoadingEmployees(false);
     }
@@ -130,7 +130,7 @@ export function EmployeeRegistration() {
       ]);
 
       if (!companiesResponse.ok || !rolesResponse.ok) {
-        throw new Error('Nao foi possivel carregar empresas e cargos.');
+        throw new Error('Não foi possível carregar empresas e cargos.');
       }
 
       const companiesData = (await companiesResponse.json()) as Company[];
@@ -212,11 +212,11 @@ export function EmployeeRegistration() {
     const trimmedEmail = employeeEmail.trim();
 
     if (!employeeName.trim()) {
-      errors.name = 'Informe o nome do funcionario.';
+      errors.name = 'Informe o nome do funcionário.';
     }
 
     if (!isValidCpf(cpf)) {
-      errors.cpf = 'Informe um CPF valido.';
+      errors.cpf = 'Informe um CPF válido.';
     }
 
     if (employeeBirthDate && !isValidPastDate(employeeBirthDate)) {
@@ -244,7 +244,7 @@ export function EmployeeRegistration() {
     }
 
     if (trimmedEmail && !isValidEmail(trimmedEmail)) {
-      errors.email = 'Informe um email valido.';
+      errors.email = 'Informe um email válido.';
     }
 
     return errors;
@@ -323,7 +323,7 @@ export function EmployeeRegistration() {
       });
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel alterar o status.');
+        throw new Error('Não foi possível alterar o status.');
       }
 
       const updatedEmployee = (await response.json()) as Employee;
@@ -386,16 +386,16 @@ export function EmployeeRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar o funcionario.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar o funcionário.');
       }
 
       const savedEmployee = (await response.json()) as Employee;
       await loadEmployees();
       setSelectedEmployeeId(savedEmployee.id);
       setIsCreating(false);
-      setFeedback('Funcionario salvo com sucesso.');
+      setFeedback('Funcionário salvo com sucesso.');
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : 'Erro ao salvar funcionario.');
+      setFeedback(error instanceof Error ? error.message : 'Erro ao salvar funcionário.');
     }
   }
 
@@ -409,14 +409,14 @@ export function EmployeeRegistration() {
         <section className="data-grid-section company-grid-section">
           <div className="grid-toolbar">
             <div className="child-grid-toolbar-label">
-              <p className="section-label">Funcionarios</p>
+              <p className="section-label">Funcionários</p>
             </div>
             <div className="child-grid-toolbar-actions">
               <label className="search-field">
                 <span>Pesquisar</span>
                 <input
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Buscar funcionario"
+                  placeholder="Buscar funcionário"
                   type="search"
                   value={searchTerm}
                 />
@@ -427,14 +427,14 @@ export function EmployeeRegistration() {
             </div>
           </div>
 
-          <div className="product-table" role="table" aria-label="Funcionarios cadastrados">
+          <div className="product-table" role="table" aria-label="Funcionários cadastrados">
             <div className="product-row header" role="row">
-              <span role="columnheader">Funcionario</span>
+              <span role="columnheader">Funcionário</span>
               <span role="columnheader">Cargo</span>
               <span role="columnheader">Status</span>
             </div>
 
-            {isLoadingEmployees ? <div className="empty-row">Carregando funcionarios...</div> : null}
+            {isLoadingEmployees ? <div className="empty-row">Carregando funcionários...</div> : null}
 
             {!isLoadingEmployees
               ? paginatedEmployees.map((employee) => (
@@ -457,7 +457,7 @@ export function EmployeeRegistration() {
               : null}
 
             {!isLoadingEmployees && filteredEmployees.length === 0 ? (
-              <div className="empty-row">Nenhum funcionario encontrado.</div>
+              <div className="empty-row">Nenhum funcionário encontrado.</div>
             ) : null}
           </div>
 
@@ -474,7 +474,7 @@ export function EmployeeRegistration() {
         >
           <div className="collapsible-panel-header">
             <div>
-              <p className="section-label">Cadastro Funcionario</p>
+              <p className="section-label">Cadastro de Funcionário</p>
             </div>
             <button
               aria-expanded={!isEmployeeFieldsCollapsed}
@@ -490,7 +490,7 @@ export function EmployeeRegistration() {
             <>
               {!isFormEnabled ? (
                 <div className="form-hint">
-                  Selecione um funcionario acima para editar ou clique em Novo.
+                  Selecione um funcionário acima para editar ou clique em Novo.
                 </div>
               ) : null}
 
@@ -498,7 +498,7 @@ export function EmployeeRegistration() {
 
               <div className="company-child-fields">
                 <div className="field">
-                  <label htmlFor="employeeName">Nome do funcionario *</label>
+                  <label htmlFor="employeeName">Nome do funcionário *</label>
                   <input
                     className={touchedEmployeeFields.name && employeeErrors.name ? 'invalid' : ''}
                     disabled={!isFormEnabled}
@@ -512,7 +512,7 @@ export function EmployeeRegistration() {
                       if (touchedEmployeeFields.name) {
                         setEmployeeErrors((current) => ({
                           ...current,
-                          name: value.trim() ? undefined : 'Informe o nome do funcionario.',
+                          name: value.trim() ? undefined : 'Informe o nome do funcionário.',
                         }));
                       }
                     }}
@@ -541,7 +541,7 @@ export function EmployeeRegistration() {
                       if (touchedEmployeeFields.cpf) {
                         setEmployeeErrors((current) => ({
                           ...current,
-                          cpf: isValidCpf(formattedCpf) ? undefined : 'Informe um CPF valido.',
+                          cpf: isValidCpf(formattedCpf) ? undefined : 'Informe um CPF válido.',
                         }));
                       }
                     }}
@@ -754,7 +754,7 @@ export function EmployeeRegistration() {
                           ...current,
                           email:
                             trimmedEmail && !isValidEmail(trimmedEmail)
-                              ? 'Informe um email valido.'
+                              ? 'Informe um email válido.'
                               : undefined,
                         }));
                       }
@@ -794,7 +794,7 @@ export function EmployeeRegistration() {
                   Limpar
                 </button>
                 <button disabled={!isFormEnabled} type="submit">
-                  Salvar funcionario
+                  Salvar funcionário
                 </button>
               </div>
             </>

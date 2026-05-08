@@ -64,7 +64,7 @@ export function DomainRegistration() {
       const response = await fetch(`${apiUrl}/${config.endpoint}`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar o dominio.');
+        throw new Error('Não foi possível carregar o domínio.');
       }
 
       const data = (await response.json()) as Array<Record<string, unknown>>;
@@ -84,7 +84,7 @@ export function DomainRegistration() {
       );
       setFeedback('');
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : 'Erro ao carregar dominio.');
+      setFeedback(error instanceof Error ? error.message : 'Erro ao carregar domínio.');
     }
   }
 
@@ -146,7 +146,7 @@ export function DomainRegistration() {
       });
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel alterar o status.');
+        throw new Error('Não foi possível alterar o status.');
       }
 
       const updated = (await response.json()) as Record<string, unknown>;
@@ -198,7 +198,7 @@ export function DomainRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar.');
       }
 
       const saved = (await response.json()) as Record<string, unknown>;

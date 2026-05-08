@@ -48,7 +48,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
   async function loadCompanies() {
     try {
       const response = await fetch(`${apiUrl}/companies`);
-      if (!response.ok) throw new Error('Nao foi possivel carregar as empresas.');
+      if (!response.ok) throw new Error('Não foi possível carregar as empresas.');
       const data = (await response.json()) as Company[];
       setCompanies(data.filter((company) => company.boInativo === 0));
     } catch (error) {
@@ -155,7 +155,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
         body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }),
       });
 
-      if (!response.ok) throw new Error('Nao foi possivel alterar o status.');
+      if (!response.ok) throw new Error('Não foi possível alterar o status.');
       const updated = (await response.json()) as Exercise;
       setExercises((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     } catch (error) {
@@ -185,7 +185,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar.');
       }
 
       const saved = (await response.json()) as Exercise;
@@ -221,7 +221,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel enviar o arquivo.');
+        throw new Error(errorBody.message ?? 'Não foi possível enviar o arquivo.');
       }
 
       await loadExerciseFiles(selectedExerciseId);
@@ -241,7 +241,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
       const response = await fetch(`${apiUrl}/exercises/${selectedExerciseId}/files/${fileId}/url`);
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel abrir o arquivo.');
+        throw new Error(errorBody.message ?? 'Não foi possível abrir o arquivo.');
       }
 
       const data = (await response.json()) as { url: string };
@@ -261,7 +261,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel remover o arquivo.');
+        throw new Error(errorBody.message ?? 'Não foi possível remover o arquivo.');
       }
 
       await loadExerciseFiles(selectedExerciseId);

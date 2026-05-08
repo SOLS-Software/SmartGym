@@ -137,7 +137,7 @@ function getPasswordValidationMessage(password: string) {
   }
 
   if (/\s/.test(password)) {
-    return 'A senha nao pode conter espacos.';
+    return 'A senha não pode conter espaços.';
   }
 
   if (!/\d/.test(password)) {
@@ -210,7 +210,7 @@ export default function HomePage() {
           const session = await decryptSession(stored);
           const { user, activeItem: savedActiveItem } = session;
           setAuthUserName(user.name);
-          setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionario');
+          setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
           setAuthUserType(user.type);
           setAuthUserEmployeeId(user.idFuncionario);
           setAuthUserStudentId(user.idAluno);
@@ -246,7 +246,7 @@ export default function HomePage() {
     void startFacialCamera().catch((error) => {
       setPendingFacialUser(null);
       setAuthFeedback(
-        error instanceof Error ? error.message : 'Nao foi possivel iniciar a camera.',
+        error instanceof Error ? error.message : 'Não foi possível iniciar a câmera.',
       );
     });
 
@@ -283,7 +283,7 @@ export default function HomePage() {
 
       const data = await readJsonResponse<RegisterLookupRecord>(
         response,
-        'CPF nao encontrado.',
+        'CPF não encontrado.',
       );
       setRegisterLookup(data);
       setRegisterLookupFeedback(
@@ -321,7 +321,7 @@ export default function HomePage() {
 
   async function startFacialCamera() {
     if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error('Seu navegador nao permite acesso a camera.');
+      throw new Error('Seu navegador não permite acesso à câmera.');
     }
 
     stopFacialCamera();
@@ -346,7 +346,7 @@ export default function HomePage() {
     }
 
     setPendingFacialUser(user);
-    setAuthFeedback('Senha confirmada. Posicione o rosto na camera para validar o acesso.');
+    setAuthFeedback('Senha confirmada. Posicione o rosto na câmera para validar o acesso.');
   }
 
   function completeLogin(user: AuthenticatedUser) {
@@ -355,7 +355,7 @@ export default function HomePage() {
     setPendingFacialUser(null);
     setAuthFeedback('');
     setAuthUserName(user.name);
-    setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionario');
+    setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
     setAuthUserType(user.type);
     setAuthUserEmployeeId(user.idFuncionario);
     setAuthUserStudentId(user.idAluno);
@@ -374,7 +374,7 @@ export default function HomePage() {
     const video = facialVideoRef.current;
 
     if (!video.videoWidth || !video.videoHeight) {
-      setAuthFeedback('Aguarde a camera carregar antes de validar.');
+      setAuthFeedback('Aguarde a câmera carregar antes de validar.');
       return;
     }
 
@@ -390,7 +390,7 @@ export default function HomePage() {
       });
 
       if (!blob) {
-        throw new Error('Nao foi possivel capturar a imagem da camera.');
+        throw new Error('Não foi possível capturar a imagem da câmera.');
       }
 
       const formData = new FormData();
@@ -403,12 +403,12 @@ export default function HomePage() {
 
       if (false && !response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel validar a facial.');
+        throw new Error(errorBody.message ?? 'Não foi possível validar a facial.');
       }
 
       const result = await readJsonResponse<FacialRecognitionResponse>(
         response,
-        'Nao foi possivel validar a facial.',
+        'Não foi possível validar a facial.',
       );
       const matchedSameStudent =
         result.match &&
@@ -416,7 +416,7 @@ export default function HomePage() {
         result.idAluno === pendingFacialUser.idAluno;
 
       if (!matchedSameStudent) {
-        throw new Error(result.message ?? 'Facial nao confere com o usuario informado.');
+        throw new Error(result.message ?? 'Facial não confere com o usuário informado.');
       }
 
       completeLogin(pendingFacialUser);
@@ -470,12 +470,12 @@ export default function HomePage() {
       });
       if (false && !response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel entrar.');
+        throw new Error(errorBody.message ?? 'Não foi possível entrar.');
       }
 
       const user = await readJsonResponse<AuthenticatedUser>(
         response,
-        'Nao foi possivel entrar.',
+        'Não foi possível entrar.',
       );
       // Validacao facial testada e mantida desativada no login web.
       // await requestFacialValidation(user);
@@ -511,13 +511,13 @@ export default function HomePage() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel enviar o email.');
+        throw new Error(errorBody.message ?? 'Não foi possível enviar o email.');
       }
 
       const data = await readJsonResponse<{
         email: string;
         message: string;
-      }>(response, 'Nao foi possivel enviar o email.');
+      }>(response, 'Não foi possível enviar o email.');
       setForgotEmail(data.email);
       setAuthFeedback(data.message);
     } catch (error) {
@@ -565,7 +565,7 @@ export default function HomePage() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel criar o cadastro.');
+        throw new Error(errorBody.message ?? 'Não foi possível criar o cadastro.');
       }
 
       const loginResponse = await fetch(`${apiUrl}/auth/login`, {
@@ -581,12 +581,12 @@ export default function HomePage() {
 
       if (false && !loginResponse.ok) {
         const errorBody = (await loginResponse.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Cadastro criado, mas nao foi possivel entrar automaticamente.');
+        throw new Error(errorBody.message ?? 'Cadastro criado, mas não foi possível entrar automaticamente.');
       }
 
       const user = await readJsonResponse<AuthenticatedUser>(
         loginResponse,
-        'Cadastro criado, mas nao foi possivel entrar automaticamente.',
+        'Cadastro criado, mas não foi possível entrar automaticamente.',
       );
       form.reset();
       setRegisterCpf('');
@@ -733,7 +733,7 @@ export default function HomePage() {
               <h2>{activeItem}</h2>
               <p>
                 Esta area vai receber o conteudo de cada modulo conforme
-                avancarmos nos cadastros, movimentacoes e consultas.
+                avançarmos nos cadastros, movimentações e consultas.
               </p>
             </div>
           )}

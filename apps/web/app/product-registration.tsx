@@ -30,7 +30,7 @@ export function ProductRegistration() {
       const response = await fetch(`${apiUrl}/products`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os produtos.');
+        throw new Error('Não foi possível carregar os produtos.');
       }
 
       const data = (await response.json()) as Product[];
@@ -48,7 +48,7 @@ export function ProductRegistration() {
       const response = await fetch(`${apiUrl}/companies`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar as empresas.');
+        throw new Error('Não foi possível carregar as empresas.');
       }
 
       const data = (await response.json()) as Company[];
@@ -124,7 +124,7 @@ export function ProductRegistration() {
       });
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel alterar o status.');
+        throw new Error('Não foi possível alterar o status.');
       }
 
       const updatedProduct = (await response.json()) as Product;
@@ -166,7 +166,7 @@ export function ProductRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar.');
       }
 
       const savedProduct = (await response.json()) as Product;
@@ -196,7 +196,7 @@ export function ProductRegistration() {
         <h2>Cadastro de Produto</h2>
         <p>
           Informe os dados basicos do produto para controlar estoque e
-          movimentacoes.
+          movimentações.
         </p>
       </div>
 

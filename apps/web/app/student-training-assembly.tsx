@@ -144,7 +144,7 @@ export function StudentTrainingAssembly({
       const response = await fetch(`${apiUrl}/students`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os alunos.');
+        throw new Error('Não foi possível carregar os alunos.');
       }
 
       setStudents((await response.json()) as Student[]);
@@ -166,7 +166,7 @@ export function StudentTrainingAssembly({
       ]);
 
       if (!trainingsResponse.ok || !employeesResponse.ok || !exercisesResponse.ok || !trainingMethodsResponse.ok) {
-        throw new Error('Nao foi possivel carregar treinos, profissionais e exercicios.');
+        throw new Error('Não foi possível carregar treinos, profissionais e exercícios.');
       }
 
       setTrainings(((await trainingsResponse.json()) as Training[]).filter((training) => training.boInativo === 0));
@@ -195,7 +195,7 @@ export function StudentTrainingAssembly({
       const response = await fetch(`${apiUrl}/students/${studentId}/related/trainings`, { signal: controller.signal });
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os treinos do aluno.');
+        throw new Error('Não foi possível carregar os treinos do aluno.');
       }
 
       const data = (await response.json()) as StudentTraining[];
@@ -234,7 +234,7 @@ export function StudentTrainingAssembly({
           const response = await fetch(`${apiUrl}/trainings/${trainingId}/related/exercises`);
 
           if (!response.ok) {
-            throw new Error('Nao foi possivel carregar os exercicios dos treinos.');
+            throw new Error('Não foi possível carregar os exercícios dos treinos.');
           }
 
           const records = ((await response.json()) as TrainingExercise[])
@@ -248,7 +248,7 @@ export function StudentTrainingAssembly({
       setGroupedTrainingExercises(Object.fromEntries(entries));
     } catch (error) {
       setGroupedTrainingExercises({});
-      setStudentTrainingFeedback(error instanceof Error ? error.message : 'Erro ao carregar exercicios dos treinos.');
+      setStudentTrainingFeedback(error instanceof Error ? error.message : 'Erro ao carregar exercícios dos treinos.');
     } finally {
       setIsLoadingGroupedTrainingExercises(false);
     }
@@ -263,7 +263,7 @@ export function StudentTrainingAssembly({
       const response = await fetch(`${apiUrl}/trainings/${trainingId}/related/exercises`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os exercicios do treino.');
+        throw new Error('Não foi possível carregar os exercícios do treino.');
       }
 
       const records = ((await response.json()) as TrainingExercise[])
@@ -275,7 +275,7 @@ export function StudentTrainingAssembly({
         [trainingId]: records,
       }));
     } catch (error) {
-      setStudentTrainingFeedback(error instanceof Error ? error.message : 'Erro ao carregar exercicios do treino.');
+      setStudentTrainingFeedback(error instanceof Error ? error.message : 'Erro ao carregar exercícios do treino.');
     }
   }
 
@@ -300,15 +300,15 @@ export function StudentTrainingAssembly({
       ]);
 
       if (!trainingExercisesResponse.ok) {
-        throw new Error('Nao foi possivel carregar os exercicios do treino.');
+        throw new Error('Não foi possível carregar os exercícios do treino.');
       }
 
       if (exercisesResponse && !exercisesResponse.ok) {
-        throw new Error('Nao foi possivel carregar a lista de exercicios.');
+        throw new Error('Não foi possível carregar a lista de exercícios.');
       }
 
       if (trainingMethodsResponse && !trainingMethodsResponse.ok) {
-        throw new Error('Nao foi possivel carregar metodos de treino.');
+        throw new Error('Não foi possível carregar métodos de treino.');
       }
 
       setSelectedTrainingExercises(
@@ -327,7 +327,7 @@ export function StudentTrainingAssembly({
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
       setSelectedTrainingExercises([]);
-      setStudentTrainingFeedback(error instanceof Error ? error.message : 'Erro ao carregar exercicios do treino.');
+      setStudentTrainingFeedback(error instanceof Error ? error.message : 'Erro ao carregar exercícios do treino.');
     } finally {
       setIsLoadingSelectedTrainingExercises(false);
     }
@@ -540,7 +540,7 @@ export function StudentTrainingAssembly({
 
   async function handleSaveSequenceOrder() {
     if (!selectedStudentId) {
-      setStudentTrainingFeedback('Selecione um aluno antes de salvar a sequencia.');
+      setStudentTrainingFeedback('Selecione um aluno antes de salvar a sequência.');
       return;
     }
 
@@ -557,13 +557,13 @@ export function StudentTrainingAssembly({
       setDraggedSequenceId(null);
       setStudentTrainingFeedback('Sequencia atualizada com sucesso.');
     } catch (error) {
-      setStudentTrainingFeedback(error instanceof Error ? error.message : 'Erro ao salvar sequencia.');
+      setStudentTrainingFeedback(error instanceof Error ? error.message : 'Erro ao salvar sequência.');
     }
   }
 
   async function persistSequenceOrder(records: StudentTraining[]) {
     if (!selectedStudentId) {
-      throw new Error('Selecione um aluno antes de salvar a sequencia.');
+      throw new Error('Selecione um aluno antes de salvar a sequência.');
     }
 
     const responses = await Promise.all(
@@ -586,7 +586,7 @@ export function StudentTrainingAssembly({
 
     if (failedResponse) {
       const errorBody = (await failedResponse.json()) as { message?: string };
-      throw new Error(errorBody.message ?? 'Nao foi possivel salvar a sequencia.');
+      throw new Error(errorBody.message ?? 'Não foi possível salvar a sequência.');
     }
   }
 
@@ -623,7 +623,7 @@ export function StudentTrainingAssembly({
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel alterar o status.');
+        throw new Error(errorBody.message ?? 'Não foi possível alterar o status.');
       }
 
       const activeRecordsAfterToggle =
@@ -640,8 +640,8 @@ export function StudentTrainingAssembly({
       setSelectedTrainingExercises([]);
       setStudentTrainingFeedback(
         nextInactive === 1
-          ? 'Treino inativado e sequencia reorganizada.'
-          : 'Treino ativado e sequencia reorganizada.',
+          ? 'Treino inativado e sequência reorganizada.'
+          : 'Treino ativado e sequência reorganizada.',
       );
     } catch (error) {
       setStudentTrainingFeedback(error instanceof Error ? error.message : 'Erro ao alterar status.');
@@ -688,13 +688,13 @@ export function StudentTrainingAssembly({
 
       if (failedResponse) {
         const errorBody = (await failedResponse.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar o treino do aluno.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar o treino do aluno.');
       }
 
       const savedRecord = (await responses[0]?.json()) as StudentTraining | undefined;
 
       if (!savedRecord) {
-        throw new Error('Nao foi possivel salvar o treino do aluno.');
+        throw new Error('Não foi possível salvar o treino do aluno.');
       }
 
       await loadStudentTrainings(selectedStudentId);
@@ -904,7 +904,7 @@ export function StudentTrainingAssembly({
                       </span>
                       <span role="cell">
                         {studentTraining.id < 0 ? (
-                          <span className="field-hint">Nao salvo</span>
+                          <span className="field-hint">Não salvo</span>
                         ) : (
                           <button
                             className={`grid-status-toggle ${studentTraining.boInativo === 0 ? 'active' : ''}`}
@@ -940,23 +940,23 @@ export function StudentTrainingAssembly({
                   <div className="grid-toolbar">
                     <div className="child-grid-toolbar-label">
                       <p className="section-label">
-                        Exercicios de {selectedStudentTraining.treino?.dsTreino ?? getTrainingName(selectedStudentTraining.idTreino)}
+                        Exercícios de {selectedStudentTraining.treino?.dsTreino ?? getTrainingName(selectedStudentTraining.idTreino)}
                       </p>
                     </div>
                   </div>
 
-                  <div className="product-table exercise-grid-animated" key={selectedStudentTrainingId ?? 'empty'} role="table" aria-label="Exercicios vinculados ao treino">
+                  <div className="product-table exercise-grid-animated" key={selectedStudentTrainingId ?? 'empty'} role="table" aria-label="Exercícios vinculados ao treino">
                     <div className="product-row training-exercise-row header" role="row">
                       <span role="columnheader">Ordem</span>
                       <span role="columnheader">Exercicio</span>
-                      <span role="columnheader">Metodo</span>
+                      <span role="columnheader">Método</span>
                       <span role="columnheader">Series</span>
                       <span role="columnheader">Repeticoes</span>
                       <span role="columnheader">Descanso</span>
                     </div>
 
                     {isLoadingSelectedTrainingExercises ? (
-                      <div className="empty-row">Carregando exercicios...</div>
+                      <div className="empty-row">Carregando exercícios...</div>
                     ) : null}
 
                     {!isLoadingSelectedTrainingExercises
@@ -981,20 +981,20 @@ export function StudentTrainingAssembly({
                 <section className="training-exercises-grid">
                   <div className="grid-toolbar">
                     <div className="child-grid-toolbar-label">
-                      <p className="section-label">Exercicios dos treinos</p>
+                      <p className="section-label">Exercícios dos treinos</p>
                     </div>
                   </div>
 
                   {isLoadingGroupedTrainingExercises ? (
-                    <div className="form-hint">Carregando exercicios dos treinos...</div>
+                    <div className="form-hint">Carregando exercícios dos treinos...</div>
                   ) : null}
 
                   {!isLoadingGroupedTrainingExercises ? (
-                    <div className="product-table" role="table" aria-label="Exercicios agrupados por treino">
+                    <div className="product-table" role="table" aria-label="Exercícios agrupados por treino">
                       <div className="product-row training-exercise-row header" role="row">
                         <span role="columnheader">Ordem</span>
                         <span role="columnheader">Exercicio</span>
-                        <span role="columnheader">Metodo</span>
+                        <span role="columnheader">Método</span>
                         <span role="columnheader">Series</span>
                         <span role="columnheader">Repeticoes</span>
                         <span role="columnheader">Descanso</span>
@@ -1033,7 +1033,7 @@ export function StudentTrainingAssembly({
                   ) : null}
 
                   {!isLoadingGroupedTrainingExercises && displayedStudentTrainings.length === 0 ? (
-                    <div className="form-hint">Nenhum treino ativo para mostrar exercicios.</div>
+                    <div className="form-hint">Nenhum treino ativo para mostrar exercícios.</div>
                   ) : null}
                 </section>
               ) : null}

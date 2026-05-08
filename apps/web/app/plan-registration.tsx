@@ -144,7 +144,7 @@ export function PlanRegistration() {
       const response = await fetch(`${apiUrl}/plans?includeInactive=true`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os planos.');
+        throw new Error('Não foi possível carregar os planos.');
       }
 
       const data = (await response.json()) as Plan[];
@@ -162,12 +162,12 @@ export function PlanRegistration() {
       const response = await fetch(`${apiUrl}/frequencies`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar as frequencias.');
+        throw new Error('Não foi possível carregar as frequências.');
       }
 
       setFrequencies((await response.json()) as Frequency[]);
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : 'Erro ao carregar frequencias.');
+      setFeedback(error instanceof Error ? error.message : 'Erro ao carregar frequências.');
     }
   }
 
@@ -186,7 +186,7 @@ export function PlanRegistration() {
       const response = await fetch(`${apiUrl}/plans/${planId}/related/${config.endpoint}`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os registros relacionados.');
+        throw new Error('Não foi possível carregar os registros relacionados.');
       }
 
       setPlanRelatedRecords((await response.json()) as CompanyChildRecord[]);
@@ -233,7 +233,7 @@ export function PlanRegistration() {
           const response = await fetch(`${apiUrl}/${field.lookupEndpoint}`);
 
           if (!response.ok) {
-            throw new Error(`Nao foi possivel carregar ${field.label}.`);
+            throw new Error(`Não foi possível carregar ${field.label}.`);
           }
 
           nextLookups[field.key] = (await response.json()) as LookupRecord[];
@@ -346,7 +346,7 @@ export function PlanRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel alterar o status.');
+        throw new Error(errorBody.message ?? 'Não foi possível alterar o status.');
       }
 
       await loadPlans();
@@ -384,7 +384,7 @@ export function PlanRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar o plano.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar o plano.');
       }
 
       const savedPlan = (await response.json()) as Plan;
@@ -425,7 +425,7 @@ export function PlanRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel alterar o status.');
+        throw new Error(errorBody.message ?? 'Não foi possível alterar o status.');
       }
 
       const updated = (await response.json()) as CompanyChildRecord;
@@ -478,7 +478,7 @@ export function PlanRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar o registro relacionado.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar o registro relacionado.');
       }
 
       const saved = (await response.json()) as CompanyChildRecord;
@@ -662,7 +662,7 @@ export function PlanRegistration() {
           >
             <div className="collapsible-panel-header">
               <div>
-                <p className="section-label">Cadastro Plano</p>
+                <p className="section-label">Cadastro de Plano</p>
               </div>
               <button
                 aria-expanded={!isPlanFieldsCollapsed}

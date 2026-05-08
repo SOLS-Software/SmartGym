@@ -293,7 +293,7 @@ export function CompanyRegistration() {
       const response = await fetch(`${apiUrl}/companies`);
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar as empresas.');
+        throw new Error('Não foi possível carregar as empresas.');
       }
 
       const data = (await response.json()) as Company[];
@@ -346,7 +346,7 @@ export function CompanyRegistration() {
       );
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel carregar os registros filhos.');
+        throw new Error('Não foi possível carregar os registros filhos.');
       }
 
       const data = (await response.json()) as CompanyChildRecord[];
@@ -435,7 +435,7 @@ export function CompanyRegistration() {
           const response = await fetch(`${apiUrl}/${endpoint}`);
 
           if (!response.ok) {
-            throw new Error(`Nao foi possivel carregar ${field.label}.`);
+            throw new Error(`Não foi possível carregar ${field.label}.`);
           }
 
           nextLookups[field.key] = (await response.json()) as LookupRecord[];
@@ -515,7 +515,7 @@ export function CompanyRegistration() {
       );
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel alterar o status do registro filho.');
+        throw new Error('Não foi possível alterar o status do registro filho.');
       }
 
       const updated = (await response.json()) as CompanyChildRecord;
@@ -570,7 +570,7 @@ export function CompanyRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar o registro filho.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar o registro filho.');
       }
 
       const saved = (await response.json()) as CompanyChildRecord;
@@ -620,7 +620,7 @@ export function CompanyRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel enviar o arquivo.');
+        throw new Error(errorBody.message ?? 'Não foi possível enviar o arquivo.');
       }
 
       const saved = (await response.json()) as CompanyChildRecord;
@@ -654,7 +654,7 @@ export function CompanyRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel abrir o arquivo.');
+        throw new Error(errorBody.message ?? 'Não foi possível abrir o arquivo.');
       }
 
       const data = (await response.json()) as { url: string };
@@ -680,7 +680,7 @@ export function CompanyRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel remover o arquivo.');
+        throw new Error(errorBody.message ?? 'Não foi possível remover o arquivo.');
       }
 
       await loadChildRecords(selectedCompanyId);
@@ -742,7 +742,7 @@ export function CompanyRegistration() {
       });
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel alterar o status.');
+        throw new Error('Não foi possível alterar o status.');
       }
 
       const updatedCompany = (await response.json()) as Company;
@@ -772,7 +772,7 @@ export function CompanyRegistration() {
     if (!companyCnpj.trim()) {
       errors.cnpj = 'Informe o CNPJ.';
     } else if (!isValidCnpj(companyCnpj)) {
-      errors.cnpj = 'Informe um CNPJ valido.';
+      errors.cnpj = 'Informe um CNPJ válido.';
     }
 
     return errors;
@@ -829,7 +829,7 @@ export function CompanyRegistration() {
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Nao foi possivel salvar.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar.');
       }
 
       const savedCompany = (await response.json()) as Company;
@@ -855,7 +855,7 @@ export function CompanyRegistration() {
   return (
     <div className="form-view">
       <div className="form-heading">
-        <p className="section-label">Cadastro Empresa </p>
+        <p className="section-label">Cadastro de Empresa</p>
       </div>
 
       <div className="registration-split-layout company-split-layout">
@@ -1087,7 +1087,7 @@ export function CompanyRegistration() {
                           ...current,
                           cnpj: isValidCnpj(formattedCnpj)
                             ? undefined
-                            : 'Informe um CNPJ valido.',
+                            : 'Informe um CNPJ válido.',
                         }));
                       }
                     }}
