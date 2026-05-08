@@ -71,6 +71,13 @@ type ExercisePayload = {
   boInativo?: number;
 };
 
+type TrainingPayload = {
+  idEmpresa?: number | string | null;
+  idNivel?: number | string | null;
+  dsTreino?: string;
+  boInativo?: number;
+};
+
 type CompanyPayload = {
   dsEmpresa?: string;
   caCNPJ?: string;
@@ -90,6 +97,34 @@ type StudentPayload = {
   anBairro?: string;
   nrEndereco?: number | string | null;
   boInativo?: number;
+};
+
+type StudentFacialBiometricPayload = {
+  idAlunoArquivo?: number | string | null;
+  dsModelo?: string;
+  dsProvider?: string;
+  dsSubject?: string | null;
+  dsExternalImageId?: string | null;
+  anEmbedding?: unknown;
+  nrThreshold?: number | string | null;
+};
+
+type StudentFacialBiometricEnrollPayload = {
+  idAlunoArquivo?: number | string | null;
+  nrThreshold?: number | string | null;
+};
+
+type StudentFacialVerificationPayload = {
+  anEmbedding?: unknown;
+};
+
+type FacialRecognitionResult = {
+  result?: Array<{
+    subjects?: Array<{
+      subject?: string;
+      similarity?: number;
+    }>;
+  }>;
 };
 
 type PlanPayload = {
@@ -145,7 +180,7 @@ type CompanyChildResource =
   | 'student-check-ins'
   | 'themes';
 
-type StudentChildResource = 'plans' | 'payments' | 'check-ins';
+type StudentChildResource = 'plans' | 'payments' | 'check-ins' | 'trainings';
 
 type PlanChildResource =
   | 'values'
@@ -160,6 +195,13 @@ type SupabaseConfig = {
   url: string;
   serviceRoleKey: string;
   bucket: string;
+};
+
+type ComprefaceConfig = {
+  url: string;
+  recognitionApiKey: string;
+  detProbThreshold: number;
+  similarityThreshold: number;
 };
 
 interface EnviarEmailParams {
@@ -202,6 +244,108 @@ function getSupabaseClient() {
   });
 
   return supabaseClient;
+}
+
+function getComprefaceConfig(): ComprefaceConfig {
+  const url = process.env.COMPREFACE_URL;
+  const recognitionApiKey = process.env.COMPREFACE_RECOGNITION_API_KEY;
+  const detProbThreshold = Number(process.env.COMPREFACE_DET_PROB_THRESHOLD ?? 0.8);
+  const similarityThreshold = Number(process.env.COMPREFACE_SIMILARITY_THRESHOLD ?? 0.85);
+
+  if (!url || !recognitionApiKey) {
+    throw new Error('Configure COMPREFACE_URL e COMPREFACE_RECOGNITION_API_KEY.');
+  }
+
+  if (!Number.isFinite(detProbThreshold) || detProbThreshold <= 0 || detProbThreshold > 1) {
+    throw new Error('Configure COMPREFACE_DET_PROB_THRESHOLD entre 0 e 1.');
+  }
+
+  if (!Number.isFinite(similarityThreshold) || similarityThreshold <= 0 || similarityThreshold > 1) {
+    throw new Error('Configure COMPREFACE_SIMILARITY_THRESHOLD entre 0 e 1.');
+  }
+
+  return {
+    url: url.replace(/\/+$/g, ''),
+    recognitionApiKey,
+    detProbThreshold,
+    similarityThreshold,
+  };
+}
+
+function getStudentFacialSubject(studentId: number) {
+  return `aluno-${studentId}`;
+}
+
+function getImageContentType(fileName: string) {
+  const extension = extname(fileName).toLowerCase();
+
+  if (extension === '.png') {
+    return 'image/png';
+  }
+
+  if (extension === '.webp') {
+    return 'image/webp';
+  }
+
+  if (extension === '.bmp') {
+    return 'image/bmp';
+  }
+
+  return 'image/jpeg';
+}
+
+async function requestCompreface<T>(url: URL, formData: FormData): Promise<T> {
+  console.log("Comecou a comprar")
+  const config = getComprefaceConfig();
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'x-api-key': config.recognitionApiKey,
+    },
+    body: formData,
+  });
+
+  const responseText = await response.text();
+  const responseBody = responseText ? JSON.parse(responseText) : {};
+
+  if (!response.ok) {
+    const message =
+      typeof responseBody.message === 'string'
+        ? responseBody.message
+        : 'Erro ao comunicar com o CompreFace.';
+    throw new Error(message);
+  }
+
+  return responseBody as T;
+}
+
+function createImageFormData(buffer: Buffer, fileName: string) {
+  const contentType = getImageContentType(fileName);
+  const formData = new FormData();
+  formData.append('file', new Blob([new Uint8Array(buffer)], { type: contentType }), fileName);
+  return formData;
+}
+
+async function addComprefaceSubjectExample(subject: string, buffer: Buffer, fileName: string) {
+  const config = getComprefaceConfig();
+  const url = new URL('/api/v1/recognition/faces', config.url);
+  url.searchParams.set('subject', subject);
+  url.searchParams.set('det_prob_threshold', String(config.detProbThreshold));
+
+  return requestCompreface<{ image_id: string; subject: string }>(
+    url,
+    createImageFormData(buffer, fileName),
+  );
+}
+
+async function recognizeComprefaceFace(buffer: Buffer, fileName: string) {
+  const config = getComprefaceConfig();
+  const url = new URL('/api/v1/recognition/recognize', config.url);
+  url.searchParams.set('limit', '1');
+  url.searchParams.set('prediction_count', '1');
+  url.searchParams.set('det_prob_threshold', String(config.detProbThreshold));
+
+  return requestCompreface<FacialRecognitionResult>(url, createImageFormData(buffer, fileName));
 }
 
 function normalizeFileName(fileName: string) {
@@ -290,6 +434,21 @@ function normalizeExercisePayload(payload: ExercisePayload) {
   return {
     idEmpresa: payload.idEmpresa ?? null,
     dsExercicio,
+    boInativo: Number(payload.boInativo ?? 0),
+  };
+}
+
+function normalizeTrainingPayload(payload: TrainingPayload) {
+  const dsTreino = payload.dsTreino?.trim();
+
+  if (!dsTreino) {
+    throw new Error('Informe o nome do treino.');
+  }
+
+  return {
+    idEmpresa: optionalNumber(payload.idEmpresa),
+    idNivel: optionalNumber(payload.idNivel),
+    dsTreino,
     boInativo: Number(payload.boInativo ?? 0),
   };
 }
@@ -434,6 +593,63 @@ function normalizeStudentPayload(payload: StudentPayload) {
         ? null
         : Number(payload.nrEndereco ?? 0),
     boInativo: Number(payload.boInativo ?? 0),
+  };
+}
+
+function normalizeStudentFacialBiometricPayload(payload: StudentFacialBiometricPayload) {
+  const idAlunoArquivo = optionalNumber(payload.idAlunoArquivo);
+  const dsModelo = payload.dsModelo?.trim();
+  const dsProvider = payload.dsProvider?.trim();
+  const dsSubject = payload.dsSubject?.trim() || null;
+  const dsExternalImageId = payload.dsExternalImageId?.trim() || null;
+  const nrThreshold = Number(payload.nrThreshold ?? 0.85);
+  const embedding = payload.anEmbedding;
+
+  if (!dsModelo) {
+    throw new Error('Informe o modelo da biometria facial.');
+  }
+
+  if (dsModelo.length > 100) {
+    throw new Error('O modelo da biometria facial deve ter no maximo 100 caracteres.');
+  }
+
+  if (!dsProvider) {
+    throw new Error('Informe o provider da biometria facial.');
+  }
+
+  if (dsProvider.length > 100) {
+    throw new Error('O provider da biometria facial deve ter no maximo 100 caracteres.');
+  }
+
+  const anEmbedding = Array.isArray(embedding)
+    ? embedding.map((value) => Number(value))
+    : null;
+
+  if (anEmbedding && anEmbedding.length === 0) {
+    throw new Error('Informe o embedding facial.');
+  }
+
+  if (anEmbedding?.some((value) => !Number.isFinite(value))) {
+    throw new Error('O embedding facial deve conter apenas numeros.');
+  }
+
+  if (!anEmbedding && !dsSubject && !dsExternalImageId) {
+    throw new Error('Informe o embedding facial ou a referencia externa da biometria.');
+  }
+
+  if (!Number.isFinite(nrThreshold) || nrThreshold <= 0 || nrThreshold > 1) {
+    throw new Error('Informe um threshold entre 0 e 1.');
+  }
+
+  return {
+    idAlunoArquivo,
+    dsModelo,
+    dsProvider,
+    dsSubject,
+    dsExternalImageId,
+    anEmbedding,
+    nrDimensoes: anEmbedding?.length ?? null,
+    nrThreshold,
   };
 }
 
@@ -875,7 +1091,12 @@ function getChildResourceConfig(resource: string) {
 }
 
 function getStudentChildResourceConfig(resource: string) {
-  if (resource !== 'plans' && resource !== 'payments' && resource !== 'check-ins') {
+  if (
+    resource !== 'plans' &&
+    resource !== 'payments' &&
+    resource !== 'check-ins' &&
+    resource !== 'trainings'
+  ) {
     throw new Error('Tabela relacionada invalida.');
   }
 
@@ -963,6 +1184,8 @@ app.post<{
 
     return {
       id: user.id,
+      idAluno: user.idAluno,
+      idFuncionario: user.idFuncionario,
       login: user.dsLogin,
       name: user.aluno?.nmAluno ?? user.funcionario?.nmFuncionario ?? user.dsLogin,
       type: user.idAluno ? 'student' : 'employee',
@@ -1367,6 +1590,347 @@ app.patch<{
 });
 
 app.get<{
+  Params: {
+    id: string;
+  };
+}>('/students/:id/facial-biometrics', async (request, reply) => {
+  try {
+    const idAluno = Number(request.params.id);
+    assertValidId(idAluno, 'Aluno invalido.');
+
+    return prisma.alunoBiometriaFacial.findMany({
+      where: {
+        idAluno,
+        boInativo: 0,
+      },
+      orderBy: {
+        dtCadastro: 'desc',
+      },
+    });
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao listar biometrias faciais do aluno.',
+    });
+  }
+});
+
+app.post<{
+  Params: {
+    id: string;
+  };
+  Body: StudentFacialBiometricPayload;
+}>('/students/:id/facial-biometrics', async (request, reply) => {
+  try {
+    const idAluno = Number(request.params.id);
+    assertValidId(idAluno, 'Aluno invalido.');
+
+    const data = normalizeStudentFacialBiometricPayload(request.body);
+    const student = await prisma.aluno.findUnique({
+      where: {
+        id: idAluno,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!student) {
+      return reply.code(404).send({
+        message: 'Aluno nao encontrado.',
+      });
+    }
+
+    if (data.idAlunoArquivo) {
+      const studentFile = await prisma.alunoArquivo.findFirst({
+        where: {
+          id: data.idAlunoArquivo,
+          idAluno,
+          boInativo: 0,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!studentFile) {
+        throw new Error('Arquivo do aluno invalido para biometria facial.');
+      }
+    }
+
+    const biometric = await prisma.$transaction(async (transaction) => {
+      await transaction.alunoBiometriaFacial.updateMany({
+        where: {
+          idAluno,
+          boInativo: 0,
+        },
+        data: {
+          boInativo: 1,
+        },
+      });
+
+      return transaction.alunoBiometriaFacial.create({
+        data: {
+          idAluno,
+          idAlunoArquivo: data.idAlunoArquivo,
+          dsModelo: data.dsModelo,
+          dsProvider: data.dsProvider,
+          dsSubject: data.dsSubject,
+          dsExternalImageId: data.dsExternalImageId,
+          anEmbedding: data.anEmbedding ?? undefined,
+          nrDimensoes: data.nrDimensoes,
+          nrThreshold: data.nrThreshold,
+          boInativo: 0,
+        },
+      });
+    });
+
+    return reply.code(201).send(biometric);
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao salvar biometria facial do aluno.',
+    });
+  }
+});
+
+app.post<{
+  Params: {
+    id: string;
+  };
+  Body: StudentFacialBiometricEnrollPayload;
+}>('/students/:id/facial-biometrics/enroll', async (request, reply) => {
+  try {
+    console.log("Comecou o Processo de Enroll da Biometria Facial");
+    const idAluno = Number(request.params.id);
+    assertValidId(idAluno, 'Aluno invalido.');
+
+    const idAlunoArquivo = optionalNumber(request.body.idAlunoArquivo);
+    const nrThreshold = Number(
+      request.body.nrThreshold ?? getComprefaceConfig().similarityThreshold,
+    );
+
+    if (!idAlunoArquivo) {
+      throw new Error('Informe o arquivo do aluno para cadastrar a biometria facial.');
+    }
+
+    if (!Number.isFinite(nrThreshold) || nrThreshold <= 0 || nrThreshold > 1) {
+      throw new Error('Informe um threshold entre 0 e 1.');
+    }
+
+    const student = await prisma.aluno.findUnique({
+      where: {
+        id: idAluno,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!student) {
+      return reply.code(404).send({
+        message: 'Aluno nao encontrado.',
+      });
+    }
+
+    const studentFile = await prisma.alunoArquivo.findFirst({
+      where: {
+        id: idAlunoArquivo,
+        idAluno,
+        boInativo: 0,
+      },
+      select: {
+        id: true,
+        dsArquivo: true,
+        anCaminho: true,
+      },
+    });
+
+    if (!studentFile) {
+      throw new Error('Arquivo do aluno invalido para biometria facial.');
+    }
+    console.log("Achou o Aluno e o Arquivo, iniciando download do arquivo para cadastro da biometria facial no CompreFace");
+    const { bucket } = getSupabaseConfig();
+    const supabase = getSupabaseClient();
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from(bucket)
+      .download(studentFile.anCaminho);
+
+    if (downloadError) {
+      throw new Error(downloadError.message);
+    }
+
+    const buffer = Buffer.from(await fileData.arrayBuffer());
+    console.log("Arquivo baixado, cadastrando biometria facial no CompreFace");
+    const subject = getStudentFacialSubject(idAluno);
+    console.log("Setou o subjeto");
+    const comprefaceFace = await addComprefaceSubjectExample(
+      subject,
+      buffer,
+      studentFile.dsArquivo,
+    );
+    console.log("Terminou o cadastro da biometria facial no CompreFace, salvando no banco de dados");
+    const biometric = await prisma.$transaction(async (transaction) => {
+      await transaction.alunoBiometriaFacial.updateMany({
+        where: {
+          idAluno,
+          boInativo: 0,
+        },
+        data: {
+          boInativo: 1,
+        },
+      });
+
+      return transaction.alunoBiometriaFacial.create({
+        data: {
+          idAluno,
+          idAlunoArquivo,
+          dsModelo: 'compreface',
+          dsProvider: 'compreface',
+          dsSubject: comprefaceFace.subject || subject,
+          dsExternalImageId: comprefaceFace.image_id,
+          nrThreshold,
+          boInativo: 0,
+        },
+      });
+    });
+
+    return reply.code(201).send(biometric);
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao cadastrar biometria facial no CompreFace.',
+    });
+  }
+});
+
+app.patch<{
+  Params: {
+    id: string;
+    biometricId: string;
+  };
+  Body: {
+    boInativo?: number;
+  };
+}>('/students/:id/facial-biometrics/:biometricId/status', async (request, reply) => {
+  try {
+    const idAluno = Number(request.params.id);
+    const id = Number(request.params.biometricId);
+    assertValidId(idAluno, 'Aluno invalido.');
+    assertValidId(id, 'Biometria facial invalida.');
+
+    const current = await prisma.alunoBiometriaFacial.findFirst({
+      where: {
+        id,
+        idAluno,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!current) {
+      return reply.code(404).send({
+        message: 'Biometria facial nao encontrada.',
+      });
+    }
+
+    return prisma.alunoBiometriaFacial.update({
+      where: {
+        id,
+      },
+      data: {
+        boInativo: Number(request.body.boInativo ?? 0),
+      },
+    });
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao alterar status da biometria facial.',
+    });
+  }
+});
+
+app.post('/access/facial/recognize', async (request, reply) => {
+  try {
+    const file = await request.file();
+
+    if (!file) {
+      return reply.code(400).send({
+        message: 'Envie uma imagem para reconhecimento facial.',
+      });
+    }
+
+    const buffer = await file.toBuffer();
+    const recognition = await recognizeComprefaceFace(buffer, file.filename);
+    const prediction = recognition.result?.[0]?.subjects?.[0];
+    const subject = prediction?.subject;
+    const similarity = Number(prediction?.similarity ?? 0);
+
+    if (!subject) {
+      return {
+        match: false,
+        access: 'denied',
+        similarity,
+        message: 'Nenhum aluno reconhecido.',
+      };
+    }
+
+    const biometric = await prisma.alunoBiometriaFacial.findFirst({
+      where: {
+        dsProvider: 'compreface',
+        dsSubject: subject,
+        boInativo: 0,
+      },
+      select: {
+        idAluno: true,
+        nrThreshold: true,
+        aluno: {
+          select: {
+            id: true,
+            nmAluno: true,
+          },
+        },
+      },
+      orderBy: {
+        dtCadastro: 'desc',
+      },
+    });
+
+    if (!biometric) {
+      return {
+        match: false,
+        access: 'denied',
+        subject,
+        similarity,
+        message: 'Biometria facial nao vinculada a um aluno ativo.',
+      };
+    }
+
+    const threshold = Math.max(
+      Number(biometric.nrThreshold),
+      getComprefaceConfig().similarityThreshold,
+    );
+    const match = similarity >= threshold;
+
+    return {
+      match,
+      access: match ? 'granted' : 'denied',
+      idAluno: match ? biometric.idAluno : null,
+      aluno: match ? biometric.aluno : null,
+      subject,
+      similarity,
+      threshold,
+    };
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao reconhecer biometria facial.',
+    });
+  }
+});
+
+app.get<{
   Querystring: {
     search?: string;
   };
@@ -1737,6 +2301,43 @@ app.get<{
   }
 });
 
+app.get<{
+  Params: {
+    id: string;
+  };
+}>('/students/:id/related/trainings', async (request, reply) => {
+  try {
+    const idAluno = Number(request.params.id);
+    assertValidId(idAluno, 'Aluno invalido.');
+
+    return prisma.alunoTreino.findMany({
+      where: {
+        idAluno,
+      },
+      include: {
+        funcionario: true,
+        treino: true,
+        alunoTreinosSequencias: {
+          where: {
+            boInativo: 0,
+          },
+          orderBy: {
+            nrOrdem: 'asc',
+          },
+        },
+      },
+      orderBy: {
+        dtCadastro: 'desc',
+      },
+    });
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao listar treinos do aluno.',
+    });
+  }
+});
+
 app.post<{
   Params: {
     id: string;
@@ -1775,6 +2376,88 @@ app.post<{
           dtAdmissao: optionalDate(request.body.dtAdmissao) ?? new Date(),
           boInativo: Number(request.body.boInativo ?? 0),
         },
+      });
+
+      return reply.code(201).send(record);
+    }
+
+    if (resource === 'trainings') {
+      const idTreino = optionalNumber(request.body.idTreino);
+
+      if (!idTreino) {
+        throw new Error('Selecione um treino.');
+      }
+
+      const training = await prisma.treino.findUnique({
+        where: {
+          id: idTreino,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!training) {
+        throw new Error('Treino invalido.');
+      }
+
+      const idFuncionario = optionalNumber(request.body.idFuncionario);
+
+      if (!idFuncionario) {
+        throw new Error('Profissional logado invalido.');
+      }
+
+      const employee = await prisma.funcionario.findUnique({
+        where: {
+          id: idFuncionario,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!employee) {
+        throw new Error('Profissional invalido.');
+      }
+
+      const nrOrdemSequencia = optionalNumber(request.body.nrOrdemSequencia);
+      const record = await prisma.$transaction(async (transaction) => {
+        const studentTraining = await transaction.alunoTreino.create({
+          data: {
+            idAluno,
+            idFuncionario,
+            idTreino,
+            boInativo: Number(request.body.boInativo ?? 0),
+          },
+        });
+
+        if (nrOrdemSequencia) {
+          await transaction.alunoTreinoSequencia.create({
+            data: {
+              idAlunoTreino: studentTraining.id,
+              nrOrdem: nrOrdemSequencia,
+              boInativo: 0,
+            },
+          });
+        }
+
+        return transaction.alunoTreino.findUniqueOrThrow({
+          where: {
+            id: studentTraining.id,
+          },
+          include: {
+            funcionario: true,
+            treino: true,
+            alunoTreinosSequencias: {
+              where: {
+                boInativo: 0,
+              },
+              orderBy: {
+                nrOrdem: 'asc',
+              },
+            },
+          },
+        });
       });
 
       return reply.code(201).send(record);
@@ -1879,6 +2562,124 @@ app.put<{
           dtAdmissao: optionalDate(request.body.dtAdmissao) ?? new Date(),
           boInativo: Number(request.body.boInativo ?? 0),
         },
+      });
+    }
+
+    if (resource === 'trainings') {
+      const current = await prisma.alunoTreino.findFirst({
+        where: {
+          id: childId,
+          idAluno,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!current) {
+        throw new Error('Treino do aluno invalido.');
+      }
+
+      const idTreino = optionalNumber(request.body.idTreino);
+
+      if (!idTreino) {
+        throw new Error('Selecione um treino.');
+      }
+
+      const training = await prisma.treino.findUnique({
+        where: {
+          id: idTreino,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!training) {
+        throw new Error('Treino invalido.');
+      }
+
+      const idFuncionario = optionalNumber(request.body.idFuncionario);
+
+      if (!idFuncionario) {
+        throw new Error('Profissional logado invalido.');
+      }
+
+      const employee = await prisma.funcionario.findUnique({
+        where: {
+          id: idFuncionario,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!employee) {
+        throw new Error('Profissional invalido.');
+      }
+
+      const nrOrdemSequencia = optionalNumber(request.body.nrOrdemSequencia);
+
+      return prisma.$transaction(async (transaction) => {
+        await transaction.alunoTreino.update({
+          where: {
+            id: childId,
+          },
+          data: {
+            idFuncionario,
+            idTreino,
+            boInativo: Number(request.body.boInativo ?? 0),
+          },
+        });
+
+        if (nrOrdemSequencia) {
+          const currentSequence = await transaction.alunoTreinoSequencia.findFirst({
+            where: {
+              idAlunoTreino: childId,
+              boInativo: 0,
+            },
+            orderBy: {
+              nrOrdem: 'asc',
+            },
+          });
+
+          if (currentSequence) {
+            await transaction.alunoTreinoSequencia.update({
+              where: {
+                id: currentSequence.id,
+              },
+              data: {
+                nrOrdem: nrOrdemSequencia,
+              },
+            });
+          } else {
+            await transaction.alunoTreinoSequencia.create({
+              data: {
+                idAlunoTreino: childId,
+                nrOrdem: nrOrdemSequencia,
+                boInativo: 0,
+              },
+            });
+          }
+        }
+
+        return transaction.alunoTreino.findUniqueOrThrow({
+          where: {
+            id: childId,
+          },
+          include: {
+            funcionario: true,
+            treino: true,
+            alunoTreinosSequencias: {
+              where: {
+                boInativo: 0,
+              },
+              orderBy: {
+                nrOrdem: 'asc',
+              },
+            },
+          },
+        });
       });
     }
 
@@ -2012,6 +2813,43 @@ app.patch<{
         },
         data: {
           boInativo,
+        },
+      });
+    }
+
+    if (resource === 'trainings') {
+      const current = await prisma.alunoTreino.findFirst({
+        where: {
+          id: childId,
+          idAluno,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!current) {
+        throw new Error('Treino do aluno invalido.');
+      }
+
+      return prisma.alunoTreino.update({
+        where: {
+          id: childId,
+        },
+        data: {
+          boInativo,
+        },
+        include: {
+          funcionario: true,
+          treino: true,
+          alunoTreinosSequencias: {
+            where: {
+              boInativo: 0,
+            },
+            orderBy: {
+              nrOrdem: 'asc',
+            },
+          },
         },
       });
     }
@@ -2380,6 +3218,278 @@ app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/frequencie
     });
   } catch {
     return reply.code(400).send({ message: 'Erro ao alterar status da frequencia.' });
+  }
+});
+
+app.get<{
+  Querystring: {
+    includeInactive?: string;
+    search?: string;
+  };
+}>('/trainings', async (request) => {
+  const includeInactive = request.query.includeInactive === 'true';
+  const search = request.query.search?.trim();
+
+  return prisma.treino.findMany({
+    where: {
+      ...(includeInactive ? {} : { boInativo: 0 }),
+      ...(search
+        ? {
+          dsTreino: {
+            contains: search,
+            mode: 'insensitive',
+          },
+        }
+        : {}),
+    },
+    orderBy: {
+      dsTreino: 'asc',
+    },
+  });
+});
+
+app.post<{
+  Body: TrainingPayload;
+}>('/trainings', async (request, reply) => {
+  try {
+    const data = normalizeTrainingPayload(request.body);
+    const training = await prisma.treino.create({
+      data,
+    });
+
+    return reply.code(201).send(training);
+  } catch (error) {
+    return reply.code(400).send({
+      message: error instanceof Error ? error.message : 'Erro ao criar treino.',
+    });
+  }
+});
+
+app.put<{
+  Params: {
+    id: string;
+  };
+  Body: TrainingPayload;
+}>('/trainings/:id', async (request, reply) => {
+  try {
+    const id = Number(request.params.id);
+    const data = normalizeTrainingPayload(request.body);
+
+    return prisma.treino.update({
+      where: {
+        id,
+      },
+      data,
+    });
+  } catch (error) {
+    return reply.code(400).send({
+      message: error instanceof Error ? error.message : 'Erro ao atualizar treino.',
+    });
+  }
+});
+
+app.patch<{
+  Params: {
+    id: string;
+  };
+  Body: {
+    boInativo?: number;
+  };
+}>('/trainings/:id/status', async (request, reply) => {
+  try {
+    const id = Number(request.params.id);
+    const boInativo = Number(request.body.boInativo ?? 0);
+
+    return prisma.treino.update({
+      where: {
+        id,
+      },
+      data: {
+        boInativo,
+      },
+    });
+  } catch {
+    return reply.code(400).send({
+      message: 'Erro ao alterar status do treino.',
+    });
+  }
+});
+
+app.get<{
+  Params: {
+    id: string;
+  };
+}>('/trainings/:id/related/exercises', async (request, reply) => {
+  try {
+    const idTreino = Number(request.params.id);
+    assertValidId(idTreino, 'Treino invalido.');
+
+    return prisma.treinoExercicio.findMany({
+      where: {
+        idTreino,
+      },
+      orderBy: {
+        nrOrdem: 'asc',
+      },
+    });
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao listar exercicios do treino.',
+    });
+  }
+});
+
+app.post<{
+  Params: {
+    id: string;
+  };
+  Body: CompanyChildPayload;
+}>('/trainings/:id/related/exercises', async (request, reply) => {
+  try {
+    const idTreino = Number(request.params.id);
+    assertValidId(idTreino, 'Treino invalido.');
+
+    const training = await prisma.treino.findUnique({
+      where: {
+        id: idTreino,
+      },
+      select: {
+        id: true,
+        idEmpresa: true,
+      },
+    });
+
+    if (!training) {
+      return reply.code(404).send({
+        message: 'Treino nao encontrado.',
+      });
+    }
+
+    const record = await prisma.treinoExercicio.create({
+      data: {
+        idTreino,
+        idEmpresa: optionalNumber(request.body.idEmpresa) ?? training.idEmpresa,
+        idExercicio: optionalNumber(request.body.idExercicio),
+        idMetodoTreino: optionalNumber(request.body.idMetodoTreino),
+        nrOrdem: Number(request.body.nrOrdem ?? 0),
+        nrSeries: Number(request.body.nrSeries ?? 0),
+        nrRepeticoes: Number(request.body.nrRepeticoes ?? 0),
+        qtDescanso: Number(request.body.qtDescanso ?? 0),
+        boInativo: Number(request.body.boInativo ?? 0),
+      },
+    });
+
+    return reply.code(201).send(record);
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao criar exercicio do treino.',
+    });
+  }
+});
+
+app.put<{
+  Params: {
+    id: string;
+    childId: string;
+  };
+  Body: CompanyChildPayload;
+}>('/trainings/:id/related/exercises/:childId', async (request, reply) => {
+  try {
+    const idTreino = Number(request.params.id);
+    const childId = Number(request.params.childId);
+    assertValidId(idTreino, 'Treino invalido.');
+    assertValidId(childId, 'Exercicio do treino invalido.');
+
+    const current = await prisma.treinoExercicio.findFirst({
+      where: {
+        id: childId,
+        idTreino,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!current) {
+      throw new Error('Exercicio do treino invalido.');
+    }
+
+    const training = await prisma.treino.findUnique({
+      where: {
+        id: idTreino,
+      },
+      select: {
+        idEmpresa: true,
+      },
+    });
+
+    return prisma.treinoExercicio.update({
+      where: {
+        id: childId,
+      },
+      data: {
+        idEmpresa: optionalNumber(request.body.idEmpresa) ?? training?.idEmpresa ?? null,
+        idExercicio: optionalNumber(request.body.idExercicio),
+        idMetodoTreino: optionalNumber(request.body.idMetodoTreino),
+        nrOrdem: Number(request.body.nrOrdem ?? 0),
+        nrSeries: Number(request.body.nrSeries ?? 0),
+        nrRepeticoes: Number(request.body.nrRepeticoes ?? 0),
+        qtDescanso: Number(request.body.qtDescanso ?? 0),
+        boInativo: Number(request.body.boInativo ?? 0),
+      },
+    });
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao atualizar exercicio do treino.',
+    });
+  }
+});
+
+app.patch<{
+  Params: {
+    id: string;
+    childId: string;
+  };
+  Body: {
+    boInativo?: number;
+  };
+}>('/trainings/:id/related/exercises/:childId/status', async (request, reply) => {
+  try {
+    const idTreino = Number(request.params.id);
+    const childId = Number(request.params.childId);
+    assertValidId(idTreino, 'Treino invalido.');
+    assertValidId(childId, 'Exercicio do treino invalido.');
+
+    const current = await prisma.treinoExercicio.findFirst({
+      where: {
+        id: childId,
+        idTreino,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!current) {
+      throw new Error('Exercicio do treino invalido.');
+    }
+
+    return prisma.treinoExercicio.update({
+      where: {
+        id: childId,
+      },
+      data: {
+        boInativo: Number(request.body.boInativo ?? 0),
+      },
+    });
+  } catch (error) {
+    return reply.code(400).send({
+      message:
+        error instanceof Error ? error.message : 'Erro ao alterar status do exercicio do treino.',
+    });
   }
 });
 

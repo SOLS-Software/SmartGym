@@ -164,6 +164,7 @@ model Aluno {
   produtoMovimentacoes ProdutoMovimentacao[]
   alunoArquivos        AlunoArquivo[]
   usuarios             Usuario[]
+  alunobiometriafacial AlunoBiometriaFacial[]
 
   @@map("tb_Alunos")
 }
@@ -512,10 +513,32 @@ model AlunoArquivo {
   dtAlteracao     DateTime @updatedAt
   boInativo       Int      @default(0)
 
-  aluno       Aluno?       @relation(fields: [idAluno], references: [id])
-  tipoArquivo TipoArquivo? @relation(fields: [idTiposArquivos], references: [id])
+  aluno                 Aluno?                 @relation(fields: [idAluno], references: [id])
+  tipoArquivo           TipoArquivo?           @relation(fields: [idTiposArquivos], references: [id])
+  alunoBiometriaFacials AlunoBiometriaFacial[]
 
   @@map("tb_AlunoArquivos")
+}
+
+model AlunoBiometriaFacial {
+  id                Int      @id @default(autoincrement())
+  idAluno           Int
+  idAlunoArquivo    Int?
+  dsModelo          String   @db.VarChar(100)
+  dsProvider        String   @db.VarChar(100)
+  dsSubject         String?  @db.VarChar(100)
+  dsExternalImageId String?  @db.VarChar(100)
+  anEmbedding       Json?
+  nrDimensoes       Int?
+  nrThreshold       Decimal  @db.Decimal(5, 4)
+  dtCadastro        DateTime @default(now())
+  dtAlteracao       DateTime @updatedAt
+  boInativo         Int      @default(0)
+
+  aluno        Aluno         @relation(fields: [idAluno], references: [id])
+  alunoArquivo AlunoArquivo? @relation(fields: [idAlunoArquivo], references: [id])
+
+  @@map("tb_AlunoBiometriasFaciais")
 }
 
 model ExercicioArquivo {

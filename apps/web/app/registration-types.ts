@@ -20,6 +20,20 @@ export type Exercise = {
   boInativo: number;
 };
 
+export type Training = {
+  id: number;
+  idEmpresa: number | null;
+  idNivel: number | null;
+  dsTreino: string;
+  boInativo: number;
+};
+
+export type Level = {
+  id: number;
+  dsNivel: string;
+  boInativo: number;
+};
+
 export type ExerciseFile = {
   id: number;
   idExercicio: number | null;
@@ -72,6 +86,44 @@ export type Employee = {
   nrContato: number;
   anEmail: string;
   dtAdmissao: string;
+  boInativo: number;
+};
+
+export type StudentTraining = {
+  id: number;
+  idAluno: number | null;
+  idFuncionario: number | null;
+  idTreino: number | null;
+  dtCadastro: string;
+  dtAlteracao: string;
+  boInativo: number;
+  funcionario?: Employee | null;
+  treino?: Training | null;
+  alunoTreinosSequencias?: Array<{
+    id: number;
+    idAlunoTreino: number | null;
+    nrOrdem: number;
+    boInativo: number;
+  }>;
+};
+
+export type TrainingExercise = {
+  id: number;
+  idEmpresa: number | null;
+  idTreino: number | null;
+  idExercicio: number | null;
+  idMetodoTreino: number | null;
+  nrOrdem: number;
+  nrSeries: number;
+  nrRepeticoes: number;
+  qtDescanso: number;
+  boInativo: number;
+};
+
+export type TrainingMethod = {
+  id: number;
+  nmMetodoTreino: string;
+  dsMetodoTreino: string;
   boInativo: number;
 };
 

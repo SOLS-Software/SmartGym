@@ -259,6 +259,27 @@ h1 {
   padding: 0.75rem 0.875rem;
 }
 
+.facial-login-panel {
+  gap: 0.875rem;
+}
+
+.facial-camera-frame {
+  aspect-ratio: 4 / 3;
+  background: #17211c;
+  border: 0.0625rem solid #ccd8d0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  width: 100%;
+}
+
+.facial-camera-frame video {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  width: 100%;
+}
+
 .forgot-link {
   align-self: flex-end;
   background: transparent;
@@ -528,6 +549,12 @@ h1 {
 
 .field-error {
   color: #b91c1c;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.field-hint {
+  color: #6b7a72;
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -939,6 +966,28 @@ button.domain-select-row.selected {
   padding: 0 1rem;
 }
 
+.new-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.secondary-button {
+  background: #e8f4ed;
+  border: 0;
+  border-radius: 0.5rem;
+  color: #1f7a53;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .product-table {
   background: #ffffff;
   border: 0.0625rem solid #dde6df;
@@ -1196,6 +1245,247 @@ button.domain-select-row.selected {
   box-shadow: inset 0.25rem 0 0 #1f7a53;
 }
 
+.workout-assembly-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.workout-assembly-view .form-heading {
+  margin-bottom: 0;
+}
+
+.workout-students-grid,
+.workout-selected-area {
+  min-width: 0;
+  width: 100%;
+}
+
+.workout-students-grid .grid-toolbar {
+  align-items: end;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+}
+
+.workout-students-grid .child-grid-toolbar-actions {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workout-students-table,
+.workout-training-grid .product-table {
+  width: 100%;
+}
+
+.workout-student-row {
+  grid-template-columns: minmax(16rem, 1.35fr) minmax(9rem, 0.7fr) minmax(14rem, 1fr) 7rem;
+}
+
+.workout-training-row {
+  grid-template-columns: minmax(12rem, 1.1fr) minmax(11rem, 0.9fr) minmax(5rem, 0.4fr) minmax(7rem, 0.6fr) 6.5rem 6.5rem;
+}
+
+.workout-training-row.draggable {
+  cursor: grab;
+}
+
+.workout-training-row.draggable:active {
+  cursor: grabbing;
+}
+
+.training-exercises-grid {
+  margin-top: 1.25rem;
+}
+
+.training-exercises-grid .grid-toolbar {
+  margin-bottom: 0.625rem;
+}
+
+.training-exercise-row {
+  grid-template-columns: 4.5rem minmax(12rem, 1.2fr) minmax(10rem, 0.9fr) 5.5rem 7rem 6rem;
+}
+
+.workout-student-row span,
+.workout-training-row span,
+.training-exercise-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.training-exercise-separator-row {
+  background: #f0f8f3;
+  color: #1f7a53;
+  font-weight: 900;
+  grid-template-columns: 1fr;
+  min-height: 2.5rem;
+}
+
+.training-exercise-separator-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workout-selected-area {
+  background: #ffffff;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.workout-selected-header {
+  align-items: center;
+  border-bottom: 0.0625rem solid #edf2ef;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin: -0.125rem 0 1rem;
+  padding-bottom: 1rem;
+}
+
+.workout-selected-header h3 {
+  color: #17211c;
+  font-size: 1.45rem;
+  margin: 0;
+}
+
+.workout-selected-header span {
+  color: #52605a;
+  font-weight: 800;
+}
+
+.workout-training-layout {
+  align-items: start;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(34rem, 1fr) minmax(22rem, 0.42fr);
+}
+
+.workout-training-grid .child-grid-toolbar-actions {
+  grid-template-columns: minmax(12rem, 1fr) max-content max-content max-content;
+}
+
+.workout-training-form {
+  margin-top: 0;
+}
+
+.workout-training-form .field select {
+  min-height: 2.5rem;
+}
+
+.workout-training-form .field select[multiple] {
+  padding: 0.5rem;
+}
+
+.training-option-list {
+  background: #ffffff;
+  border: 0.0625rem solid #ccd8d0;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.training-option-list button {
+  align-items: center;
+  background: #ffffff;
+  border: 0;
+  border-top: 0.0625rem solid #edf2ef;
+  color: #17211c;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 0.75rem;
+  justify-content: space-between;
+  min-height: 2.75rem;
+  padding: 0 0.875rem;
+  text-align: left;
+}
+
+.training-option-list button:first-child {
+  border-top: 0;
+}
+
+.training-option-list button:hover,
+.training-option-list button.selected {
+  background: #f0f8f3;
+}
+
+.training-option-list button.selected {
+  box-shadow: inset 0.25rem 0 0 #1f7a53;
+}
+
+.training-option-list button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.training-option-list button strong {
+  color: #1f7a53;
+  flex: 0 0 auto;
+  font-size: 0.76rem;
+}
+
+.training-option-list button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.grid-status-toggle {
+  background: #f0f2f1;
+  border: 0;
+  border-radius: 0.5rem;
+  color: #6b7a72;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  min-height: 2rem;
+  padding: 0 0.625rem;
+}
+
+.grid-status-toggle.active {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.grid-status-toggle:hover {
+  filter: brightness(0.97);
+}
+
+.checkbox-field {
+  align-items: center;
+  color: #34413b;
+  display: flex;
+  font-size: 0.9rem;
+  font-weight: 800;
+  gap: 0.625rem;
+}
+
+.checkbox-field input {
+  accent-color: #1f7a53;
+  height: 1.125rem;
+  width: 1.125rem;
+}
+
+.checkbox-field input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.toolbar-checkbox-field {
+  align-self: end;
+  min-height: 2.75rem;
+  white-space: nowrap;
+}
+
+.workout-empty-selection {
+  width: 100%;
+}
+
 .file-modal-overlay {
   align-items: center;
   background: rgba(23, 33, 28, 0.55);
@@ -1253,7 +1543,8 @@ button.domain-select-row.selected {
   width: 100%;
 }
 
-button.product-row {
+button.product-row,
+.product-row.selectable {
   background: #ffffff;
   border-left: 0;
   border-right: 0;
@@ -1266,11 +1557,14 @@ button.product-row {
 }
 
 button.product-row:hover,
-button.product-row.selected {
+button.product-row.selected,
+.product-row.selectable:hover,
+.product-row.selectable.selected {
   background: #f0f8f3;
 }
 
-button.product-row.selected {
+button.product-row.selected,
+.product-row.selectable.selected {
   box-shadow: inset 0.25rem 0 0 #1f7a53;
 }
 
@@ -1301,6 +1595,11 @@ button.product-row.selected {
 .status-badge.inactive {
   background: #f0f2f1;
   color: #6b7a72;
+}
+
+.status-badge.pending {
+  background: #fff7ed;
+  color: #9a3412;
 }
 
 .empty-row {
@@ -1524,6 +1823,16 @@ button.product-row.selected {
 
   .registration-split-layout {
     grid-template-columns: 1fr;
+  }
+
+  .workout-students-grid .grid-toolbar,
+  .workout-training-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .workout-selected-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .search-field {

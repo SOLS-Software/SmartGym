@@ -1,7 +1,7 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatCpf, formatDateInput, isValidCpf } from './registration-helpers';
 import type { RegisterLookupRecord } from './registration-types';
 import { PlanRegistration } from './plan-registration';
@@ -11,6 +11,8 @@ import { DomainRegistration } from './domain-registration';
 import { ProductRegistration } from './product-registration';
 import { ExerciseRegistration } from './exercise-registration';
 import { EmployeeRegistration } from './employee-registration';
+import { TrainingRegistration } from './training-registration';
+import { StudentTrainingAssembly } from './student-training-assembly';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
 
@@ -21,7 +23,7 @@ const menuGroups = [
   },
   {
     title: 'TREINO',
-    items: ['Exercícios', 'Treino', 'Meu Treino'],
+    items: ['Exercícios', 'Treino', 'Montar Treino', 'Meu Treino'],
   },
   {
     title: 'ESTOQUE',
@@ -42,6 +44,49 @@ const menuGroups = [
 ];
 
 type AuthUserType = 'student' | 'employee';
+
+type AuthenticatedUser = {
+  id: number;
+  idAluno: number | null;
+  idFuncionario: number | null;
+  name: string;
+  type: AuthUserType;
+};
+
+type FacialRecognitionResponse = {
+  match: boolean;
+  access: 'granted' | 'denied';
+  idAluno?: number | null;
+  similarity?: number;
+  message?: string;
+};
+
+async function readJsonResponse<T>(response: Response, fallbackMessage: string) {
+  const text = await response.text();
+  const contentType = response.headers.get('content-type') ?? '';
+
+  if (!contentType.includes('application/json')) {
+    const preview = text.replace(/\s+/g, ' ').trim().slice(0, 140);
+    throw new Error(
+      `${fallbackMessage} Resposta inesperada (${response.status}): ${preview || 'sem conteudo'}`,
+    );
+  }
+
+  const data = JSON.parse(text) as T;
+
+  if (!response.ok) {
+    const message =
+      typeof data === 'object' &&
+        data !== null &&
+        'message' in data &&
+        typeof data.message === 'string'
+        ? data.message
+        : fallbackMessage;
+    throw new Error(message);
+  }
+
+  return data;
+}
 
 function getPasswordValidationMessage(password: string) {
   if (password.length < 6) {
@@ -68,12 +113,15 @@ function getPasswordValidationMessage(password: string) {
 }
 
 export default function HomePage() {
+  const facialVideoRef = useRef<HTMLVideoElement | null>(null);
+  const facialStreamRef = useRef<MediaStream | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeItem, setActiveItem] = useState('Meu Treino');
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [authUserName, setAuthUserName] = useState('Joao Silva');
   const [authUserRole, setAuthUserRole] = useState('Administrador');
   const [authUserType, setAuthUserType] = useState<AuthUserType>('employee');
+  const [authUserEmployeeId, setAuthUserEmployeeId] = useState<number | null>(null);
   const [loginMode, setLoginMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [loginCpf, setLoginCpf] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -85,9 +133,11 @@ export default function HomePage() {
   const [authFeedback, setAuthFeedback] = useState('');
   const [registerLookupFeedback, setRegisterLookupFeedback] = useState('');
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+  const [isSubmittingFacial, setIsSubmittingFacial] = useState(false);
   const [isLookingUpRegister, setIsLookingUpRegister] = useState(false);
   const [registerPassword, setRegisterPassword] = useState('');
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [pendingFacialUser, setPendingFacialUser] = useState<AuthenticatedUser | null>(null);
   const passwordRequirements = [
     {
       label: 'Pelo menos 1 número',
@@ -111,6 +161,23 @@ export default function HomePage() {
     },
   ];
 
+  useEffect(() => {
+    if (!pendingFacialUser) {
+      return;
+    }
+
+    void startFacialCamera().catch((error) => {
+      setPendingFacialUser(null);
+      setAuthFeedback(
+        error instanceof Error ? error.message : 'Nao foi possivel iniciar a camera.',
+      );
+    });
+
+    return () => {
+      stopFacialCamera();
+    };
+  }, [pendingFacialUser?.id]);
+
   async function lookupRegisterCpf(type = registerType, cpfValue = registerCpf) {
     const cpf = cpfValue.replace(/\D/g, '');
 
@@ -132,12 +199,15 @@ export default function HomePage() {
         `${apiUrl}/auth/register-lookup?type=${type}&cpf=${cpf}`,
       );
 
-      if (!response.ok) {
+      if (false && !response.ok) {
         const errorBody = (await response.json()) as { message?: string };
         throw new Error(errorBody.message ?? 'CPF não encontrado.');
       }
 
-      const data = (await response.json()) as RegisterLookupRecord;
+      const data = await readJsonResponse<RegisterLookupRecord>(
+        response,
+        'CPF nao encontrado.',
+      );
       setRegisterLookup(data);
       setRegisterLookupFeedback(
         data.hasUser
@@ -163,6 +233,126 @@ export default function HomePage() {
     }
   }
 
+  function stopFacialCamera() {
+    facialStreamRef.current?.getTracks().forEach((track) => track.stop());
+    facialStreamRef.current = null;
+
+    if (facialVideoRef.current) {
+      facialVideoRef.current.srcObject = null;
+    }
+  }
+
+  async function startFacialCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('Seu navegador nao permite acesso a camera.');
+    }
+
+    stopFacialCamera();
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: 'user',
+      },
+      audio: false,
+    });
+    facialStreamRef.current = stream;
+
+    if (facialVideoRef.current) {
+      facialVideoRef.current.srcObject = stream;
+      await facialVideoRef.current.play();
+    }
+  }
+
+  async function requestFacialValidation(user: AuthenticatedUser) {
+    if (user.type !== 'student' || !user.idAluno) {
+      completeLogin(user);
+      return;
+    }
+
+    setPendingFacialUser(user);
+    setAuthFeedback('Senha confirmada. Posicione o rosto na camera para validar o acesso.');
+  }
+
+  function completeLogin(user: AuthenticatedUser) {
+    stopFacialCamera();
+    setPendingFacialUser(null);
+    setAuthFeedback('');
+    setAuthUserName(user.name);
+    setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionario');
+    setAuthUserType(user.type);
+    setAuthUserEmployeeId(user.idFuncionario);
+    setActiveItem(user.type === 'student' ? 'Meu Treino' : activeItem);
+    setIsLoggedIn(true);
+  }
+
+  async function handleFacialValidation() {
+    if (!pendingFacialUser || !facialVideoRef.current) {
+      return;
+    }
+
+    const video = facialVideoRef.current;
+
+    if (!video.videoWidth || !video.videoHeight) {
+      setAuthFeedback('Aguarde a camera carregar antes de validar.');
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    try {
+      setIsSubmittingFacial(true);
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/jpeg', 0.92);
+      });
+
+      if (!blob) {
+        throw new Error('Nao foi possivel capturar a imagem da camera.');
+      }
+
+      const formData = new FormData();
+      formData.append('file', blob, 'login-facial.jpg');
+
+      const response = await fetch(`${apiUrl}/access/facial/recognize`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (false && !response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Nao foi possivel validar a facial.');
+      }
+
+      const result = await readJsonResponse<FacialRecognitionResponse>(
+        response,
+        'Nao foi possivel validar a facial.',
+      );
+      const matchedSameStudent =
+        result.match &&
+        result.access === 'granted' &&
+        result.idAluno === pendingFacialUser.idAluno;
+
+      if (!matchedSameStudent) {
+        throw new Error(result.message ?? 'Facial nao confere com o usuario informado.');
+      }
+
+      completeLogin(pendingFacialUser);
+    } catch (error) {
+      setAuthFeedback(
+        error instanceof Error ? error.message : 'Erro ao validar reconhecimento facial.',
+      );
+    } finally {
+      setIsSubmittingFacial(false);
+    }
+  }
+
+  function cancelFacialValidation() {
+    stopFacialCamera();
+    setPendingFacialUser(null);
+    setAuthFeedback('');
+  }
+
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAuthFeedback('');
@@ -181,16 +371,19 @@ export default function HomePage() {
           password: String(formData.get('password') ?? ''),
         }),
       });
-      if (!response.ok) {
+      if (false && !response.ok) {
         const errorBody = (await response.json()) as { message?: string };
         throw new Error(errorBody.message ?? 'Nao foi possivel entrar.');
       }
 
-      const user = (await response.json()) as {
-        name: string;
-        type: AuthUserType;
-      };
-      setAuthUserName(user.name);
+      const user = await readJsonResponse<AuthenticatedUser>(
+        response,
+        'Nao foi possivel entrar.',
+      );
+      // Validacao facial testada e mantida desativada no login web.
+      // await requestFacialValidation(user);
+      completeLogin(user);
+      return;
       setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
       setAuthUserType(user.type);
       setActiveItem(user.type === 'student' ? 'Meu Treino' : activeItem);
@@ -224,10 +417,10 @@ export default function HomePage() {
         throw new Error(errorBody.message ?? 'Nao foi possivel enviar o email.');
       }
 
-      const data = (await response.json()) as {
+      const data = await readJsonResponse<{
         email: string;
         message: string;
-      };
+      }>(response, 'Nao foi possivel enviar o email.');
       setForgotEmail(data.email);
       setAuthFeedback(data.message);
     } catch (error) {
@@ -289,15 +482,15 @@ export default function HomePage() {
         }),
       });
 
-      if (!loginResponse.ok) {
+      if (false && !loginResponse.ok) {
         const errorBody = (await loginResponse.json()) as { message?: string };
         throw new Error(errorBody.message ?? 'Cadastro criado, mas nao foi possivel entrar automaticamente.');
       }
 
-      const user = (await loginResponse.json()) as {
-        name: string;
-        type: AuthUserType;
-      };
+      const user = await readJsonResponse<AuthenticatedUser>(
+        loginResponse,
+        'Cadastro criado, mas nao foi possivel entrar automaticamente.',
+      );
       form.reset();
       setRegisterCpf('');
       setRegisterLookup(null);
@@ -305,11 +498,10 @@ export default function HomePage() {
       setRegisterPassword('');
       setShowRegisterPassword(false);
       setAuthFeedback('');
-      setAuthUserName(user.name);
-      setAuthUserRole(user.type === 'student' ? 'Aluno' : 'FuncionÃ¡rio');
-      setAuthUserType(user.type);
-      setActiveItem(user.type === 'student' ? 'Meu Treino' : activeItem);
-      setIsLoggedIn(true);
+      // Validacao facial testada e mantida desativada no login web.
+      // await requestFacialValidation(user);
+      completeLogin(user);
+      return;
     } catch (error) {
       setAuthFeedback(
         error instanceof Error ? error.message : 'Erro ao criar cadastro.',
@@ -323,7 +515,12 @@ export default function HomePage() {
     const visibleMenuGroups =
       authUserType === 'employee'
         ? menuGroups
-        : menuGroups.filter((group) => group.title === 'TREINO' || group.title === 'ALUNOS');
+        : menuGroups
+          .filter((group) => group.title === 'TREINO' || group.title === 'ALUNOS')
+          .map((group) => ({
+            ...group,
+            items: group.items.filter((item) => item !== 'Montar Treino'),
+          }));
 
     return (
       <main className={`home-page ${isMenuOpen ? '' : 'menu-collapsed'}`}>
@@ -404,6 +601,13 @@ export default function HomePage() {
             <CompanyRegistration />
           ) : activeItem === 'Exercícios' ? (
             <ExerciseRegistration />
+          ) : activeItem === 'Treino' ? (
+            <TrainingRegistration />
+          ) : activeItem === 'Montar Treino' ? (
+            <StudentTrainingAssembly
+              loggedEmployeeId={authUserEmployeeId}
+              loggedEmployeeName={authUserName}
+            />
           ) : activeItem === 'Produtos' ? (
             <ProductRegistration />
           ) : activeItem === 'Matrículas' ? (
@@ -479,7 +683,34 @@ export default function HomePage() {
 
         {authFeedback ? <div className="login-feedback">{authFeedback}</div> : null}
 
-        {loginMode === 'login' ? (
+        {pendingFacialUser ? (
+          <div className="login-form facial-login-panel">
+            <div className="facial-camera-frame">
+              <video
+                aria-label="Camera para validacao facial"
+                autoPlay
+                muted
+                playsInline
+                ref={facialVideoRef}
+              />
+            </div>
+            <button
+              disabled={isSubmittingFacial}
+              onClick={handleFacialValidation}
+              type="button"
+            >
+              {isSubmittingFacial ? 'Validando...' : 'Validar facial'}
+            </button>
+            <button
+              className="secondary-login-button"
+              disabled={isSubmittingFacial}
+              onClick={cancelFacialValidation}
+              type="button"
+            >
+              Voltar
+            </button>
+          </div>
+        ) : loginMode === 'login' ? (
           <form
             className="login-form"
             onSubmit={handleLogin}
