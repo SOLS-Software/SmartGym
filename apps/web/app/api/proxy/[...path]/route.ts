@@ -9,8 +9,28 @@ async function getKey(): Promise<CryptoKey> {
   if (_key) return _key;
   const raw = new TextEncoder().encode(API_PASSPHRASE);
   const hash = await crypto.subtle.digest('SHA-256', raw);
-  _key = await crypto.subtle.importKey('raw', hash, 'AES-GCM', false, ['encrypt']);
+  _key = await crypto.subtle.importKey('raw', hash, 'AES-GCM', false, ['encrypt', 'decrypt']);
   return _key;
+}
+
+async function decryptBase64(input: string, urlSafe = false): Promise<string> {
+  const key = await getKey();
+  const b64 = urlSafe
+    ? input.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (input.length % 4)) % 4)
+    : input;
+  const combined = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const iv = combined.slice(0, 12);
+  const ciphertext = combined.slice(12);
+  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+  return new TextDecoder().decode(decrypted);
+}
+
+function decryptPayload(base64: string): Promise<string> {
+  return decryptBase64(base64, false);
+}
+
+function decryptPath(base64url: string): Promise<string> {
+  return decryptBase64(base64url, true);
 }
 
 async function encryptPayload(plaintext: string): Promise<string> {
@@ -28,17 +48,31 @@ type RouteContext = { params: Promise<{ path: string[] }> };
 
 async function handler(request: NextRequest, { params }: RouteContext) {
   const { path } = await params;
-  const pathname = path.join('/');
-  const search = request.nextUrl.search;
+  const encryptedPath = path.join('/');
+  const decrypted = await decryptPath(encryptedPath); // e.g. "trainings?includeInactive=true"
+  const qIndex = decrypted.indexOf('?');
+  const pathname = qIndex !== -1 ? decrypted.slice(0, qIndex) : decrypted;
+  const search = qIndex !== -1 ? decrypted.slice(qIndex) : '';
   const targetUrl = `${apiUrl}/${pathname}${search}`;
 
-  const forwardHeaders: HeadersInit = {};
-  const contentType = request.headers.get('content-type');
-  if (contentType) forwardHeaders['content-type'] = contentType;
+  const forwardHeaders: Record<string, string> = {};
+  const isEncrypted = request.headers.get('x-encrypted') === '1';
 
-  let body: ArrayBuffer | undefined;
+  let body: ArrayBuffer | string | undefined;
   if (request.method !== 'GET' && request.method !== 'HEAD') {
-    body = await request.arrayBuffer();
+    if (isEncrypted) {
+      const base64 = await request.text();
+      const plaintext = await decryptPayload(base64);
+      body = plaintext;
+      forwardHeaders['content-type'] = 'application/json';
+    } else {
+      body = await request.arrayBuffer();
+      const contentType = request.headers.get('content-type');
+      if (contentType) forwardHeaders['content-type'] = contentType;
+    }
+  } else {
+    const contentType = request.headers.get('content-type');
+    if (contentType) forwardHeaders['content-type'] = contentType;
   }
 
   try {
