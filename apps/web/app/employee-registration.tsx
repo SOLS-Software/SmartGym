@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatCpf, formatDateInput, isValidCpf, onlyDigits, paginateItems } from './registration-helpers';
 import type { Company, Employee, Role } from './registration-types';
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
+const apiUrl = '/api/proxy';
 type EmployeeValidationField =
   | 'name'
   | 'cpf'

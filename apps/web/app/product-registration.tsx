@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, paginateItems } from './registration-helpers';
 import type { Company, Product } from './registration-types';
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
+const apiUrl = '/api/proxy';
 
 export function ProductRegistration() {
   const [products, setProducts] = useState<Product[]>([]);

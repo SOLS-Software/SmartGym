@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, onlyDigits, paginateItems } from './registration-helpers';
 import type { Company, CompanyChildColumn, CompanyChildField, CompanyChildRecord, CompanyChildTable, CompanyValidationErrors, CompanyValidationField, LookupRecord } from './registration-types';
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
+const apiUrl = '/api/proxy';
 
 const companyChildTables: [CompanyChildTable, ...CompanyChildTable[]] = [
   {

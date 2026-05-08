@@ -15,7 +15,8 @@ import { TrainingRegistration } from './training-registration';
 import { StudentTrainingAssembly } from './student-training-assembly';
 import { MyTraining } from './my-training';
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
+const apiUrl = '/api/proxy';
+const SESSION_KEY = 'smartgym_session';
 
 const menuGroups = [
   {
@@ -61,6 +62,44 @@ type FacialRecognitionResponse = {
   similarity?: number;
   message?: string;
 };
+
+type StoredSession = {
+  user: AuthenticatedUser;
+  activeItem: string;
+};
+
+let _cachedKey: CryptoKey | null = null;
+
+async function getSessionCryptoKey(): Promise<CryptoKey> {
+  if (_cachedKey) return _cachedKey;
+  const passphrase = new TextEncoder().encode('smartgym-2026-secure-session-key-sols-encrypted');
+  const keyBytes = await crypto.subtle.digest('SHA-256', passphrase);
+  _cachedKey = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, [
+    'encrypt',
+    'decrypt',
+  ]);
+  return _cachedKey;
+}
+
+async function encryptSession(session: StoredSession): Promise<string> {
+  const key = await getSessionCryptoKey();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(JSON.stringify(session));
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+  const combined = new Uint8Array(12 + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), 12);
+  return btoa(String.fromCharCode(...combined));
+}
+
+async function decryptSession(stored: string): Promise<StoredSession> {
+  const key = await getSessionCryptoKey();
+  const combined = Uint8Array.from(atob(stored), (c) => c.charCodeAt(0));
+  const iv = combined.slice(0, 12);
+  const ciphertext = combined.slice(12);
+  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+  return JSON.parse(new TextDecoder().decode(decrypted)) as StoredSession;
+}
 
 async function readJsonResponse<T>(response: Response, fallbackMessage: string) {
   const text = await response.text();
@@ -117,6 +156,7 @@ export default function HomePage() {
   const facialVideoRef = useRef<HTMLVideoElement | null>(null);
   const facialStreamRef = useRef<MediaStream | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
   const [activeItem, setActiveItem] = useState('Meu Treino');
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [authUserName, setAuthUserName] = useState('Joao Silva');
@@ -162,6 +202,42 @@ export default function HomePage() {
       met: registerPassword.length > 0 && !/\s/.test(registerPassword),
     },
   ];
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const stored = localStorage.getItem(SESSION_KEY);
+        if (stored) {
+          const session = await decryptSession(stored);
+          const { user, activeItem: savedActiveItem } = session;
+          setAuthUserName(user.name);
+          setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionario');
+          setAuthUserType(user.type);
+          setAuthUserEmployeeId(user.idFuncionario);
+          setAuthUserStudentId(user.idAluno);
+          setActiveItem(savedActiveItem);
+          setIsLoggedIn(true);
+        }
+      } catch {
+        localStorage.removeItem(SESSION_KEY);
+      } finally {
+        setIsSessionLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    void (async () => {
+      try {
+        const stored = localStorage.getItem(SESSION_KEY);
+        if (!stored) return;
+        const session = await decryptSession(stored);
+        const encrypted = await encryptSession({ ...session, activeItem });
+        localStorage.setItem(SESSION_KEY, encrypted);
+      } catch { }
+    })();
+  }, [activeItem, isLoggedIn]);
 
   useEffect(() => {
     if (!pendingFacialUser) {
@@ -275,6 +351,7 @@ export default function HomePage() {
   }
 
   function completeLogin(user: AuthenticatedUser) {
+    const nextActiveItem = user.type === 'student' ? 'Meu Treino' : activeItem;
     stopFacialCamera();
     setPendingFacialUser(null);
     setAuthFeedback('');
@@ -283,8 +360,11 @@ export default function HomePage() {
     setAuthUserType(user.type);
     setAuthUserEmployeeId(user.idFuncionario);
     setAuthUserStudentId(user.idAluno);
-    setActiveItem(user.type === 'student' ? 'Meu Treino' : activeItem);
+    setActiveItem(nextActiveItem);
     setIsLoggedIn(true);
+    void encryptSession({ user, activeItem: nextActiveItem })
+      .then((encrypted) => { localStorage.setItem(SESSION_KEY, encrypted); })
+      .catch(() => { });
   }
 
   async function handleFacialValidation() {
@@ -354,6 +434,21 @@ export default function HomePage() {
     stopFacialCamera();
     setPendingFacialUser(null);
     setAuthFeedback('');
+  }
+
+  function handleLogout() {
+    try {
+      localStorage.removeItem(SESSION_KEY);
+    } catch { }
+    setIsLoggedIn(false);
+    setAuthUserName('');
+    setAuthUserRole('');
+    setAuthUserEmployeeId(null);
+    setAuthUserStudentId(null);
+    setActiveItem('Meu Treino');
+    setLoginMode('login');
+    setAuthFeedback('');
+    setLoginCpf('');
   }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
@@ -514,6 +609,10 @@ export default function HomePage() {
     }
   }
 
+  if (isSessionLoading) {
+    return null;
+  }
+
   if (isLoggedIn) {
     const visibleMenuGroups =
       authUserType === 'employee'
@@ -552,6 +651,9 @@ export default function HomePage() {
               <strong>{authUserName}</strong>
               <span>{authUserRole}</span>
             </div>
+            <button className="secondary-button" type="button" onClick={handleLogout}>
+              Sair
+            </button>
           </div>
         </header>
 
@@ -721,6 +823,7 @@ export default function HomePage() {
         ) : loginMode === 'login' ? (
           <form
             className="login-form"
+            method="post"
             onSubmit={handleLogin}
           >
             <label htmlFor="user">CPF</label>
@@ -771,7 +874,7 @@ export default function HomePage() {
             </button>
           </form>
         ) : loginMode === 'forgot' ? (
-          <form className="login-form" onSubmit={handleForgotPassword}>
+          <form className="login-form" method="post" onSubmit={handleForgotPassword}>
             <label htmlFor="forgotCpf">CPF</label>
             <input
               id="forgotCpf"
@@ -813,7 +916,7 @@ export default function HomePage() {
             </button>
           </form>
         ) : (
-          <form className="login-form" onSubmit={handleRegister}>
+          <form className="login-form" method="post" onSubmit={handleRegister}>
             <label htmlFor="registerCpf">CPF</label>
             <input
               id="registerCpf"

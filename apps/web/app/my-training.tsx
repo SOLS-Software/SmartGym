@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react';
 import { formatDateDisplay } from './registration-helpers';
 import type { Exercise, StudentTraining, TrainingExercise, TrainingMethod } from './registration-types';
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
-
 type MyTrainingProps = {
   studentId: number | null;
   studentName: string;
@@ -54,7 +52,7 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
 
     try {
       setIsLoadingTrainings(true);
-      const response = await fetch(`${apiUrl}/students/${studentId}/related/trainings`);
+      const response = await fetch(`/api/proxy/students/${studentId}/related/trainings`);
 
       if (!response.ok) {
         throw new Error('Não foi possível carregar os treinos.');
@@ -79,9 +77,9 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
     try {
       setIsLoadingExercises(true);
       const [exercisesResponse, methodsResponse] = await Promise.all([
-        fetch(`${apiUrl}/trainings/${trainingId}/related/exercises`),
-        exercises.length > 0 ? Promise.resolve(null) : fetch(`${apiUrl}/exercises`),
-        trainingMethods.length > 0 ? Promise.resolve(null) : fetch(`${apiUrl}/training-methods`),
+        fetch(`/api/proxy/trainings/${trainingId}/related/exercises`),
+        exercises.length > 0 ? Promise.resolve(null) : fetch(`/api/proxy/exercises`),
+        trainingMethods.length > 0 ? Promise.resolve(null) : fetch(`/api/proxy/training-methods`),
       ]);
 
       if (!exercisesResponse.ok) {
@@ -98,8 +96,8 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
 
       if (exercises.length === 0) {
         const [exResp, mtResp] = await Promise.all([
-          fetch(`${apiUrl}/exercises`),
-          fetch(`${apiUrl}/training-methods`),
+          fetch('/api/proxy/exercises'),
+          fetch('/api/proxy/training-methods'),
         ]);
         if (exResp.ok) setExercises((await exResp.json()) as Exercise[]);
         if (mtResp.ok) setTrainingMethods((await mtResp.json()) as TrainingMethod[]);
@@ -115,8 +113,8 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
     if (exercises.length > 0 && trainingMethods.length > 0) return;
 
     const [exResp, mtResp] = await Promise.all([
-      fetch(`${apiUrl}/exercises`),
-      fetch(`${apiUrl}/training-methods`),
+      fetch('/api/proxy/exercises'),
+      fetch('/api/proxy/training-methods'),
     ]);
 
     if (exResp.ok) setExercises((await exResp.json()) as Exercise[]);

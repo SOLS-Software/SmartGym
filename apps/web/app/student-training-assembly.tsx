@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatCpf, formatDateDisplay, paginateItems } from './registration-helpers';
 import type { Employee, Exercise, Student, StudentTraining, Training, TrainingExercise, TrainingMethod } from './registration-types';
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
+const apiUrl = '/api/proxy';
 
 type StudentTrainingAssemblyProps = {
   loggedEmployeeId: number | null;

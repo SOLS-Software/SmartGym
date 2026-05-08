@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from './registration-helpers';
 import type { CompanyChildColumn, CompanyChildField, CompanyChildRecord, LookupRecord, Student, StudentFile, StudentRelatedTable, StudentValidationErrors, StudentValidationField } from './registration-types';
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
+const apiUrl = '/api/proxy';
 
 type StudentRelatedConfig = StudentRelatedTable & {
   fields: CompanyChildField[];
