@@ -3,8 +3,8 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
+      "*": ["./*"],
       "expo-router": ["../../node_modules/expo-router"],
       "expo-router/*": ["../../node_modules/expo-router/*"],
       "expo-status-bar": ["../../node_modules/expo-status-bar"]
