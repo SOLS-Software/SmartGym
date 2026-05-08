@@ -4,8 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from './registration-helpers';
 import type { CompanyChildColumn, CompanyChildField, CompanyChildRecord, LookupRecord, Student, StudentFile, StudentRelatedTable, StudentValidationErrors, StudentValidationField } from './registration-types';
-
-const apiUrl = '/api/proxy';
+import { apiFetch as fetch, apiUrl } from './api-fetch';
 
 type StudentRelatedConfig = StudentRelatedTable & {
   fields: CompanyChildField[];

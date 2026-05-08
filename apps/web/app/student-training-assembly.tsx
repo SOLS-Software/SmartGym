@@ -1,11 +1,10 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatCpf, formatDateDisplay, paginateItems } from './registration-helpers';
 import type { Employee, Exercise, Student, StudentTraining, Training, TrainingExercise, TrainingMethod } from './registration-types';
-
-const apiUrl = '/api/proxy';
+import { apiFetch as fetch, apiUrl } from './api-fetch';
 
 type StudentTrainingAssemblyProps = {
   loggedEmployeeId: number | null;
@@ -46,6 +45,8 @@ export function StudentTrainingAssembly({
   const [isLoadingGroupedTrainingExercises, setIsLoadingGroupedTrainingExercises] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [studentTrainingFeedback, setStudentTrainingFeedback] = useState('');
+  const studentTrainingsAbortRef = useRef<AbortController | null>(null);
+  const selectedExercisesAbortRef = useRef<AbortController | null>(null);
 
   const selectedStudent = students.find((student) => student.id === selectedStudentId) ?? null;
   const isStudentTrainingFormEnabled = Boolean(selectedStudentId) && isCreatingStudentTraining;
@@ -185,9 +186,13 @@ export function StudentTrainingAssembly({
       return;
     }
 
+    studentTrainingsAbortRef.current?.abort();
+    const controller = new AbortController();
+    studentTrainingsAbortRef.current = controller;
+
     try {
       setIsLoadingStudentTrainings(true);
-      const response = await fetch(`${apiUrl}/students/${studentId}/related/trainings`);
+      const response = await fetch(`${apiUrl}/students/${studentId}/related/trainings`, { signal: controller.signal });
 
       if (!response.ok) {
         throw new Error('Nao foi possivel carregar os treinos do aluno.');
@@ -198,6 +203,7 @@ export function StudentTrainingAssembly({
       void loadGroupedTrainingExercises(data);
       setStudentTrainingFeedback('');
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       setStudentTrainings([]);
       setGroupedTrainingExercises({});
       setStudentTrainingFeedback(error instanceof Error ? error.message : 'Erro ao carregar treinos do aluno.');
@@ -280,12 +286,17 @@ export function StudentTrainingAssembly({
       return;
     }
 
+    selectedExercisesAbortRef.current?.abort();
+    const controller = new AbortController();
+    selectedExercisesAbortRef.current = controller;
+    const signal = controller.signal;
+
     try {
       setIsLoadingSelectedTrainingExercises(true);
       const [trainingExercisesResponse, exercisesResponse, trainingMethodsResponse] = await Promise.all([
-        fetch(`${apiUrl}/trainings/${trainingId}/related/exercises`),
-        exercises.length > 0 ? Promise.resolve(null) : fetch(`${apiUrl}/exercises`),
-        trainingMethods.length > 0 ? Promise.resolve(null) : fetch(`${apiUrl}/training-methods`),
+        fetch(`${apiUrl}/trainings/${trainingId}/related/exercises`, { signal }),
+        exercises.length > 0 ? Promise.resolve(null) : fetch(`${apiUrl}/exercises`, { signal }),
+        trainingMethods.length > 0 ? Promise.resolve(null) : fetch(`${apiUrl}/training-methods`, { signal }),
       ]);
 
       if (!trainingExercisesResponse.ok) {
@@ -314,6 +325,7 @@ export function StudentTrainingAssembly({
         setTrainingMethods((await trainingMethodsResponse.json()) as TrainingMethod[]);
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       setSelectedTrainingExercises([]);
       setStudentTrainingFeedback(error instanceof Error ? error.message : 'Erro ao carregar exercicios do treino.');
     } finally {

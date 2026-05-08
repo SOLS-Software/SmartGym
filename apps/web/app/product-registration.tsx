@@ -4,8 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, paginateItems } from './registration-helpers';
 import type { Company, Product } from './registration-types';
-
-const apiUrl = '/api/proxy';
+import { apiFetch as fetch, apiUrl } from './api-fetch';
 
 export function ProductRegistration() {
   const [products, setProducts] = useState<Product[]>([]);

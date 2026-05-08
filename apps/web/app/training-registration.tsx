@@ -4,8 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, getLookupLabel, paginateItems } from './registration-helpers';
 import type { Company, CompanyChildField, CompanyChildRecord, CompanyChildTable, Level, LookupRecord, Training } from './registration-types';
-
-const apiUrl = '/api/proxy';
+import { apiFetch as fetch, apiUrl } from './api-fetch';
 
 const trainingRelatedTables: CompanyChildTable[] = [
   {

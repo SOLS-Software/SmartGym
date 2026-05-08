@@ -4,8 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatDateInput, isImageFile, paginateItems } from './registration-helpers';
 import type { Company, Exercise, ExerciseFile } from './registration-types';
-
-const apiUrl = '/api/proxy';
+import { apiFetch as fetch, apiUrl } from './api-fetch';
 
 type ExerciseRegistrationProps = {
   readOnly?: boolean;

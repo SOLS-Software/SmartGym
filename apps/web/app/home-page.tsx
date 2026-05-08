@@ -14,8 +14,7 @@ import { EmployeeRegistration } from './employee-registration';
 import { TrainingRegistration } from './training-registration';
 import { StudentTrainingAssembly } from './student-training-assembly';
 import { MyTraining } from './my-training';
-
-const apiUrl = '/api/proxy';
+import { apiFetch as fetch, apiUrl } from './api-fetch';
 const SESSION_KEY = 'smartgym_session';
 
 const menuGroups = [

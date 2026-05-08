@@ -1,6 +1,28 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
 const apiUrl = process.env.API_URL ?? 'http://localhost:3333';
+const API_PASSPHRASE = 'smartgym-2026-api-payload-key-sols';
+
+let _key: CryptoKey | null = null;
+
+async function getKey(): Promise<CryptoKey> {
+  if (_key) return _key;
+  const raw = new TextEncoder().encode(API_PASSPHRASE);
+  const hash = await crypto.subtle.digest('SHA-256', raw);
+  _key = await crypto.subtle.importKey('raw', hash, 'AES-GCM', false, ['encrypt']);
+  return _key;
+}
+
+async function encryptPayload(plaintext: string): Promise<string> {
+  const key = await getKey();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext);
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+  const combined = new Uint8Array(12 + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), 12);
+  return btoa(String.fromCharCode(...combined));
+}
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
@@ -26,17 +48,32 @@ async function handler(request: NextRequest, { params }: RouteContext) {
       body: body !== undefined ? body : undefined,
     });
 
-    const responseBody = await response.arrayBuffer();
-    const responseContentType =
-      response.headers.get('content-type') ?? 'application/octet-stream';
+    const responseContentType = response.headers.get('content-type') ?? '';
 
+    if (responseContentType.includes('application/json')) {
+      const text = await response.text();
+      const encrypted = await encryptPayload(text);
+      return new NextResponse(encrypted, {
+        status: response.status,
+        headers: {
+          'content-type': 'text/plain',
+          'x-encrypted': '1',
+        },
+      });
+    }
+
+    const responseBody = await response.arrayBuffer();
     return new NextResponse(responseBody, {
       status: response.status,
-      headers: { 'content-type': responseContentType },
+      headers: { 'content-type': responseContentType || 'application/octet-stream' },
     });
   } catch (error) {
     console.error('[api/proxy]', error);
-    return NextResponse.json({ message: 'Erro ao conectar ao servidor.' }, { status: 502 });
+    const encrypted = await encryptPayload(JSON.stringify({ message: 'Erro ao conectar ao servidor.' }));
+    return new NextResponse(encrypted, {
+      status: 502,
+      headers: { 'content-type': 'text/plain', 'x-encrypted': '1' },
+    });
   }
 }
 
