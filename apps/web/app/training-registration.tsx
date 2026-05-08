@@ -32,7 +32,11 @@ const trainingRelatedTables: CompanyChildTable[] = [
   },
 ];
 
-export function TrainingRegistration() {
+type TrainingRegistrationProps = {
+  readOnly?: boolean;
+};
+
+export function TrainingRegistration({ readOnly = false }: TrainingRegistrationProps) {
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [trainingsPage, setTrainingsPage] = useState(1);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -509,9 +513,11 @@ export function TrainingRegistration() {
                   value={searchTerm}
                 />
               </label>
-              <button className="new-button" onClick={handleNewTraining} type="button">
-                Novo
-              </button>
+              {!readOnly ? (
+                <button className="new-button" onClick={handleNewTraining} type="button">
+                  Novo
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -577,6 +583,7 @@ export function TrainingRegistration() {
                           value={trainingRelatedSearchTerm}
                         />
                       </label>
+                      {!readOnly ? (
                       <button
                         className="new-button"
                         disabled={!selectedTrainingId}
@@ -585,6 +592,7 @@ export function TrainingRegistration() {
                       >
                         Novo
                       </button>
+                      ) : null}
                     </div>
                   </div>
 
@@ -650,6 +658,7 @@ export function TrainingRegistration() {
           ) : null}
         </section>
 
+        {readOnly ? null : (
         <div className="split-form-stack">
         <form
           className={`registration-form split-form-panel company-form-panel ${isTrainingFieldsCollapsed ? 'collapsed' : ''}`}
@@ -866,6 +875,7 @@ export function TrainingRegistration() {
             </form>
           ) : null}
         </div>
+        )}
 
         <section className="company-child-tabs" aria-label="Tabelas relacionadas do treino">
           <div className="company-child-tabs-list" role="tablist" aria-label="Tabelas relacionadas do treino">

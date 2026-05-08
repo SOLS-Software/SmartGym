@@ -13,6 +13,7 @@ import { ExerciseRegistration } from './exercise-registration';
 import { EmployeeRegistration } from './employee-registration';
 import { TrainingRegistration } from './training-registration';
 import { StudentTrainingAssembly } from './student-training-assembly';
+import { MyTraining } from './my-training';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
 
@@ -122,6 +123,7 @@ export default function HomePage() {
   const [authUserRole, setAuthUserRole] = useState('Administrador');
   const [authUserType, setAuthUserType] = useState<AuthUserType>('employee');
   const [authUserEmployeeId, setAuthUserEmployeeId] = useState<number | null>(null);
+  const [authUserStudentId, setAuthUserStudentId] = useState<number | null>(null);
   const [loginMode, setLoginMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [loginCpf, setLoginCpf] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -280,6 +282,7 @@ export default function HomePage() {
     setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionario');
     setAuthUserType(user.type);
     setAuthUserEmployeeId(user.idFuncionario);
+    setAuthUserStudentId(user.idAluno);
     setActiveItem(user.type === 'student' ? 'Meu Treino' : activeItem);
     setIsLoggedIn(true);
   }
@@ -600,9 +603,9 @@ export default function HomePage() {
           {activeItem === 'Empresas' ? (
             <CompanyRegistration />
           ) : activeItem === 'Exercícios' ? (
-            <ExerciseRegistration />
+            <ExerciseRegistration readOnly={authUserType === 'student'} />
           ) : activeItem === 'Treino' ? (
-            <TrainingRegistration />
+            <TrainingRegistration readOnly={authUserType === 'student'} />
           ) : activeItem === 'Montar Treino' ? (
             <StudentTrainingAssembly
               loggedEmployeeId={authUserEmployeeId}
@@ -618,6 +621,11 @@ export default function HomePage() {
             <EmployeeRegistration />
           ) : activeItem === 'Domínios' ? (
             <DomainRegistration />
+          ) : activeItem === 'Meu Treino' ? (
+            <MyTraining
+              studentId={authUserStudentId}
+              studentName={authUserName}
+            />
           ) : (
             <div className="welcome">
               <p className="section-label">Menu selecionado</p>

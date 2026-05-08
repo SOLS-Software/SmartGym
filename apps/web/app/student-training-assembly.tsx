@@ -933,7 +933,7 @@ export function StudentTrainingAssembly({
                     </div>
                   </div>
 
-                  <div className="product-table" role="table" aria-label="Exercicios vinculados ao treino">
+                  <div className="product-table exercise-grid-animated" key={selectedStudentTrainingId ?? 'empty'} role="table" aria-label="Exercicios vinculados ao treino">
                     <div className="product-row training-exercise-row header" role="row">
                       <span role="columnheader">Ordem</span>
                       <span role="columnheader">Exercicio</span>
@@ -955,7 +955,7 @@ export function StudentTrainingAssembly({
                           <span role="cell">{getTrainingMethodName(trainingExercise.idMetodoTreino)}</span>
                           <span role="cell">{trainingExercise.nrSeries}</span>
                           <span role="cell">{trainingExercise.nrRepeticoes}</span>
-                          <span role="cell">{trainingExercise.qtDescanso}</span>
+                          <span role="cell">{trainingExercise.qtDescanso} s</span>
                         </div>
                       ))
                       : null}
@@ -1007,7 +1007,7 @@ export function StudentTrainingAssembly({
                                 <span role="cell">{getTrainingMethodName(trainingExercise.idMetodoTreino)}</span>
                                 <span role="cell">{trainingExercise.nrSeries}</span>
                                 <span role="cell">{trainingExercise.nrRepeticoes}</span>
-                                <span role="cell">{trainingExercise.qtDescanso}</span>
+                                <span role="cell">{trainingExercise.qtDescanso} s</span>
                               </div>
                             ))}
 

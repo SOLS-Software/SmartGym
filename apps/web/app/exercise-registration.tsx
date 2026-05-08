@@ -7,7 +7,11 @@ import type { Company, Exercise, ExerciseFile } from './registration-types';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
 
-export function ExerciseRegistration() {
+type ExerciseRegistrationProps = {
+  readOnly?: boolean;
+};
+
+export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [exercisesPage, setExercisesPage] = useState(1);
@@ -292,9 +296,11 @@ export function ExerciseRegistration() {
                 value={searchTerm}
               />
             </label>
-            <button className="new-button" onClick={handleNewExercise} type="button">
-              Novo exercício
-            </button>
+            {!readOnly ? (
+              <button className="new-button" onClick={handleNewExercise} type="button">
+                Novo exercício
+              </button>
+            ) : null}
           </div>
 
           <div className="product-table" role="table" aria-label="Exercícios cadastrados">
@@ -331,6 +337,7 @@ export function ExerciseRegistration() {
           />
         </section>
 
+        {readOnly ? null : (
         <form className="registration-form split-form-panel" onSubmit={handleSaveExercise}>
           {!isFormEnabled ? <div className="form-hint">Selecione um exercício acima ou clique em Novo.</div> : null}
           {feedback ? <div className="form-feedback">{feedback}</div> : null}
@@ -435,6 +442,7 @@ export function ExerciseRegistration() {
             </div>
           </section>
         </form>
+        )}
       </div>
     </div>
   );
