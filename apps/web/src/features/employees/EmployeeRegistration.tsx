@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatCpf, formatDateInput, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { Company, Employee, Role } from '../../shared/registration/registrationTypes';
-import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
+import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 type EmployeeValidationField =
   | 'name'
   | 'cpf'
@@ -110,7 +110,7 @@ export function EmployeeRegistration() {
       const response = await fetch(`${apiUrl}/employees`);
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar os funcionários.');
+        await getApiError(response, 'Não foi possível carregar os funcionários.');
       }
 
       setEmployees((await response.json()) as Employee[]);
@@ -129,8 +129,9 @@ export function EmployeeRegistration() {
         fetch(`${apiUrl}/roles`),
       ]);
 
-      if (!companiesResponse.ok || !rolesResponse.ok) {
-        throw new Error('Não foi possível carregar empresas e cargos.');
+      const failedLookup = [companiesResponse, rolesResponse].find((r) => !r.ok);
+      if (failedLookup) {
+        await getApiError(failedLookup, 'Não foi possível carregar empresas e cargos.');
       }
 
       const companiesData = (await companiesResponse.json()) as Company[];
@@ -323,7 +324,7 @@ export function EmployeeRegistration() {
       });
 
       if (!response.ok) {
-        throw new Error('Não foi possível alterar o status.');
+        await getApiError(response, 'Não foi possível alterar o status.');
       }
 
       const updatedEmployee = (await response.json()) as Employee;

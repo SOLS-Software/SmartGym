@@ -273,7 +273,7 @@ model Funcionario {
   nmFuncionario String    @default("") @db.VarChar(255)
   caCPF         String    @default("") @db.VarChar(11)
   dtNascimento  DateTime? @db.Date
-  nrDDD         String?   @db.VarChar(9)
+  nrDDD         Int?
   nrContato     Int       @default(0)
   anEmail       String    @default("") @db.VarChar(100)
   dtAdmissao    DateTime? @default(now())

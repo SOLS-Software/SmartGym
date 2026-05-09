@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { Company, CompanyChildColumn, CompanyChildField, CompanyChildRecord, CompanyValidationErrors, CompanyValidationField, LookupRecord } from '../../shared/registration/registrationTypes';
-import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
+import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { companyChildTables } from './companyChildTables';
 import { formatCnpj, getSelectedRecord, isValidCnpj } from './companyUtils';
 
@@ -71,7 +71,7 @@ export function CompanyRegistration() {
       const response = await fetch(`${apiUrl}/companies`);
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar as empresas.');
+        await getApiError(response, 'Não foi possível carregar as empresas.');
       }
 
       const data = (await response.json()) as Company[];
@@ -124,7 +124,7 @@ export function CompanyRegistration() {
       );
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar os registros filhos.');
+        await getApiError(response, 'Não foi possível carregar os registros filhos.');
       }
 
       const data = (await response.json()) as CompanyChildRecord[];
@@ -213,7 +213,7 @@ export function CompanyRegistration() {
           const response = await fetch(`${apiUrl}/${endpoint}`);
 
           if (!response.ok) {
-            throw new Error(`Não foi possível carregar ${field.label}.`);
+            await getApiError(response, `Não foi possível carregar ${field.label}.`);
           }
 
           nextLookups[field.key] = (await response.json()) as LookupRecord[];
@@ -293,7 +293,7 @@ export function CompanyRegistration() {
       );
 
       if (!response.ok) {
-        throw new Error('Não foi possível alterar o status do registro filho.');
+        await getApiError(response, 'Não foi possível alterar o status do registro filho.');
       }
 
       const updated = (await response.json()) as CompanyChildRecord;
@@ -520,7 +520,7 @@ export function CompanyRegistration() {
       });
 
       if (!response.ok) {
-        throw new Error('Não foi possível alterar o status.');
+        await getApiError(response, 'Não foi possível alterar o status.');
       }
 
       const updatedCompany = (await response.json()) as Company;

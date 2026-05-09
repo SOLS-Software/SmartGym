@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, getLookupLabel, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { Company, CompanyChildField, CompanyChildRecord, CompanyChildTable, Level, LookupRecord, Training } from '../../shared/registration/registrationTypes';
-import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
+import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 const trainingRelatedTables: CompanyChildTable[] = [
   {
@@ -99,7 +99,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
       const response = await fetch(`${apiUrl}/trainings?includeInactive=true`);
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar os treinos.');
+        await getApiError(response, 'Não foi possível carregar os treinos.');
       }
 
       setTrainings((await response.json()) as Training[]);
@@ -118,8 +118,9 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
         fetch(`${apiUrl}/levels`),
       ]);
 
-      if (!companiesResponse.ok || !levelsResponse.ok) {
-        throw new Error('Não foi possível carregar empresas e níveis.');
+      const failedLookup = [companiesResponse, levelsResponse].find((r) => !r.ok);
+      if (failedLookup) {
+        await getApiError(failedLookup, 'Não foi possível carregar empresas e níveis.');
       }
 
       const companiesData = (await companiesResponse.json()) as Company[];
@@ -146,7 +147,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
       const response = await fetch(`${apiUrl}/trainings/${trainingId}/related/${config.endpoint}`);
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar os registros relacionados.');
+        await getApiError(response, 'Não foi possível carregar os registros relacionados.');
       }
 
       setTrainingRelatedRecords((await response.json()) as CompanyChildRecord[]);
@@ -204,7 +205,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
           const response = await fetch(`${apiUrl}/${field.lookupEndpoint}`);
 
           if (!response.ok) {
-            throw new Error(`Não foi possível carregar ${field.label}.`);
+            await getApiError(response, `Não foi possível carregar ${field.label}.`);
           }
 
           nextLookups[field.key] = (await response.json()) as LookupRecord[];
@@ -329,7 +330,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
       });
 
       if (!response.ok) {
-        throw new Error('Não foi possível alterar o status.');
+        await getApiError(response, 'Não foi possível alterar o status.');
       }
 
       const updatedTraining = (await response.json()) as Training;

@@ -83,7 +83,7 @@ export type Employee = {
   nmFuncionario: string;
   caCPF: string;
   dtNascimento: string | null;
-  nrDDD: string | null;
+  nrDDD: number | null;
   nrContato: number;
   anEmail: string;
   dtAdmissao: string | null;

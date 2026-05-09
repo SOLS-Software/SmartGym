@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { CompanyChildColumn, CompanyChildField, CompanyChildRecord, CompanyChildTable, Frequency, LookupRecord, Plan } from '../../shared/registration/registrationTypes';
-import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
+import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 const planRelatedTables: CompanyChildTable[] = [
   {
@@ -144,7 +144,7 @@ export function PlanRegistration() {
       const response = await fetch(`${apiUrl}/plans?includeInactive=true`);
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar os planos.');
+        await getApiError(response, 'Não foi possível carregar os planos.');
       }
 
       const data = (await response.json()) as Plan[];
@@ -162,7 +162,7 @@ export function PlanRegistration() {
       const response = await fetch(`${apiUrl}/frequencies`);
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar as frequências.');
+        await getApiError(response, 'Não foi possível carregar as frequências.');
       }
 
       setFrequencies((await response.json()) as Frequency[]);
@@ -186,7 +186,7 @@ export function PlanRegistration() {
       const response = await fetch(`${apiUrl}/plans/${planId}/related/${config.endpoint}`);
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar os registros relacionados.');
+        await getApiError(response, 'Não foi possível carregar os registros relacionados.');
       }
 
       setPlanRelatedRecords((await response.json()) as CompanyChildRecord[]);
@@ -233,7 +233,7 @@ export function PlanRegistration() {
           const response = await fetch(`${apiUrl}/${field.lookupEndpoint}`);
 
           if (!response.ok) {
-            throw new Error(`Não foi possível carregar ${field.label}.`);
+            await getApiError(response, `Não foi possível carregar ${field.label}.`);
           }
 
           nextLookups[field.key] = (await response.json()) as LookupRecord[];

@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { CompanyChildColumn, CompanyChildRecord, LookupRecord, Student, StudentFile, StudentValidationErrors, StudentValidationField } from '../../shared/registration/registrationTypes';
-import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
+import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { studentRelatedTables } from './studentRelatedTables';
 import { formatPhone, isValidBirthDate, isValidEmail, toApiDate } from './studentValidation';
 
@@ -94,7 +94,7 @@ export function StudentRegistration() {
       const response = await fetch(`${apiUrl}/students`);
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar os alunos.');
+        await getApiError(response, 'Não foi possível carregar os alunos.');
       }
 
       const data = (await response.json()) as Student[];
@@ -161,7 +161,7 @@ export function StudentRegistration() {
           const response = await fetch(`${apiUrl}/${endpoint}`);
 
           if (!response.ok) {
-            throw new Error(`Não foi possível carregar ${field.label}.`);
+            await getApiError(response, `Não foi possível carregar ${field.label}.`);
           }
 
           nextLookups[field.key] = (await response.json()) as LookupRecord[];
@@ -219,7 +219,7 @@ export function StudentRegistration() {
       const response = await fetch(`${apiUrl}/students/${studentId}/files`);
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar os arquivos do aluno.');
+        await getApiError(response, 'Não foi possível carregar os arquivos do aluno.');
       }
 
       const data = (await response.json()) as StudentFile[];
@@ -276,7 +276,7 @@ export function StudentRegistration() {
       );
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar os registros relacionados.');
+        await getApiError(response, 'Não foi possível carregar os registros relacionados.');
       }
 
       const data = (await response.json()) as CompanyChildRecord[];
@@ -505,7 +505,7 @@ export function StudentRegistration() {
       });
 
       if (!response.ok) {
-        throw new Error('Não foi possível alterar o status.');
+        await getApiError(response, 'Não foi possível alterar o status.');
       }
 
       const updatedStudent = (await response.json()) as Student;

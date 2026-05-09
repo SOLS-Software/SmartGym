@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatDateInput, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { Company, Exercise, ExerciseFile } from '../../shared/registration/registrationTypes';
-import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
+import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 type ExerciseRegistrationProps = {
   readOnly?: boolean;
@@ -36,7 +36,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
   async function loadExercises() {
     try {
       const response = await fetch(`${apiUrl}/exercises`);
-      if (!response.ok) throw new Error('Não foi possível carregar os exercícios.');
+      if (!response.ok) await getApiError(response, 'Não foi possível carregar os exercícios.');
       const data = (await response.json()) as Exercise[];
       setExercises(data);
       setFeedback('');
@@ -48,7 +48,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
   async function loadCompanies() {
     try {
       const response = await fetch(`${apiUrl}/companies`);
-      if (!response.ok) throw new Error('Não foi possível carregar as empresas.');
+      if (!response.ok) await getApiError(response, 'Não foi possível carregar as empresas.');
       const data = (await response.json()) as Company[];
       setCompanies(data.filter((company) => company.boInativo === 0));
     } catch (error) {
@@ -85,7 +85,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
   async function loadExerciseFiles(exerciseId: number) {
     try {
       const response = await fetch(`${apiUrl}/exercises/${exerciseId}/files`);
-      if (!response.ok) throw new Error('Não foi possível carregar os arquivos do exercício.');
+      if (!response.ok) await getApiError(response, 'Não foi possível carregar os arquivos do exercício.');
       const data = (await response.json()) as ExerciseFile[];
       setExerciseFiles(data);
       setFileFeedback('');
@@ -155,7 +155,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
         body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }),
       });
 
-      if (!response.ok) throw new Error('Não foi possível alterar o status.');
+      if (!response.ok) await getApiError(response, 'Não foi possível alterar o status.');
       const updated = (await response.json()) as Exercise;
       setExercises((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     } catch (error) {

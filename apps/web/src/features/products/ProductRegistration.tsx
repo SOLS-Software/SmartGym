@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { Company, Product } from '../../shared/registration/registrationTypes';
-import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
+import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 export function ProductRegistration() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -30,7 +30,7 @@ export function ProductRegistration() {
       const response = await fetch(`${apiUrl}/products`);
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar os produtos.');
+        await getApiError(response, 'Não foi possível carregar os produtos.');
       }
 
       const data = (await response.json()) as Product[];
@@ -48,7 +48,7 @@ export function ProductRegistration() {
       const response = await fetch(`${apiUrl}/companies`);
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar as empresas.');
+        await getApiError(response, 'Não foi possível carregar as empresas.');
       }
 
       const data = (await response.json()) as Company[];
@@ -124,7 +124,7 @@ export function ProductRegistration() {
       });
 
       if (!response.ok) {
-        throw new Error('Não foi possível alterar o status.');
+        await getApiError(response, 'Não foi possível alterar o status.');
       }
 
       const updatedProduct = (await response.json()) as Product;

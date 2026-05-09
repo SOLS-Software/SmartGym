@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { DomainConfigMap, DomainRecord } from '../../shared/registration/registrationTypes';
-import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
+import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 const domainItems = [
   'Cargo',
@@ -64,7 +64,7 @@ export function DomainRegistration() {
       const response = await fetch(`${apiUrl}/${config.endpoint}`);
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar o domínio.');
+        await getApiError(response, 'Não foi possível carregar o domínio.');
       }
 
       const data = (await response.json()) as Array<Record<string, unknown>>;
@@ -146,7 +146,7 @@ export function DomainRegistration() {
       });
 
       if (!response.ok) {
-        throw new Error('Não foi possível alterar o status.');
+        await getApiError(response, 'Não foi possível alterar o status.');
       }
 
       const updated = (await response.json()) as Record<string, unknown>;

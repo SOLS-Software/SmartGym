@@ -41,6 +41,17 @@ async function decryptPayload(base64: string): Promise<string> {
 
 export const apiUrl = '/api/proxy';
 
+export async function getApiError(response: Response, fallback: string): Promise<never> {
+  let message = fallback;
+  try {
+    const data = (await response.json()) as { message?: string };
+    if (data?.message) message = data.message;
+  } catch {
+    // ignore, use fallback
+  }
+  throw new Error(message);
+}
+
 export async function apiFetch(
   input: RequestInfo | URL,
   init?: RequestInit,

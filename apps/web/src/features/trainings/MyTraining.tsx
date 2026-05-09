@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatDateDisplay } from '../../shared/registration/registrationHelpers';
 import type { Exercise, StudentTraining, TrainingExercise, TrainingMethod } from '../../shared/registration/registrationTypes';
-import { apiFetch as fetch } from '../../shared/api/apiFetch';
+import { apiFetch as fetch, getApiError } from '../../shared/api/apiFetch';
 
 type MyTrainingProps = {
     studentId: number | null;
@@ -57,7 +57,7 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
             const response = await fetch(`/api/proxy/students/${studentId}/related/trainings`);
 
             if (!response.ok) {
-                throw new Error('Não foi possível carregar os treinos.');
+                await getApiError(response, 'Não foi possível carregar os treinos.');
             }
 
             const data = (await response.json()) as StudentTraining[];
@@ -90,7 +90,7 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
             ]);
 
             if (!exercisesResponse.ok) {
-                throw new Error('Não foi possível carregar os exercícios.');
+                await getApiError(exercisesResponse, 'Não foi possível carregar os exercícios.');
             }
 
             const trainingExercises = ((await exercisesResponse.json()) as TrainingExercise[])

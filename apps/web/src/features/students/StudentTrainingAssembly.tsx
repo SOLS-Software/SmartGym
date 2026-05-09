@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { GRID_PAGE_SIZE, GridPagination, formatCpf, formatDateDisplay, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { Employee, Exercise, Student, StudentTraining, Training, TrainingExercise, TrainingMethod } from '../../shared/registration/registrationTypes';
-import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
+import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 type StudentTrainingAssemblyProps = {
   loggedEmployeeId: number | null;
@@ -144,7 +144,7 @@ export function StudentTrainingAssembly({
       const response = await fetch(`${apiUrl}/students`);
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar os alunos.');
+        await getApiError(response, 'Não foi possível carregar os alunos.');
       }
 
       setStudents((await response.json()) as Student[]);
@@ -165,8 +165,9 @@ export function StudentTrainingAssembly({
         fetch(`${apiUrl}/training-methods`),
       ]);
 
-      if (!trainingsResponse.ok || !employeesResponse.ok || !exercisesResponse.ok || !trainingMethodsResponse.ok) {
-        throw new Error('Não foi possível carregar treinos, profissionais e exercícios.');
+      const failedLookup = [trainingsResponse, employeesResponse, exercisesResponse, trainingMethodsResponse].find((r) => !r.ok);
+      if (failedLookup) {
+        await getApiError(failedLookup, 'Não foi possível carregar treinos, profissionais e exercícios.');
       }
 
       setTrainings(((await trainingsResponse.json()) as Training[]).filter((training) => training.boInativo === 0));
@@ -195,7 +196,7 @@ export function StudentTrainingAssembly({
       const response = await fetch(`${apiUrl}/students/${studentId}/related/trainings`, { signal: controller.signal });
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar os treinos do aluno.');
+        await getApiError(response, 'Não foi possível carregar os treinos do aluno.');
       }
 
       const data = (await response.json()) as StudentTraining[];
@@ -234,7 +235,7 @@ export function StudentTrainingAssembly({
           const response = await fetch(`${apiUrl}/trainings/${trainingId}/related/exercises`);
 
           if (!response.ok) {
-            throw new Error('Não foi possível carregar os exercícios dos treinos.');
+            await getApiError(response, 'Não foi possível carregar os exercícios dos treinos.');
           }
 
           const records = ((await response.json()) as TrainingExercise[])
@@ -263,7 +264,7 @@ export function StudentTrainingAssembly({
       const response = await fetch(`${apiUrl}/trainings/${trainingId}/related/exercises`);
 
       if (!response.ok) {
-        throw new Error('Não foi possível carregar os exercícios do treino.');
+        await getApiError(response, 'Não foi possível carregar os exercícios do treino.');
       }
 
       const records = ((await response.json()) as TrainingExercise[])
@@ -300,15 +301,15 @@ export function StudentTrainingAssembly({
       ]);
 
       if (!trainingExercisesResponse.ok) {
-        throw new Error('Não foi possível carregar os exercícios do treino.');
+        await getApiError(trainingExercisesResponse, 'Não foi possível carregar os exercícios do treino.');
       }
 
       if (exercisesResponse && !exercisesResponse.ok) {
-        throw new Error('Não foi possível carregar a lista de exercícios.');
+        await getApiError(exercisesResponse, 'Não foi possível carregar a lista de exercícios.');
       }
 
       if (trainingMethodsResponse && !trainingMethodsResponse.ok) {
-        throw new Error('Não foi possível carregar métodos de treino.');
+        await getApiError(trainingMethodsResponse, 'Não foi possível carregar métodos de treino.');
       }
 
       setSelectedTrainingExercises(

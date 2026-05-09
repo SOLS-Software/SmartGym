@@ -346,7 +346,7 @@ export function normalizeEmployeePayload(payload: EmployeePayload) {
     nmFuncionario,
     caCPF,
     dtNascimento,
-    nrDDD: String(payload.nrDDD ?? '').replace(/\D/g, '') || null,
+    nrDDD: optionalNumber(payload.nrDDD),
     nrContato: Number(nrContato || 0),
     anEmail,
     dtAdmissao,
