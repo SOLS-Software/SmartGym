@@ -23,6 +23,7 @@ export type Exercise = {
 export type Training = {
   id: number;
   idEmpresa: number | null;
+  idAluno: number | null;
   idNivel: number | null;
   dsTreino: string;
   boInativo: number;
@@ -82,10 +83,10 @@ export type Employee = {
   nmFuncionario: string;
   caCPF: string;
   dtNascimento: string | null;
-  nrDDD: number;
+  nrDDD: string | null;
   nrContato: number;
   anEmail: string;
-  dtAdmissao: string;
+  dtAdmissao: string | null;
   boInativo: number;
 };
 

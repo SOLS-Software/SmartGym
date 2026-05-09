@@ -714,10 +714,10 @@ function normalizeEmployeePayload(payload: EmployeePayload) {
     nmFuncionario,
     caCPF,
     dtNascimento,
-    nrDDD: Number(payload.nrDDD ?? 0),
+    nrDDD: String(payload.nrDDD ?? '').replace(/\D/g, '') || null,
     nrContato: Number(nrContato || 0),
     anEmail,
-    dtAdmissao: dtAdmissao ?? new Date(),
+    dtAdmissao,
     boInativo: Number(payload.boInativo ?? 0),
   };
 }
@@ -806,7 +806,7 @@ function normalizeRegisterEmployeePayload(payload: RegisterPayload) {
     nmFuncionario,
     caCPF,
     dtNascimento,
-    nrDDD: Number(payload.ddd ?? 0),
+    nrDDD: String(payload.ddd ?? '').replace(/\D/g, '') || null,
     nrContato: Number(String(payload.phone ?? '').replace(/\D/g, '') || 0),
     anEmail,
     boInativo: 0,
@@ -1973,7 +1973,7 @@ app.post<{
   try {
     const data = normalizeEmployeePayload(request.body);
     const employee = await prisma.funcionario.create({
-      data,
+      data: data as unknown as Parameters<typeof prisma.funcionario.create>[0]['data'],
     });
 
     return reply.code(201).send(employee);
@@ -1999,7 +1999,7 @@ app.put<{
       where: {
         id,
       },
-      data,
+      data: data as unknown as Parameters<typeof prisma.funcionario.update>[0]['data'],
     });
   } catch (error) {
     return reply.code(400).send({

@@ -367,7 +367,7 @@ export function EmployeeRegistration() {
         nmFuncionario: employeeName.trim(),
         caCPF: onlyDigits(employeeCpf),
         dtNascimento: employeeBirthDate || null,
-        nrDDD: Number(employeeDdd || 0),
+        nrDDD: onlyDigits(employeeDdd) || null,
         nrContato: Number(phone || 0),
         anEmail: employeeEmail.trim(),
         dtAdmissao: employeeAdmissionDate || null,
