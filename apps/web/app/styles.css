@@ -352,6 +352,7 @@ h1 {
   grid-template-columns: 18.75rem minmax(0, 1fr);
   grid-template-rows: 5.125rem minmax(0, 1fr);
   min-height: 100vh;
+  transition: grid-template-columns 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .home-page.menu-collapsed {
@@ -437,8 +438,21 @@ h1 {
   margin: 0;
 }
 
+@keyframes app-surface-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .form-view {
+  animation: app-surface-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
   max-width: 100%;
+  transition: gap 360ms cubic-bezier(0.22, 1, 0.36, 1);
   width: 100%;
 }
 
@@ -474,6 +488,7 @@ h1 {
 }
 
 .registration-form {
+  animation: app-surface-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
   background: #ffffff;
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
@@ -482,30 +497,38 @@ h1 {
   gap: 1.125rem;
   margin-top: 1.5rem;
   padding: 1.5rem;
+  transition: border-color 280ms ease, box-shadow 280ms ease, gap 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin 320ms cubic-bezier(0.22, 1, 0.36, 1), min-height 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 360ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .form-hint {
+  animation: app-surface-in 300ms cubic-bezier(0.22, 1, 0.36, 1);
   background: #f8faf8;
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
   color: #52605a;
   font-weight: 700;
   padding: 0.75rem 0.875rem;
+  transition: margin 260ms ease, opacity 260ms ease, padding 260ms ease, transform 260ms ease;
 }
 
 .form-feedback {
+  animation: app-surface-in 300ms cubic-bezier(0.22, 1, 0.36, 1);
   background: #e8f4ed;
   border: 0.0625rem solid #c8e4d4;
   border-radius: 0.5rem;
   color: #1f7a53;
   font-weight: 800;
   padding: 0.75rem 0.875rem;
+  transition: margin 260ms ease, opacity 260ms ease, padding 260ms ease, transform 260ms ease;
 }
 
 .field {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  transition: gap 260ms ease, margin 260ms ease;
 }
 
 .field label {
@@ -524,6 +547,8 @@ h1 {
   min-height: 3rem;
   outline: none;
   padding: 0 0.875rem;
+  transition: border-color 180ms ease, box-shadow 180ms ease, min-height 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease;
 }
 
 .field input[type='hidden'] {
@@ -554,9 +579,11 @@ h1 {
 }
 
 .field-hint {
+  animation: app-surface-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
   color: #6b7a72;
   font-size: 0.78rem;
   font-weight: 700;
+  transition: margin 240ms ease, opacity 240ms ease, transform 240ms ease;
 }
 
 .field input:disabled,
@@ -571,6 +598,7 @@ h1 {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  transition: gap 320ms cubic-bezier(0.22, 1, 0.36, 1), grid-template-columns 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .two-columns>div {
@@ -584,6 +612,7 @@ h1 {
   gap: 0.75rem;
   justify-content: flex-end;
   margin-top: 0.5rem;
+  transition: gap 260ms ease, margin 260ms ease;
 }
 
 .form-actions button {
@@ -820,7 +849,10 @@ h1 {
 }
 
 .data-grid-section {
+  animation: app-surface-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
   margin-top: 0;
+  transition: margin 320ms cubic-bezier(0.22, 1, 0.36, 1), min-height 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .domain-workspace {
@@ -829,6 +861,7 @@ h1 {
   grid-template-columns: minmax(18.75rem, 1.25fr) minmax(26.25rem, 1.45fr) minmax(22.5rem, 1fr);
   margin-top: 1.5rem;
   align-items: start;
+  transition: gap 360ms cubic-bezier(0.22, 1, 0.36, 1), grid-template-columns 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .registration-split-layout {
@@ -836,6 +869,7 @@ h1 {
   display: grid;
   gap: 1.375rem;
   grid-template-columns: minmax(38.75rem, 1.25fr) minmax(26.25rem, 1fr);
+  transition: gap 360ms cubic-bezier(0.22, 1, 0.36, 1), grid-template-columns 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .split-form-panel {
@@ -862,10 +896,12 @@ h1 {
 }
 
 .domain-select-table {
+  animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
   background: #ffffff;
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
   overflow: hidden;
+  transition: border-color 280ms ease, box-shadow 280ms ease, max-height 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .domain-select-row {
@@ -876,6 +912,8 @@ h1 {
   grid-template-columns: minmax(0, 1fr);
   min-height: 3.375rem;
   padding: 0 1rem;
+  transition: background 220ms ease, box-shadow 260ms ease, min-height 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 260ms ease;
 }
 
 button.domain-select-row {
@@ -922,6 +960,7 @@ button.domain-select-row.selected {
   gap: 1.125rem;
   justify-content: space-between;
   margin-bottom: 0.875rem;
+  transition: gap 320ms cubic-bezier(0.22, 1, 0.36, 1), margin 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .grid-toolbar h3 {
@@ -989,13 +1028,17 @@ button.domain-select-row.selected {
 }
 
 .product-table {
+  animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
   background: #ffffff;
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
   overflow: hidden;
+  transition: border-color 280ms ease, box-shadow 280ms ease, max-height 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    min-height 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .product-row {
+  animation: app-surface-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
   align-items: center;
   border-top: 0.0625rem solid #edf2ef;
   display: grid;
@@ -1003,6 +1046,9 @@ button.domain-select-row.selected {
   grid-template-columns: minmax(0, 1fr) 6.875rem 6.875rem;
   min-height: 3.375rem;
   padding: 0 1rem;
+  transition: background 220ms ease, box-shadow 260ms ease, gap 260ms ease,
+    grid-template-columns 420ms cubic-bezier(0.22, 1, 0.36, 1), min-height 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 260ms ease, transform 260ms ease;
 }
 
 .product-row.company-grid {
@@ -1132,6 +1178,7 @@ button.domain-select-row.selected {
   flex-direction: column;
   gap: 1.5rem;
   min-width: 0;
+  transition: gap 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .company-form-panel .field input,
@@ -1165,6 +1212,7 @@ button.domain-select-row.selected {
   display: flex;
   gap: 1rem;
   justify-content: space-between;
+  transition: gap 260ms ease, margin 260ms ease;
 }
 
 .collapsible-panel-header h3 {
@@ -1191,14 +1239,17 @@ button.domain-select-row.selected {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  transition: gap 320ms cubic-bezier(0.22, 1, 0.36, 1), grid-template-columns 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .company-child-tabs {
+  animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
   background: #ffffff;
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
   min-width: 0;
   overflow: hidden;
+  transition: border-color 280ms ease, box-shadow 280ms ease, max-height 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .company-child-tabs-header {
@@ -1229,6 +1280,8 @@ button.domain-select-row.selected {
   min-height: 3rem;
   padding: 0 1rem;
   text-align: left;
+  transition: background 220ms ease, box-shadow 260ms ease, min-height 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 260ms ease;
 }
 
 .company-child-tabs-list button:first-child {
@@ -1251,6 +1304,17 @@ button.domain-select-row.selected {
   gap: 1.25rem;
 }
 
+@keyframes workout-block-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.625rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes exercise-grid-in {
   from {
     opacity: 0;
@@ -1263,7 +1327,7 @@ button.domain-select-row.selected {
 }
 
 .exercise-grid-animated {
-  animation: exercise-grid-in 800ms ease;
+  animation: exercise-grid-in 640ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .workout-assembly-view .form-heading {
@@ -1273,6 +1337,8 @@ button.domain-select-row.selected {
 .workout-students-grid,
 .workout-selected-area {
   min-width: 0;
+  transition: border-color 280ms ease, box-shadow 280ms ease, padding 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
   width: 100%;
 }
 
@@ -1289,7 +1355,13 @@ button.domain-select-row.selected {
 
 .workout-students-table,
 .workout-training-grid .product-table {
+  transition: border-color 280ms ease, box-shadow 280ms ease, min-height 420ms cubic-bezier(0.22, 1, 0.36, 1);
   width: 100%;
+}
+
+.workout-assembly-view .product-table,
+.workout-assembly-view .training-option-list {
+  transition: border-color 280ms ease, box-shadow 280ms ease, max-height 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .workout-student-row {
@@ -1304,6 +1376,12 @@ button.domain-select-row.selected {
   grid-template-columns: minmax(12rem, 1.1fr) minmax(11rem, 0.9fr) minmax(5rem, 0.4fr) minmax(7rem, 0.6fr) 6.5rem 6.5rem;
 }
 
+.workout-assembly-view .product-row:not(.header) {
+  animation: workout-block-in 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background 220ms ease, box-shadow 260ms ease, min-height 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 260ms ease;
+}
+
 .workout-training-row.draggable {
   cursor: grab;
 }
@@ -1313,7 +1391,9 @@ button.domain-select-row.selected {
 }
 
 .training-exercises-grid {
+  animation: workout-block-in 420ms cubic-bezier(0.22, 1, 0.36, 1);
   margin-top: 1.25rem;
+  transition: margin 360ms cubic-bezier(0.22, 1, 0.36, 1), transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .training-exercises-grid .grid-toolbar {
@@ -1347,6 +1427,7 @@ button.domain-select-row.selected {
 }
 
 .workout-selected-area {
+  animation: workout-block-in 420ms cubic-bezier(0.22, 1, 0.36, 1);
   background: #ffffff;
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
@@ -1379,6 +1460,7 @@ button.domain-select-row.selected {
   display: grid;
   gap: 1rem;
   grid-template-columns: minmax(34rem, 1fr) minmax(22rem, 0.42fr);
+  transition: gap 360ms cubic-bezier(0.22, 1, 0.36, 1), grid-template-columns 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .workout-training-grid .child-grid-toolbar-actions {
@@ -1386,7 +1468,9 @@ button.domain-select-row.selected {
 }
 
 .workout-training-form {
+  animation: workout-block-in 420ms cubic-bezier(0.22, 1, 0.36, 1);
   margin-top: 0;
+  transition: min-height 420ms cubic-bezier(0.22, 1, 0.36, 1), padding 360ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .workout-training-form .field select {
@@ -1421,6 +1505,7 @@ button.domain-select-row.selected {
   min-height: 2.75rem;
   padding: 0 0.875rem;
   text-align: left;
+  transition: background 220ms ease, box-shadow 260ms ease, min-height 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .training-option-list button:first-child {
@@ -1451,6 +1536,13 @@ button.domain-select-row.selected {
 .training-option-list button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.workout-assembly-view .form-hint,
+.workout-assembly-view .field-hint,
+.workout-assembly-view .form-feedback {
+  animation: workout-block-in 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: margin 260ms ease, opacity 260ms ease, transform 260ms ease;
 }
 
 .grid-status-toggle {
@@ -1572,6 +1664,8 @@ button.product-row,
   cursor: pointer;
   font: inherit;
   text-align: left;
+  transition: background 220ms ease, box-shadow 260ms ease, min-height 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 260ms ease, transform 260ms ease;
   width: 100%;
 }
 
@@ -1604,6 +1698,7 @@ button.product-row.selected,
   font-weight: 800;
   justify-content: center;
   padding: 0.375rem 0.625rem;
+  transition: background 220ms ease, color 220ms ease, padding 260ms ease;
 }
 
 .status-badge.active {
@@ -1622,8 +1717,10 @@ button.product-row.selected,
 }
 
 .empty-row {
+  animation: app-surface-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
   color: #6b7a72;
   padding: 1.125rem 1rem;
+  transition: padding 260ms ease, opacity 260ms ease, transform 260ms ease;
 }
 
 .grid-pagination {
@@ -1680,11 +1777,23 @@ button.product-row.selected,
   grid-row: 2;
   gap: 1rem;
   min-height: calc(100vh - 5.125rem);
+  overflow: hidden;
   padding: 1.25rem;
+  transition: padding 420ms cubic-bezier(0.22, 1, 0.36, 1), align-items 420ms ease;
+}
+
+.side-menu-content {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 260ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0ms linear;
+  visibility: visible;
+  width: 100%;
 }
 
 .side-menu-header {
   margin: 1.375rem 0 1.75rem;
+  white-space: nowrap;
 }
 
 .side-menu-header strong {
@@ -1697,6 +1806,7 @@ button.product-row.selected,
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  width: 100%;
 }
 
 .menu-group {
@@ -1710,6 +1820,7 @@ button.product-row.selected,
   font-size: 0.75rem;
   font-weight: 800;
   margin: 0 0 0.125rem;
+  white-space: nowrap;
 }
 
 .menu-group button {
@@ -1723,6 +1834,8 @@ button.product-row.selected,
   min-height: 2.625rem;
   padding: 0 0.75rem;
   text-align: left;
+  width: 100%;
+  white-space: nowrap;
 }
 
 .menu-group button:hover,
@@ -1770,6 +1883,15 @@ button.product-row.selected,
 .menu-collapsed .side-menu {
   align-items: center;
   padding: 1.25rem 0.625rem;
+}
+
+.menu-collapsed .side-menu-content {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-0.875rem);
+  transition: opacity 300ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0ms linear 420ms;
+  visibility: hidden;
 }
 
 @media (max-width: 30rem) {

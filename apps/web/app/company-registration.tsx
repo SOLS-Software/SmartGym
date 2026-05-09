@@ -879,7 +879,7 @@ export function CompanyRegistration() {
             </button>
           </div>
 
-          <div className="product-table" role="table" aria-label="Empresas cadastradas">
+          <div className="product-table" key={`companies-${searchTerm}-${companiesPage}`} role="table" aria-label="Empresas cadastradas">
             <div className="product-row company-grid header" role="row">
               <span role="columnheader">Empresa</span>
               <span role="columnheader">CNPJ</span>
@@ -958,6 +958,7 @@ export function CompanyRegistration() {
 
                 <div
                   className="product-table company-child-grid-table"
+                  key={`company-child-${childTableConfig.key}-${childSearchTerm}-${selectedCompanyId}`}
                   role="table"
                   aria-label={childTableConfig.title}
                 >

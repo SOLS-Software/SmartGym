@@ -221,7 +221,7 @@ export function ProductRegistration() {
             </button>
           </div>
 
-          <div className="product-table" role="table" aria-label="Produtos cadastrados">
+          <div className="product-table" key={`products-${searchTerm}-${productsPage}`} role="table" aria-label="Produtos cadastrados">
             <div className="product-row header" role="row">
               <span role="columnheader">Produto</span>
               <span role="columnheader">Estoque</span>

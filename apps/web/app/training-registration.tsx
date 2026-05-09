@@ -520,7 +520,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
             </div>
           </div>
 
-          <div className="product-table" role="table" aria-label="Treinos cadastrados">
+          <div className="product-table" key={`trainings-${searchTerm}-${trainingsPage}`} role="table" aria-label="Treinos cadastrados">
             <div className="product-row header" role="row">
               <span role="columnheader">Treino</span>
               <span role="columnheader">Nível</span>
@@ -597,6 +597,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
 
                   <div
                     className="product-table company-child-grid-table"
+                    key={`training-related-${trainingRelatedConfig.key}-${trainingRelatedSearchTerm}-${selectedTrainingId}`}
                     role="table"
                     aria-label={trainingRelatedConfig.title}
                   >

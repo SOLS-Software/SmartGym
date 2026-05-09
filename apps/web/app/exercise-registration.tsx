@@ -302,7 +302,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
             ) : null}
           </div>
 
-          <div className="product-table" role="table" aria-label="Exercícios cadastrados">
+          <div className="product-table" key={`exercises-${searchTerm}-${exercisesPage}`} role="table" aria-label="Exercícios cadastrados">
             <div className="product-row header" role="row">
               <span role="columnheader">Exercício</span>
               <span role="columnheader">Empresa</span>

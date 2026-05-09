@@ -739,7 +739,7 @@ export function StudentTrainingAssembly({
 
         {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
-        <div className="product-table workout-students-table" role="table" aria-label="Alunos cadastrados">
+        <div className="product-table workout-students-table" key={`workout-students-${searchTerm}-${studentsPage}`} role="table" aria-label="Alunos cadastrados">
           <div className="product-row workout-student-row header" role="row">
             <span role="columnheader">Aluno</span>
             <span role="columnheader">CPF</span>
@@ -853,7 +853,7 @@ export function StudentTrainingAssembly({
                 </div>
               </div>
 
-              <div className="product-table" role="table" aria-label="Treinos do aluno">
+              <div className="product-table" key={`student-trainings-${studentTrainingSearchTerm}-${studentTrainingsPage}-${showInactiveStudentTrainings}-${isReorderingSequence}`} role="table" aria-label="Treinos do aluno">
                 <div className="product-row workout-training-row header" role="row">
                   <span role="columnheader">Treino</span>
                   <span role="columnheader">Profissional</span>
@@ -990,7 +990,7 @@ export function StudentTrainingAssembly({
                   ) : null}
 
                   {!isLoadingGroupedTrainingExercises ? (
-                    <div className="product-table" role="table" aria-label="Exercícios agrupados por treino">
+                    <div className="product-table" key={`grouped-exercises-${studentTrainingSearchTerm}-${displayedStudentTrainings.length}`} role="table" aria-label="Exercícios agrupados por treino">
                       <div className="product-row training-exercise-row header" role="row">
                         <span role="columnheader">Ordem</span>
                         <span role="columnheader">Exercicio</span>
@@ -1068,6 +1068,7 @@ export function StudentTrainingAssembly({
                 />
                 <div
                   className="training-option-list"
+                  key={`training-options-${trainingOptionSearchTerm}-${selectedTrainingIds.join('-')}`}
                   id="studentTrainingTraining"
                   role="listbox"
                   aria-label="Treinos"

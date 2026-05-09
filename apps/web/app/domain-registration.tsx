@@ -288,7 +288,7 @@ export function DomainRegistration() {
                 </label>
               </div>
 
-              <div className="product-table domain-records-table" role="table" aria-label="Itens cadastrados">
+              <div className="product-table domain-records-table" key={`domain-records-${selectedDomain}-${searchTerm}-${recordsPage}`} role="table" aria-label="Itens cadastrados">
                 <div className="product-row domain-records-row header" role="row">
                   <span role="columnheader">{config.label}</span>
                   <span role="columnheader">Status</span>

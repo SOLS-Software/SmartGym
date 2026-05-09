@@ -524,7 +524,7 @@ export function PlanRegistration() {
             </div>
           </div>
 
-          <div className="product-table" role="table" aria-label="Planos cadastrados">
+          <div className="product-table" key={`plans-${searchTerm}-${plansPage}`} role="table" aria-label="Planos cadastrados">
             <div className="product-row header" role="row">
               <span role="columnheader">Plano</span>
               <span role="columnheader">Frequência</span>
@@ -599,6 +599,7 @@ export function PlanRegistration() {
 
                   <div
                     className="product-table company-child-grid-table"
+                    key={`plan-related-${planRelatedConfig.key}-${planRelatedSearchTerm}-${selectedPlanId}`}
                     role="table"
                     aria-label={planRelatedConfig.title}
                   >

@@ -1037,7 +1037,7 @@ export function StudentRegistration() {
             </div>
           </div>
 
-          <div className="product-table" role="table" aria-label="Alunos cadastrados">
+          <div className="product-table" key={`students-${searchTerm}-${studentsPage}`} role="table" aria-label="Alunos cadastrados">
             <div className="product-row header" role="row">
               <span role="columnheader">Aluno</span>
               <span role="columnheader">CPF</span>
@@ -1113,6 +1113,7 @@ export function StudentRegistration() {
 
                   <div
                     className="product-table company-child-grid-table"
+                    key={`student-related-${studentRelatedConfig.key}-${studentRelatedSearchTerm}-${selectedStudentId}`}
                     role="table"
                     aria-label={studentRelatedConfig.title}
                   >

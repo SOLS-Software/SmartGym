@@ -669,35 +669,34 @@ export default function HomePage() {
             <span />
           </button>
 
-          {isMenuOpen ? (
-            <>
-              <div className="side-menu-header">
-                <p className="eyebrow">Menu</p>
-                <strong>Principal</strong>
-              </div>
+          <div className="side-menu-content" aria-hidden={!isMenuOpen}>
+            <div className="side-menu-header">
+              <p className="eyebrow">Menu</p>
+              <strong>Principal</strong>
+            </div>
 
-              <nav className="menu-nav">
-                {visibleMenuGroups.map((group) => (
-                  <div className="menu-group" key={group.title}>
-                    <p>{group.title}</p>
-                    {group.items.map((item) => (
-                      <button
-                        className={item === activeItem ? 'active' : ''}
-                        key={item}
-                        onClick={() => {
-                          setActiveItem(item);
-                          setIsMenuOpen(false);
-                        }}
-                        type="button"
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                ))}
-              </nav>
-            </>
-          ) : null}
+            <nav className="menu-nav">
+              {visibleMenuGroups.map((group) => (
+                <div className="menu-group" key={group.title}>
+                  <p>{group.title}</p>
+                  {group.items.map((item) => (
+                    <button
+                      className={item === activeItem ? 'active' : ''}
+                      key={item}
+                      onClick={() => {
+                        setActiveItem(item);
+                        setIsMenuOpen(false);
+                      }}
+                      tabIndex={isMenuOpen ? 0 : -1}
+                      type="button"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </nav>
+          </div>
         </aside>
 
         <section className="home-content">

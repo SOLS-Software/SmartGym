@@ -427,7 +427,7 @@ export function EmployeeRegistration() {
             </div>
           </div>
 
-          <div className="product-table" role="table" aria-label="Funcionários cadastrados">
+          <div className="product-table" key={`employees-${searchTerm}-${employeesPage}`} role="table" aria-label="Funcionários cadastrados">
             <div className="product-row header" role="row">
               <span role="columnheader">Funcionário</span>
               <span role="columnheader">Cargo</span>
