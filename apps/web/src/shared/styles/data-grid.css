@@ -45,6 +45,10 @@
   grid-template-columns: minmax(13.75rem, 1fr) 6.875rem;
 }
 
+.domain-records-row.with-relation {
+  grid-template-columns: minmax(11rem, 1fr) minmax(10rem, 1fr) 6.875rem;
+}
+
 /* Shared card panel base */
 .domain-select-table,
 .product-table,

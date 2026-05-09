@@ -41,6 +41,26 @@ async function decryptPayload(base64: string): Promise<string> {
 
 export const apiUrl = '/api/proxy';
 
+function isFormDataBody(body: BodyInit | null | undefined): body is FormData {
+  return typeof FormData !== 'undefined' && body instanceof FormData;
+}
+
+async function encryptFormData(formData: FormData) {
+  const encryptedFormData = new FormData();
+  const fields: Record<string, string> = {};
+
+  for (const [key, value] of formData.entries()) {
+    if (typeof value === 'string') {
+      fields[key] = value;
+    } else {
+      encryptedFormData.append(key, value);
+    }
+  }
+
+  encryptedFormData.append('payload', await encryptPayload(JSON.stringify(fields)));
+  return encryptedFormData;
+}
+
 export async function getApiError(response: Response, fallback: string): Promise<never> {
   let message = fallback;
   try {
@@ -70,7 +90,17 @@ export async function apiFetch(
   const headers = new Headers(init?.headers);
   let body = init?.body;
 
-  if (body !== undefined && body !== null) {
+  if (isFormDataBody(body)) {
+    body = await encryptFormData(body);
+    headers.set('x-encrypted-form', '1');
+  }
+
+  const shouldEncryptBody =
+    body !== undefined &&
+    body !== null &&
+    !isFormDataBody(body);
+
+  if (shouldEncryptBody) {
     const bodyText = typeof body === 'string' ? body : new TextDecoder().decode(body as ArrayBuffer);
     const encrypted = await encryptPayload(bodyText);
     headers.set('content-type', 'text/plain');

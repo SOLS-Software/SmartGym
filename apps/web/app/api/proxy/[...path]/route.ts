@@ -57,14 +57,36 @@ async function handler(request: NextRequest, { params }: RouteContext) {
 
   const forwardHeaders: Record<string, string> = {};
   const isEncrypted = request.headers.get('x-encrypted') === '1';
+  const isEncryptedForm = request.headers.get('x-encrypted-form') === '1';
 
-  let body: ArrayBuffer | string | undefined;
+  let body: BodyInit | undefined;
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     if (isEncrypted) {
       const base64 = await request.text();
       const plaintext = await decryptPayload(base64);
       body = plaintext;
       forwardHeaders['content-type'] = 'application/json';
+    } else if (isEncryptedForm) {
+      const incomingFormData = await request.formData();
+      const encryptedPayload = incomingFormData.get('payload');
+      const outgoingFormData = new FormData();
+
+      if (typeof encryptedPayload === 'string' && encryptedPayload) {
+        const plaintext = await decryptPayload(encryptedPayload);
+        const fields = JSON.parse(plaintext) as Record<string, string>;
+
+        for (const [key, value] of Object.entries(fields)) {
+          outgoingFormData.append(key, value);
+        }
+      }
+
+      for (const [key, value] of incomingFormData.entries()) {
+        if (key !== 'payload' && typeof value !== 'string') {
+          outgoingFormData.append(key, value);
+        }
+      }
+
+      body = outgoingFormData;
     } else {
       body = await request.arrayBuffer();
       const contentType = request.headers.get('content-type');

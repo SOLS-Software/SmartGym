@@ -8,24 +8,25 @@ import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetc
 
 const domainItems = [
   'Cargo',
-  'Tema',
   'Frequencia',
   'Nivel',
-  'UnidadeTempo',
-  'StatusPagamento',
-  'FormaPagamento',
-  'MetodoTreino',
-  'TipoArquivo',
+  'Unidade de Tempo',
+  'Status de Pagamento',
+  'Forma de Pagamento',
+  'Metodo de Treino',
+  'Tipo de Arquivo',
+  'Esporte',
+  'Categoria',
 ];
 
 const domainConfig: DomainConfigMap = {
   Cargo: { endpoint: 'roles', field: 'dsCargo', label: 'Cargo', saveLabel: 'Salvar cargo' },
   Frequencia: { endpoint: 'frequencies', field: 'dsFrequencia', label: 'Frequência', saveLabel: 'Salvar frequência' },
   Nivel: { endpoint: 'levels', field: 'dsNivel', label: 'Nível', saveLabel: 'Salvar nível' },
-  UnidadeTempo: { endpoint: 'time-units', field: 'dsUnidadeTempo', label: 'Unidade de tempo', saveLabel: 'Salvar unidade' },
-  StatusPagamento: { endpoint: 'payment-statuses', field: 'dsStatusPagamento', label: 'Status de pagamento', saveLabel: 'Salvar status' },
-  FormaPagamento: { endpoint: 'payment-methods', field: 'dsFormaPagamento', label: 'Forma de pagamento', saveLabel: 'Salvar forma' },
-  MetodoTreino: {
+  "Unidade de Tempo": { endpoint: 'time-units', field: 'dsUnidadeTempo', label: 'Unidade de tempo', saveLabel: 'Salvar unidade' },
+  "Status de Pagamento": { endpoint: 'payment-statuses', field: 'dsStatusPagamento', label: 'Status de pagamento', saveLabel: 'Salvar status' },
+  "Forma de Pagamento": { endpoint: 'payment-methods', field: 'dsFormaPagamento', label: 'Forma de pagamento', saveLabel: 'Salvar forma' },
+  "Metodo de Treino": {
     endpoint: 'training-methods',
     field: 'nmMetodoTreino',
     label: 'Método de treino',
@@ -33,7 +34,18 @@ const domainConfig: DomainConfigMap = {
     secondField: 'dsMetodoTreino',
     secondFieldLabel: 'Descrição',
   },
-  TipoArquivo: { endpoint: 'file-types', field: 'dsTipo', label: 'Tipo de arquivo', saveLabel: 'Salvar tipo' },
+  "Tipo de Arquivo": { endpoint: 'file-types', field: 'dsTipo', label: 'Tipo de arquivo', saveLabel: 'Salvar tipo' },
+  Esporte: { endpoint: 'sports', field: 'dsEsporte', label: 'Esporte', saveLabel: 'Salvar esporte' },
+  Categoria: {
+    endpoint: 'categories',
+    field: 'dsCategoria',
+    label: 'Categoria',
+    saveLabel: 'Salvar categoria',
+    relationField: 'idEsporte',
+    relationLabel: 'Esporte',
+    relationEndpoint: 'sports',
+    relationValueField: 'dsEsporte',
+  },
 };
 
 export function DomainRegistration() {
@@ -42,6 +54,8 @@ export function DomainRegistration() {
   const [recordsPage, setRecordsPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
+  const [relationOptions, setRelationOptions] = useState<DomainRecord[]>([]);
+  const [selectedRelationId, setSelectedRelationId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -78,6 +92,11 @@ export function DomainRegistration() {
             id: Number(item.id),
             name: String(item[config.field] ?? ''),
             description,
+            relationId: config.relationField ? Number(item[config.relationField] ?? 0) || null : null,
+            relationName:
+              config.relationField && typeof item.esporte === 'object' && item.esporte !== null
+                ? String((item.esporte as Record<string, unknown>).dsEsporte ?? '')
+                : '',
             boInativo: Number(item.boInativo ?? 0),
           };
         }),
@@ -88,8 +107,37 @@ export function DomainRegistration() {
     }
   }
 
+  async function loadRelationOptions() {
+    if (!config?.relationEndpoint || !config.relationValueField) {
+      setRelationOptions([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/${config.relationEndpoint}`);
+
+      if (!response.ok) {
+        await getApiError(response, 'Nao foi possivel carregar as opcoes.');
+      }
+
+      const data = (await response.json()) as Array<Record<string, unknown>>;
+      setRelationOptions(
+        data.map((item) => ({
+          id: Number(item.id),
+          name: String(item[config.relationValueField ?? ''] ?? ''),
+          boInativo: Number(item.boInativo ?? 0),
+        })),
+      );
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Erro ao carregar opcoes.');
+    }
+  }
+
   useEffect(() => {
-    if (config) void loadRecords();
+    if (config) {
+      void loadRecords();
+      void loadRelationOptions();
+    }
   }, [selectedDomain]);
 
   useEffect(() => {
@@ -107,7 +155,18 @@ export function DomainRegistration() {
     setIsCreating(false);
     setName('');
     setDescription('');
+    setSelectedRelationId('');
     setIsActive(false);
+  }
+
+  function handleChangeDomain(domain: string) {
+    if (domain === selectedDomain) {
+      return;
+    }
+
+    clearForm();
+    setFeedback('');
+    setSelectedDomain(domain);
   }
 
   function handleNew() {
@@ -115,6 +174,7 @@ export function DomainRegistration() {
     setIsCreating(true);
     setName('');
     setDescription('');
+    setSelectedRelationId('');
     setIsActive(true);
     setFeedback('');
   }
@@ -124,6 +184,7 @@ export function DomainRegistration() {
     setIsCreating(false);
     setName(record.name);
     setDescription(record.description ?? '');
+    setSelectedRelationId(record.relationId ? String(record.relationId) : '');
     setIsActive(record.boInativo === 0);
     setFeedback('');
   }
@@ -161,6 +222,11 @@ export function DomainRegistration() {
               id: Number(updated.id),
               name: String(updated[config.field] ?? ''),
               description: updatedDescription,
+              relationId: config.relationField ? Number(updated[config.relationField] ?? 0) || null : null,
+              relationName:
+                config.relationField && typeof updated.esporte === 'object' && updated.esporte !== null
+                  ? String((updated.esporte as Record<string, unknown>).dsEsporte ?? '')
+                  : '',
               boInativo: Number(updated.boInativo ?? 0),
             }
             : record;
@@ -182,6 +248,9 @@ export function DomainRegistration() {
         boInativo: isActive ? 0 : 1,
       };
       if (config.secondField) payload[config.secondField] = description;
+      if (config.relationField) {
+        payload[config.relationField] = selectedRelationId ? Number(selectedRelationId) : null;
+      }
 
       const response = await fetch(
         selectedRecordId
@@ -207,6 +276,11 @@ export function DomainRegistration() {
         id: Number(saved.id),
         name: String(saved[config.field] ?? ''),
         description: secondField && saved[secondField] ? String(saved[secondField]) : '',
+        relationId: config.relationField ? Number(saved[config.relationField] ?? 0) || null : null,
+        relationName:
+          config.relationField && typeof saved.esporte === 'object' && saved.esporte !== null
+            ? String((saved.esporte as Record<string, unknown>).dsEsporte ?? '')
+            : '',
         boInativo: Number(saved.boInativo ?? 0),
       };
 
@@ -256,7 +330,7 @@ export function DomainRegistration() {
                     className={`domain-select-row selectable ${item === selectedDomain ? 'selected' : ''
                       }`}
                     key={item}
-                    onClick={() => setSelectedDomain(item)}
+                    onClick={() => handleChangeDomain(item)}
                     role="row"
                     type="button"
                   >
@@ -289,14 +363,15 @@ export function DomainRegistration() {
               </div>
 
               <div className="product-table domain-records-table" key={`domain-records-${selectedDomain}-${searchTerm}-${recordsPage}`} role="table" aria-label="Itens cadastrados">
-                <div className="product-row domain-records-row header" role="row">
+                <div className={`product-row domain-records-row ${config.relationField ? 'with-relation' : ''} header`} role="row">
                   <span role="columnheader">{config.label}</span>
+                  {config.relationField ? <span role="columnheader">{config.relationLabel}</span> : null}
                   <span role="columnheader">Status</span>
                 </div>
 
                 {paginatedRecords.map((record) => (
                   <button
-                    className={`product-row domain-records-row selectable ${record.id === selectedRecordId ? 'selected' : ''
+                    className={`product-row domain-records-row ${config.relationField ? 'with-relation' : ''} selectable ${record.id === selectedRecordId ? 'selected' : ''
                       }`}
                     key={record.id}
                     onClick={() => handleSelect(record)}
@@ -304,6 +379,7 @@ export function DomainRegistration() {
                     type="button"
                   >
                     <span role="cell">{record.name}</span>
+                    {config.relationField ? <span role="cell">{record.relationName}</span> : null}
                     <span role="cell">
                       <span className={`status-badge ${record.boInativo === 0 ? 'active' : 'inactive'}`}>
                         {record.boInativo === 0 ? 'Ativo' : 'Inativo'}
@@ -350,6 +426,24 @@ export function DomainRegistration() {
                   type="text"
                   value={description}
                 />
+              </div>
+            ) : null}
+            {config.relationField ? (
+              <div className="field">
+                <label htmlFor="domainRelation">{config.relationLabel}</label>
+                <select
+                  disabled={!isFormEnabled}
+                  id="domainRelation"
+                  onChange={(event) => setSelectedRelationId(event.target.value)}
+                  value={selectedRelationId}
+                >
+                  <option value="">Selecione</option>
+                  {relationOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             ) : null}
 

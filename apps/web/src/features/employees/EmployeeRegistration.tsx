@@ -2,8 +2,8 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { GRID_PAGE_SIZE, GridPagination, formatCpf, formatDateInput, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
-import type { Company, Employee, Role } from '../../shared/registration/registrationTypes';
+import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import type { Company, CompanyChildRecord, CompanyChildTable, Employee, LookupRecord, Role } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 type EmployeeValidationField =
   | 'name'
@@ -14,6 +14,27 @@ type EmployeeValidationField =
   | 'phone'
   | 'email';
 type EmployeeValidationErrors = Partial<Record<EmployeeValidationField, string>>;
+
+const employeeRelatedTables: CompanyChildTable[] = [
+  {
+    key: 'files',
+    endpoint: 'files',
+    label: 'Arquivos',
+    title: 'Arquivos do funcionario',
+    columns: [
+      { key: 'dsArquivo', label: 'Arquivo' },
+      { key: 'idTiposArquivos', label: 'Tipo', lookupLabelKey: 'dsTipo' },
+      { key: 'boInativo', label: 'Status', type: 'status' },
+    ],
+    fields: [
+      { key: 'idTiposArquivos', label: 'Tipo de arquivo', type: 'number', lookupEndpoint: 'file-types', lookupLabelKey: 'dsTipo' },
+      { key: 'dsArquivo', label: 'Arquivo', type: 'text', required: true },
+      { key: 'anCaminho', label: 'Caminho', type: 'text' },
+      { key: 'cnChaveAcesso', label: 'Chave acesso', type: 'number' },
+      { key: 'cnDistribuidor', label: 'Distribuidor', type: 'number' },
+    ],
+  },
+];
 
 function formatPhone(value: string) {
   const digits = onlyDigits(value).slice(0, 9);
@@ -55,6 +76,7 @@ function isValidPastDate(value: string) {
 }
 
 export function EmployeeRegistration() {
+  const employeeFileInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const cpfInputRef = useRef<HTMLInputElement>(null);
   const birthDateInputRef = useRef<HTMLInputElement>(null);
@@ -86,7 +108,32 @@ export function EmployeeRegistration() {
   const [touchedEmployeeFields, setTouchedEmployeeFields] = useState<
     Partial<Record<EmployeeValidationField, boolean>>
   >({});
+  const [selectedEmployeeRelatedTable, setSelectedEmployeeRelatedTable] = useState('');
+  const [employeeRelatedRecords, setEmployeeRelatedRecords] = useState<CompanyChildRecord[]>([]);
+  const [isLoadingEmployeeRelatedRecords, setIsLoadingEmployeeRelatedRecords] = useState(false);
+  const [employeeRelatedSearchTerm, setEmployeeRelatedSearchTerm] = useState('');
+  const [selectedEmployeeRelatedRecordId, setSelectedEmployeeRelatedRecordId] = useState<number | null>(null);
+  const [isCreatingEmployeeRelated, setIsCreatingEmployeeRelated] = useState(false);
+  const [employeeRelatedFormValues, setEmployeeRelatedFormValues] = useState<Record<string, string>>({});
+  const [isEmployeeRelatedActive, setIsEmployeeRelatedActive] = useState(true);
+  const [employeeRelatedFeedback, setEmployeeRelatedFeedback] = useState('');
+  const [employeeRelatedLookups, setEmployeeRelatedLookups] = useState<Record<string, LookupRecord[]>>({});
+  const [employeeFilePreviewUrls, setEmployeeFilePreviewUrls] = useState<Record<number, string>>({});
+  const [employeeFileModal, setEmployeeFileModal] = useState<{ title: string; url: string } | null>(null);
+  const [isUploadingEmployeeFile, setIsUploadingEmployeeFile] = useState(false);
+  const [isEmployeeRelatedFieldsCollapsed, setIsEmployeeRelatedFieldsCollapsed] = useState(false);
   const isFormEnabled = selectedEmployeeId !== null || isCreating;
+  const employeeRelatedConfig =
+    employeeRelatedTables.find((table) => table.key === selectedEmployeeRelatedTable) ?? null;
+  const isEmployeeRelatedFormEnabled =
+    Boolean(selectedEmployeeId) && (selectedEmployeeRelatedRecordId !== null || isCreatingEmployeeRelated);
+  const filteredEmployeeRelatedRecords = employeeRelatedRecords.filter((record) =>
+    employeeRelatedConfig
+      ? employeeRelatedConfig.columns.some((column) =>
+        formatChildSearchValue(record, column, employeeRelatedLookups[column.key]).includes(employeeRelatedSearchTerm.toLowerCase()),
+      )
+      : false,
+  );
   const filteredEmployees = employees.filter((employee) => {
     const search = searchTerm.toLowerCase();
     const role = roles.find((item) => item.id === employee.idCargo);
@@ -143,6 +190,56 @@ export function EmployeeRegistration() {
     }
   }
 
+  async function loadEmployeeRelatedRecords(
+    employeeId = selectedEmployeeId,
+    config = employeeRelatedConfig,
+  ) {
+    if (!config || !employeeId) {
+      setEmployeeRelatedRecords([]);
+      setIsLoadingEmployeeRelatedRecords(false);
+      return;
+    }
+
+    try {
+      setIsLoadingEmployeeRelatedRecords(true);
+      const response = await fetch(`${apiUrl}/employees/${employeeId}/related/${config.endpoint}`);
+
+      if (!response.ok) {
+        await getApiError(response, 'Nao foi possivel carregar os registros relacionados.');
+      }
+
+      const data = (await response.json()) as CompanyChildRecord[];
+      setEmployeeRelatedRecords(data);
+      if (config.key === 'files') {
+        const imageFiles = data.filter((file) => isImageFile(String(file.anCaminho ?? '')));
+        const urlEntries = await Promise.all(
+          imageFiles.map(async (file) => {
+            try {
+              const urlResponse = await fetch(`${apiUrl}/employees/${employeeId}/related/files/${file.id}/url`);
+              if (!urlResponse.ok) return null;
+              const urlData = (await urlResponse.json()) as { url: string };
+              return [file.id, urlData.url] as const;
+            } catch {
+              return null;
+            }
+          }),
+        );
+        setEmployeeFilePreviewUrls(Object.fromEntries(urlEntries.filter((entry): entry is [number, string] => Boolean(entry))));
+      } else {
+        setEmployeeFilePreviewUrls({});
+      }
+      setEmployeeRelatedFeedback('');
+    } catch (error) {
+      setEmployeeRelatedFeedback(
+        error instanceof Error ? error.message : 'Erro ao carregar registros relacionados.',
+      );
+      setEmployeeRelatedRecords([]);
+      setEmployeeFilePreviewUrls({});
+    } finally {
+      setIsLoadingEmployeeRelatedRecords(false);
+    }
+  }
+
   useEffect(() => {
     void loadEmployees();
     void loadLookups();
@@ -157,6 +254,54 @@ export function EmployeeRegistration() {
       setEmployeesPage(employeesTotalPages);
     }
   }, [employeesPage, employeesTotalPages]);
+
+  useEffect(() => {
+    setSelectedEmployeeRelatedRecordId(null);
+    setIsCreatingEmployeeRelated(false);
+    setEmployeeRelatedFormValues({});
+    setIsEmployeeRelatedActive(true);
+    setEmployeeRelatedSearchTerm('');
+    setEmployeeRelatedFeedback('');
+    void loadEmployeeRelatedRecords();
+  }, [selectedEmployeeId, selectedEmployeeRelatedTable]);
+
+  useEffect(() => {
+    async function loadEmployeeRelatedLookups() {
+      if (!employeeRelatedConfig) {
+        return;
+      }
+
+      const lookupFields = employeeRelatedConfig.fields.filter((field) => field.lookupEndpoint);
+      const nextLookups: Record<string, LookupRecord[]> = {};
+
+      await Promise.all(
+        lookupFields.map(async (field) => {
+          if (!field.lookupEndpoint) {
+            return;
+          }
+
+          const response = await fetch(`${apiUrl}/${field.lookupEndpoint}`);
+
+          if (!response.ok) {
+            await getApiError(response, `Nao foi possivel carregar ${field.label}.`);
+          }
+
+          nextLookups[field.key] = (await response.json()) as LookupRecord[];
+        }),
+      );
+
+      setEmployeeRelatedLookups((current) => ({
+        ...current,
+        ...nextLookups,
+      }));
+    }
+
+    void loadEmployeeRelatedLookups().catch((error) => {
+      setEmployeeRelatedFeedback(
+        error instanceof Error ? error.message : 'Erro ao carregar listas relacionadas.',
+      );
+    });
+  }, [employeeRelatedConfig]);
 
   function clearForm() {
     setSelectedEmployeeId(null);
@@ -174,6 +319,11 @@ export function EmployeeRegistration() {
     setEmployeeErrors({});
     setTouchedEmployeeFields({});
     setFeedback('');
+    setEmployeeRelatedRecords([]);
+    setSelectedEmployeeRelatedRecordId(null);
+    setIsCreatingEmployeeRelated(false);
+    setEmployeeRelatedFormValues({});
+    setEmployeeRelatedFeedback('');
   }
 
   function handleNewEmployee() {
@@ -199,6 +349,45 @@ export function EmployeeRegistration() {
     setEmployeeErrors({});
     setTouchedEmployeeFields({});
     setFeedback('');
+    setEmployeeRelatedFeedback('');
+  }
+
+  function handleSelectEmployeeRelatedTable(tableKey: string) {
+    setSelectedEmployeeRelatedTable(tableKey);
+    setEmployeeRelatedFeedback('');
+  }
+
+  function clearEmployeeRelatedForm() {
+    setSelectedEmployeeRelatedRecordId(null);
+    setIsCreatingEmployeeRelated(false);
+    setEmployeeRelatedFormValues({});
+    setIsEmployeeRelatedActive(true);
+    setEmployeeRelatedFeedback('');
+  }
+
+  function handleNewEmployeeRelated() {
+    setSelectedEmployeeRelatedRecordId(null);
+    setIsCreatingEmployeeRelated(true);
+    setEmployeeRelatedFormValues({});
+    setIsEmployeeRelatedActive(true);
+    setEmployeeRelatedFeedback('');
+  }
+
+  function handleSelectEmployeeRelatedRecord(record: CompanyChildRecord) {
+    if (!employeeRelatedConfig) {
+      return;
+    }
+
+    const values = employeeRelatedConfig.fields.reduce<Record<string, string>>((current, field) => {
+      current[field.key] = String(record[field.key] ?? '');
+      return current;
+    }, {});
+
+    setSelectedEmployeeRelatedRecordId(record.id);
+    setIsCreatingEmployeeRelated(false);
+    setEmployeeRelatedFormValues(values);
+    setIsEmployeeRelatedActive(Number(record.boInativo ?? 0) === 0);
+    setEmployeeRelatedFeedback('');
   }
 
   function getRoleLabel(roleId: number | null) {
@@ -400,13 +589,203 @@ export function EmployeeRegistration() {
     }
   }
 
+  async function handleToggleEmployeeRelatedStatus() {
+    if (!employeeRelatedConfig) {
+      return;
+    }
+
+    const nextActive = !isEmployeeRelatedActive;
+    setIsEmployeeRelatedActive(nextActive);
+
+    if (!selectedEmployeeId || !selectedEmployeeRelatedRecordId) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${apiUrl}/employees/${selectedEmployeeId}/related/${employeeRelatedConfig.endpoint}/${selectedEmployeeRelatedRecordId}/status`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            boInativo: nextActive ? 0 : 1,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Nao foi possivel alterar o status.');
+      }
+
+      const updatedRecord = (await response.json()) as CompanyChildRecord;
+      setEmployeeRelatedRecords((current) =>
+        current.map((record) => (record.id === updatedRecord.id ? updatedRecord : record)),
+      );
+    } catch (error) {
+      setIsEmployeeRelatedActive(!nextActive);
+      setEmployeeRelatedFeedback(error instanceof Error ? error.message : 'Erro ao alterar status.');
+    }
+  }
+
+  async function handleSaveEmployeeRelated(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!employeeRelatedConfig) {
+      setEmployeeRelatedFeedback('Selecione uma tabela relacionada antes de salvar.');
+      return;
+    }
+
+    if (!selectedEmployeeId) {
+      setEmployeeRelatedFeedback('Selecione um funcionario antes de salvar.');
+      return;
+    }
+
+    const missingRequiredField = employeeRelatedConfig.fields.find(
+      (field) => field.required && !employeeRelatedFormValues[field.key],
+    );
+
+    if (missingRequiredField) {
+      setEmployeeRelatedFeedback(`Informe ${missingRequiredField.label}.`);
+      return;
+    }
+
+    try {
+      const payload = employeeRelatedConfig.fields.reduce<Record<string, string | number | null>>(
+        (current, field) => {
+          const value = employeeRelatedFormValues[field.key] ?? '';
+          current[field.key] = field.type === 'number' ? (value ? Number(value) : null) : value;
+          return current;
+        },
+        {
+          boInativo: isEmployeeRelatedActive ? 0 : 1,
+        },
+      );
+
+      const response = await fetch(
+        selectedEmployeeRelatedRecordId
+          ? `${apiUrl}/employees/${selectedEmployeeId}/related/${employeeRelatedConfig.endpoint}/${selectedEmployeeRelatedRecordId}`
+          : `${apiUrl}/employees/${selectedEmployeeId}/related/${employeeRelatedConfig.endpoint}`,
+        {
+          method: selectedEmployeeRelatedRecordId ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Nao foi possivel salvar o registro relacionado.');
+      }
+
+      const savedRecord = (await response.json()) as CompanyChildRecord;
+      await loadEmployeeRelatedRecords(selectedEmployeeId, employeeRelatedConfig);
+      setSelectedEmployeeRelatedRecordId(savedRecord.id);
+      setIsCreatingEmployeeRelated(false);
+      setEmployeeRelatedFeedback(`${employeeRelatedConfig.label} salvo com sucesso.`);
+    } catch (error) {
+      setEmployeeRelatedFeedback(
+        error instanceof Error ? error.message : 'Erro ao salvar registro relacionado.',
+      );
+    }
+  }
+
+  async function handleUploadEmployeeFile(file: File | null) {
+    if (!file || !selectedEmployeeId || !employeeRelatedConfig) {
+      return;
+    }
+
+    try {
+      setIsUploadingEmployeeFile(true);
+      setEmployeeRelatedFeedback('');
+      const formData = new FormData();
+      formData.append('idTiposArquivos', employeeRelatedFormValues.idTiposArquivos ?? '');
+      formData.append('file', file);
+      const isReplacingFile = selectedEmployeeRelatedRecordId !== null && !isCreatingEmployeeRelated;
+      const response = await fetch(
+        isReplacingFile
+          ? `${apiUrl}/employees/${selectedEmployeeId}/related/files/${selectedEmployeeRelatedRecordId}`
+          : `${apiUrl}/employees/${selectedEmployeeId}/related/files`,
+        {
+          method: isReplacingFile ? 'PUT' : 'POST',
+          body: formData,
+        },
+      );
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Nao foi possivel enviar o arquivo.');
+      }
+
+      const saved = (await response.json()) as CompanyChildRecord;
+      await loadEmployeeRelatedRecords(selectedEmployeeId, employeeRelatedConfig);
+      setSelectedEmployeeRelatedRecordId(saved.id);
+      setIsCreatingEmployeeRelated(false);
+      setEmployeeRelatedFormValues({
+        idTiposArquivos: saved.idTiposArquivos ? String(saved.idTiposArquivos) : '',
+      });
+      setEmployeeRelatedFeedback(isReplacingFile ? 'Arquivo alterado com sucesso.' : 'Arquivo enviado com sucesso.');
+    } catch (error) {
+      setEmployeeRelatedFeedback(error instanceof Error ? error.message : 'Erro ao enviar arquivo.');
+    } finally {
+      setIsUploadingEmployeeFile(false);
+      if (employeeFileInputRef.current) {
+        employeeFileInputRef.current.value = '';
+      }
+    }
+  }
+
+  async function handleOpenEmployeeFile(fileId: number) {
+    if (!selectedEmployeeId) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/employees/${selectedEmployeeId}/related/files/${fileId}/url`);
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Nao foi possivel abrir o arquivo.');
+      }
+      const data = (await response.json()) as { url: string };
+      const file = employeeRelatedRecords.find((record) => record.id === fileId);
+      setEmployeeFileModal({ title: String(file?.dsArquivo ?? `Arquivo ${fileId}`), url: data.url });
+    } catch (error) {
+      setEmployeeRelatedFeedback(error instanceof Error ? error.message : 'Erro ao abrir arquivo.');
+    }
+  }
+
+  async function handleRemoveEmployeeFile(fileId: number) {
+    if (!selectedEmployeeId || !employeeRelatedConfig) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/employees/${selectedEmployeeId}/related/files/${fileId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Nao foi possivel remover o arquivo.');
+      }
+      await loadEmployeeRelatedRecords(selectedEmployeeId, employeeRelatedConfig);
+      setSelectedEmployeeRelatedRecordId(null);
+      setEmployeeRelatedFeedback('Arquivo removido com sucesso.');
+    } catch (error) {
+      setEmployeeRelatedFeedback(error instanceof Error ? error.message : 'Erro ao remover arquivo.');
+    }
+  }
+
   return (
     <div className="form-view company-view">
       <div className="form-heading">
         <p className="section-label">Profissionais</p>
       </div>
 
-      <div className="registration-split-layout">
+      <div className="registration-split-layout plan-split-layout">
         <section className="data-grid-section company-grid-section">
           <div className="grid-toolbar">
             <div className="child-grid-toolbar-label">
@@ -467,8 +846,100 @@ export function EmployeeRegistration() {
             page={employeesPage}
             totalItems={filteredEmployees.length}
           />
+
+          {employeeRelatedConfig ? (
+            <section className="company-child-grid-section">
+              {!selectedEmployeeId ? (
+                <div className="form-hint">
+                  Selecione um funcionario para visualizar os registros relacionados.
+                </div>
+              ) : (
+                <>
+                  <div className="grid-toolbar">
+                    <div className="child-grid-toolbar-label">
+                      <p className="section-label">{employeeRelatedConfig.label}</p>
+                    </div>
+                    <div className="child-grid-toolbar-actions">
+                      <label className="search-field">
+                        <span>Pesquisar</span>
+                        <input
+                          onChange={(event) => setEmployeeRelatedSearchTerm(event.target.value)}
+                          placeholder="Buscar registro"
+                          type="search"
+                          value={employeeRelatedSearchTerm}
+                        />
+                      </label>
+                      <button
+                        className="new-button"
+                        disabled={!selectedEmployeeId}
+                        onClick={handleNewEmployeeRelated}
+                        type="button"
+                      >
+                        Novo
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    className="product-table company-child-grid-table"
+                    key={`employee-related-${employeeRelatedConfig.key}-${employeeRelatedSearchTerm}-${selectedEmployeeId}`}
+                    role="table"
+                    aria-label={employeeRelatedConfig.title}
+                  >
+                    <div
+                      className="product-row company-child-grid-row header"
+                      role="row"
+                      style={{
+                        gridTemplateColumns: `repeat(${employeeRelatedConfig.columns.length}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      {employeeRelatedConfig.columns.map((column) => (
+                        <span key={column.key} role="columnheader">
+                          {column.label}
+                        </span>
+                      ))}
+                    </div>
+
+                    {isLoadingEmployeeRelatedRecords ? (
+                      <div className="empty-row">
+                        Carregando {employeeRelatedConfig.label.toLowerCase()}...
+                      </div>
+                    ) : null}
+
+                    {!isLoadingEmployeeRelatedRecords
+                      ? filteredEmployeeRelatedRecords.map((record) => (
+                        <button
+                          className={`product-row company-child-grid-row selectable ${record.id === selectedEmployeeRelatedRecordId ? 'selected' : ''}`}
+                          key={record.id}
+                          onClick={() => handleSelectEmployeeRelatedRecord(record)}
+                          role="row"
+                          style={{
+                            gridTemplateColumns: `repeat(${employeeRelatedConfig.columns.length}, minmax(0, 1fr))`,
+                          }}
+                          type="button"
+                        >
+                          {employeeRelatedConfig.columns.map((column) => (
+                            <span key={column.key} role="cell">
+                              {formatChildCell(record, column, employeeRelatedLookups[column.key])}
+                            </span>
+                          ))}
+                        </button>
+                      ))
+                      : null}
+
+                    {!isLoadingEmployeeRelatedRecords && filteredEmployeeRelatedRecords.length === 0 ? (
+                      <div className="empty-row">
+                        Nenhum registro de {employeeRelatedConfig.label.toLowerCase()} encontrado.
+                      </div>
+                    ) : null}
+                  </div>
+                </>
+              )}
+            </section>
+          ) : null}
         </section>
 
+        <div className="split-form-stack">
         <form
           className={`registration-form split-form-panel company-form-panel ${isEmployeeFieldsCollapsed ? 'collapsed' : ''}`}
           onSubmit={handleSaveEmployee}
@@ -801,7 +1272,236 @@ export function EmployeeRegistration() {
             </>
           ) : null}
         </form>
+
+          {employeeRelatedConfig ? (
+            <form
+              className={`registration-form split-form-panel company-child-form-panel ${isEmployeeRelatedFieldsCollapsed ? 'collapsed' : ''}`}
+              onSubmit={handleSaveEmployeeRelated}
+            >
+              <div className="collapsible-panel-header">
+                <div>
+                  <p className="section-label">{employeeRelatedConfig.label}</p>
+                </div>
+                <button
+                  aria-expanded={!isEmployeeRelatedFieldsCollapsed}
+                  className="secondary-button"
+                  onClick={() => setIsEmployeeRelatedFieldsCollapsed((current) => !current)}
+                  type="button"
+                >
+                  {isEmployeeRelatedFieldsCollapsed ? '+' : '-'}
+                </button>
+              </div>
+
+              {!isEmployeeRelatedFieldsCollapsed ? (
+                <>
+                  {employeeRelatedFeedback ? (
+                    <div className="form-feedback">{employeeRelatedFeedback}</div>
+                  ) : null}
+
+                  {employeeRelatedConfig.key === 'files' ? (
+                    <>
+                      <div className="company-child-fields">
+                        <div className="field">
+                          <label htmlFor="employeeFileType">Tipo de arquivo</label>
+                          <select
+                            disabled={!selectedEmployeeId || isUploadingEmployeeFile}
+                            id="employeeFileType"
+                            onChange={(event) =>
+                              setEmployeeRelatedFormValues((current) => ({
+                                ...current,
+                                idTiposArquivos: event.target.value,
+                              }))
+                            }
+                            value={employeeRelatedFormValues.idTiposArquivos ?? ''}
+                          >
+                            <option value="">Selecione</option>
+                            {(employeeRelatedLookups.idTiposArquivos ?? []).map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {getLookupLabel(option, employeeRelatedConfig.fields.find((field) => field.key === 'idTiposArquivos') ?? employeeRelatedConfig.fields[0]!)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="field">
+                          <label htmlFor="employeeFileName">Arquivo selecionado</label>
+                          <input
+                            disabled
+                            id="employeeFileName"
+                            type="text"
+                            value={
+                              selectedEmployeeRelatedRecordId
+                                ? String(employeeRelatedRecords.find((record) => record.id === selectedEmployeeRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedEmployeeRelatedRecordId}`)
+                                : 'Selecione no grid ou clique em Novo'
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="field">
+                        <label htmlFor="employeeFile">
+                          {selectedEmployeeRelatedRecordId && !isCreatingEmployeeRelated ? 'Alterar arquivo' : 'Arquivo'}
+                        </label>
+                        <input
+                          disabled={!selectedEmployeeId || isUploadingEmployeeFile}
+                          id="employeeFile"
+                          onChange={(event) => void handleUploadEmployeeFile(event.target.files?.[0] ?? null)}
+                          ref={employeeFileInputRef}
+                          type="file"
+                        />
+                      </div>
+
+                      {selectedEmployeeRelatedRecordId ? (
+                        <div className="student-files-list">
+                          <div className="student-file-row">
+                            {employeeFilePreviewUrls[selectedEmployeeRelatedRecordId] ? (
+                              <button className="file-preview-button" onClick={() => void handleOpenEmployeeFile(selectedEmployeeRelatedRecordId)} type="button">
+                                <img
+                                  alt={String(employeeRelatedRecords.find((record) => record.id === selectedEmployeeRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedEmployeeRelatedRecordId}`)}
+                                  className="student-file-preview"
+                                  src={employeeFilePreviewUrls[selectedEmployeeRelatedRecordId]}
+                                />
+                              </button>
+                            ) : null}
+                            <div className="student-file-row-info">
+                              <strong>{String(employeeRelatedRecords.find((record) => record.id === selectedEmployeeRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedEmployeeRelatedRecordId}`)}</strong>
+                            </div>
+                            <div className="student-file-actions">
+                              <button className="secondary-button" onClick={() => void handleOpenEmployeeFile(selectedEmployeeRelatedRecordId)} type="button">
+                                Visualizar
+                              </button>
+                              <button className="secondary-button" onClick={() => employeeFileInputRef.current?.click()} type="button">
+                                Alterar
+                              </button>
+                              <button className="danger" onClick={() => void handleRemoveEmployeeFile(selectedEmployeeRelatedRecordId)} type="button">
+                                Remover
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : selectedEmployeeId ? (
+                        <div className="form-hint">Selecione um arquivo no grid para visualizar ou alterar.</div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      {!isEmployeeRelatedFormEnabled ? (
+                        <div className="form-hint">
+                          Selecione um registro relacionado acima ou clique em Novo.
+                        </div>
+                      ) : null}
+
+                      <div className="company-child-fields">
+                        {employeeRelatedConfig.fields.map((field) => (
+                          <div className="field" key={field.key}>
+                            <label htmlFor={`employeeRelated-${field.key}`}>
+                              {field.label}
+                              {field.required ? ' *' : ''}
+                            </label>
+                            {field.lookupEndpoint ? (
+                              <select
+                                disabled={!isEmployeeRelatedFormEnabled}
+                                id={`employeeRelated-${field.key}`}
+                                onChange={(event) =>
+                                  setEmployeeRelatedFormValues((current) => ({
+                                    ...current,
+                                    [field.key]: event.target.value,
+                                  }))
+                                }
+                                required={field.required}
+                                value={employeeRelatedFormValues[field.key] ?? ''}
+                              >
+                                <option value="">Selecione</option>
+                                {(employeeRelatedLookups[field.key] ?? []).map((option) => (
+                                  <option key={option.id} value={option.id}>
+                                    {getLookupLabel(option, field)}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                disabled={!isEmployeeRelatedFormEnabled}
+                                id={`employeeRelated-${field.key}`}
+                                onChange={(event) =>
+                                  setEmployeeRelatedFormValues((current) => ({
+                                    ...current,
+                                    [field.key]: event.target.value,
+                                  }))
+                                }
+                                required={field.required}
+                                type={field.type}
+                                value={employeeRelatedFormValues[field.key] ?? ''}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="field">
+                        <label htmlFor="employeeRelatedStatus">Status</label>
+                        <button
+                          aria-pressed={isEmployeeRelatedActive}
+                          className={`status-toggle ${isEmployeeRelatedActive ? 'active' : ''}`}
+                          disabled={!isEmployeeRelatedFormEnabled}
+                          id="employeeRelatedStatus"
+                          onClick={handleToggleEmployeeRelatedStatus}
+                          type="button"
+                        >
+                          <span>{isEmployeeRelatedActive ? 'Ativo' : 'Inativo'}</span>
+                        </button>
+                      </div>
+
+                      <div className="form-actions">
+                        <button
+                          className="secondary-button"
+                          disabled={!selectedEmployeeId}
+                          onClick={clearEmployeeRelatedForm}
+                          type="button"
+                        >
+                          Limpar
+                        </button>
+                        <button disabled={!isEmployeeRelatedFormEnabled} type="submit">
+                          Salvar {employeeRelatedConfig.label}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : null}
+            </form>
+          ) : null}
+        </div>
+
+        <section className="company-child-tabs" aria-label="Tabelas relacionadas do funcionario">
+          <div className="company-child-tabs-list" role="tablist" aria-label="Tabelas relacionadas do funcionario">
+            {employeeRelatedTables.map((table) => (
+              <button
+                aria-selected={selectedEmployeeRelatedTable === table.key}
+                className={selectedEmployeeRelatedTable === table.key ? 'active' : ''}
+                key={table.key}
+                onClick={() => handleSelectEmployeeRelatedTable(table.key)}
+                role="tab"
+                type="button"
+              >
+                {table.label}
+              </button>
+            ))}
+          </div>
+        </section>
       </div>
+      {employeeFileModal ? (
+        <div className="file-modal-overlay" role="dialog" aria-modal="true">
+          <div className="file-modal">
+            <div className="file-modal-header">
+              <h3>{employeeFileModal.title}</h3>
+              <button onClick={() => setEmployeeFileModal(null)} type="button">
+                Fechar
+              </button>
+            </div>
+            <img alt={employeeFileModal.title} src={employeeFileModal.url} />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

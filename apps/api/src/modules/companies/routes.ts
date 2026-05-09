@@ -10,7 +10,7 @@ import {
   getMultipartFieldValue,
 } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
-import { getCompanyFilePath } from '../../shared/files.js';
+import { getCompanyFilePath, getPromotionFilePath } from '../../shared/files.js';
 import type { CompanyChildPayload, CompanyChildResource, CompanyPayload } from '../../shared/api-types.js';
 
 // ---------------------------------------------------------------------------
@@ -23,11 +23,19 @@ type CrudDelegate = {
   update(args: unknown): Promise<unknown>;
 };
 
+type ChildResourceConfig = {
+  delegate: CrudDelegate;
+  orderBy: Record<string, string>;
+  companyField: string | null;
+  getWhere?(companyId: number): Record<string, unknown>;
+  normalize(companyId: number, payload: CompanyChildPayload): Record<string, unknown>;
+};
+
 function asCrudDelegate(delegate: unknown) {
   return delegate as CrudDelegate;
 }
 
-const childResourceConfig = {
+const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
   promotions: {
     delegate: asCrudDelegate(prisma.promocao),
     orderBy: { dsPromocao: 'asc' },
@@ -42,6 +50,39 @@ const childResourceConfig = {
         pcDesconto: Number(payload.pcDesconto ?? 0),
         dtInicio: optionalDate(payload.dtInicio) ?? new Date(),
         dtEncerramento: optionalDate(payload.dtEncerramento) ?? null,
+        boInativo: Number(payload.boInativo ?? 0),
+      };
+    },
+  },
+  'promotion-products': {
+    delegate: asCrudDelegate(prisma.promocaoProduto),
+    orderBy: { dtCadastro: 'desc' },
+    companyField: 'idEmpresa',
+    normalize(companyId: number, payload: CompanyChildPayload) {
+      return {
+        idEmpresa: companyId,
+        idPromocao: optionalNumber(payload.idPromocao),
+        idProduto: optionalNumber(payload.idProduto),
+        qtDisponivel: optionalNumber(payload.qtDisponivel),
+        boInativo: Number(payload.boInativo ?? 0),
+      };
+    },
+  },
+  'promotion-files': {
+    delegate: asCrudDelegate(prisma.promocaoArquivo),
+    orderBy: { dtCadastro: 'desc' },
+    companyField: null,
+    getWhere(companyId: number) {
+      return { promocao: { idEmpresa: companyId } };
+    },
+    normalize(_companyId: number, payload: CompanyChildPayload) {
+      return {
+        idPromocao: optionalNumber(payload.idPromocao),
+        idTiposArquivos: optionalNumber(payload.idTiposArquivos),
+        dsArquivo: requiredText(payload.dsArquivo, 'Informe o arquivo.'),
+        anCaminho: optionalText(payload.anCaminho),
+        cnChaveAcesso: optionalNumber(payload.cnChaveAcesso),
+        cnDistribuidor: optionalNumber(payload.cnDistribuidor),
         boInativo: Number(payload.boInativo ?? 0),
       };
     },
@@ -136,15 +177,7 @@ const childResourceConfig = {
       };
     },
   },
-} satisfies Record<
-  CompanyChildResource,
-  {
-    delegate: CrudDelegate;
-    orderBy: Record<string, string>;
-    companyField: string | null;
-    normalize(companyId: number, payload: CompanyChildPayload): Record<string, unknown>;
-  }
->;
+};
 
 function getChildResourceConfig(resource: string) {
   const config = childResourceConfig[resource as CompanyChildResource];
@@ -400,13 +433,162 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   // Company children (generic)
 
   app.get<{
+    Params: { companyId: string };
+  }>('/companies/:companyId/promotion-files', async (request, reply) => {
+    try {
+      const companyId = Number(request.params.companyId);
+      assertValidId(companyId, 'Empresa invalida.');
+      return prisma.promocaoArquivo.findMany({
+        where: { promocao: { idEmpresa: companyId } },
+        orderBy: { dtCadastro: 'desc' },
+      });
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao listar arquivos de promocao.',
+      });
+    }
+  });
+
+  app.post<{
+    Params: { companyId: string };
+  }>('/companies/:companyId/promotion-files', async (request, reply) => {
+    try {
+      const companyId = Number(request.params.companyId);
+      assertValidId(companyId, 'Empresa invalida.');
+      const file = await request.file();
+      if (!file) return reply.code(400).send({ message: 'Envie um arquivo.' });
+
+      const fields = file.fields as Record<string, unknown>;
+      const idPromocao = Number(getMultipartFieldValue(fields, 'idPromocao'));
+      assertValidId(idPromocao, 'Promocao invalida.');
+      const promotion = await prisma.promocao.findFirst({ where: { id: idPromocao, idEmpresa: companyId }, select: { id: true } });
+      if (!promotion) return reply.code(404).send({ message: 'Promocao nao encontrada.' });
+
+      const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
+      const idTiposArquivos = rawFileTypeId ? Number(rawFileTypeId) : null;
+      const buffer = await file.toBuffer();
+      const path = getPromotionFilePath(idPromocao, file.filename);
+      const { bucket } = getSupabaseConfig();
+      const supabase = getSupabaseClient();
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+      if (uploadError) throw new Error(uploadError.message);
+
+      return reply.code(201).send(await prisma.promocaoArquivo.create({
+        data: { idPromocao, idTiposArquivos, dsArquivo: file.filename, anCaminho: path, cnChaveAcesso: 0, cnDistribuidor: 0 },
+      }));
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao enviar arquivo de promocao.',
+      });
+    }
+  });
+
+  app.put<{
+    Params: { companyId: string; fileId: string };
+  }>('/companies/:companyId/promotion-files/:fileId', async (request, reply) => {
+    try {
+      const companyId = Number(request.params.companyId);
+      const fileId = Number(request.params.fileId);
+      assertValidId(companyId, 'Empresa invalida.');
+      assertValidId(fileId, 'Arquivo invalido.');
+      const current = await prisma.promocaoArquivo.findFirst({
+        where: { id: fileId, promocao: { idEmpresa: companyId } },
+      });
+      if (!current) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
+
+      const file = await request.file();
+      if (!file) return reply.code(400).send({ message: 'Envie um arquivo.' });
+      const fields = file.fields as Record<string, unknown>;
+      const idPromocao = Number(getMultipartFieldValue(fields, 'idPromocao') || current.idPromocao);
+      assertValidId(idPromocao, 'Promocao invalida.');
+      const promotion = await prisma.promocao.findFirst({ where: { id: idPromocao, idEmpresa: companyId }, select: { id: true } });
+      if (!promotion) return reply.code(404).send({ message: 'Promocao nao encontrada.' });
+
+      const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
+      const buffer = await file.toBuffer();
+      const path = getPromotionFilePath(idPromocao, file.filename);
+      const { bucket } = getSupabaseConfig();
+      const supabase = getSupabaseClient();
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+      if (uploadError) throw new Error(uploadError.message);
+
+      return prisma.promocaoArquivo.update({
+        where: { id: fileId },
+        data: {
+          idPromocao,
+          idTiposArquivos: rawFileTypeId ? Number(rawFileTypeId) : current.idTiposArquivos,
+          dsArquivo: file.filename,
+          anCaminho: path,
+        },
+      });
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao alterar arquivo de promocao.',
+      });
+    }
+  });
+
+  app.get<{
+    Params: { companyId: string; fileId: string };
+  }>('/companies/:companyId/promotion-files/:fileId/url', async (request, reply) => {
+    try {
+      const companyId = Number(request.params.companyId);
+      const fileId = Number(request.params.fileId);
+      assertValidId(companyId, 'Empresa invalida.');
+      assertValidId(fileId, 'Arquivo invalido.');
+      const promotionFile = await prisma.promocaoArquivo.findFirst({
+        where: { id: fileId, promocao: { idEmpresa: companyId }, boInativo: 0 },
+      });
+      if (!promotionFile) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
+      const { bucket } = getSupabaseConfig();
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(promotionFile.anCaminho, 60 * 5);
+      if (error) throw new Error(error.message);
+      return { url: data.signedUrl, expiresIn: 60 * 5 };
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao gerar link do arquivo.',
+      });
+    }
+  });
+
+  app.delete<{
+    Params: { companyId: string; fileId: string };
+  }>('/companies/:companyId/promotion-files/:fileId', async (request, reply) => {
+    try {
+      const companyId = Number(request.params.companyId);
+      const fileId = Number(request.params.fileId);
+      assertValidId(companyId, 'Empresa invalida.');
+      assertValidId(fileId, 'Arquivo invalido.');
+      const current = await prisma.promocaoArquivo.findFirst({
+        where: { id: fileId, promocao: { idEmpresa: companyId } },
+        select: { id: true },
+      });
+      if (!current) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
+      return prisma.promocaoArquivo.update({ where: { id: fileId }, data: { boInativo: 1 } });
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao remover arquivo de promocao.',
+      });
+    }
+  });
+
+  app.get<{
     Params: { companyId: string; resource: string };
   }>('/companies/:companyId/children/:resource', async (request, reply) => {
     try {
       const companyId = Number(request.params.companyId);
       assertValidId(companyId, 'Empresa invalida.');
       const config = getChildResourceConfig(request.params.resource);
-      const where = config.companyField ? { [config.companyField]: companyId } : undefined;
+      const where = config.getWhere
+        ? config.getWhere(companyId)
+        : config.companyField
+          ? { [config.companyField]: companyId }
+          : undefined;
       return await config.delegate.findMany({ where, orderBy: config.orderBy });
     } catch (error) {
       return reply.code(400).send({

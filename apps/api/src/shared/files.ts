@@ -45,3 +45,18 @@ export function getCompanyFilePath(companyId: number, fileName: string) {
   const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '');
   return `empresas/${companyId}/${timestamp}-${normalizeFileName(fileName)}`;
 }
+
+export function getProductFilePath(productId: number, fileName: string) {
+  const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '');
+  return `produtos/${productId}/${timestamp}-${normalizeFileName(fileName)}`;
+}
+
+export function getEmployeeFilePath(employeeId: number, fileName: string) {
+  const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '');
+  return `funcionarios/${employeeId}/${timestamp}-${normalizeFileName(fileName)}`;
+}
+
+export function getPromotionFilePath(promotionId: number, fileName: string) {
+  const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '');
+  return `promocoes/${promotionId}/${timestamp}-${normalizeFileName(fileName)}`;
+}

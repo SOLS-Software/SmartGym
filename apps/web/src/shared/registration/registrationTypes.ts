@@ -145,6 +145,8 @@ export type DomainRecord = {
   name: string;
   boInativo: number;
   description?: string;
+  relationId?: number | null;
+  relationName?: string;
 };
 
 export type RegisterLookupRecord = {
@@ -217,6 +219,10 @@ export type DomainConfig = {
   saveLabel: string;
   secondField?: string;
   secondFieldLabel?: string;
+  relationField?: string;
+  relationLabel?: string;
+  relationEndpoint?: string;
+  relationValueField?: string;
 };
 
 export type DomainConfigMap = Record<string, DomainConfig>;

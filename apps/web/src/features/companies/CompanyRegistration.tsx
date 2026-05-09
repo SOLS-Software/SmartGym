@@ -45,6 +45,7 @@ export function CompanyRegistration() {
   const [isChildFieldsCollapsed, setIsChildFieldsCollapsed] = useState(false);
   const isFormEnabled = selectedCompanyId !== null || isCreating;
   const childTableConfig = companyChildTables.find((table) => table.key === selectedChildTable) ?? null;
+  const isFileChildTable = selectedChildTable === 'companyFiles' || selectedChildTable === 'promotionFiles';
   const isChildFormEnabled = Boolean(selectedCompanyId) && (selectedChildRecordId !== null || isCreatingChild);
   const selectedChildRecord = getSelectedRecord(childRecords, selectedChildRecordId);
   const filteredChildRecords = childRecords.filter((record) =>
@@ -120,6 +121,8 @@ export function CompanyRegistration() {
       const response = await fetch(
         config.key === 'companyFiles'
           ? `${apiUrl}/companies/${companyId}/files`
+          : config.key === 'promotionFiles'
+            ? `${apiUrl}/companies/${companyId}/promotion-files`
           : `${apiUrl}/companies/${companyId}/children/${config.endpoint}`,
       );
 
@@ -131,13 +134,15 @@ export function CompanyRegistration() {
       setChildRecords(data);
       setChildFeedback('');
 
-      if (config.key === 'companyFiles') {
+      if (config.key === 'companyFiles' || config.key === 'promotionFiles') {
         const imageFiles = data.filter((file) => isImageFile(String(file.anCaminho ?? '')));
         const urlEntries = await Promise.all(
           imageFiles.map(async (file) => {
             try {
               const urlResponse = await fetch(
-                `${apiUrl}/companies/${companyId}/files/${file.id}/url`,
+                config.key === 'companyFiles'
+                  ? `${apiUrl}/companies/${companyId}/files/${file.id}/url`
+                  : `${apiUrl}/companies/${companyId}/promotion-files/${file.id}/url`,
               );
 
               if (!urlResponse.ok) {
@@ -382,14 +387,19 @@ export function CompanyRegistration() {
       setChildFeedback('');
 
       const formData = new FormData();
-      formData.append('file', file);
       formData.append('idTiposArquivos', childFormValues.idTiposArquivos ?? '');
+      formData.append('idPromocao', childFormValues.idPromocao ?? '');
+      formData.append('file', file);
 
       const isReplacingFile = selectedChildRecordId !== null && !isCreatingChild;
       const response = await fetch(
-        isReplacingFile
-          ? `${apiUrl}/companies/${selectedCompanyId}/files/${selectedChildRecordId}`
-          : `${apiUrl}/companies/${selectedCompanyId}/files`,
+        selectedChildTable === 'promotionFiles'
+          ? isReplacingFile
+            ? `${apiUrl}/companies/${selectedCompanyId}/promotion-files/${selectedChildRecordId}`
+            : `${apiUrl}/companies/${selectedCompanyId}/promotion-files`
+          : isReplacingFile
+            ? `${apiUrl}/companies/${selectedCompanyId}/files/${selectedChildRecordId}`
+            : `${apiUrl}/companies/${selectedCompanyId}/files`,
         {
           method: isReplacingFile ? 'PUT' : 'POST',
           body: formData,
@@ -406,6 +416,7 @@ export function CompanyRegistration() {
       setSelectedChildRecordId(saved.id);
       setIsCreatingChild(false);
       setChildFormValues({
+        idPromocao: saved.idPromocao ? String(saved.idPromocao) : '',
         idTiposArquivos: saved.idTiposArquivos ? String(saved.idTiposArquivos) : '',
       });
       setChildFeedback(isReplacingFile ? 'Arquivo alterado com sucesso.' : 'Arquivo enviado com sucesso.');
@@ -428,7 +439,11 @@ export function CompanyRegistration() {
     }
 
     try {
-      const response = await fetch(`${apiUrl}/companies/${selectedCompanyId}/files/${fileId}/url`);
+      const response = await fetch(
+        selectedChildTable === 'promotionFiles'
+          ? `${apiUrl}/companies/${selectedCompanyId}/promotion-files/${fileId}/url`
+          : `${apiUrl}/companies/${selectedCompanyId}/files/${fileId}/url`,
+      );
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
@@ -452,7 +467,9 @@ export function CompanyRegistration() {
     }
 
     try {
-      const response = await fetch(`${apiUrl}/companies/${selectedCompanyId}/files/${fileId}`, {
+      const response = await fetch(selectedChildTable === 'promotionFiles'
+        ? `${apiUrl}/companies/${selectedCompanyId}/promotion-files/${fileId}`
+        : `${apiUrl}/companies/${selectedCompanyId}/files/${fileId}`, {
         method: 'DELETE',
       });
 
@@ -940,9 +957,38 @@ export function CompanyRegistration() {
 
                   {childFeedback ? <div className="form-feedback">{childFeedback}</div> : null}
 
-                  {selectedChildTable === 'companyFiles' ? (
+                  {isFileChildTable ? (
                     <>
                       <div className="company-child-fields">
+                        {selectedChildTable === 'promotionFiles' ? (
+                          <div className="field">
+                            <label htmlFor="promotionFilePromotion">Promoção</label>
+                            <select
+                              disabled={!selectedCompanyId || isUploadingCompanyFile}
+                              id="promotionFilePromotion"
+                              onChange={(event) =>
+                                setChildFormValues((current) => ({
+                                  ...current,
+                                  idPromocao: event.target.value,
+                                }))
+                              }
+                              value={childFormValues.idPromocao ?? ''}
+                            >
+                              <option value="">Selecione</option>
+                              {(childLookups.idPromocao ?? []).map((option) => (
+                                <option key={option.id} value={option.id}>
+                                  {getLookupLabel(option, {
+                                    key: 'idPromocao',
+                                    label: 'Promoção',
+                                    lookupLabelKey: 'dsPromocao',
+                                    type: 'number',
+                                  })}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : null}
+
                         <div className="field">
                           <label htmlFor="companyFileType">Tipo de arquivo</label>
                           <select

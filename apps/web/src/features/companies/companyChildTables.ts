@@ -30,6 +30,43 @@ export const companyChildTables: [CompanyChildTable, ...CompanyChildTable[]] = [
     ],
   },
   {
+    key: 'promotionProducts',
+    endpoint: 'promotion-products',
+    label: 'Produtos de Promoção',
+    title: 'Produtos de promoção',
+    columns: [
+      { key: 'idPromocao', label: 'ID promoção' },
+      { key: 'idProduto', label: 'ID produto' },
+      { key: 'qtDisponivel', label: 'Qtd disponível' },
+      { key: 'boInativo', label: 'Status', type: 'status' },
+    ],
+    fields: [
+      { key: 'idPromocao', label: 'Promoção', type: 'number', lookupEndpoint: 'promotions', lookupLabelKey: 'dsPromocao', required: true },
+      { key: 'idProduto', label: 'Produto', type: 'number', lookupEndpoint: 'products', lookupLabelKey: 'dsProduto', required: true },
+      { key: 'qtDisponivel', label: 'Qtd disponível', type: 'number' },
+    ],
+  },
+  {
+    key: 'promotionFiles',
+    endpoint: 'promotion-files',
+    label: 'Arquivos de Promoção',
+    title: 'Arquivos de promoção',
+    columns: [
+      { key: 'idPromocao', label: 'ID promoção' },
+      { key: 'dsArquivo', label: 'Arquivo' },
+      { key: 'idTiposArquivos', label: 'ID tipo' },
+      { key: 'boInativo', label: 'Status', type: 'status' },
+    ],
+    fields: [
+      { key: 'idPromocao', label: 'Promoção', type: 'number', lookupEndpoint: 'promotions', lookupLabelKey: 'dsPromocao', required: true },
+      { key: 'idTiposArquivos', label: 'Tipo de arquivo', type: 'number', lookupEndpoint: 'file-types', lookupLabelKey: 'dsTipo' },
+      { key: 'dsArquivo', label: 'Arquivo', type: 'text', required: true },
+      { key: 'anCaminho', label: 'Caminho', type: 'text', required: true },
+      { key: 'cnChaveAcesso', label: 'Chave acesso', type: 'number' },
+      { key: 'cnDistribuidor', label: 'Distribuidor', type: 'number' },
+    ],
+  },
+  {
     key: 'studentPlans',
     endpoint: 'student-plans',
     label: 'Planos de Alunos',

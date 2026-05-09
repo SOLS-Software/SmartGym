@@ -6,6 +6,24 @@ type RolePayload = {
   boInativo?: number;
 };
 
+type SportPayload = {
+  idEmpresa?: number | null;
+  dsEsporte?: string;
+  boInativo?: number;
+};
+
+type CategoryPayload = {
+  idEmpresa?: number | null;
+  idEsporte?: number | null;
+  dsCategoria?: string;
+  boInativo?: number;
+};
+
+function nullableNumber(value: number | null | undefined) {
+  if (value === null || value === undefined || value === 0) return null;
+  return Number(value);
+}
+
 export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/roles', async () => {
     return prisma.cargo.findMany({
@@ -420,6 +438,152 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do tipo de arquivo.' });
+    }
+  });
+
+  app.get('/sports', async () => {
+    return prisma.esporte.findMany({
+      orderBy: {
+        dsEsporte: 'asc',
+      },
+    });
+  });
+
+  app.post<{ Body: SportPayload }>('/sports', async (request, reply) => {
+    try {
+      const dsEsporte = request.body.dsEsporte?.trim();
+
+      if (!dsEsporte) {
+        throw new Error('Informe o esporte.');
+      }
+
+      return reply.code(201).send(
+        await prisma.esporte.create({
+          data: {
+            idEmpresa: nullableNumber(request.body.idEmpresa),
+            dsEsporte,
+            boInativo: Number(request.body.boInativo ?? 0),
+          },
+        }),
+      );
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao criar esporte.',
+      });
+    }
+  });
+
+  app.put<{ Params: { id: string }; Body: SportPayload }>('/sports/:id', async (request, reply) => {
+    try {
+      const dsEsporte = request.body.dsEsporte?.trim();
+
+      if (!dsEsporte) {
+        throw new Error('Informe o esporte.');
+      }
+
+      return await prisma.esporte.update({
+        where: { id: Number(request.params.id) },
+        data: {
+          idEmpresa: nullableNumber(request.body.idEmpresa),
+          dsEsporte,
+          boInativo: Number(request.body.boInativo ?? 0),
+        },
+      });
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao atualizar esporte.',
+      });
+    }
+  });
+
+  app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/sports/:id/status', async (request, reply) => {
+    try {
+      return await prisma.esporte.update({
+        where: { id: Number(request.params.id) },
+        data: { boInativo: Number(request.body.boInativo ?? 0) },
+      });
+    } catch {
+      return reply.code(400).send({ message: 'Erro ao alterar status do esporte.' });
+    }
+  });
+
+  app.get('/categories', async () => {
+    return prisma.categoria.findMany({
+      include: {
+        esporte: true,
+      },
+      orderBy: {
+        dsCategoria: 'asc',
+      },
+    });
+  });
+
+  app.post<{ Body: CategoryPayload }>('/categories', async (request, reply) => {
+    try {
+      const dsCategoria = request.body.dsCategoria?.trim();
+
+      if (!dsCategoria) {
+        throw new Error('Informe a categoria.');
+      }
+
+      return reply.code(201).send(
+        await prisma.categoria.create({
+          data: {
+            idEmpresa: nullableNumber(request.body.idEmpresa),
+            idEsporte: nullableNumber(request.body.idEsporte),
+            dsCategoria,
+            boInativo: Number(request.body.boInativo ?? 0),
+          },
+          include: {
+            esporte: true,
+          },
+        }),
+      );
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao criar categoria.',
+      });
+    }
+  });
+
+  app.put<{ Params: { id: string }; Body: CategoryPayload }>('/categories/:id', async (request, reply) => {
+    try {
+      const dsCategoria = request.body.dsCategoria?.trim();
+
+      if (!dsCategoria) {
+        throw new Error('Informe a categoria.');
+      }
+
+      return await prisma.categoria.update({
+        where: { id: Number(request.params.id) },
+        data: {
+          idEmpresa: nullableNumber(request.body.idEmpresa),
+          idEsporte: nullableNumber(request.body.idEsporte),
+          dsCategoria,
+          boInativo: Number(request.body.boInativo ?? 0),
+        },
+        include: {
+          esporte: true,
+        },
+      });
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao atualizar categoria.',
+      });
+    }
+  });
+
+  app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/categories/:id/status', async (request, reply) => {
+    try {
+      return await prisma.categoria.update({
+        where: { id: Number(request.params.id) },
+        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        include: {
+          esporte: true,
+        },
+      });
+    } catch {
+      return reply.code(400).send({ message: 'Erro ao alterar status da categoria.' });
     }
   });
 }

@@ -13,7 +13,7 @@ const planRelatedTables: CompanyChildTable[] = [
     label: 'Valores',
     title: 'Valores do plano',
     columns: [
-      { key: 'idEmpresa', label: 'ID empresa' },
+      { key: 'idEmpresa', label: 'Empresa', lookupLabelKey: 'dsEmpresa' },
       { key: 'vlVenda', label: 'Valor', type: 'money' },
       { key: 'boInativo', label: 'Status', type: 'status' },
     ],
@@ -28,8 +28,8 @@ const planRelatedTables: CompanyChildTable[] = [
     label: 'Produtos',
     title: 'Produtos do plano',
     columns: [
-      { key: 'idEmpresa', label: 'ID empresa' },
-      { key: 'idProduto', label: 'ID produto' },
+      { key: 'idEmpresa', label: 'Empresa', lookupLabelKey: 'dsEmpresa' },
+      { key: 'idProduto', label: 'Produto', lookupLabelKey: 'dsProduto' },
       { key: 'boInativo', label: 'Status', type: 'status' },
     ],
     fields: [
@@ -43,7 +43,7 @@ const planRelatedTables: CompanyChildTable[] = [
     label: 'Empresas',
     title: 'Empresas do plano',
     columns: [
-      { key: 'idEmpresa', label: 'ID empresa' },
+      { key: 'idEmpresa', label: 'Empresa', lookupLabelKey: 'dsEmpresa' },
       { key: 'boInativo', label: 'Status', type: 'status' },
     ],
     fields: [
@@ -56,8 +56,8 @@ const planRelatedTables: CompanyChildTable[] = [
     label: 'Atividades',
     title: 'Atividades do plano',
     columns: [
-      { key: 'idEmpresa', label: 'ID empresa' },
-      { key: 'idAtividade', label: 'ID atividade' },
+      { key: 'idEmpresa', label: 'Empresa', lookupLabelKey: 'dsEmpresa' },
+      { key: 'idAtividade', label: 'Atividade', lookupLabelKey: 'dsAtividade' },
       { key: 'boInativo', label: 'Status', type: 'status' },
     ],
     fields: [
@@ -71,8 +71,8 @@ const planRelatedTables: CompanyChildTable[] = [
     label: 'Promoções',
     title: 'Promoções do plano',
     columns: [
-      { key: 'idEmpresa', label: 'ID empresa' },
-      { key: 'idPromocao', label: 'ID promoção' },
+      { key: 'idEmpresa', label: 'Empresa', lookupLabelKey: 'dsEmpresa' },
+      { key: 'idPromocao', label: 'Promoção', lookupLabelKey: 'dsPromocao' },
       { key: 'qtDisponivel', label: 'Qtd disponível' },
       { key: 'dtInicio', label: 'Início', type: 'date' },
       { key: 'dtEncerramento', label: 'Encerramento', type: 'date' },
@@ -120,7 +120,11 @@ export function PlanRegistration() {
   const filteredPlanRelatedRecords = planRelatedRecords.filter((record) =>
     planRelatedConfig
       ? planRelatedConfig.columns.some((column) =>
-        formatChildSearchValue(record, column).includes(planRelatedSearchTerm.toLowerCase()),
+        formatChildSearchValue(
+          record,
+          column,
+          planRelatedLookups[column.key],
+        ).includes(planRelatedSearchTerm.toLowerCase()),
       )
       : false,
   );
@@ -637,7 +641,11 @@ export function PlanRegistration() {
                         >
                           {planRelatedConfig.columns.map((column) => (
                             <span key={column.key} role="cell">
-                              {formatChildCell(record, column)}
+                              {formatChildCell(
+                                record,
+                                column,
+                                planRelatedLookups[column.key],
+                              )}
                             </span>
                           ))}
                         </button>

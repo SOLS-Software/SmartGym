@@ -113,6 +113,8 @@ export type RegisterLookupQuery = {
 
 export type CompanyChildResource =
   | 'promotions'
+  | 'promotion-products'
+  | 'promotion-files'
   | 'student-plans'
   | 'payments'
   | 'product-movements'
@@ -120,7 +122,7 @@ export type CompanyChildResource =
   | 'student-check-ins'
   | 'themes';
 
-export type StudentChildResource = 'plans' | 'payments' | 'check-ins' | 'trainings';
+export type StudentChildResource = 'plans' | 'payments' | 'check-ins' | 'trainings' | 'promotions';
 
 export type PlanChildResource =
   | 'values'

@@ -6,6 +6,7 @@ import {
   assertValidId,
   optionalNumber,
   optionalDate,
+  requiredText,
 } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import {
@@ -26,7 +27,8 @@ function getStudentChildResourceConfig(resource: string) {
     resource !== 'plans' &&
     resource !== 'payments' &&
     resource !== 'check-ins' &&
-    resource !== 'trainings'
+    resource !== 'trainings' &&
+    resource !== 'promotions'
   ) {
     throw new Error('Tabela relacionada invalida.');
   }
@@ -508,6 +510,23 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     }
   });
 
+  app.get<{
+    Params: { id: string };
+  }>('/students/:id/related/promotions', async (request, reply) => {
+    try {
+      const idAluno = Number(request.params.id);
+      assertValidId(idAluno, 'Aluno invalido.');
+
+      return prisma.promocao.findMany({
+        orderBy: { dsPromocao: 'asc' },
+      });
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao listar promocoes.',
+      });
+    }
+  });
+
   app.post<{
     Params: { id: string; resource: string };
     Body: CompanyChildPayload;
@@ -572,6 +591,23 @@ export async function registerStudentRoutes(app: FastifyInstance) {
           });
         });
 
+        return reply.code(201).send(record);
+      }
+
+      if (resource === 'promotions') {
+        const record = await prisma.promocao.create({
+          data: {
+            idEmpresa: optionalNumber(request.body.idEmpresa),
+            dsPromocao: requiredText(request.body.dsPromocao, 'Informe a promocao.'),
+            qtPeriodo: Number(request.body.qtPeriodo ?? 0),
+            idUnidadeTempo: optionalNumber(request.body.idUnidadeTempo),
+            vlDesconto: Number(request.body.vlDesconto ?? 0),
+            pcDesconto: Number(request.body.pcDesconto ?? 0),
+            dtInicio: optionalDate(request.body.dtInicio) ?? new Date(),
+            dtEncerramento: optionalDate(request.body.dtEncerramento) ?? null,
+            boInativo: Number(request.body.boInativo ?? 0),
+          },
+        });
         return reply.code(201).send(record);
       }
 
@@ -698,6 +734,26 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         });
       }
 
+      if (resource === 'promotions') {
+        const current = await prisma.promocao.findFirst({ where: { id: childId }, select: { id: true } });
+        if (!current) throw new Error('Promocao invalida.');
+
+        return prisma.promocao.update({
+          where: { id: childId },
+          data: {
+            idEmpresa: optionalNumber(request.body.idEmpresa),
+            dsPromocao: requiredText(request.body.dsPromocao, 'Informe a promocao.'),
+            qtPeriodo: Number(request.body.qtPeriodo ?? 0),
+            idUnidadeTempo: optionalNumber(request.body.idUnidadeTempo),
+            vlDesconto: Number(request.body.vlDesconto ?? 0),
+            pcDesconto: Number(request.body.pcDesconto ?? 0),
+            dtInicio: optionalDate(request.body.dtInicio) ?? new Date(),
+            dtEncerramento: optionalDate(request.body.dtEncerramento) ?? null,
+            boInativo: Number(request.body.boInativo ?? 0),
+          },
+        });
+      }
+
       const idAlunoPlano = optionalNumber(request.body.idAlunoPlano);
       if (!idAlunoPlano) throw new Error('Selecione um plano do aluno.');
 
@@ -791,6 +847,12 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         });
         if (!current) throw new Error('Pagamento invalido.');
         return prisma.pagamento.update({ where: { id: childId }, data: { boInativo } });
+      }
+
+      if (resource === 'promotions') {
+        const current = await prisma.promocao.findFirst({ where: { id: childId }, select: { id: true } });
+        if (!current) throw new Error('Promocao invalida.');
+        return prisma.promocao.update({ where: { id: childId }, data: { boInativo } });
       }
 
       const current = await prisma.alunoCheckIn.findFirst({
