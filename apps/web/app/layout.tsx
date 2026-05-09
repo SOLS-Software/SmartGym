@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import './styles.css';
+import '../src/shared/styles/globals.css';
 
 export const metadata: Metadata = {
   title: 'SmartGym',

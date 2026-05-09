@@ -4,7 +4,7 @@ import type {
   CompanyChildRecord,
   GridPaginationProps,
   LookupRecord,
-} from './registration-types';
+} from './registrationTypes';
 
 export const GRID_PAGE_SIZE = 20;
 

@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { formatDateDisplay } from './registration-helpers';
-import type { Exercise, StudentTraining, TrainingExercise, TrainingMethod } from './registration-types';
-import { apiFetch as fetch } from './api-fetch';
+import { formatDateDisplay } from '../../shared/registration/registrationHelpers';
+import type { Exercise, StudentTraining, TrainingExercise, TrainingMethod } from '../../shared/registration/registrationTypes';
+import { apiFetch as fetch } from '../../shared/api/apiFetch';
 
 type MyTrainingProps = {
     studentId: number | null;

@@ -2,19 +2,19 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { formatCpf, formatDateInput, isValidCpf } from './registration-helpers';
-import type { RegisterLookupRecord } from './registration-types';
-import { PlanRegistration } from './plan-registration';
-import { CompanyRegistration } from './company-registration';
-import { StudentRegistration } from './student-registration';
-import { DomainRegistration } from './domain-registration';
-import { ProductRegistration } from './product-registration';
-import { ExerciseRegistration } from './exercise-registration';
-import { EmployeeRegistration } from './employee-registration';
-import { TrainingRegistration } from './training-registration';
-import { StudentTrainingAssembly } from './student-training-assembly';
-import { MyTraining } from './my-training';
-import { apiFetch as fetch, apiUrl } from './api-fetch';
+import { formatCpf, formatDateInput, isValidCpf } from '../../shared/registration/registrationHelpers';
+import type { RegisterLookupRecord } from '../../shared/registration/registrationTypes';
+import { PlanRegistration } from '../../features/plans/PlanRegistration';
+import { CompanyRegistration } from '../../features/companies/CompanyRegistration';
+import { StudentRegistration } from '../../features/students/StudentRegistration';
+import { DomainRegistration } from '../../features/domains/DomainRegistration';
+import { ProductRegistration } from '../../features/products/ProductRegistration';
+import { ExerciseRegistration } from '../../features/exercises/ExerciseRegistration';
+import { EmployeeRegistration } from '../../features/employees/EmployeeRegistration';
+import { TrainingRegistration } from '../../features/trainings/TrainingRegistration';
+import { StudentTrainingAssembly } from '../../features/students/StudentTrainingAssembly';
+import { MyTraining } from '../../features/trainings/MyTraining';
+import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 const SESSION_KEY = 'smartgym_session';
 
 const menuGroups = [

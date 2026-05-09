@@ -2,9 +2,9 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { GRID_PAGE_SIZE, GridPagination, formatDateInput, isImageFile, paginateItems } from './registration-helpers';
-import type { Company, Exercise, ExerciseFile } from './registration-types';
-import { apiFetch as fetch, apiUrl } from './api-fetch';
+import { GRID_PAGE_SIZE, GridPagination, formatDateInput, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
+import type { Company, Exercise, ExerciseFile } from '../../shared/registration/registrationTypes';
+import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 
 type ExerciseRegistrationProps = {
   readOnly?: boolean;

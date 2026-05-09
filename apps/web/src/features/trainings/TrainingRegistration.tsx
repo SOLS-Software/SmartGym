@@ -2,9 +2,9 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
-import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, getLookupLabel, paginateItems } from './registration-helpers';
-import type { Company, CompanyChildField, CompanyChildRecord, CompanyChildTable, Level, LookupRecord, Training } from './registration-types';
-import { apiFetch as fetch, apiUrl } from './api-fetch';
+import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, getLookupLabel, paginateItems } from '../../shared/registration/registrationHelpers';
+import type { Company, CompanyChildField, CompanyChildRecord, CompanyChildTable, Level, LookupRecord, Training } from '../../shared/registration/registrationTypes';
+import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 
 const trainingRelatedTables: CompanyChildTable[] = [
   {

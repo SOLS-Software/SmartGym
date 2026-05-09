@@ -2,9 +2,9 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
-import { GRID_PAGE_SIZE, GridPagination, paginateItems } from './registration-helpers';
-import type { DomainConfigMap, DomainRecord } from './registration-types';
-import { apiFetch as fetch, apiUrl } from './api-fetch';
+import { GRID_PAGE_SIZE, GridPagination, paginateItems } from '../../shared/registration/registrationHelpers';
+import type { DomainConfigMap, DomainRecord } from '../../shared/registration/registrationTypes';
+import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 
 const domainItems = [
   'Cargo',
