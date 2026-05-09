@@ -1,0 +1,235 @@
+.student-split-layout {
+  gap: 1.23rem;
+  grid-template-columns: minmax(28rem, 1fr) minmax(32rem, 1.1fr) 12rem;
+}
+
+.student-files-section h3 {
+  color: #17211c;
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.student-files-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.student-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.file-upload-controls {
+  align-items: center;
+  display: flex;
+  gap: 0.625rem;
+}
+
+.file-upload-controls input[type='file'] {
+  flex: 1;
+}
+
+.file-upload-controls .secondary-button {
+  background: #e8f4ed;
+  border: 0;
+  border-radius: 0.5rem;
+  color: #1f7a53;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  min-height: 2.875rem;
+  padding: 0 0.875rem;
+}
+
+.camera-capture-input {
+  display: none;
+}
+
+.camera-modal-overlay,
+.file-modal-overlay {
+  align-items: center;
+  background: rgba(23, 33, 28, 0.55);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 1.25rem;
+  position: fixed;
+  z-index: 1000;
+}
+
+.camera-modal {
+  background: #ffffff;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.625rem;
+  box-shadow: 0 1.25rem 3.75rem rgba(23, 33, 28, 0.2);
+  max-width: 35rem;
+  padding: 1.125rem;
+  width: min(35rem, 100%);
+}
+
+.camera-modal h4 {
+  color: #17211c;
+  font-size: 1.05rem;
+  margin: 0 0 0.625rem;
+}
+
+.camera-live-preview {
+  background: #0f1512;
+  border-radius: 0.5rem;
+  height: auto;
+  max-height: 60vh;
+  object-fit: cover;
+  width: 100%;
+}
+
+.camera-modal-feedback {
+  color: #b91c1c;
+  font-size: 0.83rem;
+  font-weight: 700;
+  margin: 0.625rem 0 0;
+}
+
+.camera-modal-actions {
+  display: flex;
+  gap: 0.625rem;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}
+
+.camera-modal-actions button {
+  background: #1f7a53;
+  border: 0;
+  border-radius: 0.5rem;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  min-height: 2.625rem;
+  padding: 0 0.875rem;
+}
+
+.camera-modal-actions .secondary-button {
+  background: #e8f4ed;
+  color: #1f7a53;
+}
+
+.student-file-row {
+  background: #f8faf8;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  overflow: hidden;
+  padding: 0.75rem;
+}
+
+.student-file-preview {
+  border-radius: 0.375rem;
+  height: 10rem;
+  object-fit: cover;
+  width: 100%;
+}
+
+.file-preview-button {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  text-align: inherit;
+}
+
+.student-file-row-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.student-file-row strong {
+  color: #17211c;
+  display: block;
+  font-size: 0.94rem;
+  margin-bottom: 0.25rem;
+  word-break: break-word;
+}
+
+.student-file-row span {
+  color: #6b7a72;
+  display: block;
+  font-size: 0.8rem;
+  word-break: break-word;
+}
+
+.student-file-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.student-file-actions button {
+  border: 0;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  min-height: 2.375rem;
+  padding: 0 0.75rem;
+}
+
+.student-file-actions .secondary-button {
+  background: #e8f4ed;
+  color: #1f7a53;
+}
+
+.student-file-actions .danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.file-modal {
+  background: #ffffff;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.625rem;
+  box-shadow: 0 1.25rem 3.75rem rgba(23, 33, 28, 0.2);
+  max-height: 90vh;
+  max-width: 56rem;
+  overflow: hidden;
+  padding: 1rem;
+  width: min(56rem, 100%);
+}
+
+.file-modal-header {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 0.875rem;
+}
+
+.file-modal-header h3 {
+  color: #17211c;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.file-modal-header button {
+  background: #e8f4ed;
+  border: 0;
+  border-radius: 0.5rem;
+  color: #1f7a53;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  min-height: 2.375rem;
+  padding: 0 0.875rem;
+}
+
+.file-modal img {
+  border-radius: 0.5rem;
+  display: block;
+  max-height: calc(90vh - 5rem);
+  object-fit: contain;
+  width: 100%;
+}

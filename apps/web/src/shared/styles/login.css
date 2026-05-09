@@ -1,0 +1,335 @@
+.login-page {
+  align-items: center;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(31, 122, 83, 0.1), transparent 32%),
+    linear-gradient(135deg, #f3f6f4 0%, #e7eee9 100%);
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 1.5rem;
+}
+
+.login-panel {
+  background: #ffffff;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.5rem;
+  box-shadow: 0 1.5rem 4.375rem rgba(23, 33, 28, 0.12);
+  padding: 2rem;
+  width: min(26.25rem, 100%);
+}
+
+.brand {
+  align-items: center;
+  display: flex;
+  gap: 0.875rem;
+  margin-bottom: 2rem;
+}
+
+.logo {
+  align-items: center;
+  background: #1f7a53;
+  border-radius: 0.5rem;
+  color: #ffffff;
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 1.1rem;
+  font-weight: 800;
+  height: 3.375rem;
+  justify-content: center;
+  width: 3.375rem;
+}
+
+.eyebrow {
+  color: #1f7a53;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin: 0 0 0.25rem;
+  text-transform: uppercase;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.login-mode-toggle,
+.account-type-toggle {
+  background: #eef4f0;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 0.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 1rem;
+  padding: 0.25rem;
+}
+
+.account-type-toggle {
+  margin-bottom: 0.5rem;
+}
+
+.login-mode-toggle button,
+.account-type-toggle button {
+  background: transparent;
+  border: 0;
+  border-radius: 0.375rem;
+  color: #34413b;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  min-height: 2.5rem;
+}
+
+.login-mode-toggle button.active,
+.account-type-toggle button.active {
+  background: #ffffff;
+  box-shadow: 0 0.25rem 0.875rem rgba(23, 33, 28, 0.08);
+  color: #1f7a53;
+}
+
+.login-form label {
+  color: #34413b;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.login-inline-fields {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 5rem minmax(0, 1fr);
+}
+
+.login-inline-fields div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.login-form input {
+  background: #ffffff;
+  border: 0.0625rem solid #ccd8d0;
+  border-radius: 0.5rem;
+  color: #17211c;
+  font: inherit;
+  min-height: 3rem;
+  outline: none;
+  padding: 0 0.875rem;
+}
+
+.login-form input:focus {
+  border-color: #1f7a53;
+  box-shadow: 0 0 0 0.1875rem rgba(31, 122, 83, 0.14);
+}
+
+.login-locked-value {
+  align-items: center;
+  background: #f8faf8;
+  border: 0.0625rem solid #ccd8d0;
+  border-radius: 0.5rem;
+  color: #17211c;
+  display: flex;
+  font: inherit;
+  min-height: 3rem;
+  padding: 0 0.875rem;
+  pointer-events: none;
+  user-select: none;
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  min-width: 0;
+  padding-right: 3.25rem;
+  width: 100%;
+}
+
+.password-eye-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0.375rem;
+  color: #1f7a53;
+  cursor: pointer;
+  display: flex;
+  height: 2.25rem;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: 0.375rem;
+  top: 0.375rem;
+  width: 2.25rem;
+}
+
+.password-eye-button span {
+  border: 0.125rem solid currentColor;
+  border-radius: 50% 50%;
+  display: block;
+  height: 0.875rem;
+  position: relative;
+  transform: rotate(-12deg);
+  width: 1.375rem;
+}
+
+.password-eye-button span::after {
+  background: currentColor;
+  border-radius: 50%;
+  content: '';
+  height: 0.375rem;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 0.375rem;
+}
+
+.password-eye-button[aria-pressed='true'] span::before {
+  background: currentColor;
+  border-radius: 62.4375rem;
+  content: '';
+  height: 0.125rem;
+  left: -0.1875rem;
+  position: absolute;
+  top: 50%;
+  transform: rotate(45deg);
+  width: 1.75rem;
+}
+
+.password-checklist {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.password-checklist div {
+  align-items: center;
+  color: #6b7a72;
+  display: flex;
+  font-size: 0.86rem;
+  font-weight: 700;
+  gap: 0.5rem;
+}
+
+.password-checklist div.met {
+  color: #1f7a53;
+}
+
+.password-checklist span {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 900;
+  justify-content: center;
+  width: 1rem;
+}
+
+.login-feedback {
+  background: #f0f8f3;
+  border: 0.0625rem solid #cfe5d7;
+  border-radius: 0.5rem;
+  color: #1f7a53;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.875rem;
+}
+
+.facial-login-panel {
+  gap: 0.875rem;
+}
+
+.facial-camera-frame {
+  aspect-ratio: 4 / 3;
+  background: #17211c;
+  border: 0.0625rem solid #ccd8d0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  width: 100%;
+}
+
+.facial-camera-frame video {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  width: 100%;
+}
+
+.forgot-link {
+  align-self: flex-end;
+  background: transparent;
+  border: 0;
+  color: #1f7a53;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0.125rem 0 0.75rem;
+  padding: 0;
+  text-decoration: none;
+}
+
+.forgot-link:hover {
+  text-decoration: underline;
+}
+
+.login-form button {
+  background: #1f7a53;
+  border: 0;
+  border-radius: 0.5rem;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  min-height: 3.125rem;
+}
+
+.login-form button:hover {
+  background: #186542;
+}
+
+.login-form .secondary-login-button {
+  background: #e8f4ed;
+  color: #1f7a53;
+}
+
+.login-form .secondary-login-button:hover {
+  background: #dceee5;
+}
+
+.login-form .password-eye-button,
+.login-form .password-eye-button:hover,
+.login-form .password-eye-button:focus {
+  background: transparent;
+  color: #1f7a53;
+  min-height: 2.25rem;
+}
+
+.login-form .account-type-toggle button {
+  background: transparent;
+  color: #34413b;
+  min-height: 2.5rem;
+}
+
+.login-form .account-type-toggle button.active,
+.login-form .account-type-toggle button.active:hover {
+  background: #ffffff;
+  color: #1f7a53;
+}
+
+.login-form .account-type-toggle button:hover {
+  background: rgba(255, 255, 255, 0.65);
+}
+
+@media (max-width: 30rem) {
+  .login-panel {
+    padding: 1.5rem;
+  }
+
+  .brand {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

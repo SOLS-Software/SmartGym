@@ -1,0 +1,230 @@
+.company-view .form-heading {
+  align-items: baseline;
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.company-view .form-heading h2 {
+  font-size: 2.45rem;
+  margin: 0;
+}
+
+.company-split-layout {
+  gap: 1.23rem;
+  grid-template-columns: 35rem 60rem 12rem;
+}
+
+.plan-split-layout {
+  gap: 1.23rem;
+  grid-template-columns: minmax(28rem, 1fr) minmax(30rem, 1fr) 12rem;
+}
+
+.product-row.company-grid {
+  gap: 0.5rem;
+  grid-template-columns: 17rem 11rem 4rem;
+}
+
+.company-grid-section .grid-toolbar {
+  align-items: end;
+  display: grid;
+  gap: 0.875rem;
+  grid-template-columns: 1fr .5fr;
+  justify-content: start;
+}
+
+.company-grid-section .grid-toolbar > .child-grid-toolbar-label {
+  display: none;
+}
+
+.company-grid-section .grid-toolbar > .child-grid-toolbar-actions {
+  display: grid;
+}
+
+.company-grid-section .search-field input {
+  min-height: 2.125rem;
+}
+
+.company-grid-section .new-button {
+  min-height: 2.125rem;
+  padding: 0 0.875rem;
+}
+
+.company-grid-section .product-row {
+  min-height: 2.625rem;
+  padding: 0 0.75rem;
+}
+
+.company-grid-section .product-row.header {
+  min-height: 2.375rem;
+}
+
+.company-grid-section .status-badge {
+  font-size: 0.72rem;
+  padding: 0.3125rem 0.5rem;
+}
+
+.company-child-grid-section {
+  margin-top: 1.5rem;
+}
+
+.company-child-grid-section .grid-toolbar {
+  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.875rem;
+}
+
+.company-child-grid-section .grid-toolbar > div {
+  display: grid;
+}
+
+.company-child-grid-section .grid-toolbar .section-label {
+  margin-bottom: 0;
+}
+
+.company-child-grid-table {
+  margin-top: 0;
+}
+
+.company-child-grid-row {
+  gap: 0.75rem;
+}
+
+.company-form-panel {
+  /* max-width: 45rem; */
+  min-height: 16.25rem;
+  padding: 1.375rem 1.75rem;
+}
+
+.registration-form.collapsed {
+  gap: 0;
+  min-height: auto;
+}
+
+.company-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+  transition: gap 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.company-form-panel .field input,
+.company-form-panel .field select,
+.company-child-form-panel .field input,
+.company-child-form-panel .field select {
+  min-height: 2.5rem;
+}
+
+.company-form-panel .form-hint,
+.company-form-panel .form-feedback {
+  padding: 0.625rem 0.75rem;
+}
+
+.company-form-panel .form-actions {
+  margin-top: 1.125rem;
+}
+
+.company-child-form-panel {
+  margin-top: 0;
+}
+
+.company-child-form-panel h3 {
+  color: #17211c;
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.collapsible-panel-header {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  transition: gap 260ms ease, margin 260ms ease;
+}
+
+.collapsible-panel-header h3 {
+  color: #17211c;
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.collapsible-panel-header .section-label {
+  margin-bottom: 0.25rem;
+}
+
+.collapsible-panel-header button {
+  align-items: center;
+  display: inline-flex;
+  font-size: 1.1rem;
+  justify-content: center;
+  min-height: 2.375rem;
+  padding: 0;
+  width: 2.375rem;
+}
+
+.company-child-fields {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  transition: gap 320ms cubic-bezier(0.22, 1, 0.36, 1), grid-template-columns 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.company-child-tabs {
+  min-width: 0;
+  transition: border-color 280ms ease, box-shadow 280ms ease, max-height 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.company-child-tabs-header {
+  background: #f8faf8;
+  border-bottom: 0.0625rem solid #edf2ef;
+  padding: 0.875rem 1rem;
+}
+
+.company-child-tabs-header h3 {
+  color: #17211c;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.company-child-tabs-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.company-child-tabs-list button {
+  background: #ffffff;
+  border: 0;
+  border-top: 0.0625rem solid #edf2ef;
+  color: #34413b;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  min-height: 3rem;
+  padding: 0 1rem;
+  text-align: left;
+  transition: background 220ms ease, box-shadow 260ms ease, min-height 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 260ms ease;
+}
+
+.company-child-tabs-list button:first-child {
+  border-top: 0;
+}
+
+.company-child-tabs-list button:hover,
+.company-child-tabs-list button.active {
+  background: #f0f8f3;
+  color: #1f7a53;
+}
+
+.company-child-tabs-list button.active {
+  box-shadow: inset 0.25rem 0 0 #1f7a53;
+}
+
+@media (max-width: 47.5rem) {
+  .company-child-fields {
+    grid-template-columns: 1fr;
+  }
+}
