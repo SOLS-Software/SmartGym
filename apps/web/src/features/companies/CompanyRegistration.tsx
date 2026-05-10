@@ -51,7 +51,11 @@ export function CompanyRegistration() {
   const filteredChildRecords = childRecords.filter((record) =>
     childTableConfig
       ? childTableConfig.columns.some((column) =>
-        formatChildSearchValue(record, column).includes(childSearchTerm.toLowerCase()),
+        formatChildSearchValue(
+          record,
+          column,
+          childLookups[column.key],
+        ).includes(childSearchTerm.toLowerCase()),
       )
       : false,
   );
@@ -653,25 +657,26 @@ export function CompanyRegistration() {
         <p className="section-label">Cadastro de Empresa</p>
       </div>
 
-      <div className="registration-split-layout company-split-layout">
+      <div className="registration-split-layout plan-split-layout">
         <section className="data-grid-section company-grid-section">
           <div className="grid-toolbar">
-            <div>
+            <div className="child-grid-toolbar-label">
               <p className="section-label">Empresas</p>
-              <h3>Empresas cadastradas</h3>
             </div>
-            <label className="search-field">
-              <span>Pesquisar</span>
-              <input
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Buscar empresa"
-                type="search"
-                value={searchTerm}
-              />
-            </label>
-            <button className="new-button" onClick={handleNewCompany} type="button">
-              Nova empresa
-            </button>
+            <div className="child-grid-toolbar-actions">
+              <label className="search-field">
+                <span>Pesquisar</span>
+                <input
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Buscar empresa"
+                  type="search"
+                  value={searchTerm}
+                />
+              </label>
+              <button className="new-button" onClick={handleNewCompany} type="button">
+                Nova empresa
+              </button>
+            </div>
           </div>
 
           <div className="product-table" key={`companies-${searchTerm}-${companiesPage}`} role="table" aria-label="Empresas cadastradas">
@@ -789,7 +794,11 @@ export function CompanyRegistration() {
                     >
                       {childTableConfig.columns.map((column) => (
                         <span key={column.key} role="cell">
-                          {formatChildCell(record, column)}
+                          {formatChildCell(
+                            record,
+                            column,
+                            childLookups[column.key],
+                          )}
                         </span>
                       ))}
                     </button>
@@ -806,7 +815,7 @@ export function CompanyRegistration() {
           </section>
         </section>
 
-        <div className="company-form-stack">
+        <div className="split-form-stack">
           <form
             className={`registration-form split-form-panel company-form-panel ${isCompanyFieldsCollapsed ? 'collapsed' : ''}`}
             onSubmit={handleSaveCompany}
@@ -930,7 +939,7 @@ export function CompanyRegistration() {
 
           {childTableConfig ? (
             <form
-              className={`registration-form company-child-form-panel ${isChildFieldsCollapsed ? 'collapsed' : ''}`}
+              className={`registration-form split-form-panel company-child-form-panel ${isChildFieldsCollapsed ? 'collapsed' : ''}`}
               onSubmit={handleSaveChild}
             >
               <div className="collapsible-panel-header">

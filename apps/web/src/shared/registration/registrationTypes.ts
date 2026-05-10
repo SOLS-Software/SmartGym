@@ -13,10 +13,38 @@ export type Product = {
   boInativo: number;
 };
 
+export type Promotion = {
+  id: number;
+  idEmpresa: number | null;
+  dsPromocao: string;
+  qtPeriodo: number;
+  idUnidadeTempo: number | null;
+  vlDesconto: number | string | null;
+  pcDesconto: number | string | null;
+  dtInicio: string | null;
+  dtEncerramento: string | null;
+  boInativo: number;
+};
+
 export type Exercise = {
   id: number;
   idEmpresa: number | null;
   dsExercicio: string;
+  boInativo: number;
+};
+
+export type Activity = {
+  id: number;
+  idEmpresa: number | null;
+  idEsporte: number | null;
+  dsAtividade: string;
+  boInativo: number;
+};
+
+export type Sport = {
+  id: number;
+  idEmpresa: number | null;
+  dsEsporte: string;
   boInativo: number;
 };
 

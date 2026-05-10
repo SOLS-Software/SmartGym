@@ -9,7 +9,9 @@ import { CompanyRegistration } from '../../features/companies/CompanyRegistratio
 import { StudentRegistration } from '../../features/students/StudentRegistration';
 import { DomainRegistration } from '../../features/domains/DomainRegistration';
 import { ProductRegistration } from '../../features/products/ProductRegistration';
+import { PromotionRegistration } from '../../features/promotions/PromotionRegistration';
 import { ExerciseRegistration } from '../../features/exercises/ExerciseRegistration';
+import { ActivityRegistration } from '../../features/activities/ActivityRegistration';
 import { EmployeeRegistration } from '../../features/employees/EmployeeRegistration';
 import { TrainingRegistration } from '../../features/trainings/TrainingRegistration';
 import { StudentTrainingAssembly } from '../../features/students/StudentTrainingAssembly';
@@ -24,7 +26,7 @@ const menuGroups = [
   },
   {
     title: 'TREINO',
-    items: ['Exercícios', 'Treino', 'Montar Treino', 'Meu Treino'],
+    items: ['Atividades', 'Exercícios', 'Treino', 'Montar Treino', 'Meu Treino'],
   },
   {
     title: 'ESTOQUE',
@@ -32,7 +34,7 @@ const menuGroups = [
   },
   {
     title: 'ALUNOS',
-    items: ['Matrículas', 'Planos'],
+    items: ['Matrículas', 'Planos', 'Promoções'],
   },
   {
     title: 'RH',
@@ -702,6 +704,8 @@ export default function HomePage() {
         <section className="home-content">
           {activeItem === 'Empresas' ? (
             <CompanyRegistration />
+          ) : activeItem === 'Atividades' ? (
+            <ActivityRegistration readOnly={authUserType === 'student'} />
           ) : activeItem === 'Exercícios' ? (
             <ExerciseRegistration readOnly={authUserType === 'student'} />
           ) : activeItem === 'Treino' ? (
@@ -717,6 +721,8 @@ export default function HomePage() {
             <StudentRegistration />
           ) : activeItem === 'Planos' ? (
             <PlanRegistration />
+          ) : activeItem === 'Promoções' ? (
+            <PromotionRegistration />
           ) : activeItem === 'Profissionais' ? (
             <EmployeeRegistration />
           ) : activeItem === 'Domínios' ? (

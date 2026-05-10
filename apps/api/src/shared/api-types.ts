@@ -122,14 +122,15 @@ export type CompanyChildResource =
   | 'student-check-ins'
   | 'themes';
 
-export type StudentChildResource = 'plans' | 'payments' | 'check-ins' | 'trainings' | 'promotions';
+export type StudentChildResource = 'plans' | 'payments' | 'check-ins' | 'trainings';
 
 export type PlanChildResource =
   | 'values'
   | 'products'
   | 'companies'
   | 'activities'
-  | 'promotion-plans';
+  | 'promotion-plans'
+  | 'promotion-products';
 
 export type CompanyChildPayload = Record<string, string | number | null | undefined>;
 

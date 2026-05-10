@@ -1,9 +1,9 @@
 'use client';
 
-import type { FormEvent } from 'react';
-import { useEffect, useState } from 'react';
-import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, paginateItems } from '../../shared/registration/registrationHelpers';
-import type { CompanyChildColumn, CompanyChildField, CompanyChildRecord, CompanyChildTable, Frequency, LookupRecord, Plan } from '../../shared/registration/registrationTypes';
+import type { ChangeEvent, FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
+import type { CompanyChildRecord, CompanyChildTable, Frequency, LookupRecord, Plan } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 const planRelatedTables: CompanyChildTable[] = [
@@ -86,9 +86,45 @@ const planRelatedTables: CompanyChildTable[] = [
       { key: 'dtEncerramento', label: 'Encerramento', type: 'date' },
     ],
   },
+  {
+    key: 'promotionProducts',
+    endpoint: 'promotion-products',
+    label: 'Produtos Promoção',
+    title: 'Produtos de promoção do plano',
+    columns: [
+      { key: 'idEmpresa', label: 'Empresa', lookupLabelKey: 'dsEmpresa' },
+      { key: 'idPromocao', label: 'Promoção', lookupLabelKey: 'dsPromocao' },
+      { key: 'idProduto', label: 'Produto', lookupLabelKey: 'dsProduto' },
+      { key: 'qtDisponivel', label: 'Qtd disponível' },
+      { key: 'boInativo', label: 'Status', type: 'status' },
+    ],
+    fields: [
+      { key: 'idEmpresa', label: 'Empresa', type: 'number', lookupEndpoint: 'companies', lookupLabelKey: 'dsEmpresa' },
+      { key: 'idPromocao', label: 'Promoção', type: 'number', lookupEndpoint: 'promotions', lookupLabelKey: 'dsPromocao', required: true },
+      { key: 'idProduto', label: 'Produto', type: 'number', lookupEndpoint: 'products', lookupLabelKey: 'dsProduto', required: true },
+      { key: 'qtDisponivel', label: 'Qtd disponível', type: 'number' },
+    ],
+  },
+  {
+    key: 'promotionFiles',
+    endpoint: 'promotion-files',
+    label: 'Arquivos Promoção',
+    title: 'Arquivos de promoção do plano',
+    columns: [
+      { key: 'idPromocao', label: 'Promoção', lookupLabelKey: 'dsPromocao' },
+      { key: 'dsArquivo', label: 'Arquivo' },
+      { key: 'idTiposArquivos', label: 'Tipo', lookupLabelKey: 'dsTipo' },
+      { key: 'boInativo', label: 'Status', type: 'status' },
+    ],
+    fields: [
+      { key: 'idPromocao', label: 'Promoção', type: 'number', lookupEndpoint: 'promotions', lookupLabelKey: 'dsPromocao', required: true },
+      { key: 'idTiposArquivos', label: 'Tipo de arquivo', type: 'number', lookupEndpoint: 'file-types', lookupLabelKey: 'dsTipo' },
+    ],
+  },
 ];
 
 export function PlanRegistration() {
+  const planFileInputRef = useRef<HTMLInputElement | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [plansPage, setPlansPage] = useState(1);
   const [frequencies, setFrequencies] = useState<Frequency[]>([]);
@@ -112,11 +148,18 @@ export function PlanRegistration() {
   const [planRelatedFeedback, setPlanRelatedFeedback] = useState('');
   const [planRelatedLookups, setPlanRelatedLookups] = useState<Record<string, LookupRecord[]>>({});
   const [isPlanRelatedFieldsCollapsed, setIsPlanRelatedFieldsCollapsed] = useState(false);
+  const [planRelatedFilePreviewUrls, setPlanRelatedFilePreviewUrls] = useState<Record<number, string>>({});
+  const [planRelatedFileModal, setPlanRelatedFileModal] = useState<{ title: string; url: string } | null>(null);
+  const [isUploadingPlanRelatedFile, setIsUploadingPlanRelatedFile] = useState(false);
   const isFormEnabled = selectedPlanId !== null || isCreating;
   const isPlanRelatedFormEnabled =
     Boolean(selectedPlanId) && (selectedPlanRelatedRecordId !== null || isCreatingPlanRelated);
   const planRelatedConfig =
     planRelatedTables.find((table) => table.key === selectedPlanRelatedTable) ?? null;
+  const isPlanRelatedFileTable = planRelatedConfig?.key === 'promotionFiles';
+  const selectedPlanRelatedRecord = planRelatedRecords.find(
+    (record) => record.id === selectedPlanRelatedRecordId,
+  );
   const filteredPlanRelatedRecords = planRelatedRecords.filter((record) =>
     planRelatedConfig
       ? planRelatedConfig.columns.some((column) =>
@@ -193,7 +236,31 @@ export function PlanRegistration() {
         await getApiError(response, 'Não foi possível carregar os registros relacionados.');
       }
 
-      setPlanRelatedRecords((await response.json()) as CompanyChildRecord[]);
+      const data = (await response.json()) as CompanyChildRecord[];
+      setPlanRelatedRecords(data);
+      setPlanRelatedFilePreviewUrls({});
+
+      if (config.key === 'promotionFiles') {
+        const imageFiles = data.filter((file) => isImageFile(String(file.anCaminho ?? '')));
+        const previewEntries = await Promise.all(
+          imageFiles.map(async (file) => {
+            const urlResponse = await fetch(
+              `${apiUrl}/plans/${planId}/related/promotion-files/${file.id}/url`,
+            );
+
+            if (!urlResponse.ok) {
+              return null;
+            }
+
+            const urlData = (await urlResponse.json()) as { url?: string };
+            return urlData.url ? ([file.id, urlData.url] as const) : null;
+          }),
+        );
+
+        setPlanRelatedFilePreviewUrls(
+          Object.fromEntries(previewEntries.filter((entry): entry is readonly [number, string] => Boolean(entry))),
+        );
+      }
       setPlanRelatedFeedback('');
     } catch (error) {
       setPlanRelatedFeedback(
@@ -301,6 +368,9 @@ export function PlanRegistration() {
     setIsCreatingPlanRelated(false);
     setPlanRelatedFormValues({});
     setIsPlanRelatedActive(true);
+    if (planFileInputRef.current) {
+      planFileInputRef.current.value = '';
+    }
   }
 
   function handleNewPlanRelated() {
@@ -309,6 +379,9 @@ export function PlanRegistration() {
     setPlanRelatedFormValues({});
     setIsPlanRelatedActive(true);
     setPlanRelatedFeedback('');
+    if (planFileInputRef.current) {
+      planFileInputRef.current.value = '';
+    }
   }
 
   function handleSelectPlanRelatedRecord(record: CompanyChildRecord) {
@@ -439,6 +512,112 @@ export function PlanRegistration() {
     } catch (error) {
       setIsPlanRelatedActive(!nextActive);
       setPlanRelatedFeedback(error instanceof Error ? error.message : 'Erro ao alterar status.');
+    }
+  }
+
+  async function handleUploadPlanRelatedFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!selectedPlanId) {
+      setPlanRelatedFeedback('Selecione um plano antes de enviar o arquivo.');
+      return;
+    }
+
+    if (!planRelatedFormValues.idPromocao) {
+      setPlanRelatedFeedback('Informe a promoção antes de enviar o arquivo.');
+      event.target.value = '';
+      return;
+    }
+
+    try {
+      setIsUploadingPlanRelatedFile(true);
+      const formData = new FormData();
+      formData.append('idPromocao', planRelatedFormValues.idPromocao);
+      formData.append('idTiposArquivos', planRelatedFormValues.idTiposArquivos ?? '');
+      formData.append('file', file);
+
+      const isReplacingFile = Boolean(selectedPlanRelatedRecordId && !isCreatingPlanRelated);
+      const response = await fetch(
+        isReplacingFile
+          ? `${apiUrl}/plans/${selectedPlanId}/related/promotion-files/${selectedPlanRelatedRecordId}`
+          : `${apiUrl}/plans/${selectedPlanId}/related/promotion-files`,
+        {
+          method: isReplacingFile ? 'PUT' : 'POST',
+          body: formData,
+        },
+      );
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Não foi possível enviar o arquivo.');
+      }
+
+      const saved = (await response.json()) as CompanyChildRecord;
+      await loadPlanRelatedRecords(selectedPlanId, planRelatedConfig);
+      setSelectedPlanRelatedRecordId(saved.id);
+      setIsCreatingPlanRelated(false);
+      setIsPlanRelatedActive(Number(saved.boInativo ?? 0) === 0);
+      setPlanRelatedFormValues({
+        idPromocao: saved.idPromocao ? String(saved.idPromocao) : '',
+        idTiposArquivos: saved.idTiposArquivos ? String(saved.idTiposArquivos) : '',
+      });
+      setPlanRelatedFeedback(isReplacingFile ? 'Arquivo alterado com sucesso.' : 'Arquivo enviado com sucesso.');
+    } catch (error) {
+      setPlanRelatedFeedback(error instanceof Error ? error.message : 'Erro ao enviar arquivo.');
+    } finally {
+      setIsUploadingPlanRelatedFile(false);
+      event.target.value = '';
+    }
+  }
+
+  async function handleOpenPlanRelatedFile(fileId: number) {
+    if (!selectedPlanId) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${apiUrl}/plans/${selectedPlanId}/related/promotion-files/${fileId}/url`,
+      );
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Não foi possível abrir o arquivo.');
+      }
+
+      const data = (await response.json()) as { url: string };
+      const file = planRelatedRecords.find((record) => record.id === fileId);
+      setPlanRelatedFileModal({ title: String(file?.dsArquivo ?? `Arquivo ${fileId}`), url: data.url });
+    } catch (error) {
+      setPlanRelatedFeedback(error instanceof Error ? error.message : 'Erro ao abrir arquivo.');
+    }
+  }
+
+  async function handleRemovePlanRelatedFile(fileId: number) {
+    if (!selectedPlanId) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${apiUrl}/plans/${selectedPlanId}/related/promotion-files/${fileId}`,
+        { method: 'DELETE' },
+      );
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Não foi possível remover o arquivo.');
+      }
+
+      await loadPlanRelatedRecords(selectedPlanId, planRelatedConfig);
+      clearPlanRelatedForm();
+      setPlanRelatedFeedback('Arquivo removido com sucesso.');
+    } catch (error) {
+      setPlanRelatedFeedback(error instanceof Error ? error.message : 'Erro ao remover arquivo.');
     }
   }
 
@@ -779,51 +958,170 @@ export function PlanRegistration() {
                     <div className="form-feedback">{planRelatedFeedback}</div>
                   ) : null}
 
-                  <div className="company-child-fields">
-                    {planRelatedConfig.fields.map((field) => (
-                      <div className="field" key={field.key}>
-                        <label htmlFor={`planRelated-${field.key}`}>
-                          {field.label}
-                          {field.required ? ' *' : ''}
-                        </label>
-                        {field.lookupEndpoint ? (
-                          <select
-                            disabled={!isPlanRelatedFormEnabled}
-                            id={`planRelated-${field.key}`}
-                            onChange={(event) =>
-                              setPlanRelatedFormValues((current) => ({
-                                ...current,
-                                [field.key]: event.target.value,
-                              }))
-                            }
-                            required={field.required}
-                            value={planRelatedFormValues[field.key] ?? ''}
-                          >
-                            <option value="">Selecione</option>
-                            {(planRelatedLookups[field.key] ?? []).map((option) => (
-                              <option key={option.id} value={option.id}>
-                                {getLookupLabel(option, field)}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            disabled={!isPlanRelatedFormEnabled}
-                            id={`planRelated-${field.key}`}
-                            onChange={(event) =>
-                              setPlanRelatedFormValues((current) => ({
-                                ...current,
-                                [field.key]: event.target.value,
-                              }))
-                            }
-                            required={field.required}
-                            type={field.type}
-                            value={planRelatedFormValues[field.key] ?? ''}
-                          />
-                        )}
+                  {isPlanRelatedFileTable ? (
+                    <div className="company-child-fields">
+                      <div className="field">
+                        <label htmlFor="planPromotionFilePromotion">Promoção *</label>
+                        <select
+                          disabled={!isPlanRelatedFormEnabled}
+                          id="planPromotionFilePromotion"
+                          onChange={(event) =>
+                            setPlanRelatedFormValues((current) => ({
+                              ...current,
+                              idPromocao: event.target.value,
+                            }))
+                          }
+                          required
+                          value={planRelatedFormValues.idPromocao ?? ''}
+                        >
+                          <option value="">Selecione</option>
+                          {(planRelatedLookups.idPromocao ?? []).map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {getLookupLabel(
+                                option,
+                                planRelatedConfig.fields.find((field) => field.key === 'idPromocao') ?? planRelatedConfig.fields[0]!,
+                              )}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    ))}
-                  </div>
+
+                      <div className="field">
+                        <label htmlFor="planPromotionFileType">Tipo de arquivo</label>
+                        <select
+                          disabled={!isPlanRelatedFormEnabled}
+                          id="planPromotionFileType"
+                          onChange={(event) =>
+                            setPlanRelatedFormValues((current) => ({
+                              ...current,
+                              idTiposArquivos: event.target.value,
+                            }))
+                          }
+                          value={planRelatedFormValues.idTiposArquivos ?? ''}
+                        >
+                          <option value="">Selecione</option>
+                          {(planRelatedLookups.idTiposArquivos ?? []).map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {getLookupLabel(
+                                option,
+                                planRelatedConfig.fields.find((field) => field.key === 'idTiposArquivos') ?? planRelatedConfig.fields[0]!,
+                              )}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="field">
+                        <label htmlFor="planPromotionFileName">Arquivo selecionado</label>
+                        <input
+                          disabled
+                          id="planPromotionFileName"
+                          type="text"
+                          value={
+                            selectedPlanRelatedRecord
+                              ? String(selectedPlanRelatedRecord.dsArquivo ?? `Arquivo ${selectedPlanRelatedRecord.id}`)
+                              : ''
+                          }
+                        />
+                      </div>
+
+                      <div className="field file-upload-field">
+                        <label htmlFor="planPromotionFileUpload">
+                          {selectedPlanRelatedRecordId && !isCreatingPlanRelated ? 'Alterar arquivo' : 'Arquivo'}
+                        </label>
+                        <input
+                          disabled={!isPlanRelatedFormEnabled || isUploadingPlanRelatedFile}
+                          id="planPromotionFileUpload"
+                          onChange={handleUploadPlanRelatedFile}
+                          ref={planFileInputRef}
+                          type="file"
+                        />
+                      </div>
+
+                      {selectedPlanRelatedRecord ? (
+                        <div className="file-preview-card">
+                          {planRelatedFilePreviewUrls[selectedPlanRelatedRecord.id] ? (
+                            <button
+                              className="file-preview-button"
+                              onClick={() => handleOpenPlanRelatedFile(selectedPlanRelatedRecord.id)}
+                              type="button"
+                            >
+                              <img
+                                alt={String(selectedPlanRelatedRecord.dsArquivo ?? `Arquivo ${selectedPlanRelatedRecord.id}`)}
+                                src={planRelatedFilePreviewUrls[selectedPlanRelatedRecord.id]}
+                              />
+                            </button>
+                          ) : (
+                            <div className="file-preview-placeholder">
+                              <strong>{String(selectedPlanRelatedRecord.dsArquivo ?? `Arquivo ${selectedPlanRelatedRecord.id}`)}</strong>
+                            </div>
+                          )}
+                          <div className="file-preview-actions">
+                            <button
+                              className="secondary-button"
+                              onClick={() => handleOpenPlanRelatedFile(selectedPlanRelatedRecord.id)}
+                              type="button"
+                            >
+                              Visualizar
+                            </button>
+                            <button
+                              className="secondary-button"
+                              onClick={() => handleRemovePlanRelatedFile(selectedPlanRelatedRecord.id)}
+                              type="button"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="company-child-fields">
+                      {planRelatedConfig.fields.map((field) => (
+                        <div className="field" key={field.key}>
+                          <label htmlFor={`planRelated-${field.key}`}>
+                            {field.label}
+                            {field.required ? ' *' : ''}
+                          </label>
+                          {field.lookupEndpoint ? (
+                            <select
+                              disabled={!isPlanRelatedFormEnabled}
+                              id={`planRelated-${field.key}`}
+                              onChange={(event) =>
+                                setPlanRelatedFormValues((current) => ({
+                                  ...current,
+                                  [field.key]: event.target.value,
+                                }))
+                              }
+                              required={field.required}
+                              value={planRelatedFormValues[field.key] ?? ''}
+                            >
+                              <option value="">Selecione</option>
+                              {(planRelatedLookups[field.key] ?? []).map((option) => (
+                                <option key={option.id} value={option.id}>
+                                  {getLookupLabel(option, field)}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              disabled={!isPlanRelatedFormEnabled}
+                              id={`planRelated-${field.key}`}
+                              onChange={(event) =>
+                                setPlanRelatedFormValues((current) => ({
+                                  ...current,
+                                  [field.key]: event.target.value,
+                                }))
+                              }
+                              required={field.required}
+                              type={field.type}
+                              value={planRelatedFormValues[field.key] ?? ''}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {!isPlanRelatedFormEnabled ? (
                     <div className="form-hint">
@@ -831,19 +1129,21 @@ export function PlanRegistration() {
                     </div>
                   ) : null}
 
-                  <div className="field">
-                    <label htmlFor="planRelatedStatus">Status</label>
-                    <button
-                      aria-pressed={isPlanRelatedActive}
-                      className={`status-toggle ${isPlanRelatedActive ? 'active' : ''}`}
-                      disabled={!isPlanRelatedFormEnabled}
-                      id="planRelatedStatus"
-                      onClick={handleTogglePlanRelatedStatus}
-                      type="button"
-                    >
-                      <span>{isPlanRelatedActive ? 'Ativo' : 'Inativo'}</span>
-                    </button>
-                  </div>
+                  {!isPlanRelatedFileTable ? (
+                    <div className="field">
+                      <label htmlFor="planRelatedStatus">Status</label>
+                      <button
+                        aria-pressed={isPlanRelatedActive}
+                        className={`status-toggle ${isPlanRelatedActive ? 'active' : ''}`}
+                        disabled={!isPlanRelatedFormEnabled}
+                        id="planRelatedStatus"
+                        onClick={handleTogglePlanRelatedStatus}
+                        type="button"
+                      >
+                        <span>{isPlanRelatedActive ? 'Ativo' : 'Inativo'}</span>
+                      </button>
+                    </div>
+                  ) : null}
 
                   <div className="form-actions">
                     <button
@@ -854,9 +1154,11 @@ export function PlanRegistration() {
                     >
                       Limpar
                     </button>
-                    <button disabled={!isPlanRelatedFormEnabled} type="submit">
-                      Salvar {planRelatedConfig.label}
-                    </button>
+                    {!isPlanRelatedFileTable ? (
+                      <button disabled={!isPlanRelatedFormEnabled} type="submit">
+                        Salvar {planRelatedConfig.label}
+                      </button>
+                    ) : null}
                   </div>
                 </>
               ) : null}
@@ -881,6 +1183,19 @@ export function PlanRegistration() {
           </div>
         </section>
       </div>
+      {planRelatedFileModal ? (
+        <div className="file-modal-overlay" role="dialog" aria-modal="true">
+          <div className="file-modal">
+            <div className="file-modal-header">
+              <h3>{planRelatedFileModal.title}</h3>
+              <button onClick={() => setPlanRelatedFileModal(null)} type="button">
+                Fechar
+              </button>
+            </div>
+            <img alt={planRelatedFileModal.title} src={planRelatedFileModal.url} />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

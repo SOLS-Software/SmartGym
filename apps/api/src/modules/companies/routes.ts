@@ -27,6 +27,7 @@ type ChildResourceConfig = {
   delegate: CrudDelegate;
   orderBy: Record<string, string>;
   companyField: string | null;
+  include?: Record<string, unknown>;
   getWhere?(companyId: number): Record<string, unknown>;
   normalize(companyId: number, payload: CompanyChildPayload): Record<string, unknown>;
 };
@@ -91,6 +92,15 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     delegate: asCrudDelegate(prisma.alunoPlano),
     orderBy: { dtCadastro: 'desc' },
     companyField: 'idEmpresa',
+    include: {
+      aluno: true,
+      plano: true,
+      promocaoPlano: {
+        include: {
+          promocao: true,
+        },
+      },
+    },
     normalize(companyId: number, payload: CompanyChildPayload) {
       return {
         idEmpresa: companyId,
@@ -124,6 +134,10 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     delegate: asCrudDelegate(prisma.produtoMovimentacao),
     orderBy: { dtCadastro: 'desc' },
     companyField: 'idEmpresa',
+    include: {
+      aluno: true,
+      produto: true,
+    },
     normalize(companyId: number, payload: CompanyChildPayload) {
       return {
         idEmpresa: companyId,
@@ -589,7 +603,11 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         : config.companyField
           ? { [config.companyField]: companyId }
           : undefined;
-      return await config.delegate.findMany({ where, orderBy: config.orderBy });
+      return await config.delegate.findMany({
+        where,
+        orderBy: config.orderBy,
+        ...(config.include ? { include: config.include } : {}),
+      });
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao listar registros filhos.',

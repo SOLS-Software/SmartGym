@@ -18,6 +18,10 @@ export async function registerLookupRoutes(app: FastifyInstance) {
       where: {
         boInativo: 0,
       },
+      include: {
+        plano: true,
+        promocao: true,
+      },
       orderBy: {
         dtCadastro: 'desc',
       },
@@ -46,25 +50,4 @@ export async function registerLookupRoutes(app: FastifyInstance) {
     });
   });
 
-  app.get('/activities', async () => {
-    return prisma.atividade.findMany({
-      where: {
-        boInativo: 0,
-      },
-      orderBy: {
-        dsAtividade: 'asc',
-      },
-    });
-  });
-
-  app.get('/promotions', async () => {
-    return prisma.promocao.findMany({
-      where: {
-        boInativo: 0,
-      },
-      orderBy: {
-        dsPromocao: 'asc',
-      },
-    });
-  });
 }
