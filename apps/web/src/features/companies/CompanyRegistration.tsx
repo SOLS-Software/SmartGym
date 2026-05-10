@@ -255,6 +255,8 @@ export function CompanyRegistration() {
     setChildFormValues({});
     setIsChildActive(true);
     setChildFeedback('');
+    setIsCompanyFieldsCollapsed(true);
+    setIsChildFieldsCollapsed(false);
   }
 
   function handleSelectChild(record: CompanyChildRecord) {
@@ -273,6 +275,8 @@ export function CompanyRegistration() {
     setChildFormValues(values);
     setIsChildActive(Number(record.boInativo ?? 0) === 0);
     setChildFeedback('');
+    setIsCompanyFieldsCollapsed(true);
+    setIsChildFieldsCollapsed(false);
   }
 
   async function handleToggleChildStatus() {
@@ -508,6 +512,8 @@ export function CompanyRegistration() {
     setFeedback('');
     setCompanyErrors({});
     setTouchedCompanyFields({});
+    setIsCompanyFieldsCollapsed(false);
+    setIsChildFieldsCollapsed(true);
   }
 
   function handleSelectCompany(company: Company) {
@@ -519,6 +525,8 @@ export function CompanyRegistration() {
     setFeedback('');
     setCompanyErrors({});
     setTouchedCompanyFields({});
+    setIsCompanyFieldsCollapsed(false);
+    setIsChildFieldsCollapsed(true);
   }
 
   async function handleToggleStatus() {

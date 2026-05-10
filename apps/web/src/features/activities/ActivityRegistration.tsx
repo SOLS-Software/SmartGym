@@ -394,6 +394,10 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
   function handleNewActivity() {
     clearForm();
     setIsCreating(true);
+    setIsActivityFieldsCollapsed(false);
+    setIsRelatedFieldsCollapsed(true);
+    setIsScheduleEmployeeFieldsCollapsed(true);
+    setIsScheduleStudentFieldsCollapsed(true);
   }
 
   function handleNewRelated() {
@@ -405,6 +409,10 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     if (relatedConfig?.key === 'schedules') {
       setSelectedScheduleRecordId(null);
     }
+    setIsActivityFieldsCollapsed(true);
+    setIsRelatedFieldsCollapsed(false);
+    setIsScheduleEmployeeFieldsCollapsed(true);
+    setIsScheduleStudentFieldsCollapsed(true);
   }
 
   function handleNewScheduleEmployee() {
@@ -413,6 +421,10 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     setScheduleEmployeeFormValues({});
     setIsScheduleEmployeeActive(true);
     setScheduleEmployeeFeedback('');
+    setIsActivityFieldsCollapsed(true);
+    setIsRelatedFieldsCollapsed(true);
+    setIsScheduleEmployeeFieldsCollapsed(false);
+    setIsScheduleStudentFieldsCollapsed(true);
   }
 
   function handleNewScheduleStudent() {
@@ -421,6 +433,10 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     setScheduleStudentFormValues({});
     setIsScheduleStudentActive(true);
     setScheduleStudentFeedback('');
+    setIsActivityFieldsCollapsed(true);
+    setIsRelatedFieldsCollapsed(true);
+    setIsScheduleEmployeeFieldsCollapsed(true);
+    setIsScheduleStudentFieldsCollapsed(false);
   }
 
   function handleSelectActivity(activity: Activity) {
@@ -431,6 +447,10 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     setActivityName(activity.dsAtividade);
     setIsActivityActive(activity.boInativo === 0);
     setFeedback('');
+    setIsActivityFieldsCollapsed(false);
+    setIsRelatedFieldsCollapsed(true);
+    setIsScheduleEmployeeFieldsCollapsed(true);
+    setIsScheduleStudentFieldsCollapsed(true);
   }
 
   function handleSelectRelatedRecord(record: CompanyChildRecord) {
@@ -450,6 +470,10 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     setRelatedFormValues(values);
     setIsRelatedActive(Number(record.boInativo ?? 0) === 0);
     setRelatedFeedback('');
+    setIsActivityFieldsCollapsed(true);
+    setIsRelatedFieldsCollapsed(false);
+    setIsScheduleEmployeeFieldsCollapsed(true);
+    setIsScheduleStudentFieldsCollapsed(true);
   }
 
   function handleSelectScheduleEmployee(record: CompanyChildRecord) {
@@ -461,6 +485,10 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     });
     setIsScheduleEmployeeActive(Number(record.boInativo ?? 0) === 0);
     setScheduleEmployeeFeedback('');
+    setIsActivityFieldsCollapsed(true);
+    setIsRelatedFieldsCollapsed(true);
+    setIsScheduleEmployeeFieldsCollapsed(false);
+    setIsScheduleStudentFieldsCollapsed(true);
   }
 
   function handleSelectScheduleStudent(record: CompanyChildRecord) {
@@ -472,6 +500,10 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     });
     setIsScheduleStudentActive(Number(record.boInativo ?? 0) === 0);
     setScheduleStudentFeedback('');
+    setIsActivityFieldsCollapsed(true);
+    setIsRelatedFieldsCollapsed(true);
+    setIsScheduleEmployeeFieldsCollapsed(true);
+    setIsScheduleStudentFieldsCollapsed(false);
   }
 
   function getSportLabel(sportId: number | null) {

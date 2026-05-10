@@ -347,6 +347,8 @@ export function PlanRegistration() {
     clearForm();
     setIsCreating(true);
     setIsPlanActive(true);
+    setIsPlanFieldsCollapsed(false);
+    setIsPlanRelatedFieldsCollapsed(true);
   }
 
   function handleSelectPlan(plan: Plan) {
@@ -356,6 +358,8 @@ export function PlanRegistration() {
     setPlanFrequencyId(plan.idFrequencia ? String(plan.idFrequencia) : '');
     setIsPlanActive(plan.boInativo === 0);
     setFeedback('');
+    setIsPlanFieldsCollapsed(false);
+    setIsPlanRelatedFieldsCollapsed(true);
   }
 
   function handleSelectPlanRelatedTable(tableKey: string) {
@@ -382,6 +386,8 @@ export function PlanRegistration() {
     if (planFileInputRef.current) {
       planFileInputRef.current.value = '';
     }
+    setIsPlanFieldsCollapsed(true);
+    setIsPlanRelatedFieldsCollapsed(false);
   }
 
   function handleSelectPlanRelatedRecord(record: CompanyChildRecord) {
@@ -400,6 +406,8 @@ export function PlanRegistration() {
     setPlanRelatedFormValues(values);
     setIsPlanRelatedActive(Number(record.boInativo ?? 0) === 0);
     setPlanRelatedFeedback('');
+    setIsPlanFieldsCollapsed(true);
+    setIsPlanRelatedFieldsCollapsed(false);
   }
 
   async function handleTogglePlanStatus() {

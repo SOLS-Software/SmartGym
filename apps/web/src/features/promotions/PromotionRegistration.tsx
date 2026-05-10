@@ -309,6 +309,8 @@ export function PromotionRegistration() {
     setIsCreating(true);
     setPromotionCompanyId(selectedCompanyId);
     setStartDate(new Date().toISOString().slice(0, 10));
+    setIsPromotionFieldsCollapsed(false);
+    setIsRelatedFieldsCollapsed(true);
   }
 
   function handleNewRelated() {
@@ -317,6 +319,8 @@ export function PromotionRegistration() {
     setRelatedFormValues({});
     setIsRelatedActive(true);
     setRelatedFeedback('');
+    setIsPromotionFieldsCollapsed(true);
+    setIsRelatedFieldsCollapsed(false);
     if (promotionFileInputRef.current) {
       promotionFileInputRef.current.value = '';
     }
@@ -335,6 +339,8 @@ export function PromotionRegistration() {
     setEndDate(formatDateInput(promotion.dtEncerramento));
     setIsPromotionActive(promotion.boInativo === 0);
     setFeedback('');
+    setIsPromotionFieldsCollapsed(false);
+    setIsRelatedFieldsCollapsed(true);
   }
 
   function handleSelectRelatedRecord(record: CompanyChildRecord) {
@@ -350,6 +356,8 @@ export function PromotionRegistration() {
     setRelatedFormValues(values);
     setIsRelatedActive(Number(record.boInativo ?? 0) === 0);
     setRelatedFeedback('');
+    setIsPromotionFieldsCollapsed(true);
+    setIsRelatedFieldsCollapsed(false);
   }
 
   function getCompanyLabel(companyId: number | null) {

@@ -331,6 +331,8 @@ export function EmployeeRegistration() {
     setIsCreating(true);
     setIsEmployeeActive(true);
     setEmployeeAdmissionDate(new Date().toISOString().slice(0, 10));
+    setIsEmployeeFieldsCollapsed(false);
+    setIsEmployeeRelatedFieldsCollapsed(true);
   }
 
   function handleSelectEmployee(employee: Employee) {
@@ -350,6 +352,8 @@ export function EmployeeRegistration() {
     setTouchedEmployeeFields({});
     setFeedback('');
     setEmployeeRelatedFeedback('');
+    setIsEmployeeFieldsCollapsed(false);
+    setIsEmployeeRelatedFieldsCollapsed(true);
   }
 
   function handleSelectEmployeeRelatedTable(tableKey: string) {
@@ -371,6 +375,8 @@ export function EmployeeRegistration() {
     setEmployeeRelatedFormValues({});
     setIsEmployeeRelatedActive(true);
     setEmployeeRelatedFeedback('');
+    setIsEmployeeFieldsCollapsed(true);
+    setIsEmployeeRelatedFieldsCollapsed(false);
   }
 
   function handleSelectEmployeeRelatedRecord(record: CompanyChildRecord) {
@@ -388,6 +394,8 @@ export function EmployeeRegistration() {
     setEmployeeRelatedFormValues(values);
     setIsEmployeeRelatedActive(Number(record.boInativo ?? 0) === 0);
     setEmployeeRelatedFeedback('');
+    setIsEmployeeFieldsCollapsed(true);
+    setIsEmployeeRelatedFieldsCollapsed(false);
   }
 
   function getRoleLabel(roleId: number | null) {

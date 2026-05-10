@@ -247,6 +247,8 @@ export function ProductRegistration() {
     setIsCreating(true);
     setProductStock('0');
     setIsProductActive(true);
+    setIsProductFieldsCollapsed(false);
+    setIsRelatedFieldsCollapsed(true);
   }
 
   function handleSelectProduct(product: Product) {
@@ -258,6 +260,8 @@ export function ProductRegistration() {
     setIsProductActive(product.boInativo === 0);
     setFeedback('');
     setRelatedFeedback('');
+    setIsProductFieldsCollapsed(false);
+    setIsRelatedFieldsCollapsed(true);
   }
 
   function handleSelectRelatedTable(tableKey: string) {
@@ -279,6 +283,8 @@ export function ProductRegistration() {
     setRelatedFormValues({});
     setIsRelatedActive(true);
     setRelatedFeedback('');
+    setIsProductFieldsCollapsed(true);
+    setIsRelatedFieldsCollapsed(false);
   }
 
   function handleSelectRelatedRecord(record: CompanyChildRecord) {
@@ -296,6 +302,8 @@ export function ProductRegistration() {
     setRelatedFormValues(values);
     setIsRelatedActive(Number(record.boInativo ?? 0) === 0);
     setRelatedFeedback('');
+    setIsProductFieldsCollapsed(true);
+    setIsRelatedFieldsCollapsed(false);
   }
 
   async function handleToggleStatus() {

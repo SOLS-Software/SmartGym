@@ -337,6 +337,8 @@ export function StudentRegistration() {
     clearForm();
     setIsCreating(true);
     setIsStudentActive(true);
+    setIsStudentFieldsCollapsed(false);
+    setIsStudentRelatedFieldsCollapsed(true);
   }
 
   function handleSelectStudent(student: Student) {
@@ -360,6 +362,8 @@ export function StudentRegistration() {
     setFileFeedback('');
     setStudentErrors({});
     setTouchedStudentFields({});
+    setIsStudentFieldsCollapsed(false);
+    setIsStudentRelatedFieldsCollapsed(true);
   }
 
   function handleSelectStudentRelatedTable(tableKey: string) {
@@ -404,6 +408,8 @@ export function StudentRegistration() {
     );
     setIsStudentRelatedActive(true);
     setStudentRelatedFeedback('');
+    setIsStudentFieldsCollapsed(true);
+    setIsStudentRelatedFieldsCollapsed(false);
   }
 
   function handleSelectStudentRelatedRecord(record: CompanyChildRecord) {
@@ -422,6 +428,8 @@ export function StudentRegistration() {
     setStudentRelatedFormValues(values);
     setIsStudentRelatedActive(Number(record.boInativo ?? 0) === 0);
     setStudentRelatedFeedback('');
+    setIsStudentFieldsCollapsed(true);
+    setIsStudentRelatedFieldsCollapsed(false);
   }
 
   function getStudentValidationErrors() {

@@ -244,6 +244,8 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     clearForm();
     setIsCreating(true);
     setIsTrainingActive(true);
+    setIsTrainingFieldsCollapsed(false);
+    setIsTrainingRelatedFieldsCollapsed(true);
   }
 
   function handleSelectTraining(training: Training) {
@@ -255,6 +257,8 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     setIsTrainingActive(training.boInativo === 0);
     setFeedback('');
     setTrainingRelatedFeedback('');
+    setIsTrainingFieldsCollapsed(false);
+    setIsTrainingRelatedFieldsCollapsed(true);
   }
 
   function handleSelectTrainingRelatedTable(tableKey: string) {
@@ -286,6 +290,8 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     );
     setIsTrainingRelatedActive(true);
     setTrainingRelatedFeedback('');
+    setIsTrainingFieldsCollapsed(true);
+    setIsTrainingRelatedFieldsCollapsed(false);
   }
 
   function handleSelectTrainingRelatedRecord(record: CompanyChildRecord) {
@@ -304,6 +310,8 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     setTrainingRelatedFormValues(values);
     setIsTrainingRelatedActive(Number(record.boInativo ?? 0) === 0);
     setTrainingRelatedFeedback('');
+    setIsTrainingFieldsCollapsed(true);
+    setIsTrainingRelatedFieldsCollapsed(false);
   }
 
   function getLevelLabel(levelId: number | null) {
