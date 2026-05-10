@@ -233,3 +233,729 @@
   object-fit: contain;
   width: 100%;
 }
+
+.membership-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.membership-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.membership-layout {
+  align-items: start;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(18rem, 0.75fr) minmax(28rem, 1.35fr);
+}
+
+.membership-profile-panel,
+.membership-plan-panel,
+.membership-access-grid section {
+  animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  background: #ffffff;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.5rem;
+}
+
+.membership-profile-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.membership-photo-frame {
+  background: #eef3f0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  width: 100%;
+}
+
+.membership-photo-frame img,
+.membership-photo-placeholder {
+  aspect-ratio: 4 / 5;
+  display: flex;
+  min-height: 20rem;
+  width: 100%;
+}
+
+.membership-photo-frame img {
+  object-fit: cover;
+}
+
+.membership-photo-placeholder {
+  align-items: center;
+  color: #1f7a53;
+  font-size: 3rem;
+  font-weight: 900;
+  justify-content: center;
+}
+
+.membership-profile-data {
+  display: grid;
+  gap: 0.625rem;
+}
+
+.membership-profile-data div,
+.membership-metrics div {
+  background: #f8faf8;
+  border: 0.0625rem solid #edf2ef;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+}
+
+.membership-profile-data span,
+.membership-metrics span,
+.membership-plan-header > span {
+  color: #6b7a72;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.membership-profile-data strong,
+.membership-metrics strong {
+  color: #17211c;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.membership-plan-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+  padding: 1.25rem;
+}
+
+.membership-plan-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.membership-plan-header h3 {
+  color: #17211c;
+  font-size: clamp(1.7rem, 3vw, 2.5rem);
+  line-height: 1.05;
+  margin: 0;
+}
+
+.membership-plan-header > span {
+  background: #e8f4ed;
+  border-radius: 62.4375rem;
+  color: #1f7a53;
+  padding: 0.45rem 0.7rem;
+  white-space: nowrap;
+}
+
+.membership-metrics {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.membership-access-grid {
+  display: grid;
+  gap: 0.875rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.membership-access-grid section {
+  padding: 1rem;
+}
+
+.membership-access-grid h4 {
+  color: #17211c;
+  font-size: 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.membership-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.membership-chip-list span {
+  background: #f0f8f3;
+  border: 0.0625rem solid #c8e4d4;
+  border-radius: 62.4375rem;
+  color: #1f7a53;
+  font-size: 0.86rem;
+  font-weight: 800;
+  padding: 0.45rem 0.7rem;
+}
+
+.membership-chip-list p {
+  color: #6b7a72;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.student-plans-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.student-plans-heading {
+  margin-bottom: 0.25rem;
+}
+
+.student-plan-cards {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.student-plan-card {
+  animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  background: #ffffff;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.student-plan-card.current {
+  border-color: #1f7a53;
+  box-shadow: 0 1rem 2.5rem rgba(31, 122, 83, 0.14);
+}
+
+.student-plan-card.current .student-plan-card-header {
+  border-bottom: 0.0625rem solid #d7ecdf;
+  padding-bottom: 0.875rem;
+}
+
+.student-plan-card-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.student-plan-card-header h3 {
+  color: #17211c;
+  font-size: clamp(1.55rem, 3vw, 2.25rem);
+  line-height: 1.05;
+  margin: 0;
+}
+
+.student-plan-summary {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.student-plan-summary div {
+  background: #f8faf8;
+  border: 0.0625rem solid #edf2ef;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+}
+
+.student-plan-summary span {
+  color: #6b7a72;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.student-plan-summary strong {
+  color: #17211c;
+  font-size: 0.94rem;
+  overflow-wrap: anywhere;
+}
+
+.student-plan-detail-grid {
+  display: grid;
+  gap: 0.875rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.student-plan-detail-grid section {
+  background: #fbfcfb;
+  border: 0.0625rem solid #edf2ef;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.student-plan-detail-grid h4 {
+  color: #17211c;
+  font-size: 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.student-plan-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.student-plan-chip-list span {
+  background: #f0f8f3;
+  border: 0.0625rem solid #c8e4d4;
+  border-radius: 62.4375rem;
+  color: #1f7a53;
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 0.45rem 0.7rem;
+}
+
+.student-plan-chip-list p {
+  color: #6b7a72;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.student-promotions-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.student-promotions-heading {
+  margin-bottom: 0.25rem;
+}
+
+.student-promotion-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.student-promotion-card {
+  animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  background: #ffffff;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.student-promotion-card-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.student-promotion-card-header h3 {
+  color: #17211c;
+  font-size: clamp(1.55rem, 3vw, 2.25rem);
+  line-height: 1.05;
+  margin: 0;
+}
+
+.student-promotion-summary {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.student-promotion-summary div {
+  background: #f8faf8;
+  border: 0.0625rem solid #edf2ef;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+}
+
+.student-promotion-summary span {
+  color: #6b7a72;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.student-promotion-summary strong {
+  color: #17211c;
+  font-size: 0.94rem;
+  overflow-wrap: anywhere;
+}
+
+.student-promotion-detail-grid {
+  display: grid;
+  gap: 0.875rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.student-promotion-detail-grid section {
+  background: #fbfcfb;
+  border: 0.0625rem solid #edf2ef;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.student-promotion-detail-grid h4 {
+  color: #17211c;
+  font-size: 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.student-promotion-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.student-promotion-chip-list span {
+  background: #f0f8f3;
+  border: 0.0625rem solid #c8e4d4;
+  border-radius: 62.4375rem;
+  color: #1f7a53;
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 0.45rem 0.7rem;
+}
+
+.student-promotion-chip-list p {
+  color: #6b7a72;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.student-activities-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.student-activities-heading {
+  margin-bottom: 0.25rem;
+}
+
+.student-activity-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.student-activity-card {
+  animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  background: #ffffff;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.student-activity-card-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.student-activity-card-header h3 {
+  color: #17211c;
+  font-size: clamp(1.55rem, 3vw, 2.25rem);
+  line-height: 1.05;
+  margin: 0;
+}
+
+.student-activity-summary {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.student-activity-summary div,
+.student-activity-schedule-card > div {
+  background: #f8faf8;
+  border: 0.0625rem solid #edf2ef;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+}
+
+.student-activity-summary span,
+.student-activity-schedule-card span {
+  color: #6b7a72;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.student-activity-summary strong,
+.student-activity-schedule-card strong {
+  color: #17211c;
+  font-size: 0.94rem;
+  overflow-wrap: anywhere;
+}
+
+.student-activity-schedules {
+  background: #fbfcfb;
+  border: 0.0625rem solid #edf2ef;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.student-activity-schedules h4 {
+  color: #17211c;
+  font-size: 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.student-activity-schedules > p {
+  color: #6b7a72;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.student-activity-schedule-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.student-activity-schedule-card {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.student-activity-professionals div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.student-calendar-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.student-calendar-heading {
+  margin-bottom: 0.25rem;
+}
+
+.student-calendar-toolbar {
+  align-items: end;
+  display: flex;
+  gap: 1rem;
+}
+
+.student-calendar-toolbar .field {
+  width: min(18rem, 100%);
+}
+
+.student-calendar-layout {
+  align-items: start;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(34rem, 1fr) minmax(22rem, 0.45fr);
+}
+
+.student-calendar-grid,
+.student-calendar-details {
+  animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  background: #ffffff;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.student-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.student-calendar-weekday {
+  background: #f8faf8;
+  border-bottom: 0.0625rem solid #dde6df;
+  border-right: 0.0625rem solid #edf2ef;
+  color: #6b7a72;
+  font-size: 0.78rem;
+  font-weight: 900;
+  min-height: 2.5rem;
+  padding: 0.75rem;
+  text-transform: uppercase;
+}
+
+.student-calendar-day {
+  background: #ffffff;
+  border: 0;
+  border-bottom: 0.0625rem solid #edf2ef;
+  border-right: 0.0625rem solid #edf2ef;
+  color: #17211c;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  gap: 0.5rem;
+  min-height: 8.75rem;
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.student-calendar-day.empty {
+  background: #f8faf8;
+  cursor: default;
+}
+
+.student-calendar-day.selected {
+  box-shadow: inset 0 0 0 0.125rem #1f7a53;
+}
+
+.student-calendar-day strong {
+  font-size: 0.95rem;
+}
+
+.student-calendar-day div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.student-calendar-day span {
+  border-radius: 0.375rem;
+  font-size: 0.74rem;
+  font-weight: 800;
+  overflow: hidden;
+  padding: 0.3rem 0.4rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.student-calendar-day span.check-in {
+  background: #e8f4ed;
+  color: #1f7a53;
+}
+
+.student-calendar-day span.agenda {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.student-calendar-details {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.student-calendar-details h3 {
+  color: #17211c;
+  font-size: 1.35rem;
+  margin: -0.5rem 0 0;
+}
+
+.student-calendar-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.student-calendar-event-card {
+  background: #f8faf8;
+  border: 0.0625rem solid #edf2ef;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.875rem;
+}
+
+.student-calendar-event-card .status-badge {
+  align-self: flex-start;
+}
+
+.student-calendar-event-card h4 {
+  color: #17211c;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.student-calendar-event-card ul {
+  color: #52605a;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.88rem;
+  font-weight: 700;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+@media (max-width: 68rem) {
+  .membership-layout,
+  .membership-access-grid,
+  .student-plan-cards,
+  .student-plan-detail-grid,
+  .student-promotion-detail-grid,
+  .student-activity-schedule-card,
+  .student-calendar-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .membership-metrics,
+  .student-plan-summary,
+  .student-promotion-summary,
+  .student-activity-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 52rem) {
+  .student-calendar-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .student-calendar-weekday {
+    display: none;
+  }
+
+  .student-calendar-day.empty {
+    display: none;
+  }
+}
+
+@media (max-width: 47.5rem) {
+  .membership-heading,
+  .student-plan-card-header,
+  .student-promotion-card-header,
+  .student-activity-card-header,
+  .membership-plan-header {
+    flex-direction: column;
+  }
+
+  .membership-metrics,
+  .student-plan-summary,
+  .student-promotion-summary,
+  .student-activity-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .membership-photo-frame img,
+  .membership-photo-placeholder {
+    min-height: 16rem;
+  }
+}

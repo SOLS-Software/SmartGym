@@ -5,16 +5,21 @@ import { useEffect, useRef, useState } from 'react';
 import { formatCpf, formatDateInput, isValidCpf } from '../../shared/registration/registrationHelpers';
 import type { RegisterLookupRecord } from '../../shared/registration/registrationTypes';
 import { PlanRegistration } from '../../features/plans/PlanRegistration';
+import { StudentPlansView } from '../../features/plans/StudentPlansView';
 import { CompanyRegistration } from '../../features/companies/CompanyRegistration';
 import { StudentRegistration } from '../../features/students/StudentRegistration';
 import { DomainRegistration } from '../../features/domains/DomainRegistration';
 import { ProductRegistration } from '../../features/products/ProductRegistration';
 import { PromotionRegistration } from '../../features/promotions/PromotionRegistration';
+import { StudentPromotionsView } from '../../features/promotions/StudentPromotionsView';
 import { ExerciseRegistration } from '../../features/exercises/ExerciseRegistration';
 import { ActivityRegistration } from '../../features/activities/ActivityRegistration';
+import { StudentActivitiesView } from '../../features/activities/StudentActivitiesView';
 import { EmployeeRegistration } from '../../features/employees/EmployeeRegistration';
 import { TrainingRegistration } from '../../features/trainings/TrainingRegistration';
 import { StudentTrainingAssembly } from '../../features/students/StudentTrainingAssembly';
+import { StudentMembershipView } from '../../features/students/StudentMembershipView';
+import { StudentCalendarView } from '../../features/students/StudentCalendarView';
 import { MyTraining } from '../../features/trainings/MyTraining';
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 const SESSION_KEY = 'smartgym_session';
@@ -26,7 +31,7 @@ const menuGroups = [
   },
   {
     title: 'TREINO',
-    items: ['Atividades', 'Exercícios', 'Treino', 'Montar Treino', 'Meu Treino'],
+    items: ['Atividades', 'Exercícios', 'Treino', 'Montar Treino', 'Meu Treino', 'Calendario'],
   },
   {
     title: 'ESTOQUE',
@@ -64,9 +69,12 @@ type FacialRecognitionResponse = {
   message?: string;
 };
 
+const SESSION_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours
+
 type StoredSession = {
   user: AuthenticatedUser;
   activeItem: string;
+  cachedAt: number;
 };
 
 let _cachedKey: CryptoKey | null = null;
@@ -210,14 +218,23 @@ export default function HomePage() {
         const stored = localStorage.getItem(SESSION_KEY);
         if (stored) {
           const session = await decryptSession(stored);
-          const { user, activeItem: savedActiveItem } = session;
-          setAuthUserName(user.name);
-          setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
-          setAuthUserType(user.type);
-          setAuthUserEmployeeId(user.idFuncionario);
-          setAuthUserStudentId(user.idAluno);
-          setActiveItem(savedActiveItem);
-          setIsLoggedIn(true);
+          const { user, activeItem: savedActiveItem, cachedAt } = session;
+          if (cachedAt && Date.now() - cachedAt > SESSION_MAX_AGE_MS) {
+            localStorage.removeItem(SESSION_KEY);
+          } else {
+            const verifyResponse = await fetch(`${apiUrl}/auth/verify?id=${user.id}`);
+            if (!verifyResponse.ok) {
+              localStorage.removeItem(SESSION_KEY);
+            } else {
+              setAuthUserName(user.name);
+              setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
+              setAuthUserType(user.type);
+              setAuthUserEmployeeId(user.idFuncionario);
+              setAuthUserStudentId(user.idAluno);
+              setActiveItem(savedActiveItem);
+              setIsLoggedIn(true);
+            }
+          }
         }
       } catch {
         localStorage.removeItem(SESSION_KEY);
@@ -363,7 +380,7 @@ export default function HomePage() {
     setAuthUserStudentId(user.idAluno);
     setActiveItem(nextActiveItem);
     setIsLoggedIn(true);
-    void encryptSession({ user, activeItem: nextActiveItem })
+    void encryptSession({ user, activeItem: nextActiveItem, cachedAt: Date.now() })
       .then((encrypted) => { localStorage.setItem(SESSION_KEY, encrypted); })
       .catch(() => { });
   }
@@ -705,7 +722,11 @@ export default function HomePage() {
           {activeItem === 'Empresas' ? (
             <CompanyRegistration />
           ) : activeItem === 'Atividades' ? (
-            <ActivityRegistration readOnly={authUserType === 'student'} />
+            authUserType === 'student' ? (
+              <StudentActivitiesView studentName={authUserName} />
+            ) : (
+              <ActivityRegistration />
+            )
           ) : activeItem === 'Exercícios' ? (
             <ExerciseRegistration readOnly={authUserType === 'student'} />
           ) : activeItem === 'Treino' ? (
@@ -718,17 +739,40 @@ export default function HomePage() {
           ) : activeItem === 'Produtos' ? (
             <ProductRegistration />
           ) : activeItem === 'Matrículas' ? (
-            <StudentRegistration />
+            authUserType === 'student' ? (
+              <StudentMembershipView
+                studentId={authUserStudentId}
+                studentName={authUserName}
+              />
+            ) : (
+              <StudentRegistration />
+            )
           ) : activeItem === 'Planos' ? (
-            <PlanRegistration />
+            authUserType === 'student' ? (
+              <StudentPlansView
+                studentId={authUserStudentId}
+                studentName={authUserName}
+              />
+            ) : (
+              <PlanRegistration />
+            )
           ) : activeItem === 'Promoções' ? (
-            <PromotionRegistration />
+            authUserType === 'student' ? (
+              <StudentPromotionsView studentName={authUserName} />
+            ) : (
+              <PromotionRegistration />
+            )
           ) : activeItem === 'Profissionais' ? (
             <EmployeeRegistration />
           ) : activeItem === 'Domínios' ? (
             <DomainRegistration />
           ) : activeItem === 'Meu Treino' ? (
             <MyTraining
+              studentId={authUserStudentId}
+              studentName={authUserName}
+            />
+          ) : activeItem === 'Calendario' ? (
+            <StudentCalendarView
               studentId={authUserStudentId}
               studentName={authUserName}
             />

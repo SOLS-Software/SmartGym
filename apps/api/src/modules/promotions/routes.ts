@@ -81,18 +81,49 @@ function normalizePromotionPayload(payload: CompanyChildPayload) {
 
 export async function registerPromotionRoutes(app: FastifyInstance) {
   app.get<{
-    Querystring: { companyId?: string; includeInactive?: string; search?: string };
+    Querystring: {
+      companyId?: string;
+      currentOnly?: string;
+      includeDetails?: string;
+      includeInactive?: string;
+      search?: string;
+    };
   }>('/promotions', async (request) => {
     const companyId = optionalNumber(request.query.companyId);
+    const currentOnly = request.query.currentOnly === 'true';
+    const includeDetails = request.query.includeDetails === 'true';
     const includeInactive = request.query.includeInactive === 'true';
     const search = request.query.search?.trim();
+    const now = new Date();
 
     return prisma.promocao.findMany({
       where: {
         ...(companyId ? { idEmpresa: companyId } : {}),
         ...(includeInactive ? {} : { boInativo: 0 }),
+        ...(currentOnly
+          ? {
+              dtInicio: { lte: now },
+              OR: [{ dtEncerramento: null }, { dtEncerramento: { gte: now } }],
+            }
+          : {}),
         ...(search ? { dsPromocao: { contains: search, mode: 'insensitive' } } : {}),
       },
+      include: includeDetails
+        ? {
+            empresa: true,
+            unidadeTempo: true,
+            promocaoPlanos: {
+              where: { boInativo: 0 },
+              include: { empresa: true, plano: true },
+              orderBy: { dtCadastro: 'desc' },
+            },
+            promocaoProdutos: {
+              where: { boInativo: 0 },
+              include: { empresa: true, produto: true },
+              orderBy: { dtCadastro: 'desc' },
+            },
+          }
+        : undefined,
       orderBy: { dsPromocao: 'asc' },
     });
   });

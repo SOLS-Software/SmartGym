@@ -70,6 +70,26 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     }
   });
 
+  app.get<{
+    Params: { id: string };
+  }>('/students/:id', async (request, reply) => {
+    try {
+      const id = Number(request.params.id);
+      assertValidId(id, 'Aluno invalido.');
+      const student = await prisma.aluno.findUnique({ where: { id } });
+
+      if (!student) {
+        return reply.code(404).send({ message: 'Aluno nao encontrado.' });
+      }
+
+      return student;
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao carregar aluno.',
+      });
+    }
+  });
+
   app.put<{
     Params: { id: string };
     Body: StudentPayload;
@@ -442,7 +462,35 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       assertValidId(idAluno, 'Aluno invalido.');
       return prisma.alunoPlano.findMany({
         where: { idAluno },
-        include: { plano: true },
+        include: {
+          empresa: true,
+          plano: {
+            include: {
+              frequencia: true,
+              planoAtividades: {
+                where: { boInativo: 0 },
+                include: { atividade: true },
+                orderBy: { id: 'asc' },
+              },
+              planoProdutos: {
+                where: { boInativo: 0 },
+                include: { produto: true },
+                orderBy: { id: 'asc' },
+              },
+              planoEmpresas: {
+                where: { boInativo: 0 },
+                include: { empresa: true },
+                orderBy: { id: 'asc' },
+              },
+              planoValores: {
+                where: { boInativo: 0 },
+                include: { empresa: true },
+                orderBy: { dtCadastro: 'desc' },
+              },
+            },
+          },
+          promocaoPlano: { include: { promocao: true } },
+        },
         orderBy: { dtCadastro: 'desc' },
       });
     } catch (error) {
@@ -477,11 +525,106 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       assertValidId(idAluno, 'Aluno invalido.');
       return prisma.alunoCheckIn.findMany({
         where: { alunoPlano: { idAluno } },
+        include: {
+          alunoPlano: { include: { plano: true } },
+          alunoTreinoSequencia: {
+            include: {
+              alunoTreino: {
+                include: {
+                  treino: true,
+                  funcionario: true,
+                },
+              },
+            },
+          },
+        },
         orderBy: { dtCadastro: 'desc' },
       });
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao listar check-ins do aluno.',
+      });
+    }
+  });
+
+  app.get<{
+    Params: { id: string };
+    Querystring: { month?: string };
+  }>('/students/:id/calendar', async (request, reply) => {
+    try {
+      const idAluno = Number(request.params.id);
+      assertValidId(idAluno, 'Aluno invalido.');
+
+      const month = request.query.month ?? new Date().toISOString().slice(0, 7);
+      if (!/^\d{4}-\d{2}$/.test(month)) {
+        throw new Error('Informe o mes no formato YYYY-MM.');
+      }
+
+      const year = Number(month.slice(0, 4));
+      const monthNumber = Number(month.slice(5, 7));
+      const startsAt = new Date(year, monthNumber - 1, 1);
+      const endsAt = new Date(year, monthNumber, 1);
+
+      const [checkIns, activitySchedules] = await Promise.all([
+        prisma.alunoCheckIn.findMany({
+          where: {
+            alunoPlano: { idAluno },
+            dtCadastro: { gte: startsAt, lt: endsAt },
+            boInativo: 0,
+          },
+          include: {
+            alunoPlano: { include: { plano: true } },
+            alunoTreinoSequencia: {
+              include: {
+                alunoTreino: {
+                  include: {
+                    treino: true,
+                    funcionario: true,
+                  },
+                },
+              },
+            },
+            atividadeAgenda: {
+              include: {
+                atividade: true,
+                categoria: true,
+                empresa: true,
+              },
+            },
+          },
+          orderBy: { dtCadastro: 'asc' },
+        }),
+        prisma.alunoAtividadeAgenda.findMany({
+          where: {
+            idAluno,
+            boInativo: 0,
+            atividadeAgenda: {
+              boInativo: 0,
+              dtInicial: { gte: startsAt, lt: endsAt },
+            },
+          },
+          include: {
+            empresa: true,
+            atividadeAgenda: {
+              include: {
+                atividade: true,
+                categoria: true,
+                empresa: true,
+                funcionarioAtividadeAgendas: {
+                  where: { boInativo: 0 },
+                  include: { funcionario: true },
+                },
+              },
+            },
+          },
+          orderBy: { dtCadastro: 'asc' },
+        }),
+      ]);
+
+      return { checkIns, activitySchedules };
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao carregar calendario do aluno.',
       });
     }
   });
@@ -575,7 +718,17 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         return reply.code(201).send(record);
       }
 
-      const idAlunoPlano = optionalNumber(request.body.idAlunoPlano);
+      let idAlunoPlano = optionalNumber(request.body.idAlunoPlano);
+
+      if (!idAlunoPlano && resource === 'check-ins') {
+        const activePlan = await prisma.alunoPlano.findFirst({
+          where: { idAluno, boInativo: 0 },
+          orderBy: { dtCadastro: 'desc' },
+          select: { id: true },
+        });
+        idAlunoPlano = activePlan?.id ?? null;
+      }
+
       if (!idAlunoPlano) throw new Error('Selecione um plano do aluno.');
 
       const studentPlan = await prisma.alunoPlano.findFirst({
@@ -600,13 +753,42 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         return reply.code(201).send(record);
       }
 
+      const idAlunoTreinosSequencia = optionalNumber(request.body.idAlunoTreinosSequencia);
+
+      if (idAlunoTreinosSequencia) {
+        const sequence = await prisma.alunoTreinoSequencia.findFirst({
+          where: {
+            id: idAlunoTreinosSequencia,
+            alunoTreino: { idAluno },
+          },
+          select: { id: true },
+        });
+
+        if (!sequence) {
+          throw new Error('Sequencia de treino invalida para o aluno.');
+        }
+      }
+
       const record = await prisma.alunoCheckIn.create({
         data: {
           idEmpresa: optionalNumber(request.body.idEmpresa) ?? studentPlan.idEmpresa,
           idAlunoPlano,
-          idAlunoTreinosSequencia: optionalNumber(request.body.idAlunoTreinosSequencia),
+          idAlunoTreinosSequencia,
           idPontos: optionalNumber(request.body.idPontos),
           boInativo: Number(request.body.boInativo ?? 0),
+        },
+        include: {
+          alunoPlano: { include: { plano: true } },
+          alunoTreinoSequencia: {
+            include: {
+              alunoTreino: {
+                include: {
+                  treino: true,
+                  funcionario: true,
+                },
+              },
+            },
+          },
         },
       });
       return reply.code(201).send(record);

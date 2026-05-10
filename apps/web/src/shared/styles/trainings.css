@@ -23,6 +23,69 @@
   margin-bottom: 0;
 }
 
+.my-training-start-panel {
+  align-items: stretch;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 0.65fr);
+}
+
+.my-training-last-card,
+.my-training-action-card {
+  animation: workout-block-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  background: #ffffff;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.my-training-last-card .section-label,
+.my-training-action-card .section-label {
+  margin-bottom: 0;
+}
+
+.my-training-last-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.my-training-last-grid div {
+  background: #f8faf8;
+  border: 0.0625rem solid #edf2ef;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+}
+
+.my-training-last-grid span {
+  color: #6b7a72;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.my-training-last-grid strong {
+  color: #17211c;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.my-training-action-card h3 {
+  color: #17211c;
+  font-size: 1.35rem;
+  margin: 0;
+}
+
+.my-training-action-card .new-button {
+  align-self: flex-start;
+}
+
 .workout-students-grid,
 .workout-selected-area {
   min-width: 0;
@@ -58,7 +121,11 @@
 }
 
 .my-training-row {
-  grid-template-columns: minmax(14rem, 1.4fr) minmax(12rem, 1fr) 7rem 9rem;
+  grid-template-columns: minmax(14rem, 1.35fr) minmax(12rem, 0.95fr) 7rem 9rem 10rem;
+}
+
+.my-training-row.last-check-in {
+  background: #fff7ed;
 }
 
 .workout-training-row {
@@ -215,7 +282,9 @@
 
 @media (max-width: 47.5rem) {
   .workout-students-grid .grid-toolbar,
-  .workout-training-layout {
+  .workout-training-layout,
+  .my-training-start-panel,
+  .my-training-last-grid {
     grid-template-columns: 1fr;
   }
 

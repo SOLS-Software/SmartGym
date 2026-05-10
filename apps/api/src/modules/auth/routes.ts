@@ -13,6 +13,7 @@ import type {
   LoginPayload,
   RegisterLookupQuery,
   RegisterPayload,
+  VerifySessionQuery,
 } from '../../shared/api-types.js';
 
 export async function registerAuthRoutes(app: FastifyInstance) {
@@ -251,6 +252,45 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao criar cadastro.',
+      });
+    }
+  });
+
+  app.get<{
+    Querystring: VerifySessionQuery;
+  }>('/auth/verify', async (request, reply) => {
+    try {
+      const id = Number(request.query.id);
+      if (!id || isNaN(id)) {
+        return reply.code(400).send({ message: 'ID de usuario invalido.' });
+      }
+
+      const user = await prisma.usuario.findFirst({
+        where: { id, boInativo: 0 },
+        include: { aluno: true, funcionario: true },
+      });
+
+      if (!user) {
+        return reply.code(401).send({ message: 'Usuario inativo ou nao encontrado.' });
+      }
+
+      const isStudentActive = user.idAluno ? user.aluno?.boInativo === 0 : true;
+      const isEmployeeActive = user.idFuncionario ? user.funcionario?.boInativo === 0 : true;
+
+      if (!isStudentActive || !isEmployeeActive) {
+        return reply.code(401).send({ message: 'Usuario sem acesso ao sistema.' });
+      }
+
+      return {
+        id: user.id,
+        idAluno: user.idAluno,
+        idFuncionario: user.idFuncionario,
+        name: user.aluno?.nmAluno ?? user.funcionario?.nmFuncionario ?? user.dsLogin,
+        type: user.idAluno ? 'student' : 'employee',
+      };
+    } catch (error) {
+      return reply.code(500).send({
+        message: error instanceof Error ? error.message : 'Erro ao verificar sessao.',
       });
     }
   });

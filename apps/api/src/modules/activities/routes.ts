@@ -82,8 +82,9 @@ async function assertScheduleBelongsToActivity(activityId: number, scheduleId: n
 
 export async function registerActivityRoutes(app: FastifyInstance) {
   app.get<{
-    Querystring: { includeInactive?: string; search?: string };
+    Querystring: { includeDetails?: string; includeInactive?: string; search?: string };
   }>('/activities', async (request) => {
+    const includeDetails = request.query.includeDetails === 'true';
     const includeInactive = request.query.includeInactive === 'true';
     const search = request.query.search?.trim();
 
@@ -92,6 +93,25 @@ export async function registerActivityRoutes(app: FastifyInstance) {
         ...(includeInactive ? {} : { boInativo: 0 }),
         ...(search ? { dsAtividade: { contains: search, mode: 'insensitive' } } : {}),
       },
+      include: includeDetails
+        ? {
+            empresa: true,
+            esporte: true,
+            atividadeAgendas: {
+              where: { boInativo: 0 },
+              include: {
+                empresa: true,
+                categoria: true,
+                funcionarioAtividadeAgendas: {
+                  where: { boInativo: 0 },
+                  include: { funcionario: true },
+                  orderBy: { dtCadastro: 'desc' },
+                },
+              },
+              orderBy: { dtInicial: 'asc' },
+            },
+          }
+        : undefined,
       orderBy: { dsAtividade: 'asc' },
     });
   });

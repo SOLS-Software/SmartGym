@@ -139,9 +139,10 @@ async function assertPromotionBelongsToPlan(idPlano: number, idPromocao: number)
 
 export async function registerPlanRoutes(app: FastifyInstance) {
   app.get<{
-    Querystring: { includeInactive?: string; search?: string };
+    Querystring: { includeInactive?: string; includeDetails?: string; search?: string };
   }>('/plans', async (request) => {
     const includeInactive = request.query.includeInactive === 'true';
+    const includeDetails = request.query.includeDetails === 'true';
     const search = request.query.search?.trim();
 
     return prisma.plano.findMany({
@@ -149,6 +150,36 @@ export async function registerPlanRoutes(app: FastifyInstance) {
         ...(includeInactive ? {} : { boInativo: 0 }),
         ...(search ? { dsPlano: { contains: search, mode: 'insensitive' } } : {}),
       },
+      include: includeDetails
+        ? {
+            frequencia: true,
+            planoAtividades: {
+              where: { boInativo: 0 },
+              include: { atividade: true },
+              orderBy: { id: 'asc' },
+            },
+            planoProdutos: {
+              where: { boInativo: 0 },
+              include: { produto: true },
+              orderBy: { id: 'asc' },
+            },
+            planoEmpresas: {
+              where: { boInativo: 0 },
+              include: { empresa: true },
+              orderBy: { id: 'asc' },
+            },
+            planoValores: {
+              where: { boInativo: 0 },
+              include: { empresa: true },
+              orderBy: { dtCadastro: 'desc' },
+            },
+            promocaoPlanos: {
+              where: { boInativo: 0 },
+              include: { promocao: true },
+              orderBy: { dtCadastro: 'desc' },
+            },
+          }
+        : undefined,
       orderBy: { dsPlano: 'asc' },
     });
   });

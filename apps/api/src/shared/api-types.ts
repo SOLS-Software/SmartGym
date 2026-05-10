@@ -111,6 +111,10 @@ export type RegisterLookupQuery = {
   cpf?: string;
 };
 
+export type VerifySessionQuery = {
+  id?: string;
+};
+
 export type CompanyChildResource =
   | 'promotions'
   | 'promotion-products'
