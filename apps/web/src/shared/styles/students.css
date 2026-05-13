@@ -647,6 +647,28 @@
   margin-bottom: 0.25rem;
 }
 
+.student-activity-enroll-toolbar {
+  align-items: center;
+  background: #ffffff;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.5rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 1rem;
+}
+
+.student-activity-enroll-toolbar div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.student-activity-enroll-toolbar strong {
+  color: #17211c;
+  font-size: 1rem;
+}
+
 .student-activity-list {
   display: grid;
   gap: 1rem;
@@ -744,6 +766,126 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.student-activity-calendar-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.student-activity-calendar-month {
+  background: #ffffff;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.student-activity-calendar-month h5 {
+  background: #f8faf8;
+  border-bottom: 0.0625rem solid #edf2ef;
+  color: #17211c;
+  font-size: 1rem;
+  margin: 0;
+  padding: 0.75rem 0.875rem;
+  text-transform: capitalize;
+}
+
+.student-activity-calendar-weekdays,
+.student-activity-calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.student-activity-calendar-weekdays span {
+  color: #6b7a72;
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 0.625rem 0.25rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.student-activity-calendar-day {
+  background: #ffffff;
+  border-top: 0.0625rem solid #edf2ef;
+  border-right: 0.0625rem solid #edf2ef;
+  color: #17211c;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 8.5rem;
+  min-width: 0;
+  padding: 0.625rem;
+}
+
+.student-activity-calendar-day.empty {
+  background: #f8faf8;
+}
+
+.student-activity-calendar-day.has-schedule {
+  background: #f6fbf8;
+  box-shadow: inset 0 0.1875rem 0 #1f7a53;
+}
+
+.student-activity-calendar-day > strong {
+  color: #17211c;
+  font-size: 0.92rem;
+}
+
+.student-activity-calendar-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.student-activity-calendar-event {
+  background: #e8f4ed;
+  border-radius: 0.375rem;
+  color: #1f7a53;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  padding: 0.45rem 0.5rem;
+}
+
+.student-activity-calendar-event input {
+  align-self: flex-start;
+  accent-color: #1f7a53;
+}
+
+.student-activity-calendar-event.selected {
+  box-shadow: inset 0 0 0 0.125rem #1f7a53;
+}
+
+.student-activity-calendar-event.enrolled {
+  background: #eef3f0;
+  color: #52605a;
+}
+
+.student-activity-calendar-event span,
+.student-activity-calendar-event b,
+.student-activity-calendar-event small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.student-activity-calendar-event span {
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.student-activity-calendar-event b {
+  color: #17211c;
+  font-size: 0.78rem;
+}
+
+.student-activity-calendar-event small {
+  color: #52605a;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .student-calendar-view {
@@ -855,6 +997,49 @@
   color: #9a3412;
 }
 
+.student-calendar-day span.activity {
+  background: #e8f4ed;
+  color: #1f7a53;
+}
+
+.student-calendar-day span.promotion {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.company-calendar-legend {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+}
+
+.company-calendar-legend button {
+  border: 0.0625rem solid transparent;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 900;
+  padding: 0.5rem 0.625rem;
+}
+
+.company-calendar-legend button.activity {
+  background: #e8f4ed;
+  color: #1f7a53;
+}
+
+.company-calendar-legend button.promotion {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.company-calendar-legend button.selected {
+  border-color: currentColor;
+  box-shadow: 0 0 0 0.125rem rgba(31, 122, 83, 0.12);
+}
+
 .student-calendar-details {
   display: flex;
   flex-direction: column;
@@ -925,15 +1110,19 @@
 }
 
 @media (max-width: 52rem) {
-  .student-calendar-grid {
+  .student-calendar-grid,
+  .student-activity-calendar-weekdays,
+  .student-activity-calendar-days {
     grid-template-columns: 1fr;
   }
 
-  .student-calendar-weekday {
+  .student-calendar-weekday,
+  .student-activity-calendar-weekdays {
     display: none;
   }
 
-  .student-calendar-day.empty {
+  .student-calendar-day.empty,
+  .student-activity-calendar-day.empty {
     display: none;
   }
 }

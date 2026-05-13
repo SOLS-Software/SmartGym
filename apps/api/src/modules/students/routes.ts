@@ -33,6 +33,52 @@ function getStudentChildResourceConfig(resource: string) {
   return resource;
 }
 
+type StudentActivityScheduleEnrollPayload = {
+  scheduleIds?: Array<number | string>;
+};
+
+type EnrollmentSchedule = {
+  id: number;
+  idEmpresa: number | null;
+  dtInicial: Date | null;
+  dtFinal: Date | null;
+  qtAlunos: number | null;
+  atividade: { dsAtividade: string } | null;
+  alunoAtividadeAgendas: Array<{ idAluno: number | null }>;
+};
+
+function formatScheduleLabel(schedule: EnrollmentSchedule) {
+  const activityName = schedule.atividade?.dsAtividade ?? 'Atividade';
+  const startsAt = schedule.dtInicial
+    ? schedule.dtInicial.toLocaleString('pt-BR', {
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+    : 'sem data';
+  return `${activityName} em ${startsAt}`;
+}
+
+function schedulesOverlap(first: EnrollmentSchedule, second: EnrollmentSchedule) {
+  if (!first.dtInicial || !first.dtFinal || !second.dtInicial || !second.dtFinal) return false;
+  return first.dtInicial < second.dtFinal && first.dtFinal > second.dtInicial;
+}
+
+function normalizeScheduleIds(payload: StudentActivityScheduleEnrollPayload) {
+  if (!Array.isArray(payload.scheduleIds)) {
+    throw new Error('Selecione ao menos uma aula para se inscrever.');
+  }
+
+  const ids = payload.scheduleIds ?? [];
+  const normalized = Array.from(new Set(ids.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0)));
+  if (normalized.length === 0) {
+    throw new Error('Selecione ao menos uma aula para se inscrever.');
+  }
+  return normalized;
+}
+
 export async function registerStudentRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
   // Students CRUD
@@ -625,6 +671,138 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao carregar calendario do aluno.',
+      });
+    }
+  });
+
+  app.post<{
+    Params: { id: string };
+    Body: StudentActivityScheduleEnrollPayload;
+  }>('/students/:id/activity-schedules/enroll', async (request, reply) => {
+    try {
+      const idAluno = Number(request.params.id);
+      assertValidId(idAluno, 'Aluno invalido.');
+      const scheduleIds = normalizeScheduleIds(request.body);
+
+      const student = await prisma.aluno.findUnique({
+        where: { id: idAluno },
+        select: { id: true },
+      });
+
+      if (!student) {
+        return reply.code(404).send({ message: 'Aluno nao encontrado.' });
+      }
+
+      const created = await prisma.$transaction(async (transaction) => {
+        const schedules = await transaction.atividadeAgenda.findMany({
+          where: { id: { in: scheduleIds }, boInativo: 0 },
+          include: {
+            atividade: { select: { dsAtividade: true } },
+            alunoAtividadeAgendas: {
+              where: { boInativo: 0 },
+              select: { idAluno: true },
+            },
+          },
+          orderBy: { dtInicial: 'asc' },
+        });
+
+        if (schedules.length !== scheduleIds.length) {
+          throw new Error('Uma ou mais aulas selecionadas nao foram encontradas.');
+        }
+
+        for (const schedule of schedules) {
+          if (!schedule.dtInicial || !schedule.dtFinal) {
+            throw new Error(`A agenda ${formatScheduleLabel(schedule)} esta sem periodo completo.`);
+          }
+
+          if (schedule.alunoAtividadeAgendas.some((enrollment) => enrollment.idAluno === idAluno)) {
+            throw new Error(`Voce ja esta inscrito na agenda ${formatScheduleLabel(schedule)}.`);
+          }
+
+          if (schedule.qtAlunos !== null && schedule.alunoAtividadeAgendas.length >= schedule.qtAlunos) {
+            throw new Error(`Nao ha vagas disponiveis na agenda ${formatScheduleLabel(schedule)}.`);
+          }
+        }
+
+        for (let index = 0; index < schedules.length; index += 1) {
+          for (let nextIndex = index + 1; nextIndex < schedules.length; nextIndex += 1) {
+            const first = schedules[index]!;
+            const second = schedules[nextIndex]!;
+            if (schedulesOverlap(first, second)) {
+              throw new Error(
+                `As agendas selecionadas possuem conflito de horario: ${formatScheduleLabel(first)} e ${formatScheduleLabel(second)}.`,
+              );
+            }
+          }
+        }
+
+        const selectedStart = schedules.reduce<Date | null>((current, schedule) => {
+          if (!schedule.dtInicial) return current;
+          return !current || schedule.dtInicial < current ? schedule.dtInicial : current;
+        }, null);
+        const selectedEnd = schedules.reduce<Date | null>((current, schedule) => {
+          if (!schedule.dtFinal) return current;
+          return !current || schedule.dtFinal > current ? schedule.dtFinal : current;
+        }, null);
+
+        if (!selectedStart || !selectedEnd) {
+          throw new Error('Nao foi possivel validar o periodo das aulas selecionadas.');
+        }
+
+        const existingEnrollments = await transaction.alunoAtividadeAgenda.findMany({
+          where: {
+            idAluno,
+            boInativo: 0,
+            atividadeAgenda: {
+              boInativo: 0,
+              dtInicial: { lt: selectedEnd },
+              dtFinal: { gt: selectedStart },
+            },
+          },
+          include: {
+            atividadeAgenda: {
+              include: {
+                atividade: { select: { dsAtividade: true } },
+                alunoAtividadeAgendas: {
+                  where: { boInativo: 0 },
+                  select: { idAluno: true },
+                },
+              },
+            },
+          },
+        });
+
+        for (const selectedSchedule of schedules) {
+          const conflict = existingEnrollments.find((enrollment) => {
+            const existingSchedule = enrollment.atividadeAgenda;
+            return existingSchedule && schedulesOverlap(selectedSchedule, existingSchedule);
+          });
+
+          if (conflict?.atividadeAgenda) {
+            throw new Error(
+              `Voce ja possui outra agenda nesse periodo: ${formatScheduleLabel(conflict.atividadeAgenda)}.`,
+            );
+          }
+        }
+
+        return Promise.all(
+          schedules.map((schedule) =>
+            transaction.alunoAtividadeAgenda.create({
+              data: {
+                idAluno,
+                idEmpresa: schedule.idEmpresa,
+                idAtividadeAgenda: schedule.id,
+                boInativo: 0,
+              },
+            }),
+          ),
+        );
+      });
+
+      return reply.code(201).send(created);
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao realizar inscricao na aula.',
       });
     }
   });

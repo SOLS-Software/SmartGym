@@ -107,6 +107,10 @@ export async function registerActivityRoutes(app: FastifyInstance) {
                   include: { funcionario: true },
                   orderBy: { dtCadastro: 'desc' },
                 },
+                alunoAtividadeAgendas: {
+                  where: { boInativo: 0 },
+                  select: { id: true, idAluno: true },
+                },
               },
               orderBy: { dtInicial: 'asc' },
             },

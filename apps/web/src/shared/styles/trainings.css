@@ -132,6 +132,165 @@
   grid-template-columns: minmax(12rem, 1.1fr) minmax(11rem, 0.9fr) minmax(5rem, 0.4fr) minmax(7rem, 0.6fr) 6.5rem 6.5rem;
 }
 
+.activity-schedule-activity-row {
+  grid-template-columns: minmax(16rem, 1.2fr) minmax(14rem, 1fr) 7rem;
+}
+
+.activity-schedule-row {
+  grid-template-columns: minmax(9rem, 1fr) minmax(9rem, 0.85fr) minmax(10rem, 1fr) 7rem 7rem minmax(8rem, 0.8fr) 8rem 5.5rem 6.5rem 6.5rem;
+}
+
+.workout-training-grid .activity-schedule-actions {
+  grid-template-columns: minmax(12rem, 1fr) max-content max-content;
+}
+
+.activity-schedule-builder-form {
+  animation: workout-block-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  margin: 0 0 1rem;
+}
+
+.activity-schedule-fields {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.activity-week-days-field {
+  grid-column: span 2;
+}
+
+.week-day-choice-list {
+  align-items: center;
+  background: #ffffff;
+  border: 0.0625rem solid #ccd8d0;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 0.625rem;
+  min-height: 2.75rem;
+  padding: 0.375rem 0.625rem;
+}
+
+.week-day-choice-list .checkbox-field {
+  margin: 0;
+}
+
+.activity-schedule-grid-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.activity-schedule-preview {
+  animation: workout-block-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  border-top: 0.0625rem solid #edf2ef;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding-top: 1rem;
+}
+
+.activity-schedule-preview-header {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.activity-schedule-preview-header h4 {
+  color: #17211c;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.activity-schedule-preview-header strong {
+  background: #e8f4ed;
+  border-radius: 0.5rem;
+  color: #1f7a53;
+  font-size: 0.9rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.activity-calendar-preview-grid {
+  display: grid;
+  gap: 0.875rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.activity-calendar-month {
+  background: #ffffff;
+  border: 0.0625rem solid #dde6df;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.activity-calendar-month h5 {
+  background: #f8faf8;
+  color: #17211c;
+  font-size: 0.95rem;
+  margin: 0;
+  padding: 0.75rem 0.875rem;
+  text-transform: capitalize;
+}
+
+.activity-calendar-weekdays,
+.activity-calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.activity-calendar-weekdays {
+  border-top: 0.0625rem solid #edf2ef;
+}
+
+.activity-calendar-weekdays span {
+  color: #6b7a72;
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 0.5rem 0.25rem;
+  text-align: center;
+}
+
+.activity-calendar-days {
+  padding: 0.375rem;
+}
+
+.activity-calendar-days span {
+  align-items: center;
+  border-radius: 0.375rem;
+  color: #52605a;
+  display: flex;
+  font-size: 0.84rem;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 2rem;
+}
+
+.activity-calendar-days span.selected {
+  background: #1f7a53;
+  color: #ffffff;
+}
+
+.activity-calendar-days span.empty {
+  color: transparent;
+}
+
+.activity-preview-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.activity-preview-summary span {
+  background: #f0f8f3;
+  border-radius: 0.5rem;
+  color: #1f7a53;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 0.5rem 0.625rem;
+}
+
 .workout-assembly-view .product-row:not(.header) {
   animation: workout-block-in 300ms cubic-bezier(0.22, 1, 0.36, 1);
   transition: background 220ms ease, box-shadow 260ms ease, min-height 320ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -283,9 +442,14 @@
 @media (max-width: 47.5rem) {
   .workout-students-grid .grid-toolbar,
   .workout-training-layout,
+  .activity-schedule-fields,
   .my-training-start-panel,
   .my-training-last-grid {
     grid-template-columns: 1fr;
+  }
+
+  .activity-week-days-field {
+    grid-column: auto;
   }
 
   .workout-selected-header {

@@ -107,7 +107,7 @@ export async function apiFetch(
     headers.set('x-encrypted', '1');
     body = encrypted;
   }
-
+  
   const response = await fetch(input, { ...init, headers, body });
 
   if (response.headers.get('x-encrypted') !== '1') {

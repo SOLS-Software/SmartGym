@@ -7,6 +7,7 @@ import type { RegisterLookupRecord } from '../../shared/registration/registratio
 import { PlanRegistration } from '../../features/plans/PlanRegistration';
 import { StudentPlansView } from '../../features/plans/StudentPlansView';
 import { CompanyRegistration } from '../../features/companies/CompanyRegistration';
+import { CompanyCalendarView } from '../../features/companies/CompanyCalendarView';
 import { StudentRegistration } from '../../features/students/StudentRegistration';
 import { DomainRegistration } from '../../features/domains/DomainRegistration';
 import { ProductRegistration } from '../../features/products/ProductRegistration';
@@ -14,6 +15,7 @@ import { PromotionRegistration } from '../../features/promotions/PromotionRegist
 import { StudentPromotionsView } from '../../features/promotions/StudentPromotionsView';
 import { ExerciseRegistration } from '../../features/exercises/ExerciseRegistration';
 import { ActivityRegistration } from '../../features/activities/ActivityRegistration';
+import { ActivityScheduleAssembly } from '../../features/activities/ActivityScheduleAssembly';
 import { StudentActivitiesView } from '../../features/activities/StudentActivitiesView';
 import { EmployeeRegistration } from '../../features/employees/EmployeeRegistration';
 import { TrainingRegistration } from '../../features/trainings/TrainingRegistration';
@@ -31,7 +33,7 @@ const menuGroups = [
   },
   {
     title: 'TREINO',
-    items: ['Atividades', 'Exercícios', 'Treino', 'Montar Treino', 'Meu Treino', 'Calendario'],
+    items: ['Atividades', 'Exercícios', 'Treino', 'Montar Treino', 'Montagem de Agenda', 'Meu Treino', 'Calendario', 'Calendario Empresa'],
   },
   {
     title: 'ESTOQUE',
@@ -639,7 +641,7 @@ export default function HomePage() {
           .filter((group) => group.title === 'TREINO' || group.title === 'ALUNOS')
           .map((group) => ({
             ...group,
-            items: group.items.filter((item) => item !== 'Montar Treino'),
+            items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda'),
           }));
 
     return (
@@ -723,7 +725,10 @@ export default function HomePage() {
             <CompanyRegistration />
           ) : activeItem === 'Atividades' ? (
             authUserType === 'student' ? (
-              <StudentActivitiesView studentName={authUserName} />
+              <StudentActivitiesView
+                studentId={authUserStudentId}
+                studentName={authUserName}
+              />
             ) : (
               <ActivityRegistration />
             )
@@ -736,6 +741,8 @@ export default function HomePage() {
               loggedEmployeeId={authUserEmployeeId}
               loggedEmployeeName={authUserName}
             />
+          ) : activeItem === 'Montagem de Agenda' ? (
+            <ActivityScheduleAssembly />
           ) : activeItem === 'Produtos' ? (
             <ProductRegistration />
           ) : activeItem === 'Matrículas' ? (
@@ -772,10 +779,16 @@ export default function HomePage() {
               studentName={authUserName}
             />
           ) : activeItem === 'Calendario' ? (
-            <StudentCalendarView
-              studentId={authUserStudentId}
-              studentName={authUserName}
-            />
+            authUserType === 'student' ? (
+              <StudentCalendarView
+                studentId={authUserStudentId}
+                studentName={authUserName}
+              />
+            ) : (
+              <CompanyCalendarView userName={authUserName} />
+            )
+          ) : activeItem === 'Calendario Empresa' ? (
+            <CompanyCalendarView userName={authUserName} />
           ) : (
             <div className="welcome">
               <p className="section-label">Menu selecionado</p>
