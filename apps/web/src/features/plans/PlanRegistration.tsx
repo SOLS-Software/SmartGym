@@ -2,7 +2,9 @@
 
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
+import { Save } from 'lucide-react';
+import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { CompanyChildRecord, CompanyChildTable, Frequency, LookupRecord, Plan } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
@@ -125,6 +127,8 @@ const planRelatedTables: CompanyChildTable[] = [
 
 export function PlanRegistration() {
   const planFileInputRef = useRef<HTMLInputElement | null>(null);
+  const planNameInputRef = useRef<HTMLInputElement | null>(null);
+  const planRelatedFormRef = useRef<HTMLDivElement | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [plansPage, setPlansPage] = useState(1);
   const [frequencies, setFrequencies] = useState<Frequency[]>([]);
@@ -172,6 +176,10 @@ export function PlanRegistration() {
       : false,
   );
   const filteredPlans = plans.filter((plan) => {
+    if (selectedPlanRelatedTable && selectedPlanId !== null) {
+      return plan.id === selectedPlanId;
+    }
+
     const search = searchTerm.toLowerCase();
     const frequency = frequencies.find((item) => item.id === plan.idFrequencia);
 
@@ -326,7 +334,7 @@ export function PlanRegistration() {
 
   useEffect(() => {
     setPlansPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, selectedPlanId]);
 
   useEffect(() => {
     if (plansPage > plansTotalPages) {
@@ -349,9 +357,15 @@ export function PlanRegistration() {
     setIsPlanActive(true);
     setIsPlanFieldsCollapsed(false);
     setIsPlanRelatedFieldsCollapsed(true);
+    setTimeout(() => planNameInputRef.current?.focus(), 0);
   }
 
   function handleSelectPlan(plan: Plan) {
+    if (plan.id === selectedPlanId) {
+      clearForm();
+      return;
+    }
+
     setSelectedPlanId(plan.id);
     setIsCreating(false);
     setPlanName(plan.dsPlano);
@@ -388,6 +402,11 @@ export function PlanRegistration() {
     }
     setIsPlanFieldsCollapsed(true);
     setIsPlanRelatedFieldsCollapsed(false);
+    setTimeout(() => {
+      planRelatedFormRef.current
+        ?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')
+        ?.focus();
+    }, 0);
   }
 
   function handleSelectPlanRelatedRecord(record: CompanyChildRecord) {
@@ -695,63 +714,30 @@ export function PlanRegistration() {
 
       <div className="registration-split-layout plan-split-layout">
         <section className="data-grid-section company-grid-section">
-          <div className="grid-toolbar">
-            <div className="child-grid-toolbar-label">
-              <p className="section-label">Planos</p>
-            </div>
-            <div className="child-grid-toolbar-actions">
-              <label className="search-field">
-                <span>Pesquisar</span>
-                <input
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Buscar plano"
-                  type="search"
-                  value={searchTerm}
-                />
-              </label>
-              <button className="new-button" onClick={handleNewPlan} type="button">
-                Novo
-              </button>
-            </div>
-          </div>
-
-          <div className="product-table" key={`plans-${searchTerm}-${plansPage}`} role="table" aria-label="Planos cadastrados">
-            <div className="product-row header" role="row">
-              <span role="columnheader">Plano</span>
-              <span role="columnheader">Frequência</span>
-              <span role="columnheader">Status</span>
-            </div>
-
-            {isLoadingPlans ? <div className="empty-row">Carregando planos...</div> : null}
-
-            {!isLoadingPlans
-              ? paginatedPlans.map((plan) => (
-                <button
-                  className={`product-row selectable ${plan.id === selectedPlanId ? 'selected' : ''}`}
-                  key={plan.id}
-                  onClick={() => handleSelectPlan(plan)}
-                  role="row"
-                  type="button"
-                >
-                  <span role="cell">{plan.dsPlano}</span>
-                  <span role="cell">{getFrequencyLabel(plan.idFrequencia)}</span>
-                  <span role="cell">
-                    <span className={`status-badge ${plan.boInativo === 0 ? 'active' : 'inactive'}`}>
-                      {plan.boInativo === 0 ? 'Ativo' : 'Inativo'}
-                    </span>
+          <RegistrationGrid<Plan>
+            ariaLabel="Planos cadastrados"
+            columns={[
+              { label: 'Plano', render: (plan) => plan.dsPlano },
+              { label: 'Frequência', render: (plan) => getFrequencyLabel(plan.idFrequencia) },
+              {
+                label: 'Status', render: (plan) => (
+                  <span className={`status-badge ${plan.boInativo === 0 ? 'active' : 'inactive'}`}>
+                    {plan.boInativo === 0 ? 'Ativo' : 'Inativo'}
                   </span>
-                </button>
-              ))
-              : null}
-
-            {!isLoadingPlans && filteredPlans.length === 0 ? (
-              <div className="empty-row">Nenhum plano encontrado.</div>
-            ) : null}
-          </div>
-
-          <GridPagination
-            onChange={setPlansPage}
+                ),
+              },
+            ]}
+            isLoading={isLoadingPlans}
+            label="Planos"
+            onNew={handleNewPlan}
+            onPageChange={setPlansPage}
+            onSearch={setSearchTerm}
+            onSelect={handleSelectPlan}
             page={plansPage}
+            records={paginatedPlans}
+            searchPlaceholder="Buscar plano"
+            searchTerm={searchTerm}
+            selectedId={selectedPlanId}
             totalItems={filteredPlans.length}
           />
 
@@ -763,88 +749,23 @@ export function PlanRegistration() {
                 </div>
               ) : (
                 <>
-                  <div className="grid-toolbar">
-                    <div className="child-grid-toolbar-label">
-                      <p className="section-label">{planRelatedConfig.label}</p>
-                    </div>
-                    <div className="child-grid-toolbar-actions">
-                      <label className="search-field">
-                        <span>Pesquisar</span>
-                        <input
-                          onChange={(event) => setPlanRelatedSearchTerm(event.target.value)}
-                          placeholder="Buscar registro"
-                          type="search"
-                          value={planRelatedSearchTerm}
-                        />
-                      </label>
-                      <button
-                        className="new-button"
-                        disabled={!selectedPlanId}
-                        onClick={handleNewPlanRelated}
-                        type="button"
-                      >
-                        Novo
-                      </button>
-                    </div>
-                  </div>
-
-                  <div
-                    className="product-table company-child-grid-table"
-                    key={`plan-related-${planRelatedConfig.key}-${planRelatedSearchTerm}-${selectedPlanId}`}
-                    role="table"
-                    aria-label={planRelatedConfig.title}
-                  >
-                    <div
-                      className="product-row company-child-grid-row header"
-                      role="row"
-                      style={{
-                        gridTemplateColumns: `repeat(${planRelatedConfig.columns.length}, minmax(0, 1fr))`,
-                      }}
-                    >
-                      {planRelatedConfig.columns.map((column) => (
-                        <span key={column.key} role="columnheader">
-                          {column.label}
-                        </span>
-                      ))}
-                    </div>
-
-                    {isLoadingPlanRelatedRecords ? (
-                      <div className="empty-row">
-                        Carregando {planRelatedConfig.label.toLowerCase()}...
-                      </div>
-                    ) : null}
-
-                    {!isLoadingPlanRelatedRecords
-                      ? filteredPlanRelatedRecords.map((record) => (
-                        <button
-                          className={`product-row company-child-grid-row selectable ${record.id === selectedPlanRelatedRecordId ? 'selected' : ''}`}
-                          key={record.id}
-                          onClick={() => handleSelectPlanRelatedRecord(record)}
-                          role="row"
-                          style={{
-                            gridTemplateColumns: `repeat(${planRelatedConfig.columns.length}, minmax(0, 1fr))`,
-                          }}
-                          type="button"
-                        >
-                          {planRelatedConfig.columns.map((column) => (
-                            <span key={column.key} role="cell">
-                              {formatChildCell(
-                                record,
-                                column,
-                                planRelatedLookups[column.key],
-                              )}
-                            </span>
-                          ))}
-                        </button>
-                      ))
-                      : null}
-
-                    {!isLoadingPlanRelatedRecords && filteredPlanRelatedRecords.length === 0 ? (
-                      <div className="empty-row">
-                        Nenhum registro de {planRelatedConfig.label.toLowerCase()} encontrado.
-                      </div>
-                    ) : null}
-                  </div>
+                  <RegistrationGrid<CompanyChildRecord>
+                    ariaLabel={planRelatedConfig.title}
+                    columns={planRelatedConfig.columns.map((col) => ({
+                      label: col.label,
+                      render: (rec) => formatChildCell(rec, col, planRelatedLookups[col.key]),
+                    }))}
+                    isLoading={isLoadingPlanRelatedRecords}
+                    label={planRelatedConfig.label}
+                    newDisabled={!selectedPlanId}
+                    onNew={handleNewPlanRelated}
+                    onSearch={setPlanRelatedSearchTerm}
+                    onSelect={handleSelectPlanRelatedRecord}
+                    records={filteredPlanRelatedRecords}
+                    searchTerm={planRelatedSearchTerm}
+                    selectedId={selectedPlanRelatedRecordId}
+                    variant="child"
+                  />
                 </>
               )}
             </section>
@@ -887,6 +808,7 @@ export function PlanRegistration() {
                     id="planName"
                     maxLength={255}
                     onChange={(event) => setPlanName(event.target.value)}
+                    ref={planNameInputRef}
                     required
                     type="text"
                     value={planName}
@@ -934,6 +856,7 @@ export function PlanRegistration() {
                     Limpar
                   </button>
                   <button disabled={!isFormEnabled} type="submit">
+                    <Save size={16} />
                     Salvar plano
                   </button>
                 </div>
@@ -1084,7 +1007,7 @@ export function PlanRegistration() {
                       ) : null}
                     </div>
                   ) : (
-                    <div className="company-child-fields">
+                    <div className="company-child-fields" ref={planRelatedFormRef}>
                       {planRelatedConfig.fields.map((field) => (
                         <div className="field" key={field.key}>
                           <label htmlFor={`planRelated-${field.key}`}>
@@ -1164,6 +1087,7 @@ export function PlanRegistration() {
                     </button>
                     {!isPlanRelatedFileTable ? (
                       <button disabled={!isPlanRelatedFormEnabled} type="submit">
+                        <Save size={16} />
                         Salvar {planRelatedConfig.label}
                       </button>
                     ) : null}

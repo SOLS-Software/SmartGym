@@ -2,11 +2,21 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
-import type { CompanyChildColumn, CompanyChildRecord, LookupRecord, Student, StudentFile, StudentValidationErrors, StudentValidationField } from '../../shared/registration/registrationTypes';
+import { CheckCircle2, CreditCard, FileText, Receipt, Save } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
+import type { CompanyChildRecord, LookupRecord, Student, StudentFile, StudentValidationErrors, StudentValidationField } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { studentRelatedTables } from './studentRelatedTables';
 import { formatPhone, isValidBirthDate, isValidEmail, toApiDate } from './studentValidation';
+
+const studentRelatedTabIcons: Record<string, LucideIcon> = {
+  files: FileText,
+  plans: CreditCard,
+  payments: Receipt,
+  checkIns: CheckCircle2,
+};
 
 export function StudentRegistration() {
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -17,6 +27,7 @@ export function StudentRegistration() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
+  const studentRelatedFormRef = useRef<HTMLDivElement | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [studentsPage, setStudentsPage] = useState(1);
   const [studentFiles, setStudentFiles] = useState<StudentFile[]>([]);
@@ -78,6 +89,10 @@ export function StudentRegistration() {
       : false,
   );
   const filteredStudents = students.filter((student) => {
+    if (selectedStudentRelatedTable && selectedStudentId !== null) {
+      return student.id === selectedStudentId;
+    }
+
     const search = searchTerm.toLowerCase();
 
     return (
@@ -113,7 +128,7 @@ export function StudentRegistration() {
 
   useEffect(() => {
     setStudentsPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, selectedStudentId]);
 
   useEffect(() => {
     if (studentsPage > studentsTotalPages) {
@@ -339,9 +354,15 @@ export function StudentRegistration() {
     setIsStudentActive(true);
     setIsStudentFieldsCollapsed(false);
     setIsStudentRelatedFieldsCollapsed(true);
+    setTimeout(() => nameInputRef.current?.focus(), 0);
   }
 
   function handleSelectStudent(student: Student) {
+    if (student.id === selectedStudentId) {
+      clearForm();
+      return;
+    }
+
     setSelectedStudentId(student.id);
     setIsCreating(false);
     setStudentName(student.nmAluno);
@@ -410,6 +431,7 @@ export function StudentRegistration() {
     setStudentRelatedFeedback('');
     setIsStudentFieldsCollapsed(true);
     setIsStudentRelatedFieldsCollapsed(false);
+    setTimeout(() => { studentRelatedFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
   }
 
   function handleSelectStudentRelatedRecord(record: CompanyChildRecord) {
@@ -905,62 +927,29 @@ export function StudentRegistration() {
 
       <div className="registration-split-layout student-split-layout">
         <section className="data-grid-section">
-          <div className="grid-toolbar">
-            <div className="child-grid-toolbar-label">
-              <p className="section-label">Alunos</p>
-            </div>
-            <div className="child-grid-toolbar-actions">
-              <label className="search-field">
-                <span>Pesquisar</span>
-                <input
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Buscar aluno"
-                  type="search"
-                  value={searchTerm}
-                />
-              </label>
-              <button className="new-button" onClick={handleNewStudent} type="button">
-                Novo aluno
-              </button>
-            </div>
-          </div>
-
-          <div className="product-table" key={`students-${searchTerm}-${studentsPage}`} role="table" aria-label="Alunos cadastrados">
-            <div className="product-row header" role="row">
-              <span role="columnheader">Aluno</span>
-              <span role="columnheader">CPF</span>
-              <span role="columnheader">Status</span>
-            </div>
-
-            {paginatedStudents.map((student) => (
-              <button
-                className={`product-row selectable ${student.id === selectedStudentId ? 'selected' : ''
-                  }`}
-                key={student.id}
-                onClick={() => handleSelectStudent(student)}
-                role="row"
-                type="button"
-              >
-                <span role="cell">{student.nmAluno}</span>
-                <span role="cell">{formatCpf(student.caCPF)}</span>
-                <span role="cell">
-                  <span
-                    className={`status-badge ${student.boInativo === 0 ? 'active' : 'inactive'
-                      }`}
-                  >
-                    {student.boInativo === 0 ? 'Ativo' : 'Inativo'}
+          <RegistrationGrid<Student>
+            ariaLabel="Alunos cadastrados"
+            columns={[
+              { label: 'Aluno', render: (s) => s.nmAluno },
+              { label: 'CPF', render: (s) => formatCpf(s.caCPF) },
+              {
+                label: 'Status', render: (s) => (
+                  <span className={`status-badge ${s.boInativo === 0 ? 'active' : 'inactive'}`}>
+                    {s.boInativo === 0 ? 'Ativo' : 'Inativo'}
                   </span>
-                </span>
-              </button>
-            ))}
-
-            {filteredStudents.length === 0 ? (
-              <div className="empty-row">Nenhum aluno encontrado.</div>
-            ) : null}
-          </div>
-          <GridPagination
-            onChange={setStudentsPage}
+                ),
+              },
+            ]}
+            label="Alunos"
+            onNew={handleNewStudent}
+            onPageChange={setStudentsPage}
+            onSearch={setSearchTerm}
+            onSelect={handleSelectStudent}
             page={studentsPage}
+            records={paginatedStudents}
+            searchPlaceholder="Buscar aluno"
+            searchTerm={searchTerm}
+            selectedId={selectedStudentId}
             totalItems={filteredStudents.length}
           />
 
@@ -972,90 +961,25 @@ export function StudentRegistration() {
                 </div>
               ) : (
                 <>
-                  <div className="grid-toolbar">
-                    <div className="child-grid-toolbar-label">
-                      <p className="section-label">{studentRelatedConfig.label}</p>
-                    </div>
-                    <div className="child-grid-toolbar-actions">
-                      <label className="search-field">
-                        <span>Pesquisar</span>
-                        <input
-                          onChange={(event) => setStudentRelatedSearchTerm(event.target.value)}
-                          placeholder="Buscar registro"
-                          type="search"
-                          value={studentRelatedSearchTerm}
-                        />
-                      </label>
-                      {studentRelatedConfig.key !== 'files' ? (
-                        <button
-                          className="new-button"
-                          disabled={!selectedStudentId}
-                          onClick={handleNewStudentRelated}
-                          type="button"
-                        >
-                          Novo
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div
-                    className="product-table company-child-grid-table"
-                    key={`student-related-${studentRelatedConfig.key}-${studentRelatedSearchTerm}-${selectedStudentId}`}
-                    role="table"
-                    aria-label={studentRelatedConfig.title}
-                  >
-                    <div
-                      className="product-row company-child-grid-row header"
-                      role="row"
-                      style={{
-                        gridTemplateColumns: `repeat(${studentRelatedConfig.columns.length}, minmax(0, 1fr))`,
-                      }}
-                    >
-                      {studentRelatedConfig.columns.map((column) => (
-                        <span key={column.key} role="columnheader">
-                          {column.label}
-                        </span>
-                      ))}
-                    </div>
-
-                    {isLoadingStudentRelatedRecords ? (
-                      <div className="empty-row">
-                        Carregando {studentRelatedConfig.label.toLowerCase()}...
-                      </div>
-                    ) : null}
-
-                    {!isLoadingStudentRelatedRecords
-                      ? filteredStudentRelatedRecords.map((record) => (
-                        <button
-                          className={`product-row company-child-grid-row ${studentRelatedConfig.key !== 'files' ? 'selectable' : ''} ${record.id === selectedStudentRelatedRecordId ? 'selected' : ''}`}
-                          key={record.id}
-                          onClick={() => handleSelectStudentRelatedRecord(record)}
-                          role="row"
-                          style={{
-                            gridTemplateColumns: `repeat(${studentRelatedConfig.columns.length}, minmax(0, 1fr))`,
-                          }}
-                          type="button"
-                        >
-                          {studentRelatedConfig.columns.map((column) => (
-                            <span key={column.key} role="cell">
-                              {formatChildCell(
-                                record,
-                                column,
-                                studentRelatedLookups[column.key],
-                              )}
-                            </span>
-                          ))}
-                        </button>
-                      ))
-                      : null}
-
-                    {!isLoadingStudentRelatedRecords && filteredStudentRelatedRecords.length === 0 ? (
-                      <div className="empty-row">
-                        Nenhum registro de {studentRelatedConfig.label.toLowerCase()} encontrado.
-                      </div>
-                    ) : null}
-                  </div>
+                  <RegistrationGrid<CompanyChildRecord>
+                    ariaLabel={studentRelatedConfig.title}
+                    columns={studentRelatedConfig.columns.map((col) => ({
+                      label: col.label,
+                      render: (rec) => formatChildCell(rec, col, studentRelatedLookups[col.key]),
+                    }))}
+                    isLoading={isLoadingStudentRelatedRecords}
+                    label={studentRelatedConfig.label}
+                    newDisabled={!selectedStudentId}
+                    onNew={handleNewStudentRelated}
+                    onSearch={setStudentRelatedSearchTerm}
+                    onSelect={handleSelectStudentRelatedRecord}
+                    records={filteredStudentRelatedRecords}
+                    rowSelectable={studentRelatedConfig.key !== 'files'}
+                    searchTerm={studentRelatedSearchTerm}
+                    selectedId={selectedStudentRelatedRecordId}
+                    showNewButton={studentRelatedConfig.key !== 'files'}
+                    variant="child"
+                  />
                 </>
               )}
             </section>
@@ -1342,6 +1266,7 @@ export function StudentRegistration() {
                     Limpar
                   </button>
                   <button disabled={!isFormEnabled} type="submit">
+                    <Save size={16} />
                     Salvar aluno
                   </button>
                 </div>
@@ -1519,7 +1444,7 @@ export function StudentRegistration() {
                     </div>
                   ) : null}
 
-                  <div className="company-child-fields">
+                  <div className="company-child-fields" ref={studentRelatedFormRef}>
                     {studentRelatedConfig.fields.map((field) => (
                       <div className="field" key={field.key}>
                         <label htmlFor={`studentRelated-${field.key}`}>
@@ -1589,6 +1514,7 @@ export function StudentRegistration() {
                       Limpar
                     </button>
                     <button disabled={!isStudentRelatedFormEnabled} type="submit">
+                      <Save size={16} />
                       Salvar {studentRelatedConfig.label}
                     </button>
                   </div>
@@ -1600,18 +1526,22 @@ export function StudentRegistration() {
 
         <section className="company-child-tabs" aria-label="Tabelas relacionadas do aluno">
           <div className="company-child-tabs-list" role="tablist" aria-label="Tabelas relacionadas do aluno">
-            {studentRelatedTables.map((table) => (
-              <button
-                aria-selected={selectedStudentRelatedTable === table.key}
-                className={selectedStudentRelatedTable === table.key ? 'active' : ''}
-                key={table.key}
-                onClick={() => handleSelectStudentRelatedTable(table.key)}
-                role="tab"
-                type="button"
-              >
-                {table.label}
-              </button>
-            ))}
+            {studentRelatedTables.map((table) => {
+              const Icon = studentRelatedTabIcons[table.key];
+              return (
+                <button
+                  aria-selected={selectedStudentRelatedTable === table.key}
+                  className={selectedStudentRelatedTable === table.key ? 'active' : ''}
+                  key={table.key}
+                  onClick={() => handleSelectStudentRelatedTable(table.key)}
+                  role="tab"
+                  type="button"
+                >
+                  {Icon && <Icon size={16} />}
+                  {table.label}
+                </button>
+              );
+            })}
           </div>
         </section>
       </div>

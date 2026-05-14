@@ -24,6 +24,45 @@ import { StudentMembershipView } from '../../features/students/StudentMembership
 import { StudentCalendarView } from '../../features/students/StudentCalendarView';
 import { MyTraining } from '../../features/trainings/MyTraining';
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
+import {
+  Activity,
+  BadgeCheck,
+  Building2,
+  Calendar,
+  CalendarPlus,
+  CalendarRange,
+  ClipboardList,
+  CreditCard,
+  Dumbbell,
+  FilePlus,
+  Globe,
+  Package,
+  ShoppingCart,
+  Tag,
+  UserCheck,
+  Users,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+
+const menuItemIcons: Record<string, LucideIcon> = {
+  'Empresas': Building2,
+  'Atividades': Activity,
+  'Exercícios': Dumbbell,
+  'Treino': ClipboardList,
+  'Montar Treino': FilePlus,
+  'Montagem de Agenda': CalendarPlus,
+  'Meu Treino': UserCheck,
+  'Calendario': Calendar,
+  'Calendario Empresa': CalendarRange,
+  'Produtos': Package,
+  'Compras': ShoppingCart,
+  'Matrículas': BadgeCheck,
+  'Planos': CreditCard,
+  'Promoções': Tag,
+  'Profissionais': Users,
+  'Domínios': Globe,
+};
+
 const SESSION_KEY = 'smartgym_session';
 
 const menuGroups = [
@@ -690,6 +729,25 @@ export default function HomePage() {
             <span />
           </button>
 
+          <nav className="menu-nav-collapsed" aria-label="Menu compacto" aria-hidden={isMenuOpen}>
+            {visibleMenuGroups.flatMap((group) =>
+              group.items.map((item) => {
+                const Icon = menuItemIcons[item];
+                return (
+                  <button
+                    className={item === activeItem ? 'active' : ''}
+                    key={item}
+                    onClick={() => setActiveItem(item)}
+                    title={item}
+                    type="button"
+                  >
+                    {Icon ? <Icon size={20} /> : item.slice(0, 2).toUpperCase()}
+                  </button>
+                );
+              })
+            )}
+          </nav>
+
           <div className="side-menu-content" aria-hidden={!isMenuOpen}>
             <div className="side-menu-header">
               <p className="eyebrow">Menu</p>
@@ -700,20 +758,24 @@ export default function HomePage() {
               {visibleMenuGroups.map((group) => (
                 <div className="menu-group" key={group.title}>
                   <p>{group.title}</p>
-                  {group.items.map((item) => (
-                    <button
-                      className={item === activeItem ? 'active' : ''}
-                      key={item}
-                      onClick={() => {
-                        setActiveItem(item);
-                        setIsMenuOpen(false);
-                      }}
-                      tabIndex={isMenuOpen ? 0 : -1}
-                      type="button"
-                    >
-                      {item}
-                    </button>
-                  ))}
+                  {group.items.map((item) => {
+                    const Icon = menuItemIcons[item];
+                    return (
+                      <button
+                        className={item === activeItem ? 'active' : ''}
+                        key={item}
+                        onClick={() => {
+                          setActiveItem(item);
+                          setIsMenuOpen(false);
+                        }}
+                        tabIndex={isMenuOpen ? 0 : -1}
+                        type="button"
+                      >
+                        {Icon && <Icon size={16} />}
+                        {item}
+                      </button>
+                    );
+                  })}
                 </div>
               ))}
             </nav>

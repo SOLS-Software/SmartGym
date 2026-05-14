@@ -2,6 +2,7 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { Plus, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, GridPagination, formatCpf, formatDateDisplay, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { Employee, Exercise, Student, StudentTraining, Training, TrainingExercise, TrainingMethod } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
@@ -47,6 +48,7 @@ export function StudentTrainingAssembly({
   const [studentTrainingFeedback, setStudentTrainingFeedback] = useState('');
   const studentTrainingsAbortRef = useRef<AbortController | null>(null);
   const selectedExercisesAbortRef = useRef<AbortController | null>(null);
+  const trainingSearchInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedStudent = students.find((student) => student.id === selectedStudentId) ?? null;
   const isStudentTrainingFormEnabled = Boolean(selectedStudentId) && isCreatingStudentTraining;
@@ -404,6 +406,7 @@ export function StudentTrainingAssembly({
     setIsStudentTrainingActive(true);
     setShouldCreateSequence(true);
     setStudentTrainingFeedback(loggedEmployeeId ? '' : 'Entre como profissional para montar treino.');
+    setTimeout(() => trainingSearchInputRef.current?.focus(), 0);
   }
 
   function handleSelectStudentTraining(studentTraining: StudentTraining) {
@@ -823,6 +826,7 @@ export function StudentTrainingAssembly({
                     onClick={handleNewStudentTraining}
                     type="button"
                   >
+                    <Plus size={16} />
                     Novo
                   </button>
                   <button
@@ -847,6 +851,7 @@ export function StudentTrainingAssembly({
                         Cancelar
                       </button>
                       <button className="new-button" onClick={handleSaveSequenceOrder} type="button">
+                        <Save size={16} />
                         Salvar ordem
                       </button>
                     </>
@@ -1064,6 +1069,7 @@ export function StudentTrainingAssembly({
                   disabled={!isStudentTrainingFormEnabled}
                   onChange={(event) => setTrainingOptionSearchTerm(event.target.value)}
                   placeholder="Pesquisar treino"
+                  ref={trainingSearchInputRef}
                   type="search"
                   value={trainingOptionSearchTerm}
                 />
@@ -1131,6 +1137,7 @@ export function StudentTrainingAssembly({
                   Limpar
                 </button>
                 <button disabled={!isSaveEnabled} type="submit">
+                  <Save size={16} />
                   Salvar
                 </button>
               </div>

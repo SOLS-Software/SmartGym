@@ -207,7 +207,7 @@ export type CompanyChildField = {
 export type CompanyChildColumn = {
   key: string;
   label: string;
-  type?: 'date' | 'money' | 'status';
+  type?: 'date' | 'datetime' | 'money' | 'status';
   lookupLabelKey?: string;
 };
 

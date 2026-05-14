@@ -2,7 +2,9 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { Save } from 'lucide-react';
+import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Company, CompanyChildColumn, CompanyChildField, CompanyChildRecord, CompanyValidationErrors, CompanyValidationField, LookupRecord } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { companyChildTables } from './companyChildTables';
@@ -11,6 +13,8 @@ import { formatCnpj, getSelectedRecord, isValidCnpj } from './companyUtils';
 
 export function CompanyRegistration() {
   const companyFileInputRef = useRef<HTMLInputElement>(null);
+  const companyNameInputRef = useRef<HTMLInputElement | null>(null);
+  const companyChildFormRef = useRef<HTMLDivElement | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companiesPage, setCompaniesPage] = useState(1);
   const [isLoadingCompanies, setIsLoadingCompanies] = useState(false);
@@ -60,6 +64,10 @@ export function CompanyRegistration() {
       : false,
   );
   const filteredCompanies = companies.filter((company) => {
+    if (selectedChildTable && selectedCompanyId !== null) {
+      return company.id === selectedCompanyId;
+    }
+
     const search = searchTerm.toLowerCase();
 
     return (
@@ -97,7 +105,7 @@ export function CompanyRegistration() {
 
   useEffect(() => {
     setCompaniesPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, selectedCompanyId]);
 
   useEffect(() => {
     if (companiesPage > companiesTotalPages) {
@@ -257,6 +265,7 @@ export function CompanyRegistration() {
     setChildFeedback('');
     setIsCompanyFieldsCollapsed(true);
     setIsChildFieldsCollapsed(false);
+    setTimeout(() => { companyChildFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
   }
 
   function handleSelectChild(record: CompanyChildRecord) {
@@ -514,9 +523,15 @@ export function CompanyRegistration() {
     setTouchedCompanyFields({});
     setIsCompanyFieldsCollapsed(false);
     setIsChildFieldsCollapsed(true);
+    setTimeout(() => companyNameInputRef.current?.focus(), 0);
   }
 
   function handleSelectCompany(company: Company) {
+    if (company.id === selectedCompanyId) {
+      clearForm();
+      return;
+    }
+
     setSelectedCompanyId(company.id);
     setIsCreating(false);
     setCompanyName(company.dsEmpresa);
@@ -667,67 +682,25 @@ export function CompanyRegistration() {
 
       <div className="registration-split-layout plan-split-layout">
         <section className="data-grid-section company-grid-section">
-          <div className="grid-toolbar">
-            <div className="child-grid-toolbar-label">
-              <p className="section-label">Empresas</p>
-            </div>
-            <div className="child-grid-toolbar-actions">
-              <label className="search-field">
-                <span>Pesquisar</span>
-                <input
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Buscar empresa"
-                  type="search"
-                  value={searchTerm}
-                />
-              </label>
-              <button className="new-button" onClick={handleNewCompany} type="button">
-                Nova empresa
-              </button>
-            </div>
-          </div>
-
-          <div className="product-table" key={`companies-${searchTerm}-${companiesPage}`} role="table" aria-label="Empresas cadastradas">
-            <div className="product-row company-grid header" role="row">
-              <span role="columnheader">Empresa</span>
-              <span role="columnheader">CNPJ</span>
-              <span role="columnheader">Status</span>
-            </div>
-
-            {isLoadingCompanies ? (
-              <div className="empty-row">Carregando empresas...</div>
-            ) : null}
-
-            {!isLoadingCompanies ? paginatedCompanies.map((company) => (
-              <button
-                className={`product-row company-grid selectable ${company.id === selectedCompanyId ? 'selected' : ''
-                  }`}
-                key={company.id}
-                onClick={() => handleSelectCompany(company)}
-                role="row"
-                type="button"
-              >
-                <span role="cell">{company.dsEmpresa}</span>
-                <span role="cell">{formatCnpj(company.caCNPJ)}</span>
-                <span role="cell">
-                  <span
-                    className={`status-badge ${company.boInativo === 0 ? 'active' : 'inactive'
-                      }`}
-                  >
-                    {company.boInativo === 0 ? 'Ativo' : 'Inativo'}
-                  </span>
-                </span>
-              </button>
-            )) : null}
-
-            {!isLoadingCompanies && filteredCompanies.length === 0 ? (
-              <div className="empty-row">Nenhuma empresa encontrada.</div>
-            ) : null}
-          </div>
-          <GridPagination
-            onChange={setCompaniesPage}
+          <RegistrationGrid<Company>
+            ariaLabel="Empresas cadastradas"
+            label="Empresas"
+            columns={[
+              { label: 'Empresa', render: (c) => c.dsEmpresa },
+              { label: 'CNPJ', render: (c) => formatCnpj(c.caCNPJ) },
+              { label: 'Status', render: (c) => <span className={`status-badge ${c.boInativo === 0 ? 'active' : 'inactive'}`}>{c.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+            ]}
+            records={paginatedCompanies}
+            isLoading={isLoadingCompanies}
+            selectedId={selectedCompanyId}
+            onSelect={handleSelectCompany}
+            searchTerm={searchTerm}
+            onSearch={setSearchTerm}
+            searchPlaceholder="Buscar empresa"
+            onNew={handleNewCompany}
             page={companiesPage}
             totalItems={filteredCompanies.length}
+            onPageChange={setCompaniesPage}
           />
 
           <section className="company-child-grid-section">
@@ -738,87 +711,23 @@ export function CompanyRegistration() {
                 Selecione uma empresa para visualizar os registros filhos.
               </div>
             ) : (
-              <>
-                <div className="grid-toolbar">
-                  <div className="child-grid-toolbar-label">
-                    <p className="section-label">{childTableConfig.label}</p>
-                  </div>
-                  <div className="child-grid-toolbar-actions">
-                    <label className="search-field">
-                      <span>Pesquisar</span>
-                      <input
-                        onChange={(event) => setChildSearchTerm(event.target.value)}
-                        placeholder="Buscar registro"
-                        type="search"
-                        value={childSearchTerm}
-                      />
-                    </label>
-                    <button
-                      className="new-button"
-                      disabled={!selectedCompanyId}
-                      onClick={handleNewChild}
-                      type="button"
-                    >
-                      Novo
-                    </button>
-                  </div>
-                </div>
-
-                <div
-                  className="product-table company-child-grid-table"
-                  key={`company-child-${childTableConfig.key}-${childSearchTerm}-${selectedCompanyId}`}
-                  role="table"
-                  aria-label={childTableConfig.title}
-                >
-                  <div
-                    className="product-row company-child-grid-row header"
-                    role="row"
-                    style={{
-                      gridTemplateColumns: `repeat(${childTableConfig.columns.length}, minmax(0, 1fr))`,
-                    }}
-                  >
-                    {childTableConfig.columns.map((column) => (
-                      <span key={column.key} role="columnheader">
-                        {column.label}
-                      </span>
-                    ))}
-                  </div>
-
-                  {isLoadingChildRecords ? (
-                    <div className="empty-row">Carregando {childTableConfig.label.toLowerCase()}...</div>
-                  ) : null}
-
-                  {!isLoadingChildRecords ? filteredChildRecords.map((record) => (
-                    <button
-                      className={`product-row company-child-grid-row selectable ${record.id === selectedChildRecordId ? 'selected' : ''
-                        }`}
-                      key={record.id}
-                      onClick={() => handleSelectChild(record)}
-                      role="row"
-                      style={{
-                        gridTemplateColumns: `repeat(${childTableConfig.columns.length}, minmax(0, 1fr))`,
-                      }}
-                      type="button"
-                    >
-                      {childTableConfig.columns.map((column) => (
-                        <span key={column.key} role="cell">
-                          {formatChildCell(
-                            record,
-                            column,
-                            childLookups[column.key],
-                          )}
-                        </span>
-                      ))}
-                    </button>
-                  )) : null}
-
-                  {!isLoadingChildRecords && filteredChildRecords.length === 0 ? (
-                    <div className="empty-row">
-                      Nenhum registro de {childTableConfig.label.toLowerCase()} encontrado.
-                    </div>
-                  ) : null}
-                </div>
-              </>
+              <RegistrationGrid<CompanyChildRecord>
+                ariaLabel={childTableConfig.title}
+                label={childTableConfig.label}
+                columns={childTableConfig.columns.map((column) => ({
+                  label: column.label,
+                  render: (record) => formatChildCell(record, column, childLookups[column.key]),
+                }))}
+                records={filteredChildRecords}
+                isLoading={isLoadingChildRecords}
+                selectedId={selectedChildRecordId}
+                onSelect={handleSelectChild}
+                searchTerm={childSearchTerm}
+                onSearch={setChildSearchTerm}
+                onNew={handleNewChild}
+                newDisabled={!selectedCompanyId}
+                variant="child"
+              />
             )}
           </section>
         </section>
@@ -873,6 +782,7 @@ export function CompanyRegistration() {
                       }
                     }}
                     placeholder="Ex.: Academia Cliente"
+                    ref={companyNameInputRef}
                     required
                     type="text"
                     value={companyName}
@@ -938,6 +848,7 @@ export function CompanyRegistration() {
                     Limpar
                   </button>
                   <button disabled={!isFormEnabled} type="submit">
+                    <Save size={16} />
                     Salvar empresa
                   </button>
                 </div>
@@ -1134,7 +1045,7 @@ export function CompanyRegistration() {
                     </>
                   ) : (
                     <>
-                      <div className="company-child-fields">
+                      <div className="company-child-fields" ref={companyChildFormRef}>
                         {childTableConfig.fields.map((field) => (
                           <div className="field" key={field.key}>
                             <label htmlFor={`companyChild-${field.key}`}>
@@ -1210,6 +1121,7 @@ export function CompanyRegistration() {
                           Limpar
                         </button>
                         <button disabled={!isChildFormEnabled} type="submit">
+                          <Save size={16} />
                           Salvar {childTableConfig.label}
                         </button>
                       </div>

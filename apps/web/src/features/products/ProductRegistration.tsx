@@ -2,7 +2,9 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, getLookupLabel, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
+import { Save } from 'lucide-react';
+import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, getLookupLabel, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Company, CompanyChildRecord, CompanyChildTable, LookupRecord, Product } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
@@ -40,6 +42,8 @@ function getProductFileTypeOptions(options: LookupRecord[]) {
 
 export function ProductRegistration() {
   const productFileInputRef = useRef<HTMLInputElement>(null);
+  const productNameInputRef = useRef<HTMLInputElement | null>(null);
+  const productRelatedFormRef = useRef<HTMLDivElement | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [productsPage, setProductsPage] = useState(1);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -77,9 +81,13 @@ export function ProductRegistration() {
       )
       : false,
   );
-  const filteredProducts = products.filter((product) =>
-    product.dsProduto.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const filteredProducts = products.filter((product) => {
+    if (selectedRelatedTable && selectedProductId !== null) {
+      return product.id === selectedProductId;
+    }
+
+    return product.dsProduto.toLowerCase().includes(searchTerm.toLowerCase());
+  });
   const productsTotalPages = Math.max(1, Math.ceil(filteredProducts.length / GRID_PAGE_SIZE));
   const paginatedProducts = paginateItems(filteredProducts, productsPage);
 
@@ -166,7 +174,7 @@ export function ProductRegistration() {
 
   useEffect(() => {
     setProductsPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, selectedProductId]);
 
   useEffect(() => {
     if (productsPage > productsTotalPages) {
@@ -249,9 +257,15 @@ export function ProductRegistration() {
     setIsProductActive(true);
     setIsProductFieldsCollapsed(false);
     setIsRelatedFieldsCollapsed(true);
+    setTimeout(() => productNameInputRef.current?.focus(), 0);
   }
 
   function handleSelectProduct(product: Product) {
+    if (product.id === selectedProductId) {
+      clearForm();
+      return;
+    }
+
     setSelectedProductId(product.id);
     setIsCreating(false);
     setSelectedCompanyId(product.idEmpresa ? String(product.idEmpresa) : '');
@@ -285,6 +299,7 @@ export function ProductRegistration() {
     setRelatedFeedback('');
     setIsProductFieldsCollapsed(true);
     setIsRelatedFieldsCollapsed(false);
+    setTimeout(() => { productRelatedFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
   }
 
   function handleSelectRelatedRecord(record: CompanyChildRecord) {
@@ -559,130 +574,48 @@ export function ProductRegistration() {
 
       <div className="registration-split-layout plan-split-layout">
         <section className="data-grid-section company-grid-section">
-          <div className="grid-toolbar">
-            <div className="child-grid-toolbar-label">
-              <p className="section-label">Produtos</p>
-            </div>
-            <div className="child-grid-toolbar-actions">
-              <label className="search-field">
-                <span>Pesquisar</span>
-                <input
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Buscar produto"
-                  type="search"
-                  value={searchTerm}
-                />
-              </label>
-              <button className="new-button" onClick={handleNewProduct} type="button">
-                Novo
-              </button>
-            </div>
-          </div>
-
-          <div className="product-table" key={`products-${searchTerm}-${productsPage}`} role="table" aria-label="Produtos cadastrados">
-            <div className="product-row header" role="row">
-              <span role="columnheader">Produto</span>
-              <span role="columnheader">Estoque</span>
-              <span role="columnheader">Status</span>
-            </div>
-
-            {paginatedProducts.map((product) => (
-              <button
-                className={`product-row selectable ${product.id === selectedProductId ? 'selected' : ''}`}
-                key={product.id}
-                onClick={() => handleSelectProduct(product)}
-                role="row"
-                type="button"
-              >
-                <span role="cell">{product.dsProduto}</span>
-                <span role="cell">{product.qtEstoque}</span>
-                <span role="cell">
-                  <span className={`status-badge ${product.boInativo === 0 ? 'active' : 'inactive'}`}>
-                    {product.boInativo === 0 ? 'Ativo' : 'Inativo'}
-                  </span>
-                </span>
-              </button>
-            ))}
-
-            {filteredProducts.length === 0 ? (
-              <div className="empty-row">Nenhum produto encontrado.</div>
-            ) : null}
-          </div>
-
-          <GridPagination onChange={setProductsPage} page={productsPage} totalItems={filteredProducts.length} />
+          <RegistrationGrid<Product>
+            ariaLabel="Produtos cadastrados"
+            label="Produtos"
+            columns={[
+              { label: 'Produto', render: (p) => p.dsProduto },
+              { label: 'Estoque', render: (p) => p.qtEstoque },
+              { label: 'Status', render: (p) => <span className={`status-badge ${p.boInativo === 0 ? 'active' : 'inactive'}`}>{p.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+            ]}
+            records={paginatedProducts}
+            selectedId={selectedProductId}
+            onSelect={handleSelectProduct}
+            searchTerm={searchTerm}
+            onSearch={setSearchTerm}
+            searchPlaceholder="Buscar produto"
+            onNew={handleNewProduct}
+            page={productsPage}
+            totalItems={filteredProducts.length}
+            onPageChange={setProductsPage}
+          />
 
           {relatedConfig ? (
             <section className="company-child-grid-section">
               {!selectedProductId ? (
                 <div className="form-hint">Selecione um produto para visualizar os registros relacionados.</div>
               ) : (
-                <>
-                  <div className="grid-toolbar">
-                    <div className="child-grid-toolbar-label">
-                      <p className="section-label">{relatedConfig.label}</p>
-                    </div>
-                    <div className="child-grid-toolbar-actions">
-                      <label className="search-field">
-                        <span>Pesquisar</span>
-                        <input
-                          onChange={(event) => setRelatedSearchTerm(event.target.value)}
-                          placeholder="Buscar registro"
-                          type="search"
-                          value={relatedSearchTerm}
-                        />
-                      </label>
-                      <button className="new-button" disabled={!selectedProductId} onClick={handleNewRelated} type="button">
-                        Novo
-                      </button>
-                    </div>
-                  </div>
-
-                  <div
-                    className="product-table company-child-grid-table"
-                    key={`product-related-${relatedConfig.key}-${relatedSearchTerm}-${selectedProductId}`}
-                    role="table"
-                    aria-label={relatedConfig.title}
-                  >
-                    <div
-                      className="product-row company-child-grid-row header"
-                      role="row"
-                      style={{ gridTemplateColumns: `repeat(${relatedConfig.columns.length}, minmax(0, 1fr))` }}
-                    >
-                      {relatedConfig.columns.map((column) => (
-                        <span key={column.key} role="columnheader">
-                          {column.label}
-                        </span>
-                      ))}
-                    </div>
-
-                    {isLoadingRelatedRecords ? (
-                      <div className="empty-row">Carregando {relatedConfig.label.toLowerCase()}...</div>
-                    ) : null}
-
-                    {!isLoadingRelatedRecords
-                      ? filteredRelatedRecords.map((record) => (
-                        <button
-                          className={`product-row company-child-grid-row selectable ${record.id === selectedRelatedRecordId ? 'selected' : ''}`}
-                          key={record.id}
-                          onClick={() => handleSelectRelatedRecord(record)}
-                          role="row"
-                          style={{ gridTemplateColumns: `repeat(${relatedConfig.columns.length}, minmax(0, 1fr))` }}
-                          type="button"
-                        >
-                          {relatedConfig.columns.map((column) => (
-                            <span key={column.key} role="cell">
-                              {formatChildCell(record, column, relatedLookups[column.key])}
-                            </span>
-                          ))}
-                        </button>
-                      ))
-                      : null}
-
-                    {!isLoadingRelatedRecords && filteredRelatedRecords.length === 0 ? (
-                      <div className="empty-row">Nenhum registro de {relatedConfig.label.toLowerCase()} encontrado.</div>
-                    ) : null}
-                  </div>
-                </>
+                <RegistrationGrid<CompanyChildRecord>
+                  ariaLabel={relatedConfig.title}
+                  label={relatedConfig.label}
+                  columns={relatedConfig.columns.map((column) => ({
+                    label: column.label,
+                    render: (record) => formatChildCell(record, column, relatedLookups[column.key]),
+                  }))}
+                  records={filteredRelatedRecords}
+                  isLoading={isLoadingRelatedRecords}
+                  selectedId={selectedRelatedRecordId}
+                  onSelect={handleSelectRelatedRecord}
+                  searchTerm={relatedSearchTerm}
+                  onSearch={setRelatedSearchTerm}
+                  onNew={handleNewRelated}
+                  newDisabled={!selectedProductId}
+                  variant="child"
+                />
               )}
             </section>
           ) : null}
@@ -742,6 +675,7 @@ export function ProductRegistration() {
                     name="dsProduto"
                     onChange={(event) => setProductName(event.target.value)}
                     placeholder="Ex.: Whey Protein 900g"
+                    ref={productNameInputRef}
                     type="text"
                     value={productName}
                   />
@@ -782,6 +716,7 @@ export function ProductRegistration() {
                     Limpar
                   </button>
                   <button disabled={!isFormEnabled} type="submit">
+                    <Save size={16} />
                     Salvar produto
                   </button>
                 </div>
@@ -900,7 +835,7 @@ export function ProductRegistration() {
                         <div className="form-hint">Selecione um registro relacionado acima ou clique em Novo.</div>
                       ) : null}
 
-                      <div className="company-child-fields">
+                      <div className="company-child-fields" ref={productRelatedFormRef}>
                         {relatedConfig.fields.map((field) => (
                           <div className="field" key={field.key}>
                             <label htmlFor={`productRelated-${field.key}`}>
@@ -959,6 +894,7 @@ export function ProductRegistration() {
                           Limpar
                         </button>
                         <button disabled={!isRelatedFormEnabled} type="submit">
+                          <Save size={16} />
                           Salvar {relatedConfig.label}
                         </button>
                       </div>

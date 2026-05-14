@@ -1,16 +1,17 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Plus, Save } from 'lucide-react';
 import {
   GRID_PAGE_SIZE,
-  GridPagination,
   formatChildCell,
   formatChildSearchValue,
   formatDateInput,
   getLookupLabel,
   paginateItems,
 } from '../../shared/registration/registrationHelpers';
+import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Activity, Company, CompanyChildRecord, CompanyChildTable, LookupRecord, Sport } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
@@ -53,6 +54,10 @@ const scheduleStudentTab = {
 };
 
 export function ActivityRegistration({ readOnly = false }: ActivityRegistrationProps) {
+  const activityNameInputRef = useRef<HTMLInputElement | null>(null);
+  const activityRelatedFormRef = useRef<HTMLDivElement | null>(null);
+  const activityScheduleEmployeeFormRef = useRef<HTMLDivElement | null>(null);
+  const activityScheduleStudentFormRef = useRef<HTMLDivElement | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [activitiesPage, setActivitiesPage] = useState(1);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -142,6 +147,10 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     );
   });
   const filteredActivities = activities.filter((activity) => {
+    if (selectedRelatedTable && selectedActivityId !== null) {
+      return activity.id === selectedActivityId;
+    }
+
     const search = searchTerm.toLowerCase();
     const company = companies.find((item) => item.id === activity.idEmpresa);
     const sport = sports.find((item) => item.id === activity.idEsporte);
@@ -279,7 +288,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
 
   useEffect(() => {
     setActivitiesPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, selectedActivityId]);
 
   useEffect(() => {
     if (activitiesPage > activitiesTotalPages) {
@@ -398,6 +407,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     setIsRelatedFieldsCollapsed(true);
     setIsScheduleEmployeeFieldsCollapsed(true);
     setIsScheduleStudentFieldsCollapsed(true);
+    setTimeout(() => activityNameInputRef.current?.focus(), 0);
   }
 
   function handleNewRelated() {
@@ -413,6 +423,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     setIsRelatedFieldsCollapsed(false);
     setIsScheduleEmployeeFieldsCollapsed(true);
     setIsScheduleStudentFieldsCollapsed(true);
+    setTimeout(() => { activityRelatedFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
   }
 
   function handleNewScheduleEmployee() {
@@ -425,6 +436,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     setIsRelatedFieldsCollapsed(true);
     setIsScheduleEmployeeFieldsCollapsed(false);
     setIsScheduleStudentFieldsCollapsed(true);
+    setTimeout(() => { activityScheduleEmployeeFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
   }
 
   function handleNewScheduleStudent() {
@@ -437,9 +449,15 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     setIsRelatedFieldsCollapsed(true);
     setIsScheduleEmployeeFieldsCollapsed(true);
     setIsScheduleStudentFieldsCollapsed(false);
+    setTimeout(() => { activityScheduleStudentFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
   }
 
   function handleSelectActivity(activity: Activity) {
+    if (activity.id === selectedActivityId) {
+      clearForm();
+      return;
+    }
+
     setSelectedActivityId(activity.id);
     setIsCreating(false);
     setSelectedCompanyId(activity.idEmpresa ? String(activity.idEmpresa) : '');
@@ -812,63 +830,27 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
 
       <div className="registration-split-layout plan-split-layout">
         <section className="data-grid-section company-grid-section">
-          <div className="grid-toolbar">
-            <div className="child-grid-toolbar-label">
-              <p className="section-label">Atividades</p>
-            </div>
-            <div className="child-grid-toolbar-actions">
-              <label className="search-field">
-                <span>Pesquisar</span>
-                <input
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Buscar atividade"
-                  type="search"
-                  value={searchTerm}
-                />
-              </label>
-              {!readOnly ? (
-                <button className="new-button" onClick={handleNewActivity} type="button">
-                  Novo
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="product-table" key={`activities-${searchTerm}-${activitiesPage}`} role="table" aria-label="Atividades cadastradas">
-            <div className="product-row header" role="row">
-              <span role="columnheader">Atividade</span>
-              <span role="columnheader">Esporte</span>
-              <span role="columnheader">Status</span>
-            </div>
-
-            {isLoadingActivities ? <div className="empty-row">Carregando atividades...</div> : null}
-
-            {!isLoadingActivities
-              ? paginatedActivities.map((activity) => (
-                <button
-                  className={`product-row selectable ${activity.id === selectedActivityId ? 'selected' : ''}`}
-                  key={activity.id}
-                  onClick={() => handleSelectActivity(activity)}
-                  role="row"
-                  type="button"
-                >
-                  <span role="cell">{activity.dsAtividade}</span>
-                  <span role="cell">{getSportLabel(activity.idEsporte)}</span>
-                  <span role="cell">
-                    <span className={`status-badge ${activity.boInativo === 0 ? 'active' : 'inactive'}`}>
-                      {activity.boInativo === 0 ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </span>
-                </button>
-              ))
-              : null}
-
-            {!isLoadingActivities && filteredActivities.length === 0 ? (
-              <div className="empty-row">Nenhuma atividade encontrada.</div>
-            ) : null}
-          </div>
-
-          <GridPagination onChange={setActivitiesPage} page={activitiesPage} totalItems={filteredActivities.length} />
+          <RegistrationGrid<Activity>
+            ariaLabel="Atividades cadastradas"
+            label="Atividades"
+            columns={[
+              { label: 'Atividade', render: (a) => a.dsAtividade },
+              { label: 'Esporte', render: (a) => getSportLabel(a.idEsporte) },
+              { label: 'Status', render: (a) => <span className={`status-badge ${a.boInativo === 0 ? 'active' : 'inactive'}`}>{a.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+            ]}
+            records={paginatedActivities}
+            isLoading={isLoadingActivities}
+            selectedId={selectedActivityId}
+            onSelect={handleSelectActivity}
+            searchTerm={searchTerm}
+            onSearch={setSearchTerm}
+            searchPlaceholder="Buscar atividade"
+            onNew={handleNewActivity}
+            showNewButton={!readOnly}
+            page={activitiesPage}
+            totalItems={filteredActivities.length}
+            onPageChange={setActivitiesPage}
+          />
 
           {visibleRelatedConfig ? (
             <section className="company-child-grid-section">
@@ -877,68 +859,24 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                   Selecione uma atividade para visualizar os registros relacionados.
                 </div>
               ) : (
-                <>
-                  <div className="grid-toolbar">
-                    <div className="child-grid-toolbar-label">
-                      <p className="section-label">{visibleRelatedConfig.label}</p>
-                    </div>
-                    <div className="child-grid-toolbar-actions">
-                      <label className="search-field">
-                        <span>Pesquisar</span>
-                        <input
-                          onChange={(event) => setRelatedSearchTerm(event.target.value)}
-                          placeholder="Buscar registro"
-                          type="search"
-                          value={relatedSearchTerm}
-                        />
-                      </label>
-                      {!readOnly ? (
-                        <button className="new-button" disabled={!selectedActivityId} onClick={handleNewRelated} type="button">
-                          Novo
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="product-table company-child-grid-table" key={`activity-related-${visibleRelatedConfig.key}-${relatedSearchTerm}-${selectedActivityId}`} role="table" aria-label={visibleRelatedConfig.title}>
-                    <div
-                      className="product-row company-child-grid-row header"
-                      role="row"
-                      style={{ gridTemplateColumns: `repeat(${visibleRelatedConfig.columns.length}, minmax(0, 1fr))` }}
-                    >
-                      {visibleRelatedConfig.columns.map((column) => (
-                        <span key={column.key} role="columnheader">
-                          {column.label}
-                        </span>
-                      ))}
-                    </div>
-
-                    {isLoadingRelatedRecords ? <div className="empty-row">Carregando {visibleRelatedConfig.label.toLowerCase()}...</div> : null}
-
-                    {!isLoadingRelatedRecords
-                      ? filteredRelatedRecords.map((record) => (
-                        <button
-                          className={`product-row company-child-grid-row selectable ${record.id === (selectedRelatedRecordId ?? selectedScheduleId) ? 'selected' : ''}`}
-                          key={record.id}
-                          onClick={() => handleSelectRelatedRecord(record)}
-                          role="row"
-                          style={{ gridTemplateColumns: `repeat(${visibleRelatedConfig.columns.length}, minmax(0, 1fr))` }}
-                          type="button"
-                        >
-                          {visibleRelatedConfig.columns.map((column) => (
-                            <span key={column.key} role="cell">
-                              {formatChildCell(record, column, relatedLookups[column.key])}
-                            </span>
-                          ))}
-                        </button>
-                      ))
-                      : null}
-
-                    {!isLoadingRelatedRecords && filteredRelatedRecords.length === 0 ? (
-                      <div className="empty-row">Nenhum registro de {visibleRelatedConfig.label.toLowerCase()} encontrado.</div>
-                    ) : null}
-                  </div>
-                </>
+                <RegistrationGrid<CompanyChildRecord>
+                  ariaLabel={visibleRelatedConfig.title}
+                  label={visibleRelatedConfig.label}
+                  columns={visibleRelatedConfig.columns.map((column) => ({
+                    label: column.label,
+                    render: (record) => formatChildCell(record, column, relatedLookups[column.key]),
+                  }))}
+                  records={filteredRelatedRecords}
+                  isLoading={isLoadingRelatedRecords}
+                  selectedId={selectedRelatedRecordId ?? selectedScheduleId ?? null}
+                  onSelect={handleSelectRelatedRecord}
+                  searchTerm={relatedSearchTerm}
+                  onSearch={setRelatedSearchTerm}
+                  onNew={handleNewRelated}
+                  newDisabled={!selectedActivityId}
+                  showNewButton={!readOnly}
+                  variant="child"
+                />
               )}
             </section>
           ) : null}
@@ -966,6 +904,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                   </label>
                   {!readOnly ? (
                     <button className="new-button" disabled={!selectedScheduleId} onClick={handleNewScheduleEmployee} type="button">
+                      <Plus size={16} />
                       Novo
                     </button>
                   ) : null}
@@ -1037,6 +976,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                   </label>
                   {!readOnly ? (
                     <button className="new-button" disabled={!selectedScheduleId} onClick={handleNewScheduleStudent} type="button">
+                      <Plus size={16} />
                       Novo
                     </button>
                   ) : null}
@@ -1134,6 +1074,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                     id="activityName"
                     maxLength={255}
                     onChange={(event) => setActivityName(event.target.value)}
+                    ref={activityNameInputRef}
                     required
                     type="text"
                     value={activityName}
@@ -1159,6 +1100,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                     Limpar
                   </button>
                   <button disabled={!isFormEnabled} type="submit">
+                    <Save size={16} />
                     Salvar atividade
                   </button>
                 </div>
@@ -1181,7 +1123,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                 <>
                   {relatedFeedback ? <div className="form-feedback">{relatedFeedback}</div> : null}
 
-                  <div className="company-child-fields">
+                  <div className="company-child-fields" ref={activityRelatedFormRef}>
                     {relatedConfig.fields.map((field) => (
                       <div className="field" key={field.key}>
                         <label htmlFor={`activityRelated-${field.key}`}>
@@ -1238,6 +1180,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                       Limpar
                     </button>
                     <button disabled={!isRelatedFormEnabled} type="submit">
+                      <Save size={16} />
                       Salvar {relatedConfig.label}
                     </button>
                   </div>
@@ -1264,7 +1207,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                     <div className="form-hint">Selecione uma agenda na aba Agendas antes de adicionar profissionais.</div>
                   ) : null}
 
-                  <div className="company-child-fields">
+                  <div className="company-child-fields" ref={activityScheduleEmployeeFormRef}>
                     <div className="field">
                       <label htmlFor="scheduleEmployeeCompany">Empresa</label>
                       <select
@@ -1324,6 +1267,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                       Limpar
                     </button>
                     <button disabled={readOnly || (!selectedScheduleEmployeeId && !isCreatingScheduleEmployee)} type="submit">
+                      <Save size={16} />
                       Salvar profissionais
                     </button>
                   </div>
@@ -1350,7 +1294,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                     <div className="form-hint">Selecione uma agenda na aba Agendas antes de adicionar alunos.</div>
                   ) : null}
 
-                  <div className="company-child-fields">
+                  <div className="company-child-fields" ref={activityScheduleStudentFormRef}>
                     <div className="field">
                       <label htmlFor="scheduleStudentCompany">Empresa</label>
                       <select
@@ -1410,6 +1354,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                       Limpar
                     </button>
                     <button disabled={readOnly || (!selectedScheduleStudentId && !isCreatingScheduleStudent)} type="submit">
+                      <Save size={16} />
                       Salvar alunos
                     </button>
                   </div>

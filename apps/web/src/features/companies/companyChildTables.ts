@@ -184,7 +184,7 @@ export const companyChildTables: [CompanyChildTable, ...CompanyChildTable[]] = [
     columns: [
       { key: 'idAlunoPlano', label: 'Plano do aluno', lookupLabelKey: 'plano.dsPlano' },
       { key: 'idPontos', label: 'Pontos', lookupLabelKey: 'dsPontos' },
-      { key: 'dtCadastro', label: 'Cadastro', type: 'date' },
+      { key: 'dtCadastro', label: 'Cadastro', type: 'datetime' },
       { key: 'boInativo', label: 'Status', type: 'status' },
     ],
     fields: [

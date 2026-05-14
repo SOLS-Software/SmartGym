@@ -242,7 +242,7 @@ export function StudentActivitiesView({ studentId, studentName }: StudentActivit
           <strong>{selectedScheduleIds.length} selecionada(s)</strong>
         </div>
         <button
-          className="primary-button"
+          className="new-button"
           disabled={isSubmitting || selectedScheduleIds.length === 0}
           onClick={handleEnroll}
           type="button"

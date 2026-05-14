@@ -1,8 +1,10 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useEffect, useState } from 'react';
-import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, getLookupLabel, paginateItems } from '../../shared/registration/registrationHelpers';
+import { useEffect, useRef, useState } from 'react';
+import { Save } from 'lucide-react';
+import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, getLookupLabel, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Company, CompanyChildField, CompanyChildRecord, CompanyChildTable, Level, LookupRecord, Training } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
@@ -36,6 +38,8 @@ type TrainingRegistrationProps = {
 };
 
 export function TrainingRegistration({ readOnly = false }: TrainingRegistrationProps) {
+  const trainingNameInputRef = useRef<HTMLInputElement | null>(null);
+  const trainingRelatedFormRef = useRef<HTMLDivElement | null>(null);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [trainingsPage, setTrainingsPage] = useState(1);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -79,6 +83,10 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
       : false,
   );
   const filteredTrainings = trainings.filter((training) => {
+    if (selectedTrainingRelatedTable && selectedTrainingId !== null) {
+      return training.id === selectedTrainingId;
+    }
+
     const search = searchTerm.toLowerCase();
     const company = companies.find((item) => item.id === training.idEmpresa);
     const level = levels.find((item) => item.id === training.idNivel);
@@ -169,7 +177,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
 
   useEffect(() => {
     setTrainingsPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, selectedTrainingId]);
 
   useEffect(() => {
     if (trainingsPage > trainingsTotalPages) {
@@ -246,9 +254,15 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     setIsTrainingActive(true);
     setIsTrainingFieldsCollapsed(false);
     setIsTrainingRelatedFieldsCollapsed(true);
+    setTimeout(() => trainingNameInputRef.current?.focus(), 0);
   }
 
   function handleSelectTraining(training: Training) {
+    if (training.id === selectedTrainingId) {
+      clearForm();
+      return;
+    }
+
     setSelectedTrainingId(training.id);
     setIsCreating(false);
     setSelectedCompanyId(training.idEmpresa ? String(training.idEmpresa) : '');
@@ -292,6 +306,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     setTrainingRelatedFeedback('');
     setIsTrainingFieldsCollapsed(true);
     setIsTrainingRelatedFieldsCollapsed(false);
+    setTimeout(() => { trainingRelatedFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
   }
 
   function handleSelectTrainingRelatedRecord(record: CompanyChildRecord) {
@@ -507,66 +522,26 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
 
       <div className="registration-split-layout plan-split-layout">
         <section className="data-grid-section company-grid-section">
-          <div className="grid-toolbar">
-            <div className="child-grid-toolbar-label">
-              <p className="section-label">Treinos</p>
-            </div>
-            <div className="child-grid-toolbar-actions">
-              <label className="search-field">
-                <span>Pesquisar</span>
-                <input
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Buscar treino"
-                  type="search"
-                  value={searchTerm}
-                />
-              </label>
-              {!readOnly ? (
-                <button className="new-button" onClick={handleNewTraining} type="button">
-                  Novo
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="product-table" key={`trainings-${searchTerm}-${trainingsPage}`} role="table" aria-label="Treinos cadastrados">
-            <div className="product-row header" role="row">
-              <span role="columnheader">Treino</span>
-              <span role="columnheader">Nível</span>
-              <span role="columnheader">Status</span>
-            </div>
-
-            {isLoadingTrainings ? <div className="empty-row">Carregando treinos...</div> : null}
-
-            {!isLoadingTrainings
-              ? paginatedTrainings.map((training) => (
-                <button
-                  className={`product-row selectable ${training.id === selectedTrainingId ? 'selected' : ''}`}
-                  key={training.id}
-                  onClick={() => handleSelectTraining(training)}
-                  role="row"
-                  type="button"
-                >
-                  <span role="cell">{training.dsTreino}</span>
-                  <span role="cell">{getLevelLabel(training.idNivel)}</span>
-                  <span role="cell">
-                    <span className={`status-badge ${training.boInativo === 0 ? 'active' : 'inactive'}`}>
-                      {training.boInativo === 0 ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </span>
-                </button>
-              ))
-              : null}
-
-            {!isLoadingTrainings && filteredTrainings.length === 0 ? (
-              <div className="empty-row">Nenhum treino encontrado.</div>
-            ) : null}
-          </div>
-
-          <GridPagination
-            onChange={setTrainingsPage}
+          <RegistrationGrid<Training>
+            ariaLabel="Treinos cadastrados"
+            label="Treinos"
+            columns={[
+              { label: 'Treino', render: (t) => t.dsTreino },
+              { label: 'Nível', render: (t) => getLevelLabel(t.idNivel) },
+              { label: 'Status', render: (t) => <span className={`status-badge ${t.boInativo === 0 ? 'active' : 'inactive'}`}>{t.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+            ]}
+            records={paginatedTrainings}
+            isLoading={isLoadingTrainings}
+            selectedId={selectedTrainingId}
+            onSelect={handleSelectTraining}
+            searchTerm={searchTerm}
+            onSearch={setSearchTerm}
+            searchPlaceholder="Buscar treino"
+            onNew={handleNewTraining}
+            showNewButton={!readOnly}
             page={trainingsPage}
             totalItems={filteredTrainings.length}
+            onPageChange={setTrainingsPage}
           />
 
           {trainingRelatedConfig ? (
@@ -576,92 +551,24 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                   Selecione um treino para visualizar os registros relacionados.
                 </div>
               ) : (
-                <>
-                  <div className="grid-toolbar">
-                    <div className="child-grid-toolbar-label">
-                      <p className="section-label">{trainingRelatedConfig.label}</p>
-                    </div>
-                    <div className="child-grid-toolbar-actions">
-                      <label className="search-field">
-                        <span>Pesquisar</span>
-                        <input
-                          onChange={(event) => setTrainingRelatedSearchTerm(event.target.value)}
-                          placeholder="Buscar registro"
-                          type="search"
-                          value={trainingRelatedSearchTerm}
-                        />
-                      </label>
-                      {!readOnly ? (
-                      <button
-                        className="new-button"
-                        disabled={!selectedTrainingId}
-                        onClick={handleNewTrainingRelated}
-                        type="button"
-                      >
-                        Novo
-                      </button>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div
-                    className="product-table company-child-grid-table"
-                    key={`training-related-${trainingRelatedConfig.key}-${trainingRelatedSearchTerm}-${selectedTrainingId}`}
-                    role="table"
-                    aria-label={trainingRelatedConfig.title}
-                  >
-                    <div
-                      className="product-row company-child-grid-row header"
-                      role="row"
-                      style={{
-                        gridTemplateColumns: `repeat(${trainingRelatedConfig.columns.length}, minmax(0, 1fr))`,
-                      }}
-                    >
-                      {trainingRelatedConfig.columns.map((column) => (
-                        <span key={column.key} role="columnheader">
-                          {column.label}
-                        </span>
-                      ))}
-                    </div>
-
-                    {isLoadingTrainingRelatedRecords ? (
-                      <div className="empty-row">
-                        Carregando {trainingRelatedConfig.label.toLowerCase()}...
-                      </div>
-                    ) : null}
-
-                    {!isLoadingTrainingRelatedRecords
-                      ? filteredTrainingRelatedRecords.map((record) => (
-                        <button
-                          className={`product-row company-child-grid-row selectable ${record.id === selectedTrainingRelatedRecordId ? 'selected' : ''}`}
-                          key={record.id}
-                          onClick={() => handleSelectTrainingRelatedRecord(record)}
-                          role="row"
-                          style={{
-                            gridTemplateColumns: `repeat(${trainingRelatedConfig.columns.length}, minmax(0, 1fr))`,
-                          }}
-                          type="button"
-                        >
-                          {trainingRelatedConfig.columns.map((column) => (
-                            <span key={column.key} role="cell">
-                              {formatChildCell(
-                                record,
-                                column,
-                                trainingRelatedLookups[column.key],
-                              )}
-                            </span>
-                          ))}
-                        </button>
-                      ))
-                      : null}
-
-                    {!isLoadingTrainingRelatedRecords && filteredTrainingRelatedRecords.length === 0 ? (
-                      <div className="empty-row">
-                        Nenhum registro de {trainingRelatedConfig.label.toLowerCase()} encontrado.
-                      </div>
-                    ) : null}
-                  </div>
-                </>
+                <RegistrationGrid<CompanyChildRecord>
+                  ariaLabel={trainingRelatedConfig.title}
+                  label={trainingRelatedConfig.label}
+                  columns={trainingRelatedConfig.columns.map((column) => ({
+                    label: column.label,
+                    render: (record) => formatChildCell(record, column, trainingRelatedLookups[column.key]),
+                  }))}
+                  records={filteredTrainingRelatedRecords}
+                  isLoading={isLoadingTrainingRelatedRecords}
+                  selectedId={selectedTrainingRelatedRecordId}
+                  onSelect={handleSelectTrainingRelatedRecord}
+                  searchTerm={trainingRelatedSearchTerm}
+                  onSearch={setTrainingRelatedSearchTerm}
+                  onNew={handleNewTrainingRelated}
+                  newDisabled={!selectedTrainingId}
+                  showNewButton={!readOnly}
+                  variant="child"
+                />
               )}
             </section>
           ) : null}
@@ -704,6 +611,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                   id="trainingName"
                   maxLength={255}
                   onChange={(event) => setTrainingName(event.target.value)}
+                  ref={trainingNameInputRef}
                   required
                   type="text"
                   value={trainingName}
@@ -768,6 +676,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                   Limpar
                 </button>
                 <button disabled={!isFormEnabled} type="submit">
+                  <Save size={16} />
                   Salvar treino
                 </button>
               </div>
@@ -806,7 +715,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                     </div>
                   ) : null}
 
-                  <div className="company-child-fields">
+                  <div className="company-child-fields" ref={trainingRelatedFormRef}>
                     {trainingRelatedConfig.fields.map((field: CompanyChildField) => (
                       <div className="field" key={field.key}>
                         <label htmlFor={`trainingRelated-${field.key}`}>
@@ -876,6 +785,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                       Limpar
                     </button>
                     <button disabled={!isTrainingRelatedFormEnabled} type="submit">
+                      <Save size={16} />
                       Salvar {trainingRelatedConfig.label}
                     </button>
                   </div>

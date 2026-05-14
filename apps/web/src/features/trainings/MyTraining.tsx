@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { formatDateDisplay } from '../../shared/registration/registrationHelpers';
+import { formatDateDisplay, formatDateTimeDisplay } from '../../shared/registration/registrationHelpers';
 import type { Exercise, StudentTraining, TrainingExercise, TrainingMethod } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, getApiError } from '../../shared/api/apiFetch';
 
@@ -25,18 +25,6 @@ type StudentCheckIn = {
     } | null;
 };
 
-function formatDateTimeDisplay(value: string | null) {
-    if (!value) return '-';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return formatDateDisplay(value);
-    return date.toLocaleString('pt-BR', {
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-    });
-}
 
 export function MyTraining({ studentId, studentName }: MyTrainingProps) {
     const [studentTrainings, setStudentTrainings] = useState<StudentTraining[]>([]);

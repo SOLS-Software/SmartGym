@@ -85,13 +85,9 @@ function formatTime(value: Date) {
 }
 
 function formatDateTime(value: Date) {
-  return value.toLocaleString('pt-BR', {
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  const datePart = value.toLocaleDateString('pt-BR');
+  const timePart = value.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return `${datePart} ${timePart}`;
 }
 
 function parseEventDate(value: string | null) {

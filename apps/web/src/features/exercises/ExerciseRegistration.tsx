@@ -2,6 +2,7 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { Plus, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, GridPagination, formatDateInput, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { Company, Exercise, ExerciseFile } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
@@ -12,6 +13,7 @@ type ExerciseRegistrationProps = {
 
 export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const exerciseNameInputRef = useRef<HTMLInputElement | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [exercisesPage, setExercisesPage] = useState(1);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -131,6 +133,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
     clearForm();
     setIsCreating(true);
     setIsExerciseActive(true);
+    setTimeout(() => exerciseNameInputRef.current?.focus(), 0);
   }
 
   function handleSelectExercise(exercise: Exercise) {
@@ -297,6 +300,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
             </label>
             {!readOnly ? (
               <button className="new-button" onClick={handleNewExercise} type="button">
+                <Plus size={16} />
                 Novo exercício
               </button>
             ) : null}
@@ -366,6 +370,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
               maxLength={255}
               onChange={(event) => setExerciseName(event.target.value)}
               placeholder="Ex.: Supino reto"
+              ref={exerciseNameInputRef}
               type="text"
               value={exerciseName}
             />
@@ -390,6 +395,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
               Limpar
             </button>
             <button disabled={!isFormEnabled} type="submit">
+              <Save size={16} />
               Salvar exercício
             </button>
           </div>

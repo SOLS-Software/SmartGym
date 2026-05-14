@@ -2,9 +2,9 @@
 
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { Save } from 'lucide-react';
 import {
   GRID_PAGE_SIZE,
-  GridPagination,
   formatChildCell,
   formatChildSearchValue,
   formatDateInput,
@@ -12,6 +12,7 @@ import {
   isImageFile,
   paginateItems,
 } from '../../shared/registration/registrationHelpers';
+import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type {
   Company,
   CompanyChildRecord,
@@ -78,6 +79,8 @@ const promotionRelatedTables: CompanyChildTable[] = [
 
 export function PromotionRegistration() {
   const promotionFileInputRef = useRef<HTMLInputElement | null>(null);
+  const promotionNameInputRef = useRef<HTMLInputElement | null>(null);
+  const promotionRelatedFormRef = useRef<HTMLDivElement | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [timeUnits, setTimeUnits] = useState<LookupRecord[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -125,6 +128,10 @@ export function PromotionRegistration() {
       : false,
   );
   const filteredPromotions = promotions.filter((promotion) => {
+    if (selectedRelatedTable && selectedPromotionId !== null) {
+      return promotion.id === selectedPromotionId;
+    }
+
     const search = searchTerm.toLowerCase();
     const company = companies.find((item) => item.id === promotion.idEmpresa);
 
@@ -234,7 +241,7 @@ export function PromotionRegistration() {
 
   useEffect(() => {
     setPromotionsPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, selectedPromotionId]);
 
   useEffect(() => {
     if (promotionsPage > promotionsTotalPages) {
@@ -311,6 +318,7 @@ export function PromotionRegistration() {
     setStartDate(new Date().toISOString().slice(0, 10));
     setIsPromotionFieldsCollapsed(false);
     setIsRelatedFieldsCollapsed(true);
+    setTimeout(() => promotionNameInputRef.current?.focus(), 0);
   }
 
   function handleNewRelated() {
@@ -324,9 +332,15 @@ export function PromotionRegistration() {
     if (promotionFileInputRef.current) {
       promotionFileInputRef.current.value = '';
     }
+    setTimeout(() => { promotionRelatedFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
   }
 
   function handleSelectPromotion(promotion: Promotion) {
+    if (promotion.id === selectedPromotionId) {
+      clearForm();
+      return;
+    }
+
     setSelectedPromotionId(promotion.id);
     setIsCreating(false);
     setPromotionCompanyId(promotion.idEmpresa ? String(promotion.idEmpresa) : '');
@@ -615,61 +629,26 @@ export function PromotionRegistration() {
 
       <div className="registration-split-layout plan-split-layout">
         <section className="data-grid-section company-grid-section">
-          <div className="grid-toolbar">
-            <div className="child-grid-toolbar-label">
-              <p className="section-label">Promoções</p>
-            </div>
-            <div className="child-grid-toolbar-actions">
-              <label className="search-field">
-                <span>Pesquisar</span>
-                <input
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Buscar promoção"
-                  type="search"
-                  value={searchTerm}
-                />
-              </label>
-              <button className="new-button" onClick={handleNewPromotion} type="button">
-                Novo
-              </button>
-            </div>
-          </div>
-
-          <div className="product-table" key={`promotions-${searchTerm}-${promotionsPage}-${selectedCompanyId}`} role="table" aria-label="Promoções cadastradas">
-            <div className="product-row header" role="row">
-              <span role="columnheader">Promoção</span>
-              <span role="columnheader">Empresa</span>
-              <span role="columnheader">Status</span>
-            </div>
-
-            {isLoadingPromotions ? <div className="empty-row">Carregando promoções...</div> : null}
-
-            {!isLoadingPromotions
-              ? paginatedPromotions.map((promotion) => (
-                <button
-                  className={`product-row selectable ${promotion.id === selectedPromotionId ? 'selected' : ''}`}
-                  key={promotion.id}
-                  onClick={() => handleSelectPromotion(promotion)}
-                  role="row"
-                  type="button"
-                >
-                  <span role="cell">{promotion.dsPromocao}</span>
-                  <span role="cell">{getCompanyLabel(promotion.idEmpresa)}</span>
-                  <span role="cell">
-                    <span className={`status-badge ${promotion.boInativo === 0 ? 'active' : 'inactive'}`}>
-                      {promotion.boInativo === 0 ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </span>
-                </button>
-              ))
-              : null}
-
-            {!isLoadingPromotions && filteredPromotions.length === 0 ? (
-              <div className="empty-row">Nenhuma promoção encontrada.</div>
-            ) : null}
-          </div>
-
-          <GridPagination onChange={setPromotionsPage} page={promotionsPage} totalItems={filteredPromotions.length} />
+          <RegistrationGrid<Promotion>
+            ariaLabel="Promoções cadastradas"
+            label="Promoções"
+            columns={[
+              { label: 'Promoção', render: (p) => p.dsPromocao },
+              { label: 'Empresa', render: (p) => getCompanyLabel(p.idEmpresa) },
+              { label: 'Status', render: (p) => <span className={`status-badge ${p.boInativo === 0 ? 'active' : 'inactive'}`}>{p.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+            ]}
+            records={paginatedPromotions}
+            isLoading={isLoadingPromotions}
+            selectedId={selectedPromotionId}
+            onSelect={handleSelectPromotion}
+            searchTerm={searchTerm}
+            onSearch={setSearchTerm}
+            searchPlaceholder="Buscar promoção"
+            onNew={handleNewPromotion}
+            page={promotionsPage}
+            totalItems={filteredPromotions.length}
+            onPageChange={setPromotionsPage}
+          />
 
           {relatedConfig ? (
             <section className="company-child-grid-section">
@@ -678,66 +657,23 @@ export function PromotionRegistration() {
                   Selecione uma promoção para visualizar os registros relacionados.
                 </div>
               ) : (
-                <>
-                  <div className="grid-toolbar">
-                    <div className="child-grid-toolbar-label">
-                      <p className="section-label">{relatedConfig.label}</p>
-                    </div>
-                    <div className="child-grid-toolbar-actions">
-                      <label className="search-field">
-                        <span>Pesquisar</span>
-                        <input
-                          onChange={(event) => setRelatedSearchTerm(event.target.value)}
-                          placeholder="Buscar registro"
-                          type="search"
-                          value={relatedSearchTerm}
-                        />
-                      </label>
-                      <button className="new-button" disabled={!selectedPromotionId} onClick={handleNewRelated} type="button">
-                        Novo
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="product-table company-child-grid-table" key={`promotion-related-${relatedConfig.key}-${relatedSearchTerm}-${selectedPromotionId}`} role="table" aria-label={relatedConfig.title}>
-                    <div
-                      className="product-row company-child-grid-row header"
-                      role="row"
-                      style={{ gridTemplateColumns: `repeat(${relatedConfig.columns.length}, minmax(0, 1fr))` }}
-                    >
-                      {relatedConfig.columns.map((column) => (
-                        <span key={column.key} role="columnheader">
-                          {column.label}
-                        </span>
-                      ))}
-                    </div>
-
-                    {isLoadingRelatedRecords ? <div className="empty-row">Carregando {relatedConfig.label.toLowerCase()}...</div> : null}
-
-                    {!isLoadingRelatedRecords
-                      ? filteredRelatedRecords.map((record) => (
-                        <button
-                          className={`product-row company-child-grid-row selectable ${record.id === selectedRelatedRecordId ? 'selected' : ''}`}
-                          key={record.id}
-                          onClick={() => handleSelectRelatedRecord(record)}
-                          role="row"
-                          style={{ gridTemplateColumns: `repeat(${relatedConfig.columns.length}, minmax(0, 1fr))` }}
-                          type="button"
-                        >
-                          {relatedConfig.columns.map((column) => (
-                            <span key={column.key} role="cell">
-                              {formatChildCell(record, column, relatedLookups[column.key])}
-                            </span>
-                          ))}
-                        </button>
-                      ))
-                      : null}
-
-                    {!isLoadingRelatedRecords && filteredRelatedRecords.length === 0 ? (
-                      <div className="empty-row">Nenhum registro de {relatedConfig.label.toLowerCase()} encontrado.</div>
-                    ) : null}
-                  </div>
-                </>
+                <RegistrationGrid<CompanyChildRecord>
+                  ariaLabel={relatedConfig.title}
+                  label={relatedConfig.label}
+                  columns={relatedConfig.columns.map((column) => ({
+                    label: column.label,
+                    render: (record) => formatChildCell(record, column, relatedLookups[column.key]),
+                  }))}
+                  records={filteredRelatedRecords}
+                  isLoading={isLoadingRelatedRecords}
+                  selectedId={selectedRelatedRecordId}
+                  onSelect={handleSelectRelatedRecord}
+                  searchTerm={relatedSearchTerm}
+                  onSearch={setRelatedSearchTerm}
+                  onNew={handleNewRelated}
+                  newDisabled={!selectedPromotionId}
+                  variant="child"
+                />
               )}
             </section>
           ) : null}
@@ -773,7 +709,7 @@ export function PromotionRegistration() {
 
                 <div className="field">
                   <label htmlFor="promotionName">Promoção *</label>
-                  <input disabled={!isFormEnabled} id="promotionName" maxLength={255} onChange={(event) => setPromotionName(event.target.value)} required type="text" value={promotionName} />
+                  <input disabled={!isFormEnabled} id="promotionName" maxLength={255} onChange={(event) => setPromotionName(event.target.value)} ref={promotionNameInputRef} required type="text" value={promotionName} />
                 </div>
 
                 <div className="field two-columns">
@@ -833,6 +769,7 @@ export function PromotionRegistration() {
                     Limpar
                   </button>
                   <button disabled={!isFormEnabled} type="submit">
+                    <Save size={16} />
                     Salvar promoção
                   </button>
                 </div>
@@ -909,7 +846,7 @@ export function PromotionRegistration() {
                       ) : null}
                     </div>
                   ) : (
-                    <div className="company-child-fields">
+                    <div className="company-child-fields" ref={promotionRelatedFormRef}>
                       {relatedConfig.fields.map((field) => (
                         <div className="field" key={field.key}>
                           <label htmlFor={`promotionRelated-${field.key}`}>
@@ -963,6 +900,7 @@ export function PromotionRegistration() {
                     </button>
                     {!isFileTable ? (
                       <button disabled={!isRelatedFormEnabled} type="submit">
+                        <Save size={16} />
                         Salvar {relatedConfig.label}
                       </button>
                     ) : null}

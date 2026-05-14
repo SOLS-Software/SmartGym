@@ -1,7 +1,8 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Plus, Save } from 'lucide-react';
 import {
   GRID_PAGE_SIZE,
   GridPagination,
@@ -52,6 +53,7 @@ const weekDays = [
 const calendarWeekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
 
 export function ActivityScheduleAssembly() {
+  const scheduleStartInputRef = useRef<HTMLInputElement | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [schedules, setSchedules] = useState<ActivitySchedule[]>([]);
   const [scheduleEmployees, setScheduleEmployees] = useState<ScheduleEmployee[]>([]);
@@ -381,6 +383,7 @@ export function ActivityScheduleAssembly() {
     setIsCreatingSchedule(true);
     clearScheduleFields();
     setScheduleFeedback('');
+    setTimeout(() => scheduleStartInputRef.current?.focus(), 0);
   }
 
   function handleSelectSchedule(schedule: ActivitySchedule) {
@@ -695,6 +698,7 @@ export function ActivityScheduleAssembly() {
                   disabled={!isScheduleFormEnabled}
                   id="activityScheduleStart"
                   onChange={(event) => setStartDate(event.target.value)}
+                  ref={scheduleStartInputRef}
                   type="date"
                   value={startDate}
                 />
@@ -833,6 +837,7 @@ export function ActivityScheduleAssembly() {
                 Limpar
               </button>
               <button disabled={!isScheduleFormEnabled} type="submit">
+                <Save size={16} />
                 Salvar montagem
               </button>
             </div>
@@ -913,6 +918,7 @@ export function ActivityScheduleAssembly() {
                     <span>Mostrar inativos</span>
                   </label>
                   <button className="new-button" onClick={handleNewSchedule} type="button">
+                    <Plus size={16} />
                     Novo
                   </button>
                 </div>

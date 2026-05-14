@@ -175,13 +175,16 @@
 }
 
 .form-actions button {
+  align-items: center;
   background: #1f7a53;
   border: 0;
   border-radius: 0.5rem;
   color: #ffffff;
   cursor: pointer;
+  display: flex;
   font: inherit;
   font-weight: 800;
+  gap: 0.5rem;
   min-height: 2.875rem;
   padding: 0 1.125rem;
 }

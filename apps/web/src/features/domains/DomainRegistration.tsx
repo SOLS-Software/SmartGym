@@ -1,7 +1,8 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Plus, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, GridPagination, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { DomainConfigMap, DomainRecord } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
@@ -49,6 +50,7 @@ const domainConfig: DomainConfigMap = {
 };
 
 export function DomainRegistration() {
+  const domainNameInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedDomain, setSelectedDomain] = useState(domainItems[0]);
   const [records, setRecords] = useState<DomainRecord[]>([]);
   const [recordsPage, setRecordsPage] = useState(1);
@@ -177,6 +179,7 @@ export function DomainRegistration() {
     setSelectedRelationId('');
     setIsActive(true);
     setFeedback('');
+    setTimeout(() => domainNameInputRef.current?.focus(), 0);
   }
 
   function handleSelect(record: DomainRecord) {
@@ -349,6 +352,7 @@ export function DomainRegistration() {
                   <h3>Itens cadastrados</h3>
                 </div>
                 <button className="new-button" onClick={handleNew} type="button">
+                  <Plus size={16} />
                   Novo
                 </button>
                 <label className="search-field">
@@ -410,6 +414,7 @@ export function DomainRegistration() {
                 maxLength={255}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Digite aqui"
+                ref={domainNameInputRef}
                 type="text"
                 value={name}
               />
@@ -471,6 +476,7 @@ export function DomainRegistration() {
                 Limpar
               </button>
               <button disabled={!isFormEnabled} type="submit">
+                <Save size={16} />
                 {config.saveLabel}
               </button>
             </div>

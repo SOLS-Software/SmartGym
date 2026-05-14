@@ -2,7 +2,9 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { GRID_PAGE_SIZE, GridPagination, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { Save } from 'lucide-react';
+import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Company, CompanyChildRecord, CompanyChildTable, Employee, LookupRecord, Role } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 type EmployeeValidationField =
@@ -78,6 +80,7 @@ function isValidPastDate(value: string) {
 export function EmployeeRegistration() {
   const employeeFileInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const employeeRelatedFormRef = useRef<HTMLDivElement | null>(null);
   const cpfInputRef = useRef<HTMLInputElement>(null);
   const birthDateInputRef = useRef<HTMLInputElement>(null);
   const admissionDateInputRef = useRef<HTMLInputElement>(null);
@@ -135,6 +138,10 @@ export function EmployeeRegistration() {
       : false,
   );
   const filteredEmployees = employees.filter((employee) => {
+    if (selectedEmployeeRelatedTable && selectedEmployeeId !== null) {
+      return employee.id === selectedEmployeeId;
+    }
+
     const search = searchTerm.toLowerCase();
     const role = roles.find((item) => item.id === employee.idCargo);
     const company = companies.find((item) => item.id === employee.idEmpresa);
@@ -247,7 +254,7 @@ export function EmployeeRegistration() {
 
   useEffect(() => {
     setEmployeesPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, selectedEmployeeId]);
 
   useEffect(() => {
     if (employeesPage > employeesTotalPages) {
@@ -333,9 +340,15 @@ export function EmployeeRegistration() {
     setEmployeeAdmissionDate(new Date().toISOString().slice(0, 10));
     setIsEmployeeFieldsCollapsed(false);
     setIsEmployeeRelatedFieldsCollapsed(true);
+    setTimeout(() => nameInputRef.current?.focus(), 0);
   }
 
   function handleSelectEmployee(employee: Employee) {
+    if (employee.id === selectedEmployeeId) {
+      clearForm();
+      return;
+    }
+
     setSelectedEmployeeId(employee.id);
     setIsCreating(false);
     setSelectedCompanyId(employee.idEmpresa ? String(employee.idEmpresa) : '');
@@ -377,6 +390,7 @@ export function EmployeeRegistration() {
     setEmployeeRelatedFeedback('');
     setIsEmployeeFieldsCollapsed(true);
     setIsEmployeeRelatedFieldsCollapsed(false);
+    setTimeout(() => { employeeRelatedFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
   }
 
   function handleSelectEmployeeRelatedRecord(record: CompanyChildRecord) {
@@ -795,64 +809,25 @@ export function EmployeeRegistration() {
 
       <div className="registration-split-layout plan-split-layout">
         <section className="data-grid-section company-grid-section">
-          <div className="grid-toolbar">
-            <div className="child-grid-toolbar-label">
-              <p className="section-label">Funcionários</p>
-            </div>
-            <div className="child-grid-toolbar-actions">
-              <label className="search-field">
-                <span>Pesquisar</span>
-                <input
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Buscar funcionário"
-                  type="search"
-                  value={searchTerm}
-                />
-              </label>
-              <button className="new-button" onClick={handleNewEmployee} type="button">
-                Novo
-              </button>
-            </div>
-          </div>
-
-          <div className="product-table" key={`employees-${searchTerm}-${employeesPage}`} role="table" aria-label="Funcionários cadastrados">
-            <div className="product-row header" role="row">
-              <span role="columnheader">Funcionário</span>
-              <span role="columnheader">Cargo</span>
-              <span role="columnheader">Status</span>
-            </div>
-
-            {isLoadingEmployees ? <div className="empty-row">Carregando funcionários...</div> : null}
-
-            {!isLoadingEmployees
-              ? paginatedEmployees.map((employee) => (
-                <button
-                  className={`product-row selectable ${employee.id === selectedEmployeeId ? 'selected' : ''}`}
-                  key={employee.id}
-                  onClick={() => handleSelectEmployee(employee)}
-                  role="row"
-                  type="button"
-                >
-                  <span role="cell">{employee.nmFuncionario}</span>
-                  <span role="cell">{getRoleLabel(employee.idCargo)}</span>
-                  <span role="cell">
-                    <span className={`status-badge ${employee.boInativo === 0 ? 'active' : 'inactive'}`}>
-                      {employee.boInativo === 0 ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </span>
-                </button>
-              ))
-              : null}
-
-            {!isLoadingEmployees && filteredEmployees.length === 0 ? (
-              <div className="empty-row">Nenhum funcionário encontrado.</div>
-            ) : null}
-          </div>
-
-          <GridPagination
-            onChange={setEmployeesPage}
+          <RegistrationGrid<Employee>
+            ariaLabel="Funcionários cadastrados"
+            label="Funcionários"
+            columns={[
+              { label: 'Funcionário', render: (e) => e.nmFuncionario },
+              { label: 'Cargo', render: (e) => getRoleLabel(e.idCargo) },
+              { label: 'Status', render: (e) => <span className={`status-badge ${e.boInativo === 0 ? 'active' : 'inactive'}`}>{e.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+            ]}
+            records={paginatedEmployees}
+            isLoading={isLoadingEmployees}
+            selectedId={selectedEmployeeId}
+            onSelect={handleSelectEmployee}
+            searchTerm={searchTerm}
+            onSearch={setSearchTerm}
+            searchPlaceholder="Buscar funcionário"
+            onNew={handleNewEmployee}
             page={employeesPage}
             totalItems={filteredEmployees.length}
+            onPageChange={setEmployeesPage}
           />
 
           {employeeRelatedConfig ? (
@@ -862,86 +837,23 @@ export function EmployeeRegistration() {
                   Selecione um funcionario para visualizar os registros relacionados.
                 </div>
               ) : (
-                <>
-                  <div className="grid-toolbar">
-                    <div className="child-grid-toolbar-label">
-                      <p className="section-label">{employeeRelatedConfig.label}</p>
-                    </div>
-                    <div className="child-grid-toolbar-actions">
-                      <label className="search-field">
-                        <span>Pesquisar</span>
-                        <input
-                          onChange={(event) => setEmployeeRelatedSearchTerm(event.target.value)}
-                          placeholder="Buscar registro"
-                          type="search"
-                          value={employeeRelatedSearchTerm}
-                        />
-                      </label>
-                      <button
-                        className="new-button"
-                        disabled={!selectedEmployeeId}
-                        onClick={handleNewEmployeeRelated}
-                        type="button"
-                      >
-                        Novo
-                      </button>
-                    </div>
-                  </div>
-
-                  <div
-                    className="product-table company-child-grid-table"
-                    key={`employee-related-${employeeRelatedConfig.key}-${employeeRelatedSearchTerm}-${selectedEmployeeId}`}
-                    role="table"
-                    aria-label={employeeRelatedConfig.title}
-                  >
-                    <div
-                      className="product-row company-child-grid-row header"
-                      role="row"
-                      style={{
-                        gridTemplateColumns: `repeat(${employeeRelatedConfig.columns.length}, minmax(0, 1fr))`,
-                      }}
-                    >
-                      {employeeRelatedConfig.columns.map((column) => (
-                        <span key={column.key} role="columnheader">
-                          {column.label}
-                        </span>
-                      ))}
-                    </div>
-
-                    {isLoadingEmployeeRelatedRecords ? (
-                      <div className="empty-row">
-                        Carregando {employeeRelatedConfig.label.toLowerCase()}...
-                      </div>
-                    ) : null}
-
-                    {!isLoadingEmployeeRelatedRecords
-                      ? filteredEmployeeRelatedRecords.map((record) => (
-                        <button
-                          className={`product-row company-child-grid-row selectable ${record.id === selectedEmployeeRelatedRecordId ? 'selected' : ''}`}
-                          key={record.id}
-                          onClick={() => handleSelectEmployeeRelatedRecord(record)}
-                          role="row"
-                          style={{
-                            gridTemplateColumns: `repeat(${employeeRelatedConfig.columns.length}, minmax(0, 1fr))`,
-                          }}
-                          type="button"
-                        >
-                          {employeeRelatedConfig.columns.map((column) => (
-                            <span key={column.key} role="cell">
-                              {formatChildCell(record, column, employeeRelatedLookups[column.key])}
-                            </span>
-                          ))}
-                        </button>
-                      ))
-                      : null}
-
-                    {!isLoadingEmployeeRelatedRecords && filteredEmployeeRelatedRecords.length === 0 ? (
-                      <div className="empty-row">
-                        Nenhum registro de {employeeRelatedConfig.label.toLowerCase()} encontrado.
-                      </div>
-                    ) : null}
-                  </div>
-                </>
+                <RegistrationGrid<CompanyChildRecord>
+                  ariaLabel={employeeRelatedConfig.title}
+                  label={employeeRelatedConfig.label}
+                  columns={employeeRelatedConfig.columns.map((column) => ({
+                    label: column.label,
+                    render: (record) => formatChildCell(record, column, employeeRelatedLookups[column.key]),
+                  }))}
+                  records={filteredEmployeeRelatedRecords}
+                  isLoading={isLoadingEmployeeRelatedRecords}
+                  selectedId={selectedEmployeeRelatedRecordId}
+                  onSelect={handleSelectEmployeeRelatedRecord}
+                  searchTerm={employeeRelatedSearchTerm}
+                  onSearch={setEmployeeRelatedSearchTerm}
+                  onNew={handleNewEmployeeRelated}
+                  newDisabled={!selectedEmployeeId}
+                  variant="child"
+                />
               )}
             </section>
           ) : null}
@@ -1274,6 +1186,7 @@ export function EmployeeRegistration() {
                   Limpar
                 </button>
                 <button disabled={!isFormEnabled} type="submit">
+                  <Save size={16} />
                   Salvar funcionário
                 </button>
               </div>
@@ -1399,7 +1312,7 @@ export function EmployeeRegistration() {
                         </div>
                       ) : null}
 
-                      <div className="company-child-fields">
+                      <div className="company-child-fields" ref={employeeRelatedFormRef}>
                         {employeeRelatedConfig.fields.map((field) => (
                           <div className="field" key={field.key}>
                             <label htmlFor={`employeeRelated-${field.key}`}>
@@ -1469,6 +1382,7 @@ export function EmployeeRegistration() {
                           Limpar
                         </button>
                         <button disabled={!isEmployeeRelatedFormEnabled} type="submit">
+                          <Save size={16} />
                           Salvar {employeeRelatedConfig.label}
                         </button>
                       </div>

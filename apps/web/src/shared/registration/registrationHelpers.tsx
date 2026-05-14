@@ -70,6 +70,15 @@ export function formatDateDisplay(value: string | null) {
   return `${day}/${month}/${year}`;
 }
 
+export function formatDateTimeDisplay(value: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return formatDateDisplay(value);
+  const datePart = date.toLocaleDateString('pt-BR');
+  const timePart = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return `${datePart} ${timePart}`;
+}
+
 function getLookupValue(option: LookupRecord, lookupLabelKey?: string) {
   if (!lookupLabelKey) {
     return undefined;
@@ -124,6 +133,10 @@ export function formatChildCell(
     return formatDateDisplay(String(value));
   }
 
+  if (column.type === 'datetime') {
+    return formatDateTimeDisplay(String(value));
+  }
+
   if (column.type === 'money') {
     return Number(value).toLocaleString('pt-BR', {
       currency: 'BRL',
@@ -158,6 +171,10 @@ export function formatChildSearchValue(
 
   if (column.type === 'date') {
     return `${formatDateInput(String(value))} ${formatDateDisplay(String(value))}`.toLowerCase();
+  }
+
+  if (column.type === 'datetime') {
+    return formatDateTimeDisplay(String(value)).toLowerCase();
   }
 
   return String(value).toLowerCase();

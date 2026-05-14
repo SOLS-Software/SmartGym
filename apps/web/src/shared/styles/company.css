@@ -195,13 +195,16 @@
 }
 
 .company-child-tabs-list button {
+  align-items: center;
   background: #ffffff;
   border: 0;
   border-top: 0.0625rem solid #edf2ef;
   color: #34413b;
   cursor: pointer;
+  display: flex;
   font: inherit;
   font-weight: 800;
+  gap: 0.625rem;
   min-height: 3rem;
   padding: 0 1rem;
   text-align: left;
