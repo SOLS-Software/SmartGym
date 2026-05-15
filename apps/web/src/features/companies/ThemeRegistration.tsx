@@ -2,11 +2,10 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Save } from 'lucide-react';
+import { Plus, Save, Trash2, Upload } from 'lucide-react';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
-import { GridPagination, paginateItems } from '../../shared/registration/registrationHelpers';
+import { GridPagination, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
 
-type Company = { id: number; dsEmpresa: string; caCNPJ: string; boInativo: number };
 type CompanyFile = { id: number; dsArquivo: string; anCaminho: string };
 
 type CustomTheme = {
@@ -24,6 +23,8 @@ type CustomTheme = {
   boModoEscuro: number;
   idArquivoLogo: number | null;
   idArquivoFavicon: number | null;
+  idClienteArquivoLogo: number | null;
+  idClienteArquivoFavicon: number | null;
 };
 
 type CorporateDomain = {
@@ -37,6 +38,8 @@ type Props = {
   idCliente?: number;
   allowedCompanyIds?: number[];
 };
+
+type Company = { id: number; dsEmpresa: string; caCNPJ: string; boInativo: number };
 
 const DEFAULT_THEME: CustomTheme = {
   corPrimaria: '#1f7a53',
@@ -52,6 +55,8 @@ const DEFAULT_THEME: CustomTheme = {
   boModoEscuro: 0,
   idArquivoLogo: null,
   idArquivoFavicon: null,
+  idClienteArquivoLogo: null,
+  idClienteArquivoFavicon: null,
 };
 
 const COLOR_FIELDS: [keyof CustomTheme, string][] = [
@@ -64,6 +69,8 @@ const COLOR_FIELDS: [keyof CustomTheme, string][] = [
 
 export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) {
   const domainUrlRef = useRef<HTMLInputElement>(null);
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
+  const faviconFileInputRef = useRef<HTMLInputElement>(null);
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companySearch, setCompanySearch] = useState('');
@@ -77,6 +84,11 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
   const [clientTheme, setClientTheme] = useState<CustomTheme>(DEFAULT_THEME);
   const [clientThemeFeedback, setClientThemeFeedback] = useState('');
   const [isSavingClientTheme, setIsSavingClientTheme] = useState(false);
+  const [clientFiles, setClientFiles] = useState<CompanyFile[]>([]);
+  const [clientFilePreviewUrls, setClientFilePreviewUrls] = useState<Record<number, string>>({});
+  const [clientFileModal, setClientFileModal] = useState<{ title: string; url: string } | null>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingFavicon, setIsUploadingFavicon] = useState(false);
 
   const [domains, setDomains] = useState<CorporateDomain[]>([]);
   const [domainsPage, setDomainsPage] = useState(1);
@@ -107,6 +119,7 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
     if (idCliente) {
       void loadClientTheme(idCliente);
       void loadClientDomains(idCliente);
+      void loadClientFiles(idCliente);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idCliente]);
@@ -150,6 +163,40 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
     setDomains((await res.json()) as CorporateDomain[]);
   }
 
+  async function loadClientFiles(id: number) {
+    const res = await fetch(`${apiUrl}/clients/${id}/files`);
+    if (!res.ok) return;
+    const files = (await res.json()) as CompanyFile[];
+    setClientFiles(files);
+    void fetchClientFilePreviews(id, files);
+  }
+
+  async function fetchClientFilePreviews(clientId: number, files: CompanyFile[]) {
+    const imageFiles = files.filter((f) => isImageFile(f.anCaminho));
+    const entries = await Promise.all(
+      imageFiles.map(async (f) => {
+        try {
+          const r = await fetch(`${apiUrl}/clients/${clientId}/files/${f.id}/url`);
+          if (!r.ok) return null;
+          const { url } = (await r.json()) as { url: string };
+          return [f.id, url] as const;
+        } catch { return null; }
+      }),
+    );
+    const urls: Record<number, string> = {};
+    for (const e of entries) { if (e) urls[e[0]] = e[1]; }
+    setClientFilePreviewUrls((prev) => ({ ...prev, ...urls }));
+  }
+
+  async function handleOpenClientFile(clientId: number, file: CompanyFile) {
+    try {
+      const r = await fetch(`${apiUrl}/clients/${clientId}/files/${file.id}/url`);
+      if (!r.ok) return;
+      const { url } = (await r.json()) as { url: string };
+      setClientFileModal({ title: file.dsArquivo, url });
+    } catch { /* silent */ }
+  }
+
   async function loadCompanyTheme(companyId: number) {
     setThemeFeedback('');
     const res = await fetch(`${apiUrl}/companies/${companyId}/custom-theme`);
@@ -179,6 +226,52 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
 
   function setClientThemeField<K extends keyof CustomTheme>(field: K, value: CustomTheme[K]) {
     setClientTheme((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function uploadClientFile(
+    event: React.ChangeEvent<HTMLInputElement>,
+    field: 'idClienteArquivoLogo' | 'idClienteArquivoFavicon',
+    setUploading: (v: boolean) => void,
+    inputRef: React.RefObject<HTMLInputElement | null>,
+  ) {
+    const file = event.target.files?.[0];
+    if (!file || !idCliente) return;
+    try {
+      setUploading(true);
+      setClientThemeFeedback('');
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('dsArquivo', file.name);
+      const res = await fetch(`${apiUrl}/clients/${idCliente}/files`, { method: 'POST', body: formData });
+      if (!res.ok) await getApiError(res, 'Não foi possível enviar o arquivo.');
+      const created = (await res.json()) as CompanyFile;
+      setClientFiles((prev) => [created, ...prev]);
+      if (isImageFile(created.anCaminho)) void fetchClientFilePreviews(idCliente, [created]);
+
+      const updatedTheme = { ...clientTheme, [field]: created.id };
+      setClientTheme(updatedTheme);
+
+      const saveRes = await fetch(`${apiUrl}/clients/${idCliente}/theme`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedTheme),
+      });
+      if (!saveRes.ok) await getApiError(saveRes, 'Arquivo enviado, mas não foi possível salvar no tema.');
+      setClientThemeFeedback(field === 'idClienteArquivoLogo' ? 'Logo salvo.' : 'Favicon salvo.');
+    } catch (error) {
+      setClientThemeFeedback(error instanceof Error ? error.message : 'Erro ao enviar arquivo.');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  }
+
+  function handleUploadLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    void uploadClientFile(e, 'idClienteArquivoLogo', setIsUploadingLogo, logoFileInputRef);
+  }
+
+  function handleUploadFavicon(e: React.ChangeEvent<HTMLInputElement>) {
+    void uploadClientFile(e, 'idClienteArquivoFavicon', setIsUploadingFavicon, faviconFileInputRef);
   }
 
   async function handleSaveClientTheme(event: FormEvent<HTMLFormElement>) {
@@ -339,6 +432,8 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
     onChange: <K extends keyof CustomTheme>(f: K, v: CustomTheme[K]) => void,
     prefix: string,
     files: CompanyFile[],
+    logoField: keyof CustomTheme = 'idArquivoLogo',
+    faviconField: keyof CustomTheme = 'idArquivoFavicon',
   ) {
     return (
       <div className="two-columns">
@@ -409,44 +504,40 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
             <span>{themeData.boModoEscuro === 1 ? 'Ativado' : 'Desativado'}</span>
           </button>
         </div>
-        {files.length > 0 && (
-          <>
-            <div className="field">
-              <label htmlFor={`${prefix}-idArquivoLogo`}>Logo</label>
-              <select
-                id={`${prefix}-idArquivoLogo`}
-                onChange={(e) =>
-                  onChange('idArquivoLogo', e.target.value ? Number(e.target.value) : null)
-                }
-                value={themeData.idArquivoLogo ?? ''}
-              >
-                <option value="">Nenhum</option>
-                {files.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.dsArquivo}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor={`${prefix}-idArquivoFavicon`}>Favicon</label>
-              <select
-                id={`${prefix}-idArquivoFavicon`}
-                onChange={(e) =>
-                  onChange('idArquivoFavicon', e.target.value ? Number(e.target.value) : null)
-                }
-                value={themeData.idArquivoFavicon ?? ''}
-              >
-                <option value="">Nenhum</option>
-                {files.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.dsArquivo}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
-        )}
+        <div className="field">
+          <label htmlFor={`${prefix}-${logoField}`}>Logo</label>
+          <select
+            id={`${prefix}-${logoField}`}
+            onChange={(e) =>
+              onChange(logoField, e.target.value ? Number(e.target.value) : null)
+            }
+            value={(themeData[logoField] as number | null) ?? ''}
+          >
+            <option value="">{files.length === 0 ? 'Envie uma imagem primeiro' : 'Nenhum'}</option>
+            {files.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.dsArquivo}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor={`${prefix}-${faviconField}`}>Favicon</label>
+          <select
+            id={`${prefix}-${faviconField}`}
+            onChange={(e) =>
+              onChange(faviconField, e.target.value ? Number(e.target.value) : null)
+            }
+            value={(themeData[faviconField] as number | null) ?? ''}
+          >
+            <option value="">{files.length === 0 ? 'Envie uma imagem primeiro' : 'Nenhum'}</option>
+            {files.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.dsArquivo}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
     );
   }
@@ -570,6 +661,7 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
   ) : null;
 
   return (
+    <>
     <div className="form-view company-view">
       <div className="form-heading">
         <p className="section-label">{isGestorMode ? 'Gestão' : 'Empresas'}</p>
@@ -595,6 +687,71 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
           {clientThemeFeedback ? (
             <div className="form-feedback">{clientThemeFeedback}</div>
           ) : null}
+
+          {/* Logo + Favicon upload fields */}
+          <div className="theme-files-two-col">
+            {(['logo', 'favicon'] as const).map((type) => {
+              const field = type === 'logo' ? 'idClienteArquivoLogo' : 'idClienteArquivoFavicon';
+              const fileId = clientTheme[field] as number | null;
+              const previewUrl = fileId ? (clientFilePreviewUrls[fileId] ?? null) : null;
+              const fileRecord = fileId ? clientFiles.find((f) => f.id === fileId) : null;
+              const isUploading = type === 'logo' ? isUploadingLogo : isUploadingFavicon;
+              const inputRef = type === 'logo' ? logoFileInputRef : faviconFileInputRef;
+              const onChange = type === 'logo' ? handleUploadLogo : handleUploadFavicon;
+              const label = type === 'logo' ? 'Logo' : 'Favicon';
+
+              return (
+                <div className="theme-file-field" key={type}>
+                  <p className="section-label">{label}</p>
+
+                  {fileId && previewUrl ? (
+                    <div className="theme-file-preview-box">
+                      <button
+                        className="file-preview-button"
+                        onClick={() => fileRecord && void handleOpenClientFile(idCliente!, fileRecord)}
+                        type="button"
+                      >
+                        <img
+                          alt={label}
+                          className="theme-file-preview-img"
+                          src={previewUrl}
+                        />
+                      </button>
+                      <span className="theme-file-preview-name">{fileRecord?.dsArquivo ?? ''}</span>
+                      <div className="theme-file-preview-actions">
+                        <label className="upload-button" aria-disabled={isUploading} style={{ fontSize: '0.8rem', padding: '0.375rem 0.75rem' }}>
+                          <input accept="image/*" disabled={isUploading} onChange={onChange} ref={inputRef} style={{ display: 'none' }} type="file" />
+                          {isUploading ? 'Enviando...' : 'Alterar'}
+                        </label>
+                        <button
+                          className="icon-button danger"
+                          onClick={() => {
+                            const updatedTheme = { ...clientTheme, [field]: null };
+                            setClientTheme(updatedTheme);
+                            void fetch(`${apiUrl}/clients/${idCliente}/theme`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify(updatedTheme),
+                            }).catch(() => {});
+                          }}
+                          title={`Remover ${label}`}
+                          type="button"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className={`theme-file-upload-area ${isUploading ? 'uploading' : ''}`} aria-disabled={isUploading}>
+                      <input accept="image/*" disabled={isUploading} onChange={onChange} ref={inputRef} style={{ display: 'none' }} type="file" />
+                      <Upload size={20} />
+                      <span>{isUploading ? 'Enviando...' : `Enviar ${label}`}</span>
+                    </label>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
           {renderColorFields(clientTheme, setClientThemeField, 'client')}
           {renderThemeFields(clientTheme, setClientThemeField, 'client', [])}
@@ -688,5 +845,25 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
         </div>
       </div>
     </div>
+
+    {clientFileModal ? (
+      <div
+        className="file-modal-overlay"
+        onClick={() => setClientFileModal(null)}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="file-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="file-modal-header">
+            <h3>{clientFileModal.title}</h3>
+            <button onClick={() => setClientFileModal(null)} type="button">
+              Fechar
+            </button>
+          </div>
+          <img alt={clientFileModal.title} src={clientFileModal.url} />
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }

@@ -15,6 +15,18 @@ export function getSupabaseConfig(): SupabaseConfig {
   return { url, serviceRoleKey, bucket };
 }
 
+export function getClientSupabaseConfig(): SupabaseConfig {
+  const url = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET_CLIENTES ?? process.env.SUPABASE_STORAGE_BUCKET;
+
+  if (!url || !serviceRoleKey || !bucket) {
+    throw new Error('Configure SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY e SUPABASE_STORAGE_BUCKET.');
+  }
+
+  return { url, serviceRoleKey, bucket };
+}
+
 export function getSupabaseClient() {
   if (supabaseClient) {
     return supabaseClient;

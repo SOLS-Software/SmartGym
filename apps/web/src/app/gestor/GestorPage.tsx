@@ -25,6 +25,7 @@ type ClientTheme = {
   tamanhoBase?: number;
   boModoEscuro?: number;
   logoUrl?: string | null;
+  faviconUrl?: string | null;
 };
 
 type Company = { id: number; dsEmpresa: string; caCNPJ: string; boInativo: number };
@@ -103,6 +104,16 @@ export default function GestorPage() {
     }
     if (theme.corTexto) root.style.setProperty('--color-text', theme.corTexto);
     if (theme.corFundo) root.style.setProperty('--color-bg', theme.corFundo);
+
+    if (theme.faviconUrl) {
+      let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.href = theme.faviconUrl;
+    }
   }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {

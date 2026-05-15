@@ -8,6 +8,7 @@ import {
   normalizeRegisterLogin,
   normalizeRegisterPassword,
 } from '../../shared/normalize.js';
+import { getSupabaseClient, getSupabaseConfig, getClientSupabaseConfig } from '../../shared/supabase.js';
 import type {
   ForgotPasswordPayload,
   LoginPayload,
@@ -269,7 +270,14 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         include: {
           cliente: {
             include: {
-              temaCustomizado: { include: { arquivoLogo: true, arquivoFavicon: true } },
+              temaCustomizado: {
+                include: {
+                  arquivoLogo: true,
+                  arquivoFavicon: true,
+                  clienteArquivoLogo: true,
+                  clienteArquivoFavicon: true,
+                },
+              },
             },
           },
         },
@@ -279,6 +287,35 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
       const { cliente } = dominio;
       const tema = cliente.temaCustomizado;
+
+      let logoUrl: string | null = null;
+      let faviconUrl: string | null = null;
+
+      if (tema) {
+        const logoPath = tema.clienteArquivoLogo?.anCaminho || tema.arquivoLogo?.anCaminho || null;
+        const faviconPath = tema.clienteArquivoFavicon?.anCaminho || tema.arquivoFavicon?.anCaminho || null;
+
+        if (logoPath || faviconPath) {
+          try {
+            const isClientLogo = !!tema.clienteArquivoLogo?.anCaminho;
+            const isClientFavicon = !!tema.clienteArquivoFavicon?.anCaminho;
+
+            if (logoPath) {
+              const config = isClientLogo ? getClientSupabaseConfig() : getSupabaseConfig();
+              const supabase = getSupabaseClient();
+              const { data } = await supabase.storage.from(config.bucket).createSignedUrl(logoPath, 3600);
+              logoUrl = data?.signedUrl ?? null;
+            }
+
+            if (faviconPath) {
+              const config = isClientFavicon ? getClientSupabaseConfig() : getSupabaseConfig();
+              const supabase = getSupabaseClient();
+              const { data } = await supabase.storage.from(config.bucket).createSignedUrl(faviconPath, 3600);
+              faviconUrl = data?.signedUrl ?? null;
+            }
+          } catch { /* URLs stay null if signed URL generation fails */ }
+        }
+      }
 
       return {
         idCliente: cliente.id,
@@ -292,8 +329,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           fontePrincipal: tema.fontePrincipal,
           tamanhoBase: tema.tamanhoBase,
           boModoEscuro: tema.boModoEscuro,
-          logoUrl: tema.arquivoLogo?.anCaminho ?? null,
-          faviconUrl: tema.arquivoFavicon?.anCaminho ?? null,
+          logoUrl,
+          faviconUrl,
         } : {}),
       };
     } catch (error) {

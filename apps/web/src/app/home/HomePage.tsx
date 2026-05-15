@@ -9,6 +9,7 @@ import { StudentPlansView } from '../../features/plans/StudentPlansView';
 import { CompanyRegistration } from '../../features/companies/CompanyRegistration';
 import { CompanyCalendarView } from '../../features/companies/CompanyCalendarView';
 import { ThemeRegistration } from '../../features/companies/ThemeRegistration';
+import { ClientRegistration } from '../../features/clients/ClientRegistration';
 import { StudentRegistration } from '../../features/students/StudentRegistration';
 import { DomainRegistration } from '../../features/domains/DomainRegistration';
 import { ProductRegistration } from '../../features/products/ProductRegistration';
@@ -36,6 +37,7 @@ import type { AuthenticatedUser, AuthUserType } from '../../shared/auth/sessionU
 import {
   Activity,
   BadgeCheck,
+  Briefcase,
   Building2,
   Calendar,
   CalendarPlus,
@@ -55,6 +57,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 
 const menuItemIcons: Record<string, LucideIcon> = {
+  'Clientes': Briefcase,
   'Empresas': Building2,
   'Tema': Palette,
   'Atividades': Activity,
@@ -77,7 +80,7 @@ const menuItemIcons: Record<string, LucideIcon> = {
 const menuGroups = [
   {
     title: 'EMPRESA',
-    items: ['Empresas', 'Tema'],
+    items: ['Clientes', 'Empresas', 'Tema'],
   },
   {
     title: 'TREINO',
@@ -129,6 +132,16 @@ function applyCompanyTheme(theme: CompanyTheme) {
   const lighten = (c: number) => Math.min(255, Math.round(c + (255 - c) * 0.82)).toString(16).padStart(2, '0');
   root.style.setProperty('--color-primary-dark', `#${darken(r)}${darken(g)}${darken(b)}`);
   root.style.setProperty('--color-primary-bg', `#${lighten(r)}${lighten(g)}${lighten(b)}`);
+
+  if (theme.faviconUrl) {
+    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    link.href = theme.faviconUrl;
+  }
 }
 
 type FacialRecognitionResponse = {
@@ -757,7 +770,9 @@ export default function HomePage() {
         </aside>
 
         <section className="home-content">
-          {activeItem === 'Empresas' ? (
+          {activeItem === 'Clientes' ? (
+            <ClientRegistration />
+          ) : activeItem === 'Empresas' ? (
             <CompanyRegistration />
           ) : activeItem === 'Tema' ? (
             <ThemeRegistration />

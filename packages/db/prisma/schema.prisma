@@ -623,6 +623,22 @@ model EmpresaArquivo {
   @@map("tb_EmpresasArquivos")
 }
 
+model ClienteArquivo {
+  id          Int      @id @default(autoincrement())
+  idCliente   Int?
+  dsArquivo   String   @default("") @db.VarChar(255)
+  anCaminho   String   @default("") @db.VarChar(255)
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  cliente     Cliente?          @relation(fields: [idCliente], references: [id])
+  temaLogo    TemaCustomizado[] @relation("clienteLogo")
+  temaFavicon TemaCustomizado[] @relation("clienteFavicon")
+
+  @@map("tb_ClientesArquivos")
+}
+
 model AlunoArquivo {
   id              Int      @id @default(autoincrement())
   idAluno         Int?
@@ -895,16 +911,20 @@ model TemaCustomizado {
   espacamentoPadrao Int      @default(16)
   raioCardBorder    Int      @default(8)
   boModoEscuro      Int      @default(0)
-  idArquivoLogo     Int?
-  idArquivoFavicon  Int?
-  dtCadastro        DateTime @default(now())
+  idArquivoLogo            Int?
+  idArquivoFavicon         Int?
+  idClienteArquivoLogo     Int?
+  idClienteArquivoFavicon  Int?
+  dtCadastro               DateTime @default(now())
   dtAlteracao       DateTime @updatedAt
   boInativo         Int      @default(0)
 
-  cliente        Cliente?         @relation(fields: [idCliente], references: [id], onDelete: Cascade)
-  empresa        Empresa?         @relation(fields: [idEmpresa], references: [id], onDelete: Cascade)
-  arquivoLogo    EmpresaArquivo?  @relation("logo", fields: [idArquivoLogo], references: [id])
-  arquivoFavicon EmpresaArquivo?  @relation("favicon", fields: [idArquivoFavicon], references: [id])
+  cliente               Cliente?         @relation(fields: [idCliente], references: [id], onDelete: Cascade)
+  empresa               Empresa?         @relation(fields: [idEmpresa], references: [id], onDelete: Cascade)
+  arquivoLogo           EmpresaArquivo?  @relation("logo", fields: [idArquivoLogo], references: [id])
+  arquivoFavicon        EmpresaArquivo?  @relation("favicon", fields: [idArquivoFavicon], references: [id])
+  clienteArquivoLogo    ClienteArquivo?  @relation("clienteLogo", fields: [idClienteArquivoLogo], references: [id])
+  clienteArquivoFavicon ClienteArquivo?  @relation("clienteFavicon", fields: [idClienteArquivoFavicon], references: [id])
 
   @@map("tb_TemasCustomizados")
 }
@@ -920,6 +940,7 @@ model Cliente {
   empresas        Empresa[]
   dominios        DominioCorporativo[]
   temaCustomizado TemaCustomizado?
+  arquivos        ClienteArquivo[]
 
   @@map("tb_Clientes")
 }

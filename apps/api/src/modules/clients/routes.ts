@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
-import { assertValidId, optionalNumber, requiredText, optionalText } from '../../shared/normalize.js';
+import { assertValidId, optionalNumber, requiredText, optionalText, getMultipartFieldValue } from '../../shared/normalize.js';
+import { getClientSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
+import { getClientFilePath } from '../../shared/files.js';
 
 function normalizeThemeData(b: Record<string, unknown>) {
   return {
@@ -17,8 +19,12 @@ function normalizeThemeData(b: Record<string, unknown>) {
     boModoEscuro: Number(b.boModoEscuro ?? 0),
     idArquivoLogo: optionalNumber(b.idArquivoLogo),
     idArquivoFavicon: optionalNumber(b.idArquivoFavicon),
+    idClienteArquivoLogo: optionalNumber(b.idClienteArquivoLogo),
+    idClienteArquivoFavicon: optionalNumber(b.idClienteArquivoFavicon),
   };
 }
+
+const THEME_INCLUDE = { arquivoLogo: true, arquivoFavicon: true, clienteArquivoLogo: true, clienteArquivoFavicon: true } as const;
 
 export async function registerClientRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
@@ -98,7 +104,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       assertValidId(id, 'Cliente invalido.');
       const tema = await prisma.temaCustomizado.findUnique({
         where: { idCliente: id },
-        include: { arquivoLogo: true, arquivoFavicon: true },
+        include: THEME_INCLUDE,
       });
       if (!tema) return reply.code(204).send();
       return tema;
@@ -116,7 +122,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
         where: { idCliente: id },
         create: { idCliente: id, ...data },
         update: data,
-        include: { arquivoLogo: true, arquivoFavicon: true },
+        include: THEME_INCLUDE,
       });
       return tema;
     } catch (error) {
@@ -177,6 +183,103 @@ export async function registerClientRoutes(app: FastifyInstance) {
       return prisma.dominioCorporativo.update({ where: { id: domainId }, data: { boAtivo: Number(request.body.boAtivo ?? 1) } });
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao alterar status do dominio.' });
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Client files (logo, favicon, etc.)
+  // ---------------------------------------------------------------------------
+
+  app.get<{ Params: { id: string } }>('/clients/:id/files', async (request, reply) => {
+    try {
+      const id = Number(request.params.id);
+      assertValidId(id, 'Cliente invalido.');
+      return prisma.clienteArquivo.findMany({
+        where: { idCliente: id, boInativo: 0 },
+        orderBy: { dtCadastro: 'desc' },
+      });
+    } catch (error) {
+      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao listar arquivos do cliente.' });
+    }
+  });
+
+  app.post<{ Params: { id: string } }>('/clients/:id/files', async (request, reply) => {
+    try {
+      const id = Number(request.params.id);
+      assertValidId(id, 'Cliente invalido.');
+
+      const cliente = await prisma.cliente.findUnique({ where: { id }, select: { id: true } });
+      if (!cliente) return reply.code(404).send({ message: 'Cliente nao encontrado.' });
+
+      const file = await request.file();
+      if (!file) return reply.code(400).send({ message: 'Envie um arquivo.' });
+
+      const fields = file.fields as Record<string, unknown>;
+      const dsArquivo = (getMultipartFieldValue(fields, 'dsArquivo') as string | undefined) || file.filename;
+
+      const buffer = await file.toBuffer();
+      const path = getClientFilePath(id, file.filename);
+      const { bucket } = getClientSupabaseConfig();
+      const supabase = getSupabaseClient();
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+
+      if (uploadError) throw new Error(uploadError.message);
+
+      const record = await prisma.clienteArquivo.create({
+        data: { idCliente: id, dsArquivo, anCaminho: path },
+      });
+
+      return reply.code(201).send(record);
+    } catch (error) {
+      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao enviar arquivo do cliente.' });
+    }
+  });
+
+  app.get<{ Params: { id: string; fileId: string } }>('/clients/:id/files/:fileId/url', async (request, reply) => {
+    try {
+      const id = Number(request.params.id);
+      const fileId = Number(request.params.fileId);
+      assertValidId(id, 'Cliente invalido.');
+      assertValidId(fileId, 'Arquivo invalido.');
+
+      const record = await prisma.clienteArquivo.findFirst({
+        where: { id: fileId, idCliente: id, boInativo: 0 },
+      });
+      if (!record) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
+
+      const { bucket } = getClientSupabaseConfig();
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(record.anCaminho, 60 * 5);
+      if (error) throw new Error(error.message);
+
+      return { url: data.signedUrl, expiresIn: 60 * 5 };
+    } catch (error) {
+      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao gerar link do arquivo.' });
+    }
+  });
+
+  app.delete<{ Params: { id: string; fileId: string } }>('/clients/:id/files/:fileId', async (request, reply) => {
+    try {
+      const id = Number(request.params.id);
+      const fileId = Number(request.params.fileId);
+      assertValidId(id, 'Cliente invalido.');
+      assertValidId(fileId, 'Arquivo invalido.');
+
+      const record = await prisma.clienteArquivo.findFirst({
+        where: { id: fileId, idCliente: id, boInativo: 0 },
+      });
+      if (!record) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
+
+      const { bucket } = getClientSupabaseConfig();
+      const supabase = getSupabaseClient();
+      await supabase.storage.from(bucket).remove([record.anCaminho]);
+
+      await prisma.clienteArquivo.update({ where: { id: fileId }, data: { boInativo: 1 } });
+      return reply.code(204).send();
+    } catch (error) {
+      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao remover arquivo do cliente.' });
     }
   });
 }
