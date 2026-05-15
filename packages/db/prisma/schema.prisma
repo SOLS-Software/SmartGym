@@ -41,7 +41,10 @@ model Empresa {
   alunoCheckIns               AlunoCheckIn[]
   funcionarios                Funcionario[]
   funcionarioAtividadeAgendas FuncionarioAtividadeAgenda[]
+  idCliente                   Int?
   tema                        Tema?                        @relation(fields: [idTema], references: [id])
+  cliente                     Cliente?                     @relation(fields: [idCliente], references: [id])
+  temaCustomizado             TemaCustomizado?
 
   @@map("tb_Empresas")
 }
@@ -614,6 +617,8 @@ model EmpresaArquivo {
 
   empresa     Empresa?     @relation(fields: [idEmpresa], references: [id])
   tipoArquivo TipoArquivo? @relation(fields: [idTiposArquivos], references: [id])
+  temaLogo    TemaCustomizado[] @relation("logo")
+  temaFavicon TemaCustomizado[] @relation("favicon")
 
   @@map("tb_EmpresasArquivos")
 }
@@ -858,4 +863,63 @@ model TipoArquivo {
   promocoesArquivos    PromocaoArquivo[]
 
   @@map("tb_TiposArquivos")
+}
+
+model DominioCorporativo {
+  id           Int      @id @default(autoincrement())
+  idCliente    Int
+  urlDominio   String   @unique @db.VarChar(255)
+  boSubdominio Int      @default(1)
+  boAtivo      Int      @default(1)
+  dtCadastro   DateTime @default(now())
+  dtAlteracao  DateTime @updatedAt
+
+  cliente Cliente @relation(fields: [idCliente], references: [id], onDelete: Cascade)
+
+  @@unique([idCliente, urlDominio])
+  @@map("tb_DominiosCorporativos")
+}
+
+model TemaCustomizado {
+  id                Int      @id @default(autoincrement())
+  idCliente         Int?     @unique
+  idEmpresa         Int?     @unique
+  corPrimaria       String   @default("#000000") @db.VarChar(7)
+  corSecundaria     String   @default("#FFFFFF") @db.VarChar(7)
+  corAcentuacao     String   @default("#FF0000") @db.VarChar(7)
+  corTexto          String   @default("#000000") @db.VarChar(7)
+  corFundo          String   @default("#FFFFFF") @db.VarChar(7)
+  fontePrincipal    String   @default("Roboto") @db.VarChar(100)
+  fonteSecundaria   String   @default("Open Sans") @db.VarChar(100)
+  tamanhoBase       Int      @default(14)
+  espacamentoPadrao Int      @default(16)
+  raioCardBorder    Int      @default(8)
+  boModoEscuro      Int      @default(0)
+  idArquivoLogo     Int?
+  idArquivoFavicon  Int?
+  dtCadastro        DateTime @default(now())
+  dtAlteracao       DateTime @updatedAt
+  boInativo         Int      @default(0)
+
+  cliente        Cliente?         @relation(fields: [idCliente], references: [id], onDelete: Cascade)
+  empresa        Empresa?         @relation(fields: [idEmpresa], references: [id], onDelete: Cascade)
+  arquivoLogo    EmpresaArquivo?  @relation("logo", fields: [idArquivoLogo], references: [id])
+  arquivoFavicon EmpresaArquivo?  @relation("favicon", fields: [idArquivoFavicon], references: [id])
+
+  @@map("tb_TemasCustomizados")
+}
+
+model Cliente {
+  id          Int      @id @default(autoincrement())
+  dsCliente   String   @db.VarChar(255)
+  caCNPJ      String?  @db.VarChar(14)
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+  boInativo   Int      @default(0)
+
+  empresas        Empresa[]
+  dominios        DominioCorporativo[]
+  temaCustomizado TemaCustomizado?
+
+  @@map("tb_Clientes")
 }

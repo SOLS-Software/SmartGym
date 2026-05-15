@@ -591,6 +591,66 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     }
   });
 
+  // ---------------------------------------------------------------------------
+  // Custom theme
+  // ---------------------------------------------------------------------------
+
+  app.get<{
+    Params: { companyId: string };
+  }>('/companies/:companyId/custom-theme', async (request, reply) => {
+    try {
+      const companyId = Number(request.params.companyId);
+      assertValidId(companyId, 'Empresa invalida.');
+      const tema = await prisma.temaCustomizado.findUnique({
+        where: { idEmpresa: companyId },
+        include: { arquivoLogo: true, arquivoFavicon: true },
+      });
+      if (!tema) return reply.code(204).send();
+      return tema;
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao buscar tema.',
+      });
+    }
+  });
+
+  app.put<{
+    Params: { companyId: string };
+    Body: Record<string, unknown>;
+  }>('/companies/:companyId/custom-theme', async (request, reply) => {
+    try {
+      const companyId = Number(request.params.companyId);
+      assertValidId(companyId, 'Empresa invalida.');
+      const b = request.body;
+      const data = {
+        corPrimaria: optionalText(b.corPrimaria) ?? '#000000',
+        corSecundaria: optionalText(b.corSecundaria) ?? '#FFFFFF',
+        corAcentuacao: optionalText(b.corAcentuacao) ?? '#FF0000',
+        corTexto: optionalText(b.corTexto) ?? '#000000',
+        corFundo: optionalText(b.corFundo) ?? '#FFFFFF',
+        fontePrincipal: optionalText(b.fontePrincipal) ?? 'Inter',
+        fonteSecundaria: optionalText(b.fonteSecundaria) ?? 'Open Sans',
+        tamanhoBase: Number(b.tamanhoBase ?? 14),
+        espacamentoPadrao: Number(b.espacamentoPadrao ?? 16),
+        raioCardBorder: Number(b.raioCardBorder ?? 8),
+        boModoEscuro: Number(b.boModoEscuro ?? 0),
+        idArquivoLogo: optionalNumber(b.idArquivoLogo),
+        idArquivoFavicon: optionalNumber(b.idArquivoFavicon),
+      };
+      const tema = await prisma.temaCustomizado.upsert({
+        where: { idEmpresa: companyId },
+        create: { idEmpresa: companyId, ...data },
+        update: data,
+        include: { arquivoLogo: true, arquivoFavicon: true },
+      });
+      return tema;
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao salvar tema.',
+      });
+    }
+  });
+
   app.get<{
     Params: { companyId: string; resource: string };
   }>('/companies/:companyId/children/:resource', async (request, reply) => {

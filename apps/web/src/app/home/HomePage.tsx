@@ -8,6 +8,7 @@ import { PlanRegistration } from '../../features/plans/PlanRegistration';
 import { StudentPlansView } from '../../features/plans/StudentPlansView';
 import { CompanyRegistration } from '../../features/companies/CompanyRegistration';
 import { CompanyCalendarView } from '../../features/companies/CompanyCalendarView';
+import { ThemeRegistration } from '../../features/companies/ThemeRegistration';
 import { StudentRegistration } from '../../features/students/StudentRegistration';
 import { DomainRegistration } from '../../features/domains/DomainRegistration';
 import { ProductRegistration } from '../../features/products/ProductRegistration';
@@ -25,6 +26,14 @@ import { StudentCalendarView } from '../../features/students/StudentCalendarView
 import { MyTraining } from '../../features/trainings/MyTraining';
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 import {
+  SESSION_KEY,
+  SESSION_MAX_AGE_MS,
+  encryptSession,
+  decryptSession,
+  readJsonResponse,
+} from '../../shared/auth/sessionUtils';
+import type { AuthenticatedUser, AuthUserType } from '../../shared/auth/sessionUtils';
+import {
   Activity,
   BadgeCheck,
   Building2,
@@ -37,6 +46,7 @@ import {
   FilePlus,
   Globe,
   Package,
+  Palette,
   ShoppingCart,
   Tag,
   UserCheck,
@@ -46,6 +56,7 @@ import type { LucideIcon } from 'lucide-react';
 
 const menuItemIcons: Record<string, LucideIcon> = {
   'Empresas': Building2,
+  'Tema': Palette,
   'Atividades': Activity,
   'Exercícios': Dumbbell,
   'Treino': ClipboardList,
@@ -63,12 +74,10 @@ const menuItemIcons: Record<string, LucideIcon> = {
   'Domínios': Globe,
 };
 
-const SESSION_KEY = 'smartgym_session';
-
 const menuGroups = [
   {
     title: 'EMPRESA',
-    items: ['Empresas'],
+    items: ['Empresas', 'Tema'],
   },
   {
     title: 'TREINO',
@@ -92,15 +101,35 @@ const menuGroups = [
   },
 ];
 
-type AuthUserType = 'student' | 'employee';
-
-type AuthenticatedUser = {
-  id: number;
-  idAluno: number | null;
-  idFuncionario: number | null;
-  name: string;
-  type: AuthUserType;
+type CompanyTheme = {
+  dsEmpresa: string;
+  corPrimaria: string;
+  corSecundaria: string;
+  corAcentuacao: string;
+  corTexto: string;
+  corFundo: string;
+  fontePrincipal: string;
+  tamanhoBase: number;
+  boModoEscuro: number;
+  logoUrl: string | null;
+  faviconUrl: string | null;
 };
+
+function applyCompanyTheme(theme: CompanyTheme) {
+  const root = document.documentElement;
+  root.style.setProperty('--color-primary', theme.corPrimaria);
+  root.style.setProperty('--color-text', theme.corTexto);
+  root.style.setProperty('--color-bg', theme.corFundo);
+
+  const hex = theme.corPrimaria.replace('#', '');
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  const darken = (c: number) => Math.max(0, Math.round(c * 0.82)).toString(16).padStart(2, '0');
+  const lighten = (c: number) => Math.min(255, Math.round(c + (255 - c) * 0.82)).toString(16).padStart(2, '0');
+  root.style.setProperty('--color-primary-dark', `#${darken(r)}${darken(g)}${darken(b)}`);
+  root.style.setProperty('--color-primary-bg', `#${lighten(r)}${lighten(g)}${lighten(b)}`);
+}
 
 type FacialRecognitionResponse = {
   match: boolean;
@@ -109,74 +138,6 @@ type FacialRecognitionResponse = {
   similarity?: number;
   message?: string;
 };
-
-const SESSION_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours
-
-type StoredSession = {
-  user: AuthenticatedUser;
-  activeItem: string;
-  cachedAt: number;
-};
-
-let _cachedKey: CryptoKey | null = null;
-
-async function getSessionCryptoKey(): Promise<CryptoKey> {
-  if (_cachedKey) return _cachedKey;
-  const passphrase = new TextEncoder().encode('smartgym-2026-secure-session-key-sols-encrypted');
-  const keyBytes = await crypto.subtle.digest('SHA-256', passphrase);
-  _cachedKey = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, [
-    'encrypt',
-    'decrypt',
-  ]);
-  return _cachedKey;
-}
-
-async function encryptSession(session: StoredSession): Promise<string> {
-  const key = await getSessionCryptoKey();
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(JSON.stringify(session));
-  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
-  const combined = new Uint8Array(12 + ciphertext.byteLength);
-  combined.set(iv, 0);
-  combined.set(new Uint8Array(ciphertext), 12);
-  return btoa(String.fromCharCode(...combined));
-}
-
-async function decryptSession(stored: string): Promise<StoredSession> {
-  const key = await getSessionCryptoKey();
-  const combined = Uint8Array.from(atob(stored), (c) => c.charCodeAt(0));
-  const iv = combined.slice(0, 12);
-  const ciphertext = combined.slice(12);
-  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
-  return JSON.parse(new TextDecoder().decode(decrypted)) as StoredSession;
-}
-
-async function readJsonResponse<T>(response: Response, fallbackMessage: string) {
-  const text = await response.text();
-  const contentType = response.headers.get('content-type') ?? '';
-
-  if (!contentType.includes('application/json')) {
-    const preview = text.replace(/\s+/g, ' ').trim().slice(0, 140);
-    throw new Error(
-      `${fallbackMessage} Resposta inesperada (${response.status}): ${preview || 'sem conteudo'}`,
-    );
-  }
-
-  const data = JSON.parse(text) as T;
-
-  if (!response.ok) {
-    const message =
-      typeof data === 'object' &&
-        data !== null &&
-        'message' in data &&
-        typeof data.message === 'string'
-        ? data.message
-        : fallbackMessage;
-    throw new Error(message);
-  }
-
-  return data;
-}
 
 function getPasswordValidationMessage(password: string) {
   if (password.length < 6) {
@@ -230,6 +191,7 @@ export default function HomePage() {
   const [registerPassword, setRegisterPassword] = useState('');
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [pendingFacialUser, setPendingFacialUser] = useState<AuthenticatedUser | null>(null);
+  const [companyTheme, setCompanyTheme] = useState<CompanyTheme | null>(null);
   const passwordRequirements = [
     {
       label: 'Pelo menos 1 número',
@@ -297,6 +259,18 @@ export default function HomePage() {
       } catch { }
     })();
   }, [activeItem, isLoggedIn]);
+
+  useEffect(() => {
+    const hostname = window.location.hostname;
+    void fetch(`${apiUrl}/auth/theme?url=${encodeURIComponent(hostname)}`)
+      .then(async (res) => {
+        if (res.status === 204 || !res.ok) return;
+        const theme = await res.json() as CompanyTheme;
+        setCompanyTheme(theme);
+        applyCompanyTheme(theme);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!pendingFacialUser) {
@@ -785,6 +759,8 @@ export default function HomePage() {
         <section className="home-content">
           {activeItem === 'Empresas' ? (
             <CompanyRegistration />
+          ) : activeItem === 'Tema' ? (
+            <ThemeRegistration />
           ) : activeItem === 'Atividades' ? (
             authUserType === 'student' ? (
               <StudentActivitiesView
@@ -871,10 +847,12 @@ export default function HomePage() {
       <section className="login-panel" aria-labelledby="login-title">
         <div className="brand">
           <div className="logo" aria-hidden="true">
-            SG
+            {companyTheme?.logoUrl
+              ? <img alt="Logo" src={companyTheme.logoUrl} style={{ height: '100%', objectFit: 'contain', width: '100%' }} />
+              : 'SG'}
           </div>
           <div>
-            <p className="eyebrow">SmartGym</p>
+            <p className="eyebrow">{companyTheme?.dsEmpresa ?? 'SmartGym'}</p>
             <h1 id="login-title">
               {loginMode === 'login'
                 ? 'Entrar na sua conta'

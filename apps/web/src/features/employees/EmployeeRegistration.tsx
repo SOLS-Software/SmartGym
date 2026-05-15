@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Company, CompanyChildRecord, CompanyChildTable, Employee, LookupRecord, Role } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
@@ -889,8 +890,7 @@ export function EmployeeRegistration() {
               {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
               <div className="company-child-fields">
-                <div className="field">
-                  <label htmlFor="employeeName">Nome do funcionário *</label>
+                <RegistrationField error={employeeErrors.name} htmlFor="employeeName" label="Nome do funcionário" required touched={touchedEmployeeFields.name}>
                   <input
                     className={touchedEmployeeFields.name && employeeErrors.name ? 'invalid' : ''}
                     disabled={!isFormEnabled}
@@ -913,13 +913,9 @@ export function EmployeeRegistration() {
                     type="text"
                     value={employeeName}
                   />
-                  {touchedEmployeeFields.name && employeeErrors.name ? (
-                    <span className="field-error">{employeeErrors.name}</span>
-                  ) : null}
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="employeeCpf">CPF *</label>
+                <RegistrationField error={employeeErrors.cpf} htmlFor="employeeCpf" label="CPF" required touched={touchedEmployeeFields.cpf}>
                   <input
                     className={touchedEmployeeFields.cpf && employeeErrors.cpf ? 'invalid' : ''}
                     disabled={!isFormEnabled}
@@ -942,13 +938,9 @@ export function EmployeeRegistration() {
                     type="text"
                     value={employeeCpf}
                   />
-                  {touchedEmployeeFields.cpf && employeeErrors.cpf ? (
-                    <span className="field-error">{employeeErrors.cpf}</span>
-                  ) : null}
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="employeeCompany">Empresa</label>
+                <RegistrationField htmlFor="employeeCompany" label="Empresa">
                   <select
                     disabled={!isFormEnabled}
                     id="employeeCompany"
@@ -962,10 +954,9 @@ export function EmployeeRegistration() {
                       </option>
                     ))}
                   </select>
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="employeeRole">Cargo</label>
+                <RegistrationField htmlFor="employeeRole" label="Cargo">
                   <select
                     disabled={!isFormEnabled}
                     id="employeeRole"
@@ -979,10 +970,9 @@ export function EmployeeRegistration() {
                       </option>
                     ))}
                   </select>
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="employeeBirthDate">Nascimento</label>
+                <RegistrationField error={employeeErrors.birthDate} htmlFor="employeeBirthDate" label="Nascimento" touched={touchedEmployeeFields.birthDate}>
                   <input
                     className={
                       touchedEmployeeFields.birthDate && employeeErrors.birthDate
@@ -1011,13 +1001,9 @@ export function EmployeeRegistration() {
                     type="date"
                     value={employeeBirthDate}
                   />
-                  {touchedEmployeeFields.birthDate && employeeErrors.birthDate ? (
-                    <span className="field-error">{employeeErrors.birthDate}</span>
-                  ) : null}
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="employeeAdmissionDate">Admissao</label>
+                <RegistrationField error={employeeErrors.admissionDate} htmlFor="employeeAdmissionDate" label="Admissao" touched={touchedEmployeeFields.admissionDate}>
                   <input
                     className={
                       touchedEmployeeFields.admissionDate && employeeErrors.admissionDate
@@ -1045,13 +1031,9 @@ export function EmployeeRegistration() {
                     type="date"
                     value={employeeAdmissionDate}
                   />
-                  {touchedEmployeeFields.admissionDate && employeeErrors.admissionDate ? (
-                    <span className="field-error">{employeeErrors.admissionDate}</span>
-                  ) : null}
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="employeeDdd">DDD</label>
+                <RegistrationField error={employeeErrors.ddd} htmlFor="employeeDdd" label="DDD" touched={touchedEmployeeFields.ddd}>
                   <input
                     className={touchedEmployeeFields.ddd && employeeErrors.ddd ? 'invalid' : ''}
                     disabled={!isFormEnabled}
@@ -1084,13 +1066,9 @@ export function EmployeeRegistration() {
                     type="text"
                     value={employeeDdd}
                   />
-                  {touchedEmployeeFields.ddd && employeeErrors.ddd ? (
-                    <span className="field-error">{employeeErrors.ddd}</span>
-                  ) : null}
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="employeePhone">Contato</label>
+                <RegistrationField error={employeeErrors.phone} htmlFor="employeePhone" label="Contato" touched={touchedEmployeeFields.phone}>
                   <input
                     className={touchedEmployeeFields.phone && employeeErrors.phone ? 'invalid' : ''}
                     disabled={!isFormEnabled}
@@ -1123,13 +1101,9 @@ export function EmployeeRegistration() {
                     type="text"
                     value={employeePhone}
                   />
-                  {touchedEmployeeFields.phone && employeeErrors.phone ? (
-                    <span className="field-error">{employeeErrors.phone}</span>
-                  ) : null}
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="employeeEmail">Email</label>
+                <RegistrationField error={employeeErrors.email} htmlFor="employeeEmail" label="Email" touched={touchedEmployeeFields.email}>
                   <input
                     className={touchedEmployeeFields.email && employeeErrors.email ? 'invalid' : ''}
                     disabled={!isFormEnabled}
@@ -1156,13 +1130,9 @@ export function EmployeeRegistration() {
                     type="email"
                     value={employeeEmail}
                   />
-                  {touchedEmployeeFields.email && employeeErrors.email ? (
-                    <span className="field-error">{employeeErrors.email}</span>
-                  ) : null}
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="employeeStatus">Status</label>
+                <RegistrationField htmlFor="employeeStatus" label="Status">
                   <button
                     aria-pressed={isEmployeeActive}
                     className={`status-toggle ${isEmployeeActive ? 'active' : ''}`}
@@ -1173,7 +1143,7 @@ export function EmployeeRegistration() {
                   >
                     <span>{isEmployeeActive ? 'Ativo' : 'Inativo'}</span>
                   </button>
-                </div>
+                </RegistrationField>
               </div>
 
               <div className="form-actions">
@@ -1222,8 +1192,7 @@ export function EmployeeRegistration() {
                   {employeeRelatedConfig.key === 'files' ? (
                     <>
                       <div className="company-child-fields">
-                        <div className="field">
-                          <label htmlFor="employeeFileType">Tipo de arquivo</label>
+                        <RegistrationField htmlFor="employeeFileType" label="Tipo de arquivo">
                           <select
                             disabled={!selectedEmployeeId || isUploadingEmployeeFile}
                             id="employeeFileType"
@@ -1242,10 +1211,9 @@ export function EmployeeRegistration() {
                               </option>
                             ))}
                           </select>
-                        </div>
+                        </RegistrationField>
 
-                        <div className="field">
-                          <label htmlFor="employeeFileName">Arquivo selecionado</label>
+                        <RegistrationField htmlFor="employeeFileName" label="Arquivo selecionado">
                           <input
                             disabled
                             id="employeeFileName"
@@ -1256,13 +1224,10 @@ export function EmployeeRegistration() {
                                 : 'Selecione no grid ou clique em Novo'
                             }
                           />
-                        </div>
+                        </RegistrationField>
                       </div>
 
-                      <div className="field">
-                        <label htmlFor="employeeFile">
-                          {selectedEmployeeRelatedRecordId && !isCreatingEmployeeRelated ? 'Alterar arquivo' : 'Arquivo'}
-                        </label>
+                      <RegistrationField htmlFor="employeeFile" label={selectedEmployeeRelatedRecordId && !isCreatingEmployeeRelated ? 'Alterar arquivo' : 'Arquivo'}>
                         <input
                           disabled={!selectedEmployeeId || isUploadingEmployeeFile}
                           id="employeeFile"
@@ -1270,7 +1235,7 @@ export function EmployeeRegistration() {
                           ref={employeeFileInputRef}
                           type="file"
                         />
-                      </div>
+                      </RegistrationField>
 
                       {selectedEmployeeRelatedRecordId ? (
                         <div className="student-files-list">
@@ -1314,11 +1279,7 @@ export function EmployeeRegistration() {
 
                       <div className="company-child-fields" ref={employeeRelatedFormRef}>
                         {employeeRelatedConfig.fields.map((field) => (
-                          <div className="field" key={field.key}>
-                            <label htmlFor={`employeeRelated-${field.key}`}>
-                              {field.label}
-                              {field.required ? ' *' : ''}
-                            </label>
+                          <RegistrationField htmlFor={`employeeRelated-${field.key}`} key={field.key} label={field.label} required={field.required}>
                             {field.lookupEndpoint ? (
                               <select
                                 disabled={!isEmployeeRelatedFormEnabled}
@@ -1354,12 +1315,11 @@ export function EmployeeRegistration() {
                                 value={employeeRelatedFormValues[field.key] ?? ''}
                               />
                             )}
-                          </div>
+                          </RegistrationField>
                         ))}
                       </div>
 
-                      <div className="field">
-                        <label htmlFor="employeeRelatedStatus">Status</label>
+                      <RegistrationField htmlFor="employeeRelatedStatus" label="Status">
                         <button
                           aria-pressed={isEmployeeRelatedActive}
                           className={`status-toggle ${isEmployeeRelatedActive ? 'active' : ''}`}
@@ -1370,7 +1330,7 @@ export function EmployeeRegistration() {
                         >
                           <span>{isEmployeeRelatedActive ? 'Ativo' : 'Inativo'}</span>
                         </button>
-                      </div>
+                      </RegistrationField>
 
                       <div className="form-actions">
                         <button

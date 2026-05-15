@@ -12,6 +12,7 @@ import {
   isImageFile,
   paginateItems,
 } from '../../shared/registration/registrationHelpers';
+import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type {
   Company,
@@ -695,8 +696,7 @@ export function PromotionRegistration() {
                 {!isFormEnabled ? <div className="form-hint">Selecione uma promoção acima ou clique em Novo.</div> : null}
                 {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
-                <div className="field">
-                  <label htmlFor="promotionCompany">Empresa *</label>
+                <RegistrationField htmlFor="promotionCompany" label="Empresa" required>
                   <select disabled={!isFormEnabled} id="promotionCompany" onChange={(event) => setPromotionCompanyId(event.target.value)} required value={promotionCompanyId}>
                     <option value="">Selecione</option>
                     {companies.map((company) => (
@@ -705,12 +705,11 @@ export function PromotionRegistration() {
                       </option>
                     ))}
                   </select>
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="promotionName">Promoção *</label>
+                <RegistrationField htmlFor="promotionName" label="Promoção" required>
                   <input disabled={!isFormEnabled} id="promotionName" maxLength={255} onChange={(event) => setPromotionName(event.target.value)} ref={promotionNameInputRef} required type="text" value={promotionName} />
-                </div>
+                </RegistrationField>
 
                 <div className="field two-columns">
                   <div>
@@ -757,12 +756,11 @@ export function PromotionRegistration() {
                   </div>
                 </div>
 
-                <div className="field">
-                  <label htmlFor="promotionStatus">Status</label>
+                <RegistrationField htmlFor="promotionStatus" label="Status">
                   <button aria-pressed={isPromotionActive} className={`status-toggle ${isPromotionActive ? 'active' : ''}`} disabled={!isFormEnabled} id="promotionStatus" onClick={handleTogglePromotionStatus} type="button">
                     <span>{isPromotionActive ? 'Ativo' : 'Inativo'}</span>
                   </button>
-                </div>
+                </RegistrationField>
 
                 <div className="form-actions">
                   <button className="secondary-button" disabled={!isFormEnabled} onClick={() => clearForm()} type="button">
@@ -794,8 +792,7 @@ export function PromotionRegistration() {
 
                   {isFileTable ? (
                     <div className="company-child-fields">
-                      <div className="field">
-                        <label htmlFor="promotionFileType">Tipo de arquivo</label>
+                      <RegistrationField htmlFor="promotionFileType" label="Tipo de arquivo">
                         <select
                           disabled={!isRelatedFormEnabled}
                           id="promotionFileType"
@@ -809,19 +806,15 @@ export function PromotionRegistration() {
                             </option>
                           ))}
                         </select>
-                      </div>
+                      </RegistrationField>
 
-                      <div className="field">
-                        <label htmlFor="promotionFileName">Arquivo selecionado</label>
+                      <RegistrationField htmlFor="promotionFileName" label="Arquivo selecionado">
                         <input disabled id="promotionFileName" type="text" value={selectedRelatedRecord ? String(selectedRelatedRecord.dsArquivo ?? `Arquivo ${selectedRelatedRecord.id}`) : ''} />
-                      </div>
+                      </RegistrationField>
 
-                      <div className="field file-upload-field">
-                        <label htmlFor="promotionFileUpload">
-                          {selectedRelatedRecordId && !isCreatingRelated ? 'Alterar arquivo' : 'Arquivo'}
-                        </label>
+                      <RegistrationField className="file-upload-field" htmlFor="promotionFileUpload" label={selectedRelatedRecordId && !isCreatingRelated ? 'Alterar arquivo' : 'Arquivo'}>
                         <input disabled={!isRelatedFormEnabled || isUploadingRelatedFile} id="promotionFileUpload" onChange={handleUploadRelatedFile} ref={promotionFileInputRef} type="file" />
-                      </div>
+                      </RegistrationField>
 
                       {selectedRelatedRecord ? (
                         <div className="file-preview-card">
@@ -848,11 +841,7 @@ export function PromotionRegistration() {
                   ) : (
                     <div className="company-child-fields" ref={promotionRelatedFormRef}>
                       {relatedConfig.fields.map((field) => (
-                        <div className="field" key={field.key}>
-                          <label htmlFor={`promotionRelated-${field.key}`}>
-                            {field.label}
-                            {field.required ? ' *' : ''}
-                          </label>
+                        <RegistrationField htmlFor={`promotionRelated-${field.key}`} key={field.key} label={field.label} required={field.required}>
                           {field.lookupEndpoint ? (
                             <select
                               disabled={!isRelatedFormEnabled}
@@ -878,7 +867,7 @@ export function PromotionRegistration() {
                               value={relatedFormValues[field.key] ?? ''}
                             />
                           )}
-                        </div>
+                        </RegistrationField>
                       ))}
                     </div>
                   )}
@@ -886,12 +875,11 @@ export function PromotionRegistration() {
                   {!isRelatedFormEnabled ? <div className="form-hint">Selecione um registro relacionado acima ou clique em Novo.</div> : null}
 
                   {!isFileTable ? (
-                    <div className="field">
-                      <label htmlFor="promotionRelatedStatus">Status</label>
+                    <RegistrationField htmlFor="promotionRelatedStatus" label="Status">
                       <button aria-pressed={isRelatedActive} className={`status-toggle ${isRelatedActive ? 'active' : ''}`} disabled={!isRelatedFormEnabled} id="promotionRelatedStatus" onClick={handleToggleRelatedStatus} type="button">
                         <span>{isRelatedActive ? 'Ativo' : 'Inativo'}</span>
                       </button>
-                    </div>
+                    </RegistrationField>
                   ) : null}
 
                   <div className="form-actions">

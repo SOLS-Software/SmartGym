@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Company, CompanyChildColumn, CompanyChildField, CompanyChildRecord, CompanyValidationErrors, CompanyValidationField, LookupRecord } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
@@ -761,8 +762,7 @@ export function CompanyRegistration() {
 
                 {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
-                <div className="field">
-                  <label htmlFor="dsEmpresa">Empresa</label>
+                <RegistrationField error={companyErrors.name} htmlFor="dsEmpresa" label="Empresa" touched={touchedCompanyFields.name}>
                   <input
                     className={touchedCompanyFields.name && companyErrors.name ? 'invalid' : ''}
                     disabled={!isFormEnabled}
@@ -787,13 +787,9 @@ export function CompanyRegistration() {
                     type="text"
                     value={companyName}
                   />
-                  {touchedCompanyFields.name && companyErrors.name ? (
-                    <span className="field-error">{companyErrors.name}</span>
-                  ) : null}
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="caCNPJ">CNPJ</label>
+                <RegistrationField error={companyErrors.cnpj} htmlFor="caCNPJ" label="CNPJ" touched={touchedCompanyFields.cnpj}>
                   <input
                     className={touchedCompanyFields.cnpj && companyErrors.cnpj ? 'invalid' : ''}
                     disabled={!isFormEnabled}
@@ -819,13 +815,9 @@ export function CompanyRegistration() {
                     type="text"
                     value={companyCnpj}
                   />
-                  {touchedCompanyFields.cnpj && companyErrors.cnpj ? (
-                    <span className="field-error">{companyErrors.cnpj}</span>
-                  ) : null}
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="empresaStatus">Status</label>
+                <RegistrationField htmlFor="empresaStatus" label="Status">
                   <button
                     aria-pressed={isCompanyActive}
                     className={`status-toggle ${isCompanyActive ? 'active' : ''}`}
@@ -836,7 +828,7 @@ export function CompanyRegistration() {
                   >
                     <span>{isCompanyActive ? 'Ativo' : 'Inativo'}</span>
                   </button>
-                </div>
+                </RegistrationField>
 
                 <div className="form-actions">
                   <button
@@ -889,8 +881,7 @@ export function CompanyRegistration() {
                     <>
                       <div className="company-child-fields">
                         {selectedChildTable === 'promotionFiles' ? (
-                          <div className="field">
-                            <label htmlFor="promotionFilePromotion">Promoção</label>
+                          <RegistrationField htmlFor="promotionFilePromotion" label="Promoção">
                             <select
                               disabled={!selectedCompanyId || isUploadingCompanyFile}
                               id="promotionFilePromotion"
@@ -914,11 +905,10 @@ export function CompanyRegistration() {
                                 </option>
                               ))}
                             </select>
-                          </div>
+                          </RegistrationField>
                         ) : null}
 
-                        <div className="field">
-                          <label htmlFor="companyFileType">Tipo de arquivo</label>
+                        <RegistrationField htmlFor="companyFileType" label="Tipo de arquivo">
                           <select
                             disabled={!selectedCompanyId || isUploadingCompanyFile}
                             id="companyFileType"
@@ -942,10 +932,9 @@ export function CompanyRegistration() {
                               </option>
                             ))}
                           </select>
-                        </div>
+                        </RegistrationField>
 
-                        <div className="field">
-                          <label htmlFor="companyFileName">Arquivo selecionado</label>
+                        <RegistrationField htmlFor="companyFileName" label="Arquivo selecionado">
                           <input
                             disabled
                             id="companyFileName"
@@ -956,13 +945,15 @@ export function CompanyRegistration() {
                                 : 'Selecione no grid ou clique em Novo'
                             }
                           />
-                        </div>
+                        </RegistrationField>
                       </div>
 
-                      <div className="field">
-                        <label htmlFor="companyFile">
-                          {selectedChildRecordId && !isCreatingChild ? 'Alterar arquivo' : 'Arquivo'}
-                        </label>
+                      <RegistrationField
+                        error="Selecionar um novo arquivo vai alterar o arquivo selecionado."
+                        htmlFor="companyFile"
+                        label={selectedChildRecordId && !isCreatingChild ? 'Alterar arquivo' : 'Arquivo'}
+                        touched={Boolean(selectedChildRecordId && !isCreatingChild)}
+                      >
                         <div className="file-upload-controls">
                           <input
                             disabled={!selectedCompanyId || isUploadingCompanyFile}
@@ -974,12 +965,7 @@ export function CompanyRegistration() {
                             type="file"
                           />
                         </div>
-                        {selectedChildRecordId && !isCreatingChild ? (
-                          <span className="field-error">
-                            Selecionar um novo arquivo vai alterar o arquivo selecionado.
-                          </span>
-                        ) : null}
-                      </div>
+                      </RegistrationField>
 
                       {selectedChildRecord ? (
                         <div className="student-files-list">
@@ -1047,11 +1033,7 @@ export function CompanyRegistration() {
                     <>
                       <div className="company-child-fields" ref={companyChildFormRef}>
                         {childTableConfig.fields.map((field) => (
-                          <div className="field" key={field.key}>
-                            <label htmlFor={`companyChild-${field.key}`}>
-                              {field.label}
-                              {field.required ? ' *' : ''}
-                            </label>
+                          <RegistrationField htmlFor={`companyChild-${field.key}`} key={field.key} label={field.label} required={field.required}>
                             {field.lookupEndpoint ? (
                               <select
                                 disabled={!isChildFormEnabled}
@@ -1087,7 +1069,7 @@ export function CompanyRegistration() {
                                 value={childFormValues[field.key] ?? ''}
                               />
                             )}
-                          </div>
+                          </RegistrationField>
                         ))}
                       </div>
 
@@ -1097,8 +1079,7 @@ export function CompanyRegistration() {
                         </div>
                       ) : null}
 
-                      <div className="field">
-                        <label htmlFor="companyChildStatus">Status</label>
+                      <RegistrationField htmlFor="companyChildStatus" label="Status">
                         <button
                           aria-pressed={isChildActive}
                           className={`status-toggle ${isChildActive ? 'active' : ''}`}
@@ -1109,7 +1090,7 @@ export function CompanyRegistration() {
                         >
                           <span>{isChildActive ? 'Ativo' : 'Inativo'}</span>
                         </button>
-                      </div>
+                      </RegistrationField>
 
                       <div className="form-actions">
                         <button

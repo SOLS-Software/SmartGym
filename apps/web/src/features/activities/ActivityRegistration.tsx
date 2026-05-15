@@ -11,6 +11,7 @@ import {
   getLookupLabel,
   paginateItems,
 } from '../../shared/registration/registrationHelpers';
+import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Activity, Company, CompanyChildRecord, CompanyChildTable, LookupRecord, Sport } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
@@ -1043,8 +1044,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                 {readOnly ? <div className="form-hint">Consulta disponível apenas para visualização.</div> : null}
                 {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
-                <div className="field">
-                  <label htmlFor="activityCompany">Empresa</label>
+                <RegistrationField htmlFor="activityCompany" label="Empresa">
                   <select disabled={!isFormEnabled} id="activityCompany" onChange={(event) => setSelectedCompanyId(event.target.value)} value={selectedCompanyId}>
                     <option value="">Selecione</option>
                     {companies.map((company) => (
@@ -1053,10 +1053,9 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                       </option>
                     ))}
                   </select>
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="activitySport">Esporte</label>
+                <RegistrationField htmlFor="activitySport" label="Esporte">
                   <select disabled={!isFormEnabled} id="activitySport" onChange={(event) => setSelectedSportId(event.target.value)} value={selectedSportId}>
                     <option value="">Selecione</option>
                     {sports.map((sport) => (
@@ -1065,10 +1064,9 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                       </option>
                     ))}
                   </select>
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="activityName">Atividade *</label>
+                <RegistrationField htmlFor="activityName" label="Atividade" required>
                   <input
                     disabled={!isFormEnabled}
                     id="activityName"
@@ -1079,10 +1077,9 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                     type="text"
                     value={activityName}
                   />
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="activityStatus">Status</label>
+                <RegistrationField htmlFor="activityStatus" label="Status">
                   <button
                     aria-pressed={isActivityActive}
                     className={`status-toggle ${isActivityActive ? 'active' : ''}`}
@@ -1093,7 +1090,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                   >
                     <span>{isActivityActive ? 'Ativo' : 'Inativo'}</span>
                   </button>
-                </div>
+                </RegistrationField>
 
                 <div className="form-actions">
                   <button className="secondary-button" disabled={!isFormEnabled} onClick={clearForm} type="button">
@@ -1125,11 +1122,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
 
                   <div className="company-child-fields" ref={activityRelatedFormRef}>
                     {relatedConfig.fields.map((field) => (
-                      <div className="field" key={field.key}>
-                        <label htmlFor={`activityRelated-${field.key}`}>
-                          {field.label}
-                          {field.required ? ' *' : ''}
-                        </label>
+                      <RegistrationField htmlFor={`activityRelated-${field.key}`} key={field.key} label={field.label} required={field.required}>
                         {field.lookupEndpoint ? (
                           <select
                             disabled={!isRelatedFormEnabled}
@@ -1155,14 +1148,13 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                             value={relatedFormValues[field.key] ?? ''}
                           />
                         )}
-                      </div>
+                      </RegistrationField>
                     ))}
                   </div>
 
                   {!isRelatedFormEnabled ? <div className="form-hint">Selecione um registro relacionado acima ou clique em Novo.</div> : null}
 
-                  <div className="field">
-                    <label htmlFor="activityRelatedStatus">Status</label>
+                  <RegistrationField htmlFor="activityRelatedStatus" label="Status">
                     <button
                       aria-pressed={isRelatedActive}
                       className={`status-toggle ${isRelatedActive ? 'active' : ''}`}
@@ -1173,7 +1165,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                     >
                       <span>{isRelatedActive ? 'Ativo' : 'Inativo'}</span>
                     </button>
-                  </div>
+                  </RegistrationField>
 
                   <div className="form-actions">
                     <button className="secondary-button" disabled={!selectedActivityId || readOnly} onClick={clearRelatedForm} type="button">
@@ -1208,8 +1200,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                   ) : null}
 
                   <div className="company-child-fields" ref={activityScheduleEmployeeFormRef}>
-                    <div className="field">
-                      <label htmlFor="scheduleEmployeeCompany">Empresa</label>
+                    <RegistrationField htmlFor="scheduleEmployeeCompany" label="Empresa">
                       <select
                         disabled={readOnly || (!selectedScheduleEmployeeId && !isCreatingScheduleEmployee)}
                         id="scheduleEmployeeCompany"
@@ -1223,10 +1214,9 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                           </option>
                         ))}
                       </select>
-                    </div>
+                    </RegistrationField>
 
-                    <div className="field">
-                      <label htmlFor="scheduleEmployeeEmployee">Profissional *</label>
+                    <RegistrationField htmlFor="scheduleEmployeeEmployee" label="Profissional" required>
                       <select
                         disabled={readOnly || (!selectedScheduleEmployeeId && !isCreatingScheduleEmployee)}
                         id="scheduleEmployeeEmployee"
@@ -1241,15 +1231,14 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                           </option>
                         ))}
                       </select>
-                    </div>
+                    </RegistrationField>
                   </div>
 
                   {!selectedScheduleEmployeeId && !isCreatingScheduleEmployee ? (
                     <div className="form-hint">Selecione um profissional acima ou clique em Novo.</div>
                   ) : null}
 
-                  <div className="field">
-                    <label htmlFor="scheduleEmployeeStatus">Status</label>
+                  <RegistrationField htmlFor="scheduleEmployeeStatus" label="Status">
                     <button
                       aria-pressed={isScheduleEmployeeActive}
                       className={`status-toggle ${isScheduleEmployeeActive ? 'active' : ''}`}
@@ -1260,7 +1249,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                     >
                       <span>{isScheduleEmployeeActive ? 'Ativo' : 'Inativo'}</span>
                     </button>
-                  </div>
+                  </RegistrationField>
 
                   <div className="form-actions">
                     <button className="secondary-button" disabled={readOnly || !selectedScheduleId} onClick={clearScheduleEmployeeForm} type="button">
@@ -1295,8 +1284,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                   ) : null}
 
                   <div className="company-child-fields" ref={activityScheduleStudentFormRef}>
-                    <div className="field">
-                      <label htmlFor="scheduleStudentCompany">Empresa</label>
+                    <RegistrationField htmlFor="scheduleStudentCompany" label="Empresa">
                       <select
                         disabled={readOnly || (!selectedScheduleStudentId && !isCreatingScheduleStudent)}
                         id="scheduleStudentCompany"
@@ -1310,10 +1298,9 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                           </option>
                         ))}
                       </select>
-                    </div>
+                    </RegistrationField>
 
-                    <div className="field">
-                      <label htmlFor="scheduleStudentStudent">Aluno *</label>
+                    <RegistrationField htmlFor="scheduleStudentStudent" label="Aluno" required>
                       <select
                         disabled={readOnly || (!selectedScheduleStudentId && !isCreatingScheduleStudent)}
                         id="scheduleStudentStudent"
@@ -1328,15 +1315,14 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                           </option>
                         ))}
                       </select>
-                    </div>
+                    </RegistrationField>
                   </div>
 
                   {!selectedScheduleStudentId && !isCreatingScheduleStudent ? (
                     <div className="form-hint">Selecione um aluno acima ou clique em Novo.</div>
                   ) : null}
 
-                  <div className="field">
-                    <label htmlFor="scheduleStudentStatus">Status</label>
+                  <RegistrationField htmlFor="scheduleStudentStatus" label="Status">
                     <button
                       aria-pressed={isScheduleStudentActive}
                       className={`status-toggle ${isScheduleStudentActive ? 'active' : ''}`}
@@ -1347,7 +1333,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                     >
                       <span>{isScheduleStudentActive ? 'Ativo' : 'Inativo'}</span>
                     </button>
-                  </div>
+                  </RegistrationField>
 
                   <div className="form-actions">
                     <button className="secondary-button" disabled={readOnly || !selectedScheduleId} onClick={clearScheduleStudentForm} type="button">

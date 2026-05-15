@@ -13,6 +13,7 @@ import type {
   LoginPayload,
   RegisterLookupQuery,
   RegisterPayload,
+  ThemeQuery,
   VerifySessionQuery,
 } from '../../shared/api-types.js';
 
@@ -252,6 +253,114 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao criar cadastro.',
+      });
+    }
+  });
+
+  app.get<{
+    Querystring: ThemeQuery;
+  }>('/auth/theme', async (request, reply) => {
+    try {
+      const url = (request.query.url ?? '').trim().toLowerCase();
+      if (!url) return reply.code(204).send();
+
+      const dominio = await prisma.dominioCorporativo.findFirst({
+        where: { urlDominio: url, boAtivo: 1 },
+        include: {
+          cliente: {
+            include: {
+              temaCustomizado: { include: { arquivoLogo: true, arquivoFavicon: true } },
+            },
+          },
+        },
+      });
+
+      if (!dominio?.cliente) return reply.code(204).send();
+
+      const { cliente } = dominio;
+      const tema = cliente.temaCustomizado;
+
+      return {
+        idCliente: cliente.id,
+        dsCliente: cliente.dsCliente,
+        ...(tema ? {
+          corPrimaria: tema.corPrimaria,
+          corSecundaria: tema.corSecundaria,
+          corAcentuacao: tema.corAcentuacao,
+          corTexto: tema.corTexto,
+          corFundo: tema.corFundo,
+          fontePrincipal: tema.fontePrincipal,
+          tamanhoBase: tema.tamanhoBase,
+          boModoEscuro: tema.boModoEscuro,
+          logoUrl: tema.arquivoLogo?.anCaminho ?? null,
+          faviconUrl: tema.arquivoFavicon?.anCaminho ?? null,
+        } : {}),
+      };
+    } catch (error) {
+      return reply.code(500).send({
+        message: error instanceof Error ? error.message : 'Erro ao buscar tema.',
+      });
+    }
+  });
+
+  app.post<{
+    Body: LoginPayload & { idCliente?: number };
+  }>('/auth/gestor-login', async (request, reply) => {
+    try {
+      const cpf = normalizeRegisterCpf(request.body.login);
+      const password = request.body.password ?? '';
+      const idCliente = Number(request.body.idCliente ?? 0);
+
+      if (!idCliente) {
+        return reply.code(400).send({ message: 'Cliente nao identificado.' });
+      }
+
+      const user = await prisma.usuario.findFirst({
+        where: {
+          boInativo: 0,
+          funcionario: { caCPF: cpf, boInativo: 0 },
+        },
+        include: { funcionario: { include: { empresa: true } } },
+      });
+
+      if (!user?.funcionario) {
+        return reply.code(401).send({ message: 'Usuario ou senha invalidos.' });
+      }
+
+      if (user.funcionario.empresa?.idCliente !== idCliente) {
+        return reply.code(403).send({ message: 'Acesso nao autorizado para este cliente.' });
+      }
+
+      const currentPassword = await prisma.senha.findFirst({
+        where: { idUsuario: user.id, boInativo: 0 },
+        orderBy: { dtCadastro: 'desc' },
+      });
+
+      const isValid =
+        currentPassword?.cnTipoHash === 1
+          ? currentPassword.dsSenha === hashPassword(password)
+          : currentPassword?.dsSenha === password;
+
+      if (!isValid) {
+        return reply.code(401).send({ message: 'Usuario ou senha invalidos.' });
+      }
+
+      const empresas = await prisma.empresa.findMany({
+        where: { idCliente, boInativo: 0 },
+        orderBy: { dsEmpresa: 'asc' },
+      });
+
+      return {
+        id: user.id,
+        idFuncionario: user.idFuncionario,
+        name: user.funcionario.nmFuncionario,
+        type: 'employee' as const,
+        idCliente,
+        empresas,
+      };
+    } catch (error) {
+      return reply.code(401).send({
+        message: error instanceof Error ? error.message : 'Erro ao entrar.',
       });
     }
   });

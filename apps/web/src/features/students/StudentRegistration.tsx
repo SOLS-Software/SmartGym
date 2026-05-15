@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, CreditCard, FileText, Receipt, Save } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { CompanyChildRecord, LookupRecord, Student, StudentFile, StudentValidationErrors, StudentValidationField } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
@@ -1015,8 +1016,7 @@ export function StudentRegistration() {
 
                 {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
-                <div className="field">
-                  <label htmlFor="nmAluno">Nome *</label>
+                <RegistrationField error={studentErrors.name} htmlFor="nmAluno" label="Nome" required touched={touchedStudentFields.name}>
                   <input
                     className={
                       touchedStudentFields.name && studentErrors.name ? 'invalid' : ''
@@ -1041,10 +1041,7 @@ export function StudentRegistration() {
                     type="text"
                     value={studentName}
                   />
-                  {touchedStudentFields.name && studentErrors.name ? (
-                    <span className="field-error">{studentErrors.name}</span>
-                  ) : null}
-                </div>
+                </RegistrationField>
 
                 <div className="field two-columns">
                   <div>
@@ -1141,8 +1138,7 @@ export function StudentRegistration() {
                   </div>
                 </div>
 
-                <div className="field">
-                  <label htmlFor="anEmail">Email</label>
+                <RegistrationField error={studentErrors.email} htmlFor="anEmail" label="Email" touched={touchedStudentFields.email}>
                   <input
                     className={
                       touchedStudentFields.email && studentErrors.email ? 'invalid' : ''
@@ -1171,13 +1167,9 @@ export function StudentRegistration() {
                     type="email"
                     value={studentEmail}
                   />
-                  {touchedStudentFields.email && studentErrors.email ? (
-                    <span className="field-error">{studentErrors.email}</span>
-                  ) : null}
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="anLogradouro">Logradouro</label>
+                <RegistrationField htmlFor="anLogradouro" label="Logradouro">
                   <input
                     disabled={!isFormEnabled}
                     id="anLogradouro"
@@ -1187,7 +1179,7 @@ export function StudentRegistration() {
                     type="text"
                     value={studentAddress}
                   />
-                </div>
+                </RegistrationField>
 
                 <div className="field two-columns">
                   <div>
@@ -1242,8 +1234,7 @@ export function StudentRegistration() {
                   </div>
                 </div>
 
-                <div className="field">
-                  <label htmlFor="studentStatus">Status</label>
+                <RegistrationField htmlFor="studentStatus" label="Status">
                   <button
                     aria-pressed={isStudentActive}
                     className={`status-toggle ${isStudentActive ? 'active' : ''}`}
@@ -1254,7 +1245,7 @@ export function StudentRegistration() {
                   >
                     <span>{isStudentActive ? 'Ativo' : 'Inativo'}</span>
                   </button>
-                </div>
+                </RegistrationField>
 
                 <div className="form-actions">
                   <button
@@ -1300,8 +1291,7 @@ export function StudentRegistration() {
 
                   {fileFeedback ? <div className="form-feedback">{fileFeedback}</div> : null}
 
-                  <div className="field">
-                    <label htmlFor="studentFile">Selecionar arquivo</label>
+                  <RegistrationField htmlFor="studentFile" label="Selecionar arquivo">
                     <div className="file-upload-controls">
                       <input
                         disabled={!selectedStudentId || isUploadingFile}
@@ -1332,7 +1322,7 @@ export function StudentRegistration() {
                       ref={cameraInputRef}
                       type="file"
                     />
-                  </div>
+                  </RegistrationField>
 
                   {isCameraModalOpen ? (
                     <div className="camera-modal-overlay" role="dialog" aria-modal="true">
@@ -1446,11 +1436,7 @@ export function StudentRegistration() {
 
                   <div className="company-child-fields" ref={studentRelatedFormRef}>
                     {studentRelatedConfig.fields.map((field) => (
-                      <div className="field" key={field.key}>
-                        <label htmlFor={`studentRelated-${field.key}`}>
-                          {field.label}
-                          {field.required ? ' *' : ''}
-                        </label>
+                      <RegistrationField htmlFor={`studentRelated-${field.key}`} key={field.key} label={field.label} required={field.required}>
                         {field.lookupEndpoint ? (
                           <select
                             disabled={!isStudentRelatedFormEnabled}
@@ -1486,12 +1472,11 @@ export function StudentRegistration() {
                             value={studentRelatedFormValues[field.key] ?? ''}
                           />
                         )}
-                      </div>
+                      </RegistrationField>
                     ))}
                   </div>
 
-                  <div className="field">
-                    <label htmlFor="studentRelatedStatus">Status</label>
+                  <RegistrationField htmlFor="studentRelatedStatus" label="Status">
                     <button
                       aria-pressed={isStudentRelatedActive}
                       className={`status-toggle ${isStudentRelatedActive ? 'active' : ''}`}
@@ -1502,7 +1487,7 @@ export function StudentRegistration() {
                     >
                       <span>{isStudentRelatedActive ? 'Ativo' : 'Inativo'}</span>
                     </button>
-                  </div>
+                  </RegistrationField>
 
                   <div className="form-actions">
                     <button

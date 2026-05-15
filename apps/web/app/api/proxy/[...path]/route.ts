@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
-const apiUrl = process.env.API_URL ?? 'http://localhost:3333';
+const BACKEND_URL = process.env.API_URL ?? 'http://localhost:3333';
+const ENCRYPTED = process.env.NODE_ENV === 'production';
 const API_PASSPHRASE = 'smartgym-2026-api-payload-key-sols';
 
 let _key: CryptoKey | null = null;
@@ -25,14 +26,6 @@ async function decryptBase64(input: string, urlSafe = false): Promise<string> {
   return new TextDecoder().decode(decrypted);
 }
 
-function decryptPayload(base64: string): Promise<string> {
-  return decryptBase64(base64, false);
-}
-
-function decryptPath(base64url: string): Promise<string> {
-  return decryptBase64(base64url, true);
-}
-
 async function encryptPayload(plaintext: string): Promise<string> {
   const key = await getKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -48,22 +41,29 @@ type RouteContext = { params: Promise<{ path: string[] }> };
 
 async function handler(request: NextRequest, { params }: RouteContext) {
   const { path } = await params;
-  const encryptedPath = path.join('/');
-  const decrypted = await decryptPath(encryptedPath); // e.g. "trainings?includeInactive=true"
-  const qIndex = decrypted.indexOf('?');
-  const pathname = qIndex !== -1 ? decrypted.slice(0, qIndex) : decrypted;
-  const search = qIndex !== -1 ? decrypted.slice(qIndex) : '';
-  const targetUrl = `${apiUrl}/${pathname}${search}`;
+
+  let targetUrl: string;
+  if (ENCRYPTED) {
+    const encryptedPath = path.join('/');
+    const decrypted = await decryptBase64(encryptedPath, true);
+    const qIndex = decrypted.indexOf('?');
+    const pathname = qIndex !== -1 ? decrypted.slice(0, qIndex) : decrypted;
+    const search = qIndex !== -1 ? decrypted.slice(qIndex) : '';
+    targetUrl = `${BACKEND_URL}/${pathname}${search}`;
+  } else {
+    targetUrl = `${BACKEND_URL}/${path.join('/')}${request.nextUrl.search}`;
+  }
 
   const forwardHeaders: Record<string, string> = {};
-  const isEncrypted = request.headers.get('x-encrypted') === '1';
-  const isEncryptedForm = request.headers.get('x-encrypted-form') === '1';
-
   let body: BodyInit | undefined;
+
   if (request.method !== 'GET' && request.method !== 'HEAD') {
+    const isEncrypted = ENCRYPTED && request.headers.get('x-encrypted') === '1';
+    const isEncryptedForm = ENCRYPTED && request.headers.get('x-encrypted-form') === '1';
+
     if (isEncrypted) {
       const base64 = await request.text();
-      const plaintext = await decryptPayload(base64);
+      const plaintext = await decryptBase64(base64);
       body = plaintext;
       forwardHeaders['content-type'] = 'application/json';
     } else if (isEncryptedForm) {
@@ -72,9 +72,8 @@ async function handler(request: NextRequest, { params }: RouteContext) {
       const outgoingFormData = new FormData();
 
       if (typeof encryptedPayload === 'string' && encryptedPayload) {
-        const plaintext = await decryptPayload(encryptedPayload);
+        const plaintext = await decryptBase64(encryptedPayload);
         const fields = JSON.parse(plaintext) as Record<string, string>;
-
         for (const [key, value] of Object.entries(fields)) {
           outgoingFormData.append(key, value);
         }
@@ -102,19 +101,21 @@ async function handler(request: NextRequest, { params }: RouteContext) {
       method: request.method,
       headers: forwardHeaders,
       body: body !== undefined ? body : undefined,
+      signal: AbortSignal.timeout(9000),
     });
+
+    if (response.status === 204 || response.status === 304) {
+      return new NextResponse(null, { status: response.status });
+    }
 
     const responseContentType = response.headers.get('content-type') ?? '';
 
-    if (responseContentType.includes('application/json')) {
+    if (ENCRYPTED && responseContentType.includes('application/json')) {
       const text = await response.text();
       const encrypted = await encryptPayload(text);
       return new NextResponse(encrypted, {
         status: response.status,
-        headers: {
-          'content-type': 'text/plain',
-          'x-encrypted': '1',
-        },
+        headers: { 'content-type': 'text/plain', 'x-encrypted': '1' },
       });
     }
 
@@ -125,10 +126,17 @@ async function handler(request: NextRequest, { params }: RouteContext) {
     });
   } catch (error) {
     console.error('[api/proxy]', error);
-    const encrypted = await encryptPayload(JSON.stringify({ message: 'Erro ao conectar ao servidor.' }));
-    return new NextResponse(encrypted, {
+    const message = JSON.stringify({ message: 'Erro ao conectar ao servidor.' });
+    if (ENCRYPTED) {
+      const encrypted = await encryptPayload(message);
+      return new NextResponse(encrypted, {
+        status: 502,
+        headers: { 'content-type': 'text/plain', 'x-encrypted': '1' },
+      });
+    }
+    return new NextResponse(message, {
       status: 502,
-      headers: { 'content-type': 'text/plain', 'x-encrypted': '1' },
+      headers: { 'content-type': 'application/json' },
     });
   }
 }

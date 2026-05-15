@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, getLookupLabel, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Company, CompanyChildField, CompanyChildRecord, CompanyChildTable, Level, LookupRecord, Training } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
@@ -604,8 +605,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
 
               {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
-              <div className="field">
-                <label htmlFor="trainingName">Nome do treino *</label>
+              <RegistrationField htmlFor="trainingName" label="Nome do treino" required>
                 <input
                   disabled={!isFormEnabled}
                   id="trainingName"
@@ -616,10 +616,9 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                   type="text"
                   value={trainingName}
                 />
-              </div>
+              </RegistrationField>
 
-              <div className="field">
-                <label htmlFor="trainingCompany">Empresa</label>
+              <RegistrationField htmlFor="trainingCompany" label="Empresa">
                 <select
                   disabled={!isFormEnabled}
                   id="trainingCompany"
@@ -633,10 +632,9 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                     </option>
                   ))}
                 </select>
-              </div>
+              </RegistrationField>
 
-              <div className="field">
-                <label htmlFor="trainingLevel">Nível</label>
+              <RegistrationField htmlFor="trainingLevel" label="Nível">
                 <select
                   disabled={!isFormEnabled}
                   id="trainingLevel"
@@ -650,10 +648,9 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                     </option>
                   ))}
                 </select>
-              </div>
+              </RegistrationField>
 
-              <div className="field">
-                <label htmlFor="trainingStatus">Status</label>
+              <RegistrationField htmlFor="trainingStatus" label="Status">
                 <button
                   aria-pressed={isTrainingActive}
                   className={`status-toggle ${isTrainingActive ? 'active' : ''}`}
@@ -664,7 +661,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                 >
                   <span>{isTrainingActive ? 'Ativo' : 'Inativo'}</span>
                 </button>
-              </div>
+              </RegistrationField>
 
               <div className="form-actions">
                 <button
@@ -717,11 +714,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
 
                   <div className="company-child-fields" ref={trainingRelatedFormRef}>
                     {trainingRelatedConfig.fields.map((field: CompanyChildField) => (
-                      <div className="field" key={field.key}>
-                        <label htmlFor={`trainingRelated-${field.key}`}>
-                          {field.label}
-                          {field.required ? ' *' : ''}
-                        </label>
+                      <RegistrationField htmlFor={`trainingRelated-${field.key}`} key={field.key} label={field.label} required={field.required}>
                         {field.lookupEndpoint ? (
                           <select
                             disabled={!isTrainingRelatedFormEnabled}
@@ -757,12 +750,11 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                             value={trainingRelatedFormValues[field.key] ?? ''}
                           />
                         )}
-                      </div>
+                      </RegistrationField>
                     ))}
                   </div>
 
-                  <div className="field">
-                    <label htmlFor="trainingRelatedStatus">Status</label>
+                  <RegistrationField htmlFor="trainingRelatedStatus" label="Status">
                     <button
                       aria-pressed={isTrainingRelatedActive}
                       className={`status-toggle ${isTrainingRelatedActive ? 'active' : ''}`}
@@ -773,7 +765,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                     >
                       <span>{isTrainingRelatedActive ? 'Ativo' : 'Inativo'}</span>
                     </button>
-                  </div>
+                  </RegistrationField>
 
                   <div className="form-actions">
                     <button

@@ -115,6 +115,10 @@ export type VerifySessionQuery = {
   id?: string;
 };
 
+export type ThemeQuery = {
+  url?: string;
+};
+
 export type CompanyChildResource =
   | 'promotions'
   | 'promotion-products'

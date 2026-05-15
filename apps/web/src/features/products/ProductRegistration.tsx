@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, getLookupLabel, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Company, CompanyChildRecord, CompanyChildTable, LookupRecord, Product } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
@@ -648,8 +649,7 @@ export function ProductRegistration() {
 
                 {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
-                <div className="field">
-                  <label htmlFor="idEmpresa">Empresa</label>
+                <RegistrationField htmlFor="idEmpresa" label="Empresa">
                   <select
                     disabled={!isFormEnabled}
                     id="idEmpresa"
@@ -664,10 +664,9 @@ export function ProductRegistration() {
                       </option>
                     ))}
                   </select>
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="dsProduto">Produto</label>
+                <RegistrationField htmlFor="dsProduto" label="Produto">
                   <input
                     disabled={!isFormEnabled}
                     id="dsProduto"
@@ -679,7 +678,7 @@ export function ProductRegistration() {
                     type="text"
                     value={productName}
                   />
-                </div>
+                </RegistrationField>
 
                 <div className="field two-columns">
                   <div>
@@ -750,8 +749,7 @@ export function ProductRegistration() {
                   {relatedConfig.key === 'files' ? (
                     <>
                       <div className="company-child-fields">
-                        <div className="field">
-                          <label htmlFor="productFileType">Tipo de arquivo</label>
+                        <RegistrationField htmlFor="productFileType" label="Tipo de arquivo">
                           <select
                             disabled={!selectedProductId || isUploadingRelatedFile}
                             id="productFileType"
@@ -767,10 +765,9 @@ export function ProductRegistration() {
                               </option>
                             ))}
                           </select>
-                        </div>
+                        </RegistrationField>
 
-                        <div className="field">
-                          <label htmlFor="productFileName">Arquivo selecionado</label>
+                        <RegistrationField htmlFor="productFileName" label="Arquivo selecionado">
                           <input
                             disabled
                             id="productFileName"
@@ -781,13 +778,10 @@ export function ProductRegistration() {
                                 : 'Selecione no grid ou clique em Novo'
                             }
                           />
-                        </div>
+                        </RegistrationField>
                       </div>
 
-                      <div className="field">
-                        <label htmlFor="productFile">
-                          {selectedRelatedRecordId && !isCreatingRelated ? 'Alterar arquivo' : 'Arquivo'}
-                        </label>
+                      <RegistrationField htmlFor="productFile" label={selectedRelatedRecordId && !isCreatingRelated ? 'Alterar arquivo' : 'Arquivo'}>
                         <input
                           disabled={!selectedProductId || isUploadingRelatedFile}
                           id="productFile"
@@ -795,7 +789,7 @@ export function ProductRegistration() {
                           ref={productFileInputRef}
                           type="file"
                         />
-                      </div>
+                      </RegistrationField>
 
                       {selectedRelatedRecordId ? (
                         <div className="student-files-list">
@@ -837,11 +831,7 @@ export function ProductRegistration() {
 
                       <div className="company-child-fields" ref={productRelatedFormRef}>
                         {relatedConfig.fields.map((field) => (
-                          <div className="field" key={field.key}>
-                            <label htmlFor={`productRelated-${field.key}`}>
-                              {field.label}
-                              {field.required ? ' *' : ''}
-                            </label>
+                          <RegistrationField htmlFor={`productRelated-${field.key}`} key={field.key} label={field.label} required={field.required}>
                             {field.lookupEndpoint ? (
                               <select
                                 disabled={!isRelatedFormEnabled}
@@ -871,12 +861,11 @@ export function ProductRegistration() {
                                 value={relatedFormValues[field.key] ?? ''}
                               />
                             )}
-                          </div>
+                          </RegistrationField>
                         ))}
                       </div>
 
-                      <div className="field">
-                        <label htmlFor="productRelatedStatus">Status</label>
+                      <RegistrationField htmlFor="productRelatedStatus" label="Status">
                         <button
                           aria-pressed={isRelatedActive}
                           className={`status-toggle ${isRelatedActive ? 'active' : ''}`}
@@ -887,7 +876,7 @@ export function ProductRegistration() {
                         >
                           <span>{isRelatedActive ? 'Ativo' : 'Inativo'}</span>
                         </button>
-                      </div>
+                      </RegistrationField>
 
                       <div className="form-actions">
                         <button className="secondary-button" disabled={!selectedProductId} onClick={clearRelatedForm} type="button">

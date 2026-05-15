@@ -1,3 +1,4 @@
+const ENCRYPTED = process.env.NODE_ENV === 'production';
 const API_PASSPHRASE = 'smartgym-2026-api-payload-key-sols';
 
 let _key: CryptoKey | null = null;
@@ -20,14 +21,6 @@ async function encryptToBase64(plaintext: string, urlSafe = false): Promise<stri
   combined.set(new Uint8Array(ciphertext), 12);
   const b64 = btoa(String.fromCharCode(...combined));
   return urlSafe ? b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '') : b64;
-}
-
-function encryptPayload(plaintext: string): Promise<string> {
-  return encryptToBase64(plaintext, false);
-}
-
-function encryptPath(plaintext: string): Promise<string> {
-  return encryptToBase64(plaintext, true);
 }
 
 async function decryptPayload(base64: string): Promise<string> {
@@ -57,7 +50,7 @@ async function encryptFormData(formData: FormData) {
     }
   }
 
-  encryptedFormData.append('payload', await encryptPayload(JSON.stringify(fields)));
+  encryptedFormData.append('payload', await encryptToBase64(JSON.stringify(fields)));
   return encryptedFormData;
 }
 
@@ -76,13 +69,17 @@ export async function apiFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
+  if (!ENCRYPTED) {
+    return fetch(input, init);
+  }
+
   // Encrypt the path + query string
   let urlStr = input instanceof URL ? input.toString() : String(input);
   const proxyBase = '/api/proxy/';
   const proxyIndex = urlStr.indexOf(proxyBase);
   if (proxyIndex !== -1) {
-    const afterProxy = urlStr.slice(proxyIndex + proxyBase.length); // e.g. "trainings?includeInactive=true"
-    const encryptedPath = await encryptPath(afterProxy);
+    const afterProxy = urlStr.slice(proxyIndex + proxyBase.length);
+    const encryptedPath = await encryptToBase64(afterProxy, true);
     urlStr = urlStr.slice(0, proxyIndex + proxyBase.length) + encryptedPath;
     input = urlStr;
   }
@@ -95,19 +92,16 @@ export async function apiFetch(
     headers.set('x-encrypted-form', '1');
   }
 
-  const shouldEncryptBody =
-    body !== undefined &&
-    body !== null &&
-    !isFormDataBody(body);
+  const shouldEncryptBody = body !== undefined && body !== null && !isFormDataBody(body);
 
   if (shouldEncryptBody) {
     const bodyText = typeof body === 'string' ? body : new TextDecoder().decode(body as ArrayBuffer);
-    const encrypted = await encryptPayload(bodyText);
+    const encrypted = await encryptToBase64(bodyText);
     headers.set('content-type', 'text/plain');
     headers.set('x-encrypted', '1');
     body = encrypted;
   }
-  
+
   const response = await fetch(input, { ...init, headers, body });
 
   if (response.headers.get('x-encrypted') !== '1') {

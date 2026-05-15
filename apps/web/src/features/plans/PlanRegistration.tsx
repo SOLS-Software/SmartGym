@@ -4,6 +4,7 @@ import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { CompanyChildRecord, CompanyChildTable, Frequency, LookupRecord, Plan } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
@@ -801,8 +802,7 @@ export function PlanRegistration() {
 
                 {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
-                <div className="field">
-                  <label htmlFor="planName">Nome do plano *</label>
+                <RegistrationField htmlFor="planName" label="Nome do plano" required>
                   <input
                     disabled={!isFormEnabled}
                     id="planName"
@@ -813,10 +813,9 @@ export function PlanRegistration() {
                     type="text"
                     value={planName}
                   />
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="planFrequency">Frequência</label>
+                <RegistrationField htmlFor="planFrequency" label="Frequência">
                   <select
                     disabled={!isFormEnabled}
                     id="planFrequency"
@@ -830,10 +829,9 @@ export function PlanRegistration() {
                       </option>
                     ))}
                   </select>
-                </div>
+                </RegistrationField>
 
-                <div className="field">
-                  <label htmlFor="planStatus">Status</label>
+                <RegistrationField htmlFor="planStatus" label="Status">
                   <button
                     aria-pressed={isPlanActive}
                     className={`status-toggle ${isPlanActive ? 'active' : ''}`}
@@ -844,7 +842,7 @@ export function PlanRegistration() {
                   >
                     <span>{isPlanActive ? 'Ativo' : 'Inativo'}</span>
                   </button>
-                </div>
+                </RegistrationField>
 
                 <div className="form-actions">
                   <button
@@ -891,8 +889,7 @@ export function PlanRegistration() {
 
                   {isPlanRelatedFileTable ? (
                     <div className="company-child-fields">
-                      <div className="field">
-                        <label htmlFor="planPromotionFilePromotion">Promoção *</label>
+                      <RegistrationField htmlFor="planPromotionFilePromotion" label="Promoção" required>
                         <select
                           disabled={!isPlanRelatedFormEnabled}
                           id="planPromotionFilePromotion"
@@ -915,10 +912,9 @@ export function PlanRegistration() {
                             </option>
                           ))}
                         </select>
-                      </div>
+                      </RegistrationField>
 
-                      <div className="field">
-                        <label htmlFor="planPromotionFileType">Tipo de arquivo</label>
+                      <RegistrationField htmlFor="planPromotionFileType" label="Tipo de arquivo">
                         <select
                           disabled={!isPlanRelatedFormEnabled}
                           id="planPromotionFileType"
@@ -940,10 +936,9 @@ export function PlanRegistration() {
                             </option>
                           ))}
                         </select>
-                      </div>
+                      </RegistrationField>
 
-                      <div className="field">
-                        <label htmlFor="planPromotionFileName">Arquivo selecionado</label>
+                      <RegistrationField htmlFor="planPromotionFileName" label="Arquivo selecionado">
                         <input
                           disabled
                           id="planPromotionFileName"
@@ -954,12 +949,9 @@ export function PlanRegistration() {
                               : ''
                           }
                         />
-                      </div>
+                      </RegistrationField>
 
-                      <div className="field file-upload-field">
-                        <label htmlFor="planPromotionFileUpload">
-                          {selectedPlanRelatedRecordId && !isCreatingPlanRelated ? 'Alterar arquivo' : 'Arquivo'}
-                        </label>
+                      <RegistrationField className="file-upload-field" htmlFor="planPromotionFileUpload" label={selectedPlanRelatedRecordId && !isCreatingPlanRelated ? 'Alterar arquivo' : 'Arquivo'}>
                         <input
                           disabled={!isPlanRelatedFormEnabled || isUploadingPlanRelatedFile}
                           id="planPromotionFileUpload"
@@ -967,7 +959,7 @@ export function PlanRegistration() {
                           ref={planFileInputRef}
                           type="file"
                         />
-                      </div>
+                      </RegistrationField>
 
                       {selectedPlanRelatedRecord ? (
                         <div className="file-preview-card">
@@ -1009,11 +1001,7 @@ export function PlanRegistration() {
                   ) : (
                     <div className="company-child-fields" ref={planRelatedFormRef}>
                       {planRelatedConfig.fields.map((field) => (
-                        <div className="field" key={field.key}>
-                          <label htmlFor={`planRelated-${field.key}`}>
-                            {field.label}
-                            {field.required ? ' *' : ''}
-                          </label>
+                        <RegistrationField htmlFor={`planRelated-${field.key}`} key={field.key} label={field.label} required={field.required}>
                           {field.lookupEndpoint ? (
                             <select
                               disabled={!isPlanRelatedFormEnabled}
@@ -1049,7 +1037,7 @@ export function PlanRegistration() {
                               value={planRelatedFormValues[field.key] ?? ''}
                             />
                           )}
-                        </div>
+                        </RegistrationField>
                       ))}
                     </div>
                   )}
@@ -1061,8 +1049,7 @@ export function PlanRegistration() {
                   ) : null}
 
                   {!isPlanRelatedFileTable ? (
-                    <div className="field">
-                      <label htmlFor="planRelatedStatus">Status</label>
+                    <RegistrationField htmlFor="planRelatedStatus" label="Status">
                       <button
                         aria-pressed={isPlanRelatedActive}
                         className={`status-toggle ${isPlanRelatedActive ? 'active' : ''}`}
@@ -1073,7 +1060,7 @@ export function PlanRegistration() {
                       >
                         <span>{isPlanRelatedActive ? 'Ativo' : 'Inativo'}</span>
                       </button>
-                    </div>
+                    </RegistrationField>
                   ) : null}
 
                   <div className="form-actions">
