@@ -105,7 +105,8 @@ const menuGroups = [
 ];
 
 type CompanyTheme = {
-  dsEmpresa: string;
+  idCliente: number;
+  dsCliente: string;
   corPrimaria: string;
   corSecundaria: string;
   corAcentuacao: string;
@@ -117,6 +118,16 @@ type CompanyTheme = {
   logoUrl: string | null;
   faviconUrl: string | null;
 };
+
+function loadGoogleFont(fontName: string) {
+  const id = `gfont-${fontName.replace(/\s+/g, '-').toLowerCase()}`;
+  if (document.getElementById(id)) return;
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontName)}:wght@400;600;700;800&display=swap`;
+  document.head.appendChild(link);
+}
 
 function applyCompanyTheme(theme: CompanyTheme) {
   const root = document.documentElement;
@@ -132,6 +143,14 @@ function applyCompanyTheme(theme: CompanyTheme) {
   const lighten = (c: number) => Math.min(255, Math.round(c + (255 - c) * 0.82)).toString(16).padStart(2, '0');
   root.style.setProperty('--color-primary-dark', `#${darken(r)}${darken(g)}${darken(b)}`);
   root.style.setProperty('--color-primary-bg', `#${lighten(r)}${lighten(g)}${lighten(b)}`);
+
+  if (theme.fontePrincipal) {
+    loadGoogleFont(theme.fontePrincipal);
+    root.style.setProperty('--font-primary', `${theme.fontePrincipal}, ui-sans-serif, system-ui, sans-serif`);
+  }
+  if (theme.tamanhoBase) {
+    root.style.setProperty('--font-size-base', `${theme.tamanhoBase}px`);
+  }
 
   if (theme.faviconUrl) {
     let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
@@ -675,11 +694,13 @@ export default function HomePage() {
         <header className="app-header">
           <div className="header-brand">
             <div className="logo" aria-hidden="true">
-              SG
+              {companyTheme?.logoUrl
+                ? <img alt="Logo" src={companyTheme.logoUrl} style={{ height: '100%', objectFit: 'contain', width: '100%' }} />
+                : 'SG'}
             </div>
             <div>
               <p className="eyebrow">SmartGym</p>
-              <strong>Academia Cliente</strong>
+              <strong>{companyTheme?.dsCliente ?? 'Academia Cliente'}</strong>
             </div>
           </div>
 
@@ -867,7 +888,7 @@ export default function HomePage() {
               : 'SG'}
           </div>
           <div>
-            <p className="eyebrow">{companyTheme?.dsEmpresa ?? 'SmartGym'}</p>
+            <p className="eyebrow">{companyTheme?.dsCliente ?? 'SmartGym'}</p>
             <h1 id="login-title">
               {loginMode === 'login'
                 ? 'Entrar na sua conta'

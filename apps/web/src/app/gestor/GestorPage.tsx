@@ -89,6 +89,16 @@ export default function GestorPage() {
     })();
   }, []);
 
+  function loadGoogleFont(fontName: string) {
+    const id = `gfont-${fontName.replace(/\s+/g, '-').toLowerCase()}`;
+    if (document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontName)}:wght@400;600;700;800&display=swap`;
+    document.head.appendChild(link);
+  }
+
   function applyTheme(theme: ClientTheme) {
     const root = document.documentElement;
     if (theme.corPrimaria) {
@@ -104,6 +114,14 @@ export default function GestorPage() {
     }
     if (theme.corTexto) root.style.setProperty('--color-text', theme.corTexto);
     if (theme.corFundo) root.style.setProperty('--color-bg', theme.corFundo);
+
+    if (theme.fontePrincipal) {
+      loadGoogleFont(theme.fontePrincipal);
+      root.style.setProperty('--font-primary', `${theme.fontePrincipal}, ui-sans-serif, system-ui, sans-serif`);
+    }
+    if (theme.tamanhoBase) {
+      root.style.setProperty('--font-size-base', `${theme.tamanhoBase}px`);
+    }
 
     if (theme.faviconUrl) {
       let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
@@ -248,7 +266,9 @@ export default function GestorPage() {
     <main style={{ minHeight: '100vh', padding: '1.5rem' }}>
       <header className="gestor-header">
         <div className="gestor-header-brand">
-          <Palette size={20} />
+          {clientTheme?.logoUrl
+            ? <img alt="Logo" src={clientTheme.logoUrl} style={{ height: '2rem', objectFit: 'contain', borderRadius: '0.25rem' }} />
+            : <Palette size={20} />}
           <span>{clientTheme?.dsCliente ?? 'SmartGym'} — Gestor de Tema</span>
         </div>
         <div className="gestor-header-user">
