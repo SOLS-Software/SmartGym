@@ -146,9 +146,8 @@ html.dark .student-activity-enroll-toolbar strong { color: var(--color-text); }
 /* Dark mode: special elements */
 html.dark .menu-hamburger { background: #253c2c; }
 html.dark .status-toggle { background: var(--color-surface); border-color: #253c2c; }
-html.dark .status-toggle span { background: #3d5c46; }
+html.dark .status-toggle:not(.active) span { background: #3d5c46; }
 html.dark .grid-status-toggle { background: var(--color-surface); color: #7a9882; }
-html.dark .new-button { background: #253c2c; }
 html.dark .user-avatar { background: rgba(31, 122, 83, 0.25); }
 html.dark .login-feedback { background: rgba(31, 122, 83, 0.15); border-color: rgba(31, 122, 83, 0.3); }
 html.dark .form-feedback { background: rgba(31, 122, 83, 0.15); border-color: rgba(31, 122, 83, 0.3); }
