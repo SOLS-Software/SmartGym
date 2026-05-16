@@ -944,3 +944,51 @@ model Cliente {
 
   @@map("tb_Clientes")
 }
+
+model Catraca {
+  id            Int      @id @default(autoincrement())
+  idEmpresa     Int?
+  dsCatraca     String   @default("") @db.VarChar(100)
+  dsFabricante  String   @default("controlid") @db.VarChar(50)
+  dsModelo      String   @default("") @db.VarChar(50)
+  caSerial      String   @default("") @db.VarChar(100)
+  anIp          String   @default("") @db.VarChar(45)
+  anMac         String   @default("") @db.VarChar(17)
+  caToken       String   @default("") @db.VarChar(100)
+  dtUltimoPush  DateTime?
+  dtCadastro    DateTime @default(now())
+  dtAlteracao   DateTime @updatedAt
+  boInativo     Int      @default(0)
+
+  eventos CatracaEvento[]
+
+  @@index([caSerial])
+  @@index([anMac])
+  @@map("tb_Catracas")
+}
+
+model CatracaEvento {
+  id                 Int      @id @default(autoincrement())
+  idCatraca          Int?
+  idAluno            Int?
+  idEventoDispositivo BigInt?
+  nrUsuarioCatraca   String?  @db.VarChar(50)
+  nrTipoEvento       Int?
+  dsTipoEvento       String   @default("") @db.VarChar(50)
+  boAcessoLiberado   Int      @default(0)
+  dsIdentificacao    String   @default("") @db.VarChar(50)
+  dsCartao           String   @default("") @db.VarChar(50)
+  dsPortal           String   @default("") @db.VarChar(20)
+  dsDirecao          String   @default("") @db.VarChar(20)
+  anIpOrigem         String   @default("") @db.VarChar(45)
+  dtEvento           DateTime
+  jsPayload          Json?
+  dtCadastro         DateTime @default(now())
+
+  catraca Catraca? @relation(fields: [idCatraca], references: [id])
+
+  @@index([idCatraca, dtEvento])
+  @@index([idAluno, dtEvento])
+  @@index([dtEvento])
+  @@map("tb_CatracaEventos")
+}

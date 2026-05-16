@@ -17,12 +17,60 @@ import { registerActivityRoutes } from './modules/activities/routes.js';
 import { registerAccessRoutes } from './modules/access/routes.js';
 import { registerLookupRoutes } from './modules/lookups/routes.js';
 import { registerAuxiliaryRoutes } from './modules/auxiliary/routes.js';
+import { registerControlidRoutes } from './modules/controlid/routes.js';
 
 validateEnv();
 
 export const app = Fastify({
   logger: true,
 });
+
+// Algumas catracas Control iD enviam push como application/x-www-form-urlencoded
+// ou ate sem content-type. Tratamos esses casos para parsear o body certinho.
+app.addContentTypeParser(
+  'application/x-www-form-urlencoded',
+  { parseAs: 'string' },
+  (_request, body, done) => {
+    try {
+      const text = typeof body === 'string' ? body : body.toString();
+      // Tenta JSON primeiro (algumas catracas embrulham o JSON e mandam com content-type errado).
+      if (text.trim().startsWith('{') || text.trim().startsWith('[')) {
+        return done(null, JSON.parse(text));
+      }
+      const params = new URLSearchParams(text);
+      const obj: Record<string, unknown> = {};
+      params.forEach((value, key) => {
+        // Se vier um campo com JSON dentro, faz o parse.
+        try {
+          obj[key] = JSON.parse(value);
+        } catch {
+          obj[key] = value;
+        }
+      });
+      done(null, obj);
+    } catch (error) {
+      done(error as Error, undefined);
+    }
+  },
+);
+
+// Fallback para bodies sem content-type ou text/plain (algumas Control iD mandam assim).
+app.addContentTypeParser(
+  ['text/plain', 'application/octet-stream'],
+  { parseAs: 'string' },
+  (_request, body, done) => {
+    try {
+      const text = typeof body === 'string' ? body : body.toString();
+      if (!text.trim()) return done(null, {});
+      if (text.trim().startsWith('{') || text.trim().startsWith('[')) {
+        return done(null, JSON.parse(text));
+      }
+      done(null, { raw: text });
+    } catch (error) {
+      done(error as Error, undefined);
+    }
+  },
+);
 
 await app.register(cors, {
   origin: true,
@@ -50,3 +98,4 @@ await registerActivityRoutes(app);
 await registerAccessRoutes(app);
 await registerLookupRoutes(app);
 await registerAuxiliaryRoutes(app);
+await registerControlidRoutes(app);
