@@ -4,18 +4,18 @@ export const companyChildTables: [CompanyChildTable, ...CompanyChildTable[]] = [
   {
     key: 'promotions',
     endpoint: 'promotions',
-    label: 'PromoÃ§Ãµes',
-    title: 'PromoÃ§Ãµes da empresa',
+    label: 'Promoções',
+    title: 'Promoções da empresa',
     columns: [
-      { key: 'dsPromocao', label: 'PromoÃ§Ã£o' },
-      { key: 'qtPeriodo', label: 'PerÃ­odo' },
+      { key: 'dsPromocao', label: 'Promoção' },
+      { key: 'qtPeriodo', label: 'Perído' },
       { key: 'vlDesconto', label: 'Desconto R$', type: 'money' },
       { key: 'pcDesconto', label: 'Desconto %' },
       { key: 'boInativo', label: 'Status', type: 'status' },
     ],
     fields: [
-      { key: 'dsPromocao', label: 'PromoÃ§Ã£o', type: 'text', required: true },
-      { key: 'qtPeriodo', label: 'PerÃ­odo', type: 'number' },
+      { key: 'dsPromocao', label: 'Promoção', type: 'text', required: true },
+      { key: 'qtPeriodo', label: 'Perído', type: 'number' },
       {
         key: 'idUnidadeTempo',
         label: 'Unidade de tempo',
@@ -83,7 +83,7 @@ export const companyChildTables: [CompanyChildTable, ...CompanyChildTable[]] = [
       { key: 'idPlano', label: 'Plano', type: 'number', lookupEndpoint: 'plans', lookupLabelKey: 'dsPlano' },
       {
         key: 'idPromocaoPlano',
-        label: 'PromoÃ§Ã£o do plano',
+        label: 'Promoção do plano',
         type: 'number',
         lookupEndpoint: 'promotion-plans',
         lookupLabelKey: 'promocao.dsPromocao',
@@ -113,7 +113,7 @@ export const companyChildTables: [CompanyChildTable, ...CompanyChildTable[]] = [
       },
       {
         key: 'idProdutoMovimentacao',
-        label: 'MovimentaÃ§Ã£o',
+        label: 'Movimentação',
         type: 'number',
         lookupEndpoint: 'companies/{companyId}/children/product-movements',
         lookupLabelKey: 'produto.dsProduto',
@@ -139,8 +139,8 @@ export const companyChildTables: [CompanyChildTable, ...CompanyChildTable[]] = [
   {
     key: 'productMovements',
     endpoint: 'product-movements',
-    label: 'MovimentaÃ§Ãµes de Produtos',
-    title: 'MovimentaÃ§Ãµes de produtos',
+    label: 'Movimentações de Produtos',
+    title: 'Movimentações de produtos',
     columns: [
       { key: 'idProduto', label: 'Produto', lookupLabelKey: 'dsProduto' },
       { key: 'idAluno', label: 'Aluno', lookupLabelKey: 'nmAluno' },

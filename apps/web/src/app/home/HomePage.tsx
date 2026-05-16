@@ -1,7 +1,7 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatCpf, formatDateInput, isValidCpf } from '../../shared/registration/registrationHelpers';
 import type { RegisterLookupRecord } from '../../shared/registration/registrationTypes';
 import { PlanRegistration } from '../../features/plans/PlanRegistration';
@@ -47,9 +47,11 @@ import {
   Dumbbell,
   FilePlus,
   Globe,
+  Moon,
   Package,
   Palette,
   ShoppingCart,
+  Sun,
   Tag,
   UserCheck,
   Users,
@@ -104,6 +106,9 @@ const menuGroups = [
   },
 ];
 
+const THEME_CACHE_KEY = 'smartgym_theme_cache';
+const DARK_MODE_KEY = 'smartgym_dark_mode';
+
 type CompanyTheme = {
   idCliente: number;
   dsCliente: string;
@@ -129,6 +134,14 @@ function loadGoogleFont(fontName: string) {
   document.head.appendChild(link);
 }
 
+function lightenColor(hex: string): string {
+  const h = hex.replace('#', '');
+  return `#${[0, 2, 4].map((i) => {
+    const c = parseInt(h.slice(i, i + 2), 16);
+    return Math.min(255, Math.round(c + (255 - c) * 0.82)).toString(16).padStart(2, '0');
+  }).join('')}`;
+}
+
 function applyCompanyTheme(theme: CompanyTheme) {
   const root = document.documentElement;
   root.style.setProperty('--color-primary', theme.corPrimaria);
@@ -140,9 +153,17 @@ function applyCompanyTheme(theme: CompanyTheme) {
   const g = parseInt(hex.slice(2, 4), 16);
   const b = parseInt(hex.slice(4, 6), 16);
   const darken = (c: number) => Math.max(0, Math.round(c * 0.82)).toString(16).padStart(2, '0');
-  const lighten = (c: number) => Math.min(255, Math.round(c + (255 - c) * 0.82)).toString(16).padStart(2, '0');
   root.style.setProperty('--color-primary-dark', `#${darken(r)}${darken(g)}${darken(b)}`);
-  root.style.setProperty('--color-primary-bg', `#${lighten(r)}${lighten(g)}${lighten(b)}`);
+  root.style.setProperty('--color-primary-bg', lightenColor(theme.corPrimaria));
+
+  if (theme.corSecundaria) {
+    root.style.setProperty('--color-secondary', theme.corSecundaria);
+    root.style.setProperty('--color-secondary-bg', lightenColor(theme.corSecundaria));
+  }
+  if (theme.corAcentuacao) {
+    root.style.setProperty('--color-accent', theme.corAcentuacao);
+    root.style.setProperty('--color-accent-bg', lightenColor(theme.corAcentuacao));
+  }
 
   if (theme.fontePrincipal) {
     loadGoogleFont(theme.fontePrincipal);
@@ -224,6 +245,28 @@ export default function HomePage() {
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [pendingFacialUser, setPendingFacialUser] = useState<AuthenticatedUser | null>(null);
   const [companyTheme, setCompanyTheme] = useState<CompanyTheme | null>(null);
+  const [themePhase, setThemePhase] = useState<'fetching' | 'applying' | null>('fetching');
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  const themeFingerprint = useMemo(() => {
+    if (!companyTheme) return '';
+    const { logoUrl, faviconUrl, ...core } = companyTheme;
+    return JSON.stringify(core);
+  }, [companyTheme]);
+
+  useEffect(() => {
+    if (!companyTheme) return;
+    const { logoUrl, faviconUrl, ...core } = companyTheme;
+    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify(core));
+  }, [themeFingerprint]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (localStorage.getItem(DARK_MODE_KEY) === '1') {
+      document.documentElement.classList.add('dark');
+      setIsDarkMode(true);
+    }
+  }, []);
+
   const passwordRequirements = [
     {
       label: 'Pelo menos 1 número',
@@ -293,15 +336,31 @@ export default function HomePage() {
   }, [activeItem, isLoggedIn]);
 
   useEffect(() => {
+    try {
+      const cached = localStorage.getItem(THEME_CACHE_KEY);
+      if (cached) {
+        const core = JSON.parse(cached) as Omit<CompanyTheme, 'logoUrl' | 'faviconUrl'>;
+        const theme = { ...core, logoUrl: null, faviconUrl: null };
+        setCompanyTheme(theme);
+        applyCompanyTheme(theme);
+        setThemePhase(null);
+      }
+    } catch {}
+
     const hostname = window.location.hostname;
     void fetch(`${apiUrl}/auth/theme?url=${encodeURIComponent(hostname)}`)
       .then(async (res) => {
         if (res.status === 204 || !res.ok) return;
         const theme = await res.json() as CompanyTheme;
-        setCompanyTheme(theme);
-        applyCompanyTheme(theme);
+        setThemePhase('applying');
+        requestAnimationFrame(() => {
+          setCompanyTheme(theme);
+          applyCompanyTheme(theme);
+          setThemePhase(null);
+        });
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { setThemePhase((p) => p === 'fetching' ? null : p); });
   }, []);
 
   useEffect(() => {
@@ -501,6 +560,18 @@ export default function HomePage() {
     setAuthFeedback('');
   }
 
+  function toggleDarkMode() {
+    const next = !isDarkMode;
+    setIsDarkMode(next);
+    if (next) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem(DARK_MODE_KEY, '1');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.removeItem(DARK_MODE_KEY);
+    }
+  }
+
   function handleLogout() {
     try {
       localStorage.removeItem(SESSION_KEY);
@@ -678,6 +749,16 @@ export default function HomePage() {
     return null;
   }
 
+  if (themePhase && !isLoggedIn) {
+    return (
+      <main className="login-page">
+        <p style={{ color: 'var(--color-text)', opacity: 0.5, fontSize: '0.875rem' }}>
+          {themePhase === 'applying' ? 'Aplicando configurações...' : 'Buscando configurações...'}
+        </p>
+      </main>
+    );
+  }
+
   if (isLoggedIn) {
     const visibleMenuGroups =
       authUserType === 'employee'
@@ -718,6 +799,17 @@ export default function HomePage() {
               <strong>{authUserName}</strong>
               <span>{authUserRole}</span>
             </div>
+            {companyTheme?.boModoEscuro === 1 && (
+              <button
+                aria-label={isDarkMode ? 'Modo claro' : 'Modo escuro'}
+                aria-pressed={isDarkMode}
+                className="dark-mode-toggle"
+                onClick={toggleDarkMode}
+                type="button"
+              >
+                {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
+            )}
             <button className="secondary-button" type="button" onClick={handleLogout}>
               Sair
             </button>

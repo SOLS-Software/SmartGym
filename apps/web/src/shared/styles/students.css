@@ -60,7 +60,7 @@
 }
 
 .camera-modal {
-  background: #ffffff;
+  background: var(--color-surface);
   border: 0.0625rem solid #dde6df;
   border-radius: 0.625rem;
   box-shadow: 0 1.25rem 3.75rem rgba(23, 33, 28, 0.2);
@@ -116,7 +116,7 @@
 }
 
 .student-file-row {
-  background: #f8faf8;
+  background: var(--color-surface-alt);
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
   display: flex;
@@ -189,7 +189,7 @@
 }
 
 .file-modal {
-  background: #ffffff;
+  background: var(--color-surface);
   border: 0.0625rem solid #dde6df;
   border-radius: 0.625rem;
   box-shadow: 0 1.25rem 3.75rem rgba(23, 33, 28, 0.2);
@@ -259,7 +259,7 @@
 .membership-plan-panel,
 .membership-access-grid section {
   animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: #ffffff;
+  background: var(--color-surface);
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
 }
@@ -305,7 +305,7 @@
 
 .membership-profile-data div,
 .membership-metrics div {
-  background: #f8faf8;
+  background: var(--color-surface-alt);
   border: 0.0625rem solid #edf2ef;
   border-radius: 0.5rem;
   display: flex;
@@ -422,7 +422,7 @@
 
 .student-plan-card {
   animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: #ffffff;
+  background: var(--color-surface);
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
   display: flex;
@@ -462,7 +462,7 @@
 }
 
 .student-plan-summary div {
-  background: #f8faf8;
+  background: var(--color-surface-alt);
   border: 0.0625rem solid #edf2ef;
   border-radius: 0.5rem;
   display: flex;
@@ -491,7 +491,7 @@
 }
 
 .student-plan-detail-grid section {
-  background: #fbfcfb;
+  background: var(--color-surface-alt);
   border: 0.0625rem solid #edf2ef;
   border-radius: 0.5rem;
   padding: 1rem;
@@ -543,7 +543,7 @@
 
 .student-promotion-card {
   animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: #ffffff;
+  background: var(--color-surface);
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
   display: flex;
@@ -573,7 +573,7 @@
 }
 
 .student-promotion-summary div {
-  background: #f8faf8;
+  background: var(--color-surface-alt);
   border: 0.0625rem solid #edf2ef;
   border-radius: 0.5rem;
   display: flex;
@@ -602,7 +602,7 @@
 }
 
 .student-promotion-detail-grid section {
-  background: #fbfcfb;
+  background: var(--color-surface-alt);
   border: 0.0625rem solid #edf2ef;
   border-radius: 0.5rem;
   padding: 1rem;
@@ -649,7 +649,7 @@
 
 .student-activity-enroll-toolbar {
   align-items: center;
-  background: #ffffff;
+  background: var(--color-surface);
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
   display: flex;
@@ -676,7 +676,7 @@
 
 .student-activity-card {
   animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: #ffffff;
+  background: var(--color-surface);
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
   display: flex;
@@ -707,7 +707,7 @@
 
 .student-activity-summary div,
 .student-activity-schedule-card > div {
-  background: #f8faf8;
+  background: var(--color-surface-alt);
   border: 0.0625rem solid #edf2ef;
   border-radius: 0.5rem;
   display: flex;
@@ -732,7 +732,7 @@
 }
 
 .student-activity-schedules {
-  background: #fbfcfb;
+  background: var(--color-surface-alt);
   border: 0.0625rem solid #edf2ef;
   border-radius: 0.5rem;
   padding: 1rem;
@@ -774,14 +774,14 @@
 }
 
 .student-activity-calendar-month {
-  background: #ffffff;
+  background: var(--color-surface);
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
   overflow: hidden;
 }
 
 .student-activity-calendar-month h5 {
-  background: #f8faf8;
+  background: var(--color-surface-alt);
   border-bottom: 0.0625rem solid #edf2ef;
   color: #17211c;
   font-size: 1rem;
@@ -806,7 +806,7 @@
 }
 
 .student-activity-calendar-day {
-  background: #ffffff;
+  background: var(--color-surface);
   border-top: 0.0625rem solid #edf2ef;
   border-right: 0.0625rem solid #edf2ef;
   color: #17211c;
@@ -918,7 +918,7 @@
 .student-calendar-grid,
 .student-calendar-details {
   animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: #ffffff;
+  background: var(--color-surface);
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
   overflow: hidden;
@@ -930,7 +930,7 @@
 }
 
 .student-calendar-weekday {
-  background: #f8faf8;
+  background: var(--color-surface-alt);
   border-bottom: 0.0625rem solid #dde6df;
   border-right: 0.0625rem solid #edf2ef;
   color: #6b7a72;
@@ -942,7 +942,7 @@
 }
 
 .student-calendar-day {
-  background: #ffffff;
+  background: var(--color-surface);
   border: 0;
   border-bottom: 0.0625rem solid #edf2ef;
   border-right: 0.0625rem solid #edf2ef;
@@ -958,7 +958,7 @@
 }
 
 .student-calendar-day.empty {
-  background: #f8faf8;
+  background: var(--color-surface-alt);
   cursor: default;
 }
 
@@ -1060,7 +1060,7 @@
 }
 
 .student-calendar-event-card {
-  background: #f8faf8;
+  background: var(--color-surface-alt);
   border: 0.0625rem solid #edf2ef;
   border-radius: 0.5rem;
   display: flex;

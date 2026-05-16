@@ -37,7 +37,7 @@
 
 .registration-form {
   animation: app-surface-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: #ffffff;
+  background: var(--color-surface);
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
   display: flex;
@@ -52,7 +52,7 @@
 
 .form-hint {
   animation: app-surface-in 300ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: #f8faf8;
+  background: var(--color-surface-alt);
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
   color: #52605a;
@@ -87,7 +87,7 @@
 
 .field input,
 .field select {
-  background: #ffffff;
+  background: var(--color-surface);
   border: 0.0625rem solid #ccd8d0;
   border-radius: 0.5rem;
   color: #17211c;
@@ -190,8 +190,8 @@
 }
 
 .form-actions .secondary-button {
-  background: #e8f4ed;
-  color: #1f7a53;
+  background: var(--color-secondary-bg);
+  color: var(--color-secondary);
 }
 
 .status-toggle {

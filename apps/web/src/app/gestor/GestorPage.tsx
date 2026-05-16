@@ -1,7 +1,7 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { LogOut, Palette } from 'lucide-react';
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 import {
@@ -19,6 +19,8 @@ type ClientTheme = {
   idCliente: number;
   dsCliente: string;
   corPrimaria?: string;
+  corSecundaria?: string;
+  corAcentuacao?: string;
   corTexto?: string;
   corFundo?: string;
   fontePrincipal?: string;
@@ -36,10 +38,24 @@ type GestorSession = AuthenticatedUser & {
 };
 
 const GESTOR_SESSION_KEY = 'smartgym_gestor_session';
+const GESTOR_THEME_CACHE_KEY = 'smartgym_gestor_theme_cache';
 
 export default function GestorPage() {
   const [clientTheme, setClientTheme] = useState<ClientTheme | null>(null);
+  const [themePhase, setThemePhase] = useState<'fetching' | 'applying' | null>('fetching');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const themeFingerprint = useMemo(() => {
+    if (!clientTheme) return '';
+    const { logoUrl, faviconUrl, ...core } = clientTheme;
+    return JSON.stringify(core);
+  }, [clientTheme]);
+
+  useEffect(() => {
+    if (!clientTheme) return;
+    const { logoUrl, faviconUrl, ...core } = clientTheme;
+    localStorage.setItem(GESTOR_THEME_CACHE_KEY, JSON.stringify(core));
+  }, [themeFingerprint]); // eslint-disable-line react-hooks/exhaustive-deps
   const [isSessionLoading, setIsSessionLoading] = useState(true);
   const [session, setSession] = useState<GestorSession | null>(null);
 
@@ -51,15 +67,31 @@ export default function GestorPage() {
 
   // Fetch client theme from domain on mount
   useEffect(() => {
+    try {
+      const cached = localStorage.getItem(GESTOR_THEME_CACHE_KEY);
+      if (cached) {
+        const core = JSON.parse(cached) as Omit<ClientTheme, 'logoUrl' | 'faviconUrl'>;
+        const theme = { ...core, logoUrl: null, faviconUrl: null };
+        setClientTheme(theme);
+        applyTheme(theme);
+        setThemePhase(null);
+      }
+    } catch {}
+
     const hostname = window.location.hostname;
     void fetch(`${apiUrl}/auth/theme?url=${encodeURIComponent(hostname)}`)
       .then(async (res) => {
         if (res.status === 204 || !res.ok) return;
         const data = await res.json() as ClientTheme;
-        setClientTheme(data);
-        applyTheme(data);
+        setThemePhase('applying');
+        requestAnimationFrame(() => {
+          setClientTheme(data);
+          applyTheme(data);
+          setThemePhase(null);
+        });
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { setThemePhase((p) => p === 'fetching' ? null : p); });
   }, []);
 
   // Restore gestor session on mount
@@ -99,6 +131,14 @@ export default function GestorPage() {
     document.head.appendChild(link);
   }
 
+  function lightenColor(hex: string): string {
+    const h = hex.replace('#', '');
+    return `#${[0, 2, 4].map((i) => {
+      const c = parseInt(h.slice(i, i + 2), 16);
+      return Math.min(255, Math.round(c + (255 - c) * 0.82)).toString(16).padStart(2, '0');
+    }).join('')}`;
+  }
+
   function applyTheme(theme: ClientTheme) {
     const root = document.documentElement;
     if (theme.corPrimaria) {
@@ -108,9 +148,16 @@ export default function GestorPage() {
       const g = parseInt(hex.slice(2, 4), 16);
       const b = parseInt(hex.slice(4, 6), 16);
       const d = (c: number) => Math.max(0, Math.round(c * 0.82)).toString(16).padStart(2, '0');
-      const l = (c: number) => Math.min(255, Math.round(c + (255 - c) * 0.82)).toString(16).padStart(2, '0');
       root.style.setProperty('--color-primary-dark', `#${d(r)}${d(g)}${d(b)}`);
-      root.style.setProperty('--color-primary-bg', `#${l(r)}${l(g)}${l(b)}`);
+      root.style.setProperty('--color-primary-bg', lightenColor(theme.corPrimaria));
+    }
+    if (theme.corSecundaria) {
+      root.style.setProperty('--color-secondary', theme.corSecundaria);
+      root.style.setProperty('--color-secondary-bg', lightenColor(theme.corSecundaria));
+    }
+    if (theme.corAcentuacao) {
+      root.style.setProperty('--color-accent', theme.corAcentuacao);
+      root.style.setProperty('--color-accent-bg', lightenColor(theme.corAcentuacao));
     }
     if (theme.corTexto) root.style.setProperty('--color-text', theme.corTexto);
     if (theme.corFundo) root.style.setProperty('--color-bg', theme.corFundo);
@@ -185,6 +232,16 @@ export default function GestorPage() {
 
   if (isSessionLoading) {
     return <main className="login-page" />;
+  }
+
+  if (themePhase && !isLoggedIn) {
+    return (
+      <main className="login-page">
+        <p style={{ color: 'var(--color-text)', opacity: 0.5, fontSize: '0.875rem' }}>
+          {themePhase === 'applying' ? 'Aplicando configurações...' : 'Buscando configurações...'}
+        </p>
+      </main>
+    );
   }
 
   if (!isLoggedIn || !session) {

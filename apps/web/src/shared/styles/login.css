@@ -2,7 +2,7 @@
   align-items: center;
   background:
     radial-gradient(circle at 20% 20%, rgba(31, 122, 83, 0.1), transparent 32%),
-    linear-gradient(135deg, #f3f6f4 0%, #e7eee9 100%);
+    linear-gradient(135deg, var(--color-bg) 0%, var(--color-bg) 100%);
   display: flex;
   justify-content: center;
   min-height: 100vh;
@@ -10,7 +10,7 @@
 }
 
 .login-panel {
-  background: #ffffff;
+  background: var(--color-surface);
   border: 0.0625rem solid #dde6df;
   border-radius: 0.5rem;
   box-shadow: 0 1.5rem 4.375rem rgba(23, 33, 28, 0.12);
@@ -84,7 +84,7 @@
 
 .login-mode-toggle button.active,
 .account-type-toggle button.active {
-  background: #ffffff;
+  background: var(--color-surface);
   box-shadow: 0 0.25rem 0.875rem rgba(23, 33, 28, 0.08);
   color: var(--color-primary);
 }
@@ -108,7 +108,7 @@
 }
 
 .login-form input {
-  background: #ffffff;
+  background: var(--color-surface);
   border: 0.0625rem solid #ccd8d0;
   border-radius: 0.5rem;
   color: #17211c;
@@ -125,7 +125,7 @@
 
 .login-locked-value {
   align-items: center;
-  background: #f8faf8;
+  background: var(--color-surface-alt);
   border: 0.0625rem solid #ccd8d0;
   border-radius: 0.5rem;
   color: #17211c;
@@ -315,7 +315,7 @@
 
 .login-form .account-type-toggle button.active,
 .login-form .account-type-toggle button.active:hover {
-  background: #ffffff;
+  background: var(--color-surface);
   color: var(--color-primary);
 }
 
