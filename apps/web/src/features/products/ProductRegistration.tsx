@@ -2,12 +2,15 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Save } from 'lucide-react';
+import { FileText, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, getLookupLabel, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
+import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import type { Company, CompanyChildRecord, CompanyChildTable, LookupRecord, Product } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+
+const productTabIcons = { files: FileText };
 
 const productRelatedTables: CompanyChildTable[] = [
   {
@@ -596,7 +599,7 @@ export function ProductRegistration() {
           />
 
           {relatedConfig ? (
-            <section className="company-child-grid-section">
+            <section className="company-child-grid-section child-grid-desktop">
               {!selectedProductId ? (
                 <div className="form-hint">Selecione um produto para visualizar os registros relacionados.</div>
               ) : (
@@ -722,6 +725,32 @@ export function ProductRegistration() {
               </>
             ) : null}
           </form>
+
+          {relatedConfig ? (
+            <section className="company-child-grid-section child-grid-mobile">
+              {!selectedProductId ? (
+                <div className="form-hint">Selecione um produto para visualizar os registros relacionados.</div>
+              ) : (
+                <RegistrationGrid<CompanyChildRecord>
+                  ariaLabel={relatedConfig.title}
+                  label={relatedConfig.label}
+                  columns={relatedConfig.columns.map((column) => ({
+                    label: column.label,
+                    render: (record) => formatChildCell(record, column, relatedLookups[column.key]),
+                  }))}
+                  records={filteredRelatedRecords}
+                  isLoading={isLoadingRelatedRecords}
+                  selectedId={selectedRelatedRecordId}
+                  onSelect={handleSelectRelatedRecord}
+                  searchTerm={relatedSearchTerm}
+                  onSearch={setRelatedSearchTerm}
+                  onNew={handleNewRelated}
+                  newDisabled={!selectedProductId}
+                  variant="child"
+                />
+              )}
+            </section>
+          ) : null}
 
           {relatedConfig ? (
             <form
@@ -895,22 +924,13 @@ export function ProductRegistration() {
           ) : null}
         </div>
 
-        <section className="company-child-tabs" aria-label="Tabelas relacionadas do produto">
-          <div className="company-child-tabs-list" role="tablist" aria-label="Tabelas relacionadas do produto">
-            {productRelatedTables.map((table) => (
-              <button
-                aria-selected={selectedRelatedTable === table.key}
-                className={selectedRelatedTable === table.key ? 'active' : ''}
-                key={table.key}
-                onClick={() => handleSelectRelatedTable(table.key)}
-                role="tab"
-                type="button"
-              >
-                {table.label}
-              </button>
-            ))}
-          </div>
-        </section>
+        <RegistrationTabs
+          tabs={productRelatedTables}
+          activeTab={selectedRelatedTable}
+          onTabChange={handleSelectRelatedTable}
+          icons={productTabIcons}
+          ariaLabel="Tabelas relacionadas do produto"
+        />
       </div>
       {relatedFileModal ? (
         <div className="file-modal-overlay" role="dialog" aria-modal="true">

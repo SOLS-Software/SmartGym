@@ -774,6 +774,16 @@ export default function HomePage() {
       <main className={`home-page ${isMenuOpen ? '' : 'menu-collapsed'}`}>
         <header className="app-header">
           <div className="header-brand">
+            <button
+              aria-label="Abrir menu"
+              className="mobile-menu-trigger menu-hamburger"
+              onClick={() => setIsMenuOpen(true)}
+              type="button"
+            >
+              <span />
+              <span />
+              <span />
+            </button>
             <div className="logo" aria-hidden="true">
               {companyTheme?.logoUrl
                 ? <img alt="Logo" src={companyTheme.logoUrl} style={{ height: '100%', objectFit: 'contain', width: '100%' }} />

@@ -1128,6 +1128,10 @@
 }
 
 @media (max-width: 47.5rem) {
+  .student-split-layout {
+    grid-template-columns: 1fr auto;
+  }
+
   .membership-heading,
   .student-plan-card-header,
   .student-promotion-card-header,

@@ -2,14 +2,27 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Save } from 'lucide-react';
+import { BadgeCheck, CreditCard, File, FileImage, Package, Palette, Receipt, Save, Tag } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
+import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import type { Company, CompanyChildColumn, CompanyChildField, CompanyChildRecord, CompanyValidationErrors, CompanyValidationField, LookupRecord } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { companyChildTables } from './companyChildTables';
 import { formatCnpj, getSelectedRecord, isValidCnpj } from './companyUtils';
+
+const companyTabIcons = {
+  promotions: Tag,
+  promotionProducts: Package,
+  promotionFiles: FileImage,
+  studentPlans: CreditCard,
+  payments: Receipt,
+  productMovements: Package,
+  companyFiles: File,
+  studentCheckIns: BadgeCheck,
+  themes: Palette,
+};
 
 
 export function CompanyRegistration() {
@@ -704,7 +717,7 @@ export function CompanyRegistration() {
             onPageChange={setCompaniesPage}
           />
 
-          <section className="company-child-grid-section">
+          <section className="company-child-grid-section child-grid-desktop">
             {!childTableConfig ? (
               <div className="form-hint">Selecione uma tabela filha ao lado.</div>
             ) : !selectedCompanyId ? (
@@ -847,6 +860,34 @@ export function CompanyRegistration() {
               </>
             ) : null}
           </form>
+
+          <section className="company-child-grid-section child-grid-mobile">
+            {!childTableConfig ? (
+              <div className="form-hint">Selecione uma tabela filha ao lado.</div>
+            ) : !selectedCompanyId ? (
+              <div className="form-hint">
+                Selecione uma empresa para visualizar os registros filhos.
+              </div>
+            ) : (
+              <RegistrationGrid<CompanyChildRecord>
+                ariaLabel={childTableConfig.title}
+                label={childTableConfig.label}
+                columns={childTableConfig.columns.map((column) => ({
+                  label: column.label,
+                  render: (record) => formatChildCell(record, column, childLookups[column.key]),
+                }))}
+                records={filteredChildRecords}
+                isLoading={isLoadingChildRecords}
+                selectedId={selectedChildRecordId}
+                onSelect={handleSelectChild}
+                searchTerm={childSearchTerm}
+                onSearch={setChildSearchTerm}
+                onNew={handleNewChild}
+                newDisabled={!selectedCompanyId}
+                variant="child"
+              />
+            )}
+          </section>
 
           {childTableConfig ? (
             <form
@@ -1114,27 +1155,13 @@ export function CompanyRegistration() {
           ) : null}
         </div>
 
-        <section className="company-child-tabs" aria-label="Tabelas filhas da empresa">
-          {/* <div className="company-child-tabs-header">
-            <p className="section-label"></p>
-            <h3>Filhas</h3>
-          </div> */}
-
-          <div className="company-child-tabs-list" role="tablist" aria-label="Tabelas filhas">
-            {companyChildTables.map((table) => (
-              <button
-                aria-selected={selectedChildTable === table.key}
-                className={selectedChildTable === table.key ? 'active' : ''}
-                key={table.key}
-                onClick={() => setSelectedChildTable(table.key)}
-                role="tab"
-                type="button"
-              >
-                {table.label}
-              </button>
-            ))}
-          </div>
-        </section>
+        <RegistrationTabs
+          tabs={companyChildTables}
+          activeTab={selectedChildTable}
+          onTabChange={setSelectedChildTable}
+          icons={companyTabIcons}
+          ariaLabel="Tabelas filhas da empresa"
+        />
       </div>
 
       {companyFileModal ? (

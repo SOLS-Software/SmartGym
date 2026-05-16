@@ -2,7 +2,7 @@
 
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Save } from 'lucide-react';
+import { CreditCard, FileImage, Package, Save } from 'lucide-react';
 import {
   GRID_PAGE_SIZE,
   formatChildCell,
@@ -14,6 +14,9 @@ import {
 } from '../../shared/registration/registrationHelpers';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
+import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
+
+const promotionTabIcons = { promotionPlans: CreditCard, promotionProducts: Package, promotionFiles: FileImage };
 import type {
   Company,
   CompanyChildRecord,
@@ -652,7 +655,7 @@ export function PromotionRegistration() {
           />
 
           {relatedConfig ? (
-            <section className="company-child-grid-section">
+            <section className="company-child-grid-section child-grid-desktop">
               {!selectedPromotionId ? (
                 <div className="form-hint">
                   Selecione uma promoção para visualizar os registros relacionados.
@@ -774,6 +777,34 @@ export function PromotionRegistration() {
               </>
             ) : null}
           </form>
+
+          {relatedConfig ? (
+            <section className="company-child-grid-section child-grid-mobile">
+              {!selectedPromotionId ? (
+                <div className="form-hint">
+                  Selecione uma promoção para visualizar os registros relacionados.
+                </div>
+              ) : (
+                <RegistrationGrid<CompanyChildRecord>
+                  ariaLabel={relatedConfig.title}
+                  label={relatedConfig.label}
+                  columns={relatedConfig.columns.map((column) => ({
+                    label: column.label,
+                    render: (record) => formatChildCell(record, column, relatedLookups[column.key]),
+                  }))}
+                  records={filteredRelatedRecords}
+                  isLoading={isLoadingRelatedRecords}
+                  selectedId={selectedRelatedRecordId}
+                  onSelect={handleSelectRelatedRecord}
+                  searchTerm={relatedSearchTerm}
+                  onSearch={setRelatedSearchTerm}
+                  onNew={handleNewRelated}
+                  newDisabled={!selectedPromotionId}
+                  variant="child"
+                />
+              )}
+            </section>
+          ) : null}
 
           {relatedConfig ? (
             <form className={`registration-form split-form-panel company-child-form-panel ${isRelatedFieldsCollapsed ? 'collapsed' : ''}`} onSubmit={handleSaveRelated}>
@@ -899,25 +930,13 @@ export function PromotionRegistration() {
           ) : null}
         </div>
 
-        <section className="company-child-tabs" aria-label="Tabelas relacionadas da promoção">
-          <div className="company-child-tabs-list" role="tablist" aria-label="Tabelas relacionadas da promoção">
-            {promotionRelatedTables.map((table) => (
-              <button
-                aria-selected={selectedRelatedTable === table.key}
-                className={selectedRelatedTable === table.key ? 'active' : ''}
-                key={table.key}
-                onClick={() => {
-                  setSelectedRelatedTable(table.key);
-                  setRelatedFeedback('');
-                }}
-                role="tab"
-                type="button"
-              >
-                {table.label}
-              </button>
-            ))}
-          </div>
-        </section>
+        <RegistrationTabs
+          tabs={promotionRelatedTables}
+          activeTab={selectedRelatedTable}
+          onTabChange={(key) => { setSelectedRelatedTable(key); setRelatedFeedback(''); }}
+          icons={promotionTabIcons}
+          ariaLabel="Tabelas relacionadas da promoção"
+        />
       </div>
       {relatedFileModal ? (
         <div className="file-modal-overlay" role="dialog" aria-modal="true">

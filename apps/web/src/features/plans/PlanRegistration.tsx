@@ -2,12 +2,15 @@
 
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Save } from 'lucide-react';
+import { Activity, Building2, CreditCard, DollarSign, Package, Save, Tag } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
+import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import type { CompanyChildRecord, CompanyChildTable, Frequency, LookupRecord, Plan } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+
+const planTabIcons = { values: DollarSign, products: Package, companies: Building2, activities: Activity, promotionPlans: Tag, promotionProducts: CreditCard };
 
 const planRelatedTables: CompanyChildTable[] = [
   {
@@ -743,7 +746,7 @@ export function PlanRegistration() {
           />
 
           {planRelatedConfig ? (
-            <section className="company-child-grid-section">
+            <section className="company-child-grid-section child-grid-desktop">
               {!selectedPlanId ? (
                 <div className="form-hint">
                   Selecione um plano para visualizar os registros relacionados.
@@ -861,6 +864,36 @@ export function PlanRegistration() {
               </>
             ) : null}
           </form>
+
+          {planRelatedConfig ? (
+            <section className="company-child-grid-section child-grid-mobile">
+              {!selectedPlanId ? (
+                <div className="form-hint">
+                  Selecione um plano para visualizar os registros relacionados.
+                </div>
+              ) : (
+                <>
+                  <RegistrationGrid<CompanyChildRecord>
+                    ariaLabel={planRelatedConfig.title}
+                    columns={planRelatedConfig.columns.map((col) => ({
+                      label: col.label,
+                      render: (rec) => formatChildCell(rec, col, planRelatedLookups[col.key]),
+                    }))}
+                    isLoading={isLoadingPlanRelatedRecords}
+                    label={planRelatedConfig.label}
+                    newDisabled={!selectedPlanId}
+                    onNew={handleNewPlanRelated}
+                    onSearch={setPlanRelatedSearchTerm}
+                    onSelect={handleSelectPlanRelatedRecord}
+                    records={filteredPlanRelatedRecords}
+                    searchTerm={planRelatedSearchTerm}
+                    selectedId={selectedPlanRelatedRecordId}
+                    variant="child"
+                  />
+                </>
+              )}
+            </section>
+          ) : null}
 
           {planRelatedConfig ? (
             <form
@@ -1085,22 +1118,13 @@ export function PlanRegistration() {
           ) : null}
         </div>
 
-        <section className="company-child-tabs" aria-label="Tabelas relacionadas do plano">
-          <div className="company-child-tabs-list" role="tablist" aria-label="Tabelas relacionadas do plano">
-            {planRelatedTables.map((table) => (
-              <button
-                aria-selected={selectedPlanRelatedTable === table.key}
-                className={selectedPlanRelatedTable === table.key ? 'active' : ''}
-                key={table.key}
-                onClick={() => handleSelectPlanRelatedTable(table.key)}
-                role="tab"
-                type="button"
-              >
-                {table.label}
-              </button>
-            ))}
-          </div>
-        </section>
+        <RegistrationTabs
+          tabs={planRelatedTables}
+          activeTab={selectedPlanRelatedTable}
+          onTabChange={handleSelectPlanRelatedTable}
+          icons={planTabIcons}
+          ariaLabel="Tabelas relacionadas do plano"
+        />
       </div>
       {planRelatedFileModal ? (
         <div className="file-modal-overlay" role="dialog" aria-modal="true">

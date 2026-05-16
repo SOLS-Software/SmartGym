@@ -2,7 +2,7 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Save } from 'lucide-react';
+import { Calendar, Plus, Save, UserCheck, Users } from 'lucide-react';
 import {
   GRID_PAGE_SIZE,
   formatChildCell,
@@ -13,8 +13,11 @@ import {
 } from '../../shared/registration/registrationHelpers';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
+import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import type { Activity, Company, CompanyChildRecord, CompanyChildTable, LookupRecord, Sport } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+
+const activityTabIcons = { schedules: Calendar, scheduleEmployees: Users, scheduleStudents: UserCheck };
 
 type ActivityRegistrationProps = {
   readOnly?: boolean;
@@ -854,7 +857,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
           />
 
           {visibleRelatedConfig ? (
-            <section className="company-child-grid-section">
+            <section className="company-child-grid-section child-grid-desktop">
               {!selectedActivityId ? (
                 <div className="form-hint">
                   Selecione uma atividade para visualizar os registros relacionados.
@@ -883,7 +886,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
           ) : null}
 
           {isScheduleEmployeesTab ? (
-            <section className="company-child-grid-section">
+            <section className="company-child-grid-section child-grid-desktop">
               {!selectedScheduleId ? (
                 <div className="form-hint">
                   Selecione uma agenda na aba Agendas para vincular profissionais.
@@ -955,7 +958,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
           ) : null}
 
           {isScheduleStudentsTab ? (
-            <section className="company-child-grid-section">
+            <section className="company-child-grid-section child-grid-desktop">
               {!selectedScheduleId ? (
                 <div className="form-hint">
                   Selecione uma agenda na aba Agendas para vincular alunos.
@@ -1105,6 +1108,35 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
             ) : null}
           </form>
 
+          {visibleRelatedConfig ? (
+            <section className="company-child-grid-section child-grid-mobile">
+              {!selectedActivityId ? (
+                <div className="form-hint">
+                  Selecione uma atividade para visualizar os registros relacionados.
+                </div>
+              ) : (
+                <RegistrationGrid<CompanyChildRecord>
+                  ariaLabel={visibleRelatedConfig.title}
+                  label={visibleRelatedConfig.label}
+                  columns={visibleRelatedConfig.columns.map((column) => ({
+                    label: column.label,
+                    render: (record) => formatChildCell(record, column, relatedLookups[column.key]),
+                  }))}
+                  records={filteredRelatedRecords}
+                  isLoading={isLoadingRelatedRecords}
+                  selectedId={selectedRelatedRecordId ?? selectedScheduleId ?? null}
+                  onSelect={handleSelectRelatedRecord}
+                  searchTerm={relatedSearchTerm}
+                  onSearch={setRelatedSearchTerm}
+                  onNew={handleNewRelated}
+                  newDisabled={!selectedActivityId}
+                  showNewButton={!readOnly}
+                  variant="child"
+                />
+              )}
+            </section>
+          ) : null}
+
           {relatedConfig ? (
             <form className={`registration-form split-form-panel company-child-form-panel ${isRelatedFieldsCollapsed ? 'collapsed' : ''}`} onSubmit={handleSaveRelated}>
               <div className="collapsible-panel-header">
@@ -1179,6 +1211,53 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                 </>
               ) : null}
             </form>
+          ) : null}
+
+          {isScheduleEmployeesTab ? (
+            <section className="company-child-grid-section child-grid-mobile">
+              {!selectedScheduleId ? (
+                <div className="form-hint">
+                  Selecione uma agenda na aba Agendas para vincular profissionais.
+                </div>
+              ) : null}
+              <div className="grid-toolbar">
+                <div className="child-grid-toolbar-label">
+                  <p className="section-label">Profissionais da agenda</p>
+                </div>
+                <div className="child-grid-toolbar-actions">
+                  <label className="search-field">
+                    <span>Pesquisar</span>
+                    <input onChange={(event) => setScheduleEmployeeSearchTerm(event.target.value)} placeholder="Buscar profissional" type="search" value={scheduleEmployeeSearchTerm} />
+                  </label>
+                  {!readOnly ? (
+                    <button className="new-button" disabled={!selectedScheduleId} onClick={handleNewScheduleEmployee} type="button">
+                      <Plus size={16} />
+                      Novo
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <div className="product-table company-child-grid-table" role="table" aria-label="Profissionais da agenda">
+                <div className="product-row company-child-grid-row header" role="row" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                  <span role="columnheader">Empresa</span>
+                  <span role="columnheader">Profissional</span>
+                  <span role="columnheader">Status</span>
+                </div>
+                {isLoadingScheduleEmployees ? <div className="empty-row">Carregando profissionais...</div> : null}
+                {!isLoadingScheduleEmployees ? filteredScheduleEmployees.map((record) => {
+                  const company = relatedLookups.idEmpresa?.find((item) => String(item.id) === String(record.idEmpresa));
+                  const employee = relatedLookups.idFuncionario?.find((item) => String(item.id) === String(record.idFuncionario));
+                  return (
+                    <button className={`product-row company-child-grid-row selectable ${record.id === selectedScheduleEmployeeId ? 'selected' : ''}`} key={record.id} onClick={() => handleSelectScheduleEmployee(record)} role="row" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }} type="button">
+                      <span role="cell">{String(company?.dsEmpresa ?? record.idEmpresa ?? '-')}</span>
+                      <span role="cell">{String(employee?.nmFuncionario ?? record.idFuncionario ?? '-')}</span>
+                      <span role="cell"><span className={`status-badge ${Number(record.boInativo ?? 0) === 0 ? 'active' : 'inactive'}`}>{Number(record.boInativo ?? 0) === 0 ? 'Ativo' : 'Inativo'}</span></span>
+                    </button>
+                  );
+                }) : null}
+                {!isLoadingScheduleEmployees && filteredScheduleEmployees.length === 0 ? <div className="empty-row">Nenhum profissional vinculado a esta agenda.</div> : null}
+              </div>
+            </section>
           ) : null}
 
           {isScheduleEmployeesTab ? (
@@ -1266,6 +1345,53 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
           ) : null}
 
           {isScheduleStudentsTab ? (
+            <section className="company-child-grid-section child-grid-mobile">
+              {!selectedScheduleId ? (
+                <div className="form-hint">
+                  Selecione uma agenda na aba Agendas para vincular alunos.
+                </div>
+              ) : null}
+              <div className="grid-toolbar">
+                <div className="child-grid-toolbar-label">
+                  <p className="section-label">Alunos da agenda</p>
+                </div>
+                <div className="child-grid-toolbar-actions">
+                  <label className="search-field">
+                    <span>Pesquisar</span>
+                    <input onChange={(event) => setScheduleStudentSearchTerm(event.target.value)} placeholder="Buscar aluno" type="search" value={scheduleStudentSearchTerm} />
+                  </label>
+                  {!readOnly ? (
+                    <button className="new-button" disabled={!selectedScheduleId} onClick={handleNewScheduleStudent} type="button">
+                      <Plus size={16} />
+                      Novo
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <div className="product-table company-child-grid-table" role="table" aria-label="Alunos da agenda">
+                <div className="product-row company-child-grid-row header" role="row" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                  <span role="columnheader">Empresa</span>
+                  <span role="columnheader">Aluno</span>
+                  <span role="columnheader">Status</span>
+                </div>
+                {isLoadingScheduleStudents ? <div className="empty-row">Carregando alunos...</div> : null}
+                {!isLoadingScheduleStudents ? filteredScheduleStudents.map((record) => {
+                  const company = relatedLookups.idEmpresa?.find((item) => String(item.id) === String(record.idEmpresa));
+                  const student = relatedLookups.idAluno?.find((item) => String(item.id) === String(record.idAluno));
+                  return (
+                    <button className={`product-row company-child-grid-row selectable ${record.id === selectedScheduleStudentId ? 'selected' : ''}`} key={record.id} onClick={() => handleSelectScheduleStudent(record)} role="row" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }} type="button">
+                      <span role="cell">{String(company?.dsEmpresa ?? record.idEmpresa ?? '-')}</span>
+                      <span role="cell">{String(student?.nmAluno ?? record.idAluno ?? '-')}</span>
+                      <span role="cell"><span className={`status-badge ${Number(record.boInativo ?? 0) === 0 ? 'active' : 'inactive'}`}>{Number(record.boInativo ?? 0) === 0 ? 'Ativo' : 'Inativo'}</span></span>
+                    </button>
+                  );
+                }) : null}
+                {!isLoadingScheduleStudents && filteredScheduleStudents.length === 0 ? <div className="empty-row">Nenhum aluno vinculado a esta agenda.</div> : null}
+              </div>
+            </section>
+          ) : null}
+
+          {isScheduleStudentsTab ? (
             <form className={`registration-form split-form-panel company-child-form-panel ${isScheduleStudentFieldsCollapsed ? 'collapsed' : ''}`} onSubmit={handleSaveScheduleStudent}>
               <div className="collapsible-panel-header">
                 <div>
@@ -1350,25 +1476,13 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
           ) : null}
         </div>
 
-        <section className="company-child-tabs" aria-label="Tabelas relacionadas da atividade">
-          <div className="company-child-tabs-list" role="tablist" aria-label="Tabelas relacionadas da atividade">
-            {[...activityRelatedTables, scheduleEmployeeTab, scheduleStudentTab].map((table) => (
-              <button
-                aria-selected={selectedRelatedTable === table.key}
-                className={selectedRelatedTable === table.key ? 'active' : ''}
-                key={table.key}
-                onClick={() => {
-                  setSelectedRelatedTable(table.key);
-                  setRelatedFeedback('');
-                }}
-                role="tab"
-                type="button"
-              >
-                {table.label}
-              </button>
-            ))}
-          </div>
-        </section>
+        <RegistrationTabs
+          tabs={[...activityRelatedTables, scheduleEmployeeTab, scheduleStudentTab]}
+          activeTab={selectedRelatedTable}
+          onTabChange={(key) => { setSelectedRelatedTable(key); setRelatedFeedback(''); }}
+          icons={activityTabIcons}
+          ariaLabel="Tabelas relacionadas da atividade"
+        />
       </div>
     </div>
   );

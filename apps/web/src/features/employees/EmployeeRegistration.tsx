@@ -2,10 +2,13 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Save } from 'lucide-react';
+import { FileText, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
+import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
+
+const employeeTabIcons = { files: FileText };
 import type { Company, CompanyChildRecord, CompanyChildTable, Employee, LookupRecord, Role } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 type EmployeeValidationField =
@@ -832,7 +835,7 @@ export function EmployeeRegistration() {
           />
 
           {employeeRelatedConfig ? (
-            <section className="company-child-grid-section">
+            <section className="company-child-grid-section child-grid-desktop">
               {!selectedEmployeeId ? (
                 <div className="form-hint">
                   Selecione um funcionario para visualizar os registros relacionados.
@@ -1165,6 +1168,34 @@ export function EmployeeRegistration() {
         </form>
 
           {employeeRelatedConfig ? (
+            <section className="company-child-grid-section child-grid-mobile">
+              {!selectedEmployeeId ? (
+                <div className="form-hint">
+                  Selecione um funcionario para visualizar os registros relacionados.
+                </div>
+              ) : (
+                <RegistrationGrid<CompanyChildRecord>
+                  ariaLabel={employeeRelatedConfig.title}
+                  label={employeeRelatedConfig.label}
+                  columns={employeeRelatedConfig.columns.map((column) => ({
+                    label: column.label,
+                    render: (record) => formatChildCell(record, column, employeeRelatedLookups[column.key]),
+                  }))}
+                  records={filteredEmployeeRelatedRecords}
+                  isLoading={isLoadingEmployeeRelatedRecords}
+                  selectedId={selectedEmployeeRelatedRecordId}
+                  onSelect={handleSelectEmployeeRelatedRecord}
+                  searchTerm={employeeRelatedSearchTerm}
+                  onSearch={setEmployeeRelatedSearchTerm}
+                  onNew={handleNewEmployeeRelated}
+                  newDisabled={!selectedEmployeeId}
+                  variant="child"
+                />
+              )}
+            </section>
+          ) : null}
+
+          {employeeRelatedConfig ? (
             <form
               className={`registration-form split-form-panel company-child-form-panel ${isEmployeeRelatedFieldsCollapsed ? 'collapsed' : ''}`}
               onSubmit={handleSaveEmployeeRelated}
@@ -1354,22 +1385,13 @@ export function EmployeeRegistration() {
           ) : null}
         </div>
 
-        <section className="company-child-tabs" aria-label="Tabelas relacionadas do funcionario">
-          <div className="company-child-tabs-list" role="tablist" aria-label="Tabelas relacionadas do funcionario">
-            {employeeRelatedTables.map((table) => (
-              <button
-                aria-selected={selectedEmployeeRelatedTable === table.key}
-                className={selectedEmployeeRelatedTable === table.key ? 'active' : ''}
-                key={table.key}
-                onClick={() => handleSelectEmployeeRelatedTable(table.key)}
-                role="tab"
-                type="button"
-              >
-                {table.label}
-              </button>
-            ))}
-          </div>
-        </section>
+        <RegistrationTabs
+          tabs={employeeRelatedTables}
+          activeTab={selectedEmployeeRelatedTable}
+          onTabChange={handleSelectEmployeeRelatedTable}
+          icons={employeeTabIcons}
+          ariaLabel="Tabelas relacionadas do funcionário"
+        />
       </div>
       {employeeFileModal ? (
         <div className="file-modal-overlay" role="dialog" aria-modal="true">

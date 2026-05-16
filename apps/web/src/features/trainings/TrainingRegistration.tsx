@@ -2,12 +2,15 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Save } from 'lucide-react';
+import { Dumbbell, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, getLookupLabel, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
+import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import type { Company, CompanyChildField, CompanyChildRecord, CompanyChildTable, Level, LookupRecord, Training } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+
+const trainingTabIcons = { exercises: Dumbbell };
 
 const trainingRelatedTables: CompanyChildTable[] = [
   {
@@ -546,7 +549,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
           />
 
           {trainingRelatedConfig ? (
-            <section className="company-child-grid-section">
+            <section className="company-child-grid-section child-grid-desktop">
               {!selectedTrainingId ? (
                 <div className="form-hint">
                   Selecione um treino para visualizar os registros relacionados.
@@ -682,6 +685,35 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
         </form>
 
           {trainingRelatedConfig ? (
+            <section className="company-child-grid-section child-grid-mobile">
+              {!selectedTrainingId ? (
+                <div className="form-hint">
+                  Selecione um treino para visualizar os registros relacionados.
+                </div>
+              ) : (
+                <RegistrationGrid<CompanyChildRecord>
+                  ariaLabel={trainingRelatedConfig.title}
+                  label={trainingRelatedConfig.label}
+                  columns={trainingRelatedConfig.columns.map((column) => ({
+                    label: column.label,
+                    render: (record) => formatChildCell(record, column, trainingRelatedLookups[column.key]),
+                  }))}
+                  records={filteredTrainingRelatedRecords}
+                  isLoading={isLoadingTrainingRelatedRecords}
+                  selectedId={selectedTrainingRelatedRecordId}
+                  onSelect={handleSelectTrainingRelatedRecord}
+                  searchTerm={trainingRelatedSearchTerm}
+                  onSearch={setTrainingRelatedSearchTerm}
+                  onNew={handleNewTrainingRelated}
+                  newDisabled={!selectedTrainingId}
+                  showNewButton={!readOnly}
+                  variant="child"
+                />
+              )}
+            </section>
+          ) : null}
+
+          {trainingRelatedConfig ? (
             <form
               className={`registration-form split-form-panel company-child-form-panel ${isTrainingRelatedFieldsCollapsed ? 'collapsed' : ''}`}
               onSubmit={handleSaveTrainingRelated}
@@ -788,22 +820,13 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
         </div>
         )}
 
-        <section className="company-child-tabs" aria-label="Tabelas relacionadas do treino">
-          <div className="company-child-tabs-list" role="tablist" aria-label="Tabelas relacionadas do treino">
-            {trainingRelatedTables.map((table) => (
-              <button
-                aria-selected={selectedTrainingRelatedTable === table.key}
-                className={selectedTrainingRelatedTable === table.key ? 'active' : ''}
-                key={table.key}
-                onClick={() => handleSelectTrainingRelatedTable(table.key)}
-                role="tab"
-                type="button"
-              >
-                {table.label}
-              </button>
-            ))}
-          </div>
-        </section>
+        <RegistrationTabs
+          tabs={trainingRelatedTables}
+          activeTab={selectedTrainingRelatedTable}
+          onTabChange={handleSelectTrainingRelatedTable}
+          icons={trainingTabIcons}
+          ariaLabel="Tabelas relacionadas do treino"
+        />
       </div>
     </div>
   );

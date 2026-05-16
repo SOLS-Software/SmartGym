@@ -3,16 +3,16 @@
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, CreditCard, FileText, Receipt, Save } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
+import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import type { CompanyChildRecord, LookupRecord, Student, StudentFile, StudentValidationErrors, StudentValidationField } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { studentRelatedTables } from './studentRelatedTables';
 import { formatPhone, isValidBirthDate, isValidEmail, toApiDate } from './studentValidation';
 
-const studentRelatedTabIcons: Record<string, LucideIcon> = {
+const studentTabIcons = {
   files: FileText,
   plans: CreditCard,
   payments: Receipt,
@@ -955,7 +955,7 @@ export function StudentRegistration() {
           />
 
           {studentRelatedConfig ? (
-            <section className="company-child-grid-section">
+            <section className="company-child-grid-section child-grid-desktop">
               {!selectedStudentId ? (
                 <div className="form-hint">
                   Selecione um aluno para visualizar os registros relacionados.
@@ -1265,6 +1265,38 @@ export function StudentRegistration() {
             ) : null}
           </form>
 
+          {studentRelatedConfig ? (
+            <section className="company-child-grid-section child-grid-mobile">
+              {!selectedStudentId ? (
+                <div className="form-hint">
+                  Selecione um aluno para visualizar os registros relacionados.
+                </div>
+              ) : (
+                <>
+                  <RegistrationGrid<CompanyChildRecord>
+                    ariaLabel={studentRelatedConfig.title}
+                    columns={studentRelatedConfig.columns.map((col) => ({
+                      label: col.label,
+                      render: (rec) => formatChildCell(rec, col, studentRelatedLookups[col.key]),
+                    }))}
+                    isLoading={isLoadingStudentRelatedRecords}
+                    label={studentRelatedConfig.label}
+                    newDisabled={!selectedStudentId}
+                    onNew={handleNewStudentRelated}
+                    onSearch={setStudentRelatedSearchTerm}
+                    onSelect={handleSelectStudentRelatedRecord}
+                    records={filteredStudentRelatedRecords}
+                    rowSelectable={studentRelatedConfig.key !== 'files'}
+                    searchTerm={studentRelatedSearchTerm}
+                    selectedId={selectedStudentRelatedRecordId}
+                    showNewButton={studentRelatedConfig.key !== 'files'}
+                    variant="child"
+                  />
+                </>
+              )}
+            </section>
+          ) : null}
+
           {selectedStudentRelatedTable === 'files' ? (
             <section className={`registration-form student-files-section ${isStudentFilesCollapsed ? 'collapsed' : ''}`}>
               <div className="student-files-header collapsible-panel-header">
@@ -1509,26 +1541,13 @@ export function StudentRegistration() {
           ) : null}
         </div>
 
-        <section className="company-child-tabs" aria-label="Tabelas relacionadas do aluno">
-          <div className="company-child-tabs-list" role="tablist" aria-label="Tabelas relacionadas do aluno">
-            {studentRelatedTables.map((table) => {
-              const Icon = studentRelatedTabIcons[table.key];
-              return (
-                <button
-                  aria-selected={selectedStudentRelatedTable === table.key}
-                  className={selectedStudentRelatedTable === table.key ? 'active' : ''}
-                  key={table.key}
-                  onClick={() => handleSelectStudentRelatedTable(table.key)}
-                  role="tab"
-                  type="button"
-                >
-                  {Icon && <Icon size={16} />}
-                  {table.label}
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        <RegistrationTabs
+          tabs={studentRelatedTables}
+          activeTab={selectedStudentRelatedTable}
+          onTabChange={handleSelectStudentRelatedTable}
+          icons={studentTabIcons}
+          ariaLabel="Tabelas relacionadas do aluno"
+        />
       </div>
     </div>
   );

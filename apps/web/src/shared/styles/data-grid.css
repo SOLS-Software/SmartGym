@@ -355,13 +355,30 @@ button.product-row.selected,
   min-width: 0;
 }
 
+.child-grid-mobile {
+  display: none;
+}
+
 @media (max-width: 47.5rem) {
   .domain-workspace {
     grid-template-columns: 1fr;
   }
 
   .registration-split-layout {
-    grid-template-columns: 1fr;
+    gap: 0.625rem;
+    grid-template-columns: 1fr auto;
+  }
+
+  .child-grid-toolbar-actions {
+    grid-template-columns: minmax(0, 1fr) max-content;
+  }
+
+  .child-grid-desktop {
+    display: none;
+  }
+
+  .child-grid-mobile {
+    display: block;
   }
 
   .grid-toolbar {
