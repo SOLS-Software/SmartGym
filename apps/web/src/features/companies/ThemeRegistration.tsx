@@ -583,7 +583,7 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
           </button>
         ))}
         {domains.length === 0 ? (
-          <div className="form-hint" style={{ margin: '0.5rem', borderRadius: '0.375rem' }}>
+          <div className="form-hint m-2 rounded-md">
             Nenhum domínio cadastrado.
           </div>
         ) : null}
@@ -719,8 +719,8 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
                       </button>
                       <span className="theme-file-preview-name">{fileRecord?.dsArquivo ?? ''}</span>
                       <div className="theme-file-preview-actions">
-                        <label className="upload-button" aria-disabled={isUploading} style={{ fontSize: '0.8rem', padding: '0.375rem 0.75rem' }}>
-                          <input accept="image/*" disabled={isUploading} onChange={onChange} ref={inputRef} style={{ display: 'none' }} type="file" />
+                        <label className="upload-button text-[0.8rem] px-3 py-1.5" aria-disabled={isUploading}>
+                          <input accept="image/*" disabled={isUploading} onChange={onChange} ref={inputRef} className="hidden" type="file" />
                           {isUploading ? 'Enviando...' : 'Alterar'}
                         </label>
                         <button
@@ -743,7 +743,7 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
                     </div>
                   ) : (
                     <label className={`theme-file-upload-area ${isUploading ? 'uploading' : ''}`} aria-disabled={isUploading}>
-                      <input accept="image/*" disabled={isUploading} onChange={onChange} ref={inputRef} style={{ display: 'none' }} type="file" />
+                      <input accept="image/*" disabled={isUploading} onChange={onChange} ref={inputRef} className="hidden" type="file" />
                       <Upload size={20} />
                       <span>{isUploading ? 'Enviando...' : `Enviar ${label}`}</span>
                     </label>

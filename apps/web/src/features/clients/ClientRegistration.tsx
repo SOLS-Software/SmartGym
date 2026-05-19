@@ -161,7 +161,7 @@ export function ClientRegistration() {
               </button>
             </div>
 
-            <label className="search-field" style={{ marginBottom: '0.5rem' }}>
+            <label className="search-field mb-2">
               <span>Pesquisar</span>
               <input
                 onChange={(e) => setSearch(e.target.value)}
@@ -183,16 +183,16 @@ export function ClientRegistration() {
                   role="row"
                   type="button"
                 >
-                  <span role="cell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                  <span role="cell" className="flex items-center justify-between gap-2">
                     <span>{c.dsCliente}</span>
-                    <span className={`status-badge ${c.boInativo === 0 ? 'active' : 'inactive'}`} style={{ flexShrink: 0 }}>
+                    <span className={`status-badge shrink-0 ${c.boInativo === 0 ? 'active' : 'inactive'}`}>
                       {c.boInativo === 0 ? 'Ativo' : 'Inativo'}
                     </span>
                   </span>
                 </button>
               ))}
               {filteredClients.length === 0 && (
-                <div className="form-hint" style={{ margin: '0.5rem', borderRadius: '0.375rem' }}>
+                <div className="form-hint m-2 rounded-md">
                   {search ? 'Nenhum cliente encontrado.' : 'Nenhum cliente cadastrado.'}
                 </div>
               )}
@@ -224,7 +224,7 @@ export function ClientRegistration() {
                 {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
                 <div className="two-columns">
-                  <div className="field" style={{ gridColumn: '1 / -1' }}>
+                  <div className="field col-span-full">
                     <label htmlFor="clientName">Nome do Cliente *</label>
                     <input
                       id="clientName"

@@ -4,7 +4,7 @@
 }
 
 .student-files-section h3 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: 1.25rem;
   margin: 0;
 }
@@ -32,10 +32,10 @@
 }
 
 .file-upload-controls .secondary-button {
-  background: #e8f4ed;
+  background: var(--color-primary-bg);
   border: 0;
   border-radius: 0.5rem;
-  color: #1f7a53;
+  color: var(--color-primary);
   cursor: pointer;
   font: inherit;
   font-weight: 800;
@@ -60,17 +60,16 @@
 }
 
 .camera-modal {
-  background: var(--color-surface);
-  border: 0.0625rem solid #dde6df;
-  border-radius: 0.625rem;
+  @apply app-card;
   box-shadow: 0 1.25rem 3.75rem rgba(23, 33, 28, 0.2);
+  border-radius: 0.625rem;
   max-width: 35rem;
   padding: 1.125rem;
   width: min(35rem, 100%);
 }
 
 .camera-modal h4 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: 1.05rem;
   margin: 0 0 0.625rem;
 }
@@ -85,7 +84,7 @@
 }
 
 .camera-modal-feedback {
-  color: #b91c1c;
+  color: var(--color-danger-dark);
   font-size: 0.83rem;
   font-weight: 700;
   margin: 0.625rem 0 0;
@@ -99,7 +98,7 @@
 }
 
 .camera-modal-actions button {
-  background: #1f7a53;
+  background: var(--color-primary);
   border: 0;
   border-radius: 0.5rem;
   color: #ffffff;
@@ -111,13 +110,13 @@
 }
 
 .camera-modal-actions .secondary-button {
-  background: #e8f4ed;
-  color: #1f7a53;
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
 }
 
 .student-file-row {
   background: var(--color-surface-alt);
-  border: 0.0625rem solid #dde6df;
+  border: 0.0625rem solid var(--color-border);
   border-radius: 0.5rem;
   display: flex;
   flex-direction: column;
@@ -148,7 +147,7 @@
 }
 
 .student-file-row strong {
-  color: #17211c;
+  color: var(--color-text);
   display: block;
   font-size: 0.94rem;
   margin-bottom: 0.25rem;
@@ -156,7 +155,7 @@
 }
 
 .student-file-row span {
-  color: #6b7a72;
+  color: var(--color-muted);
   display: block;
   font-size: 0.8rem;
   word-break: break-word;
@@ -179,20 +178,19 @@
 }
 
 .student-file-actions .secondary-button {
-  background: #e8f4ed;
-  color: #1f7a53;
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
 }
 
 .student-file-actions .danger {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-dark);
 }
 
 .file-modal {
-  background: var(--color-surface);
-  border: 0.0625rem solid #dde6df;
-  border-radius: 0.625rem;
+  @apply app-card;
   box-shadow: 0 1.25rem 3.75rem rgba(23, 33, 28, 0.2);
+  border-radius: 0.625rem;
   max-height: 90vh;
   max-width: 56rem;
   overflow: hidden;
@@ -209,16 +207,16 @@
 }
 
 .file-modal-header h3 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: 1.1rem;
   margin: 0;
 }
 
 .file-modal-header button {
-  background: #e8f4ed;
+  background: var(--color-primary-bg);
   border: 0;
   border-radius: 0.5rem;
-  color: #1f7a53;
+  color: var(--color-primary);
   cursor: pointer;
   font: inherit;
   font-weight: 800;
@@ -258,10 +256,8 @@
 .membership-profile-panel,
 .membership-plan-panel,
 .membership-access-grid section {
+  @apply app-card;
   animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: var(--color-surface);
-  border: 0.0625rem solid #dde6df;
-  border-radius: 0.5rem;
 }
 
 .membership-profile-panel {
@@ -292,7 +288,7 @@
 
 .membership-photo-placeholder {
   align-items: center;
-  color: #1f7a53;
+  color: var(--color-primary);
   font-size: 3rem;
   font-weight: 900;
   justify-content: center;
@@ -305,29 +301,27 @@
 
 .membership-profile-data div,
 .membership-metrics div {
-  background: var(--color-surface-alt);
-  border: 0.0625rem solid #edf2ef;
-  border-radius: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem;
+  @apply data-cell;
 }
 
 .membership-profile-data span,
 .membership-metrics span,
 .membership-plan-header > span {
-  color: #6b7a72;
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
+  @apply data-cell-label;
+}
+
+.membership-plan-header > span {
+  background: var(--color-primary-bg);
+  border-radius: 62.4375rem;
+  color: var(--color-primary);
+  padding: 0.45rem 0.7rem;
+  white-space: nowrap;
 }
 
 .membership-profile-data strong,
 .membership-metrics strong {
-  color: #17211c;
+  @apply data-cell-value;
   font-size: 0.95rem;
-  overflow-wrap: anywhere;
 }
 
 .membership-plan-panel {
@@ -345,18 +339,10 @@
 }
 
 .membership-plan-header h3 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: clamp(1.7rem, 3vw, 2.5rem);
   line-height: 1.05;
   margin: 0;
-}
-
-.membership-plan-header > span {
-  background: #e8f4ed;
-  border-radius: 62.4375rem;
-  color: #1f7a53;
-  padding: 0.45rem 0.7rem;
-  white-space: nowrap;
 }
 
 .membership-metrics {
@@ -376,34 +362,35 @@
 }
 
 .membership-access-grid h4 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: 1rem;
   margin: 0 0 0.75rem;
 }
 
-.membership-chip-list {
+.membership-chip-list,
+.student-plan-chip-list,
+.student-promotion-chip-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
 }
 
-.membership-chip-list span {
-  background: #f0f8f3;
-  border: 0.0625rem solid #c8e4d4;
-  border-radius: 62.4375rem;
-  color: #1f7a53;
-  font-size: 0.86rem;
-  font-weight: 800;
-  padding: 0.45rem 0.7rem;
+.membership-chip-list span,
+.student-plan-chip-list span,
+.student-promotion-chip-list span {
+  @apply chip;
 }
 
-.membership-chip-list p {
-  color: #6b7a72;
+.membership-chip-list p,
+.student-plan-chip-list p,
+.student-promotion-chip-list p {
+  color: var(--color-muted);
   font-size: 0.9rem;
   font-weight: 700;
   margin: 0;
 }
 
+/* Student Plans */
 .student-plans-view {
   display: flex;
   flex-direction: column;
@@ -421,10 +408,8 @@
 }
 
 .student-plan-card {
+  @apply app-card;
   animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: var(--color-surface);
-  border: 0.0625rem solid #dde6df;
-  border-radius: 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -432,7 +417,7 @@
 }
 
 .student-plan-card.current {
-  border-color: #1f7a53;
+  border-color: var(--color-primary);
   box-shadow: 0 1rem 2.5rem rgba(31, 122, 83, 0.14);
 }
 
@@ -449,7 +434,7 @@
 }
 
 .student-plan-card-header h3 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: clamp(1.55rem, 3vw, 2.25rem);
   line-height: 1.05;
   margin: 0;
@@ -462,26 +447,15 @@
 }
 
 .student-plan-summary div {
-  background: var(--color-surface-alt);
-  border: 0.0625rem solid #edf2ef;
-  border-radius: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem;
+  @apply data-cell;
 }
 
 .student-plan-summary span {
-  color: #6b7a72;
-  font-size: 0.76rem;
-  font-weight: 800;
-  text-transform: uppercase;
+  @apply data-cell-label;
 }
 
 .student-plan-summary strong {
-  color: #17211c;
-  font-size: 0.94rem;
-  overflow-wrap: anywhere;
+  @apply data-cell-value;
 }
 
 .student-plan-detail-grid {
@@ -492,40 +466,18 @@
 
 .student-plan-detail-grid section {
   background: var(--color-surface-alt);
-  border: 0.0625rem solid #edf2ef;
+  border: 0.0625rem solid var(--color-border-subtle);
   border-radius: 0.5rem;
   padding: 1rem;
 }
 
 .student-plan-detail-grid h4 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: 1rem;
   margin: 0 0 0.75rem;
 }
 
-.student-plan-chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.student-plan-chip-list span {
-  background: #f0f8f3;
-  border: 0.0625rem solid #c8e4d4;
-  border-radius: 62.4375rem;
-  color: #1f7a53;
-  font-size: 0.85rem;
-  font-weight: 800;
-  padding: 0.45rem 0.7rem;
-}
-
-.student-plan-chip-list p {
-  color: #6b7a72;
-  font-size: 0.9rem;
-  font-weight: 700;
-  margin: 0;
-}
-
+/* Student Promotions */
 .student-promotions-view {
   display: flex;
   flex-direction: column;
@@ -542,10 +494,8 @@
 }
 
 .student-promotion-card {
+  @apply app-card;
   animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: var(--color-surface);
-  border: 0.0625rem solid #dde6df;
-  border-radius: 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -560,7 +510,7 @@
 }
 
 .student-promotion-card-header h3 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: clamp(1.55rem, 3vw, 2.25rem);
   line-height: 1.05;
   margin: 0;
@@ -573,26 +523,15 @@
 }
 
 .student-promotion-summary div {
-  background: var(--color-surface-alt);
-  border: 0.0625rem solid #edf2ef;
-  border-radius: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem;
+  @apply data-cell;
 }
 
 .student-promotion-summary span {
-  color: #6b7a72;
-  font-size: 0.76rem;
-  font-weight: 800;
-  text-transform: uppercase;
+  @apply data-cell-label;
 }
 
 .student-promotion-summary strong {
-  color: #17211c;
-  font-size: 0.94rem;
-  overflow-wrap: anywhere;
+  @apply data-cell-value;
 }
 
 .student-promotion-detail-grid {
@@ -603,40 +542,18 @@
 
 .student-promotion-detail-grid section {
   background: var(--color-surface-alt);
-  border: 0.0625rem solid #edf2ef;
+  border: 0.0625rem solid var(--color-border-subtle);
   border-radius: 0.5rem;
   padding: 1rem;
 }
 
 .student-promotion-detail-grid h4 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: 1rem;
   margin: 0 0 0.75rem;
 }
 
-.student-promotion-chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.student-promotion-chip-list span {
-  background: #f0f8f3;
-  border: 0.0625rem solid #c8e4d4;
-  border-radius: 62.4375rem;
-  color: #1f7a53;
-  font-size: 0.85rem;
-  font-weight: 800;
-  padding: 0.45rem 0.7rem;
-}
-
-.student-promotion-chip-list p {
-  color: #6b7a72;
-  font-size: 0.9rem;
-  font-weight: 700;
-  margin: 0;
-}
-
+/* Student Activities */
 .student-activities-view {
   display: flex;
   flex-direction: column;
@@ -648,10 +565,8 @@
 }
 
 .student-activity-enroll-toolbar {
+  @apply app-card;
   align-items: center;
-  background: var(--color-surface);
-  border: 0.0625rem solid #dde6df;
-  border-radius: 0.5rem;
   display: flex;
   gap: 1rem;
   justify-content: space-between;
@@ -665,7 +580,7 @@
 }
 
 .student-activity-enroll-toolbar strong {
-  color: #17211c;
+  color: var(--color-text);
   font-size: 1rem;
 }
 
@@ -675,10 +590,8 @@
 }
 
 .student-activity-card {
+  @apply app-card;
   animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: var(--color-surface);
-  border: 0.0625rem solid #dde6df;
-  border-radius: 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -693,7 +606,7 @@
 }
 
 .student-activity-card-header h3 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: clamp(1.55rem, 3vw, 2.25rem);
   line-height: 1.05;
   margin: 0;
@@ -707,45 +620,34 @@
 
 .student-activity-summary div,
 .student-activity-schedule-card > div {
-  background: var(--color-surface-alt);
-  border: 0.0625rem solid #edf2ef;
-  border-radius: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem;
+  @apply data-cell;
 }
 
 .student-activity-summary span,
 .student-activity-schedule-card span {
-  color: #6b7a72;
-  font-size: 0.76rem;
-  font-weight: 800;
-  text-transform: uppercase;
+  @apply data-cell-label;
 }
 
 .student-activity-summary strong,
 .student-activity-schedule-card strong {
-  color: #17211c;
-  font-size: 0.94rem;
-  overflow-wrap: anywhere;
+  @apply data-cell-value;
 }
 
 .student-activity-schedules {
   background: var(--color-surface-alt);
-  border: 0.0625rem solid #edf2ef;
+  border: 0.0625rem solid var(--color-border-subtle);
   border-radius: 0.5rem;
   padding: 1rem;
 }
 
 .student-activity-schedules h4 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: 1rem;
   margin: 0 0 0.75rem;
 }
 
 .student-activity-schedules > p {
-  color: #6b7a72;
+  color: var(--color-muted);
   font-size: 0.9rem;
   font-weight: 700;
   margin: 0;
@@ -768,22 +670,21 @@
   gap: 0.25rem;
 }
 
+/* Activity Calendar */
 .student-activity-calendar-list {
   display: grid;
   gap: 1rem;
 }
 
 .student-activity-calendar-month {
-  background: var(--color-surface);
-  border: 0.0625rem solid #dde6df;
-  border-radius: 0.5rem;
+  @apply app-card;
   overflow: hidden;
 }
 
 .student-activity-calendar-month h5 {
   background: var(--color-surface-alt);
-  border-bottom: 0.0625rem solid #edf2ef;
-  color: #17211c;
+  border-bottom: 0.0625rem solid var(--color-border-subtle);
+  color: var(--color-text);
   font-size: 1rem;
   margin: 0;
   padding: 0.75rem 0.875rem;
@@ -797,7 +698,7 @@
 }
 
 .student-activity-calendar-weekdays span {
-  color: #6b7a72;
+  color: var(--color-muted);
   font-size: 0.72rem;
   font-weight: 900;
   padding: 0.625rem 0.25rem;
@@ -807,9 +708,9 @@
 
 .student-activity-calendar-day {
   background: var(--color-surface);
-  border-top: 0.0625rem solid #edf2ef;
-  border-right: 0.0625rem solid #edf2ef;
-  color: #17211c;
+  border-top: 0.0625rem solid var(--color-border-subtle);
+  border-right: 0.0625rem solid var(--color-border-subtle);
+  color: var(--color-text);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -819,16 +720,16 @@
 }
 
 .student-activity-calendar-day.empty {
-  background: #f8faf8;
+  background: var(--color-surface-alt);
 }
 
 .student-activity-calendar-day.has-schedule {
   background: #f6fbf8;
-  box-shadow: inset 0 0.1875rem 0 #1f7a53;
+  box-shadow: inset 0 0.1875rem 0 var(--color-primary);
 }
 
 .student-activity-calendar-day > strong {
-  color: #17211c;
+  color: var(--color-text);
   font-size: 0.92rem;
 }
 
@@ -840,9 +741,9 @@
 }
 
 .student-activity-calendar-event {
-  background: #e8f4ed;
+  background: var(--color-primary-bg);
   border-radius: 0.375rem;
-  color: #1f7a53;
+  color: var(--color-primary);
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
@@ -852,16 +753,16 @@
 
 .student-activity-calendar-event input {
   align-self: flex-start;
-  accent-color: #1f7a53;
+  accent-color: var(--color-primary);
 }
 
 .student-activity-calendar-event.selected {
-  box-shadow: inset 0 0 0 0.125rem #1f7a53;
+  box-shadow: inset 0 0 0 0.125rem var(--color-primary);
 }
 
 .student-activity-calendar-event.enrolled {
   background: #eef3f0;
-  color: #52605a;
+  color: var(--color-muted-strong);
 }
 
 .student-activity-calendar-event span,
@@ -878,16 +779,17 @@
 }
 
 .student-activity-calendar-event b {
-  color: #17211c;
+  color: var(--color-text);
   font-size: 0.78rem;
 }
 
 .student-activity-calendar-event small {
-  color: #52605a;
+  color: var(--color-muted-strong);
   font-size: 0.72rem;
   font-weight: 700;
 }
 
+/* Student Calendar */
 .student-calendar-view {
   display: flex;
   flex-direction: column;
@@ -917,10 +819,8 @@
 
 .student-calendar-grid,
 .student-calendar-details {
+  @apply app-card;
   animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: var(--color-surface);
-  border: 0.0625rem solid #dde6df;
-  border-radius: 0.5rem;
   overflow: hidden;
 }
 
@@ -931,9 +831,9 @@
 
 .student-calendar-weekday {
   background: var(--color-surface-alt);
-  border-bottom: 0.0625rem solid #dde6df;
-  border-right: 0.0625rem solid #edf2ef;
-  color: #6b7a72;
+  border-bottom: 0.0625rem solid var(--color-border);
+  border-right: 0.0625rem solid var(--color-border-subtle);
+  color: var(--color-muted);
   font-size: 0.78rem;
   font-weight: 900;
   min-height: 2.5rem;
@@ -944,9 +844,9 @@
 .student-calendar-day {
   background: var(--color-surface);
   border: 0;
-  border-bottom: 0.0625rem solid #edf2ef;
-  border-right: 0.0625rem solid #edf2ef;
-  color: #17211c;
+  border-bottom: 0.0625rem solid var(--color-border-subtle);
+  border-right: 0.0625rem solid var(--color-border-subtle);
+  color: var(--color-text);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -963,7 +863,7 @@
 }
 
 .student-calendar-day.selected {
-  box-shadow: inset 0 0 0 0.125rem #1f7a53;
+  box-shadow: inset 0 0 0 0.125rem var(--color-primary);
 }
 
 .student-calendar-day strong {
@@ -987,24 +887,16 @@
   white-space: nowrap;
 }
 
-.student-calendar-day span.check-in {
-  background: #e8f4ed;
-  color: #1f7a53;
-}
-
-.student-calendar-day span.agenda {
-  background: #fff7ed;
-  color: #9a3412;
-}
-
+.student-calendar-day span.check-in,
 .student-calendar-day span.activity {
-  background: #e8f4ed;
-  color: #1f7a53;
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
 }
 
+.student-calendar-day span.agenda,
 .student-calendar-day span.promotion {
-  background: #fff7ed;
-  color: #9a3412;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 .company-calendar-legend {
@@ -1026,13 +918,13 @@
 }
 
 .company-calendar-legend button.activity {
-  background: #e8f4ed;
-  color: #1f7a53;
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
 }
 
 .company-calendar-legend button.promotion {
-  background: #fff7ed;
-  color: #9a3412;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 .company-calendar-legend button.selected {
@@ -1048,7 +940,7 @@
 }
 
 .student-calendar-details h3 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: 1.35rem;
   margin: -0.5rem 0 0;
 }
@@ -1061,7 +953,7 @@
 
 .student-calendar-event-card {
   background: var(--color-surface-alt);
-  border: 0.0625rem solid #edf2ef;
+  border: 0.0625rem solid var(--color-border-subtle);
   border-radius: 0.5rem;
   display: flex;
   flex-direction: column;
@@ -1074,13 +966,13 @@
 }
 
 .student-calendar-event-card h4 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: 1rem;
   margin: 0;
 }
 
 .student-calendar-event-card ul {
-  color: #52605a;
+  color: var(--color-muted-strong);
   display: flex;
   flex-direction: column;
   font-size: 0.88rem;

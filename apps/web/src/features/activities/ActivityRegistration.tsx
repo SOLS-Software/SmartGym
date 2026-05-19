@@ -916,7 +916,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
               </div>
 
               <div className="product-table company-child-grid-table" key={`schedule-employees-${selectedScheduleId}-${scheduleEmployeeSearchTerm}`} role="table" aria-label="Profissionais da agenda">
-                <div className="product-row company-child-grid-row header" role="row" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                <div className="product-row company-child-grid-row header grid-cols-3" role="row">
                   <span role="columnheader">Empresa</span>
                   <span role="columnheader">Profissional</span>
                   <span role="columnheader">Status</span>
@@ -931,11 +931,10 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
 
                     return (
                       <button
-                        className={`product-row company-child-grid-row selectable ${record.id === selectedScheduleEmployeeId ? 'selected' : ''}`}
+                        className={`product-row company-child-grid-row selectable grid-cols-3 ${record.id === selectedScheduleEmployeeId ? 'selected' : ''}`}
                         key={record.id}
                         onClick={() => handleSelectScheduleEmployee(record)}
                         role="row"
-                        style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
                         type="button"
                       >
                         <span role="cell">{String(company?.dsEmpresa ?? record.idEmpresa ?? '-')}</span>
@@ -988,7 +987,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
               </div>
 
               <div className="product-table company-child-grid-table" key={`schedule-students-${selectedScheduleId}-${scheduleStudentSearchTerm}`} role="table" aria-label="Alunos da agenda">
-                <div className="product-row company-child-grid-row header" role="row" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                <div className="product-row company-child-grid-row header grid-cols-3" role="row">
                   <span role="columnheader">Empresa</span>
                   <span role="columnheader">Aluno</span>
                   <span role="columnheader">Status</span>
@@ -1003,11 +1002,10 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
 
                     return (
                       <button
-                        className={`product-row company-child-grid-row selectable ${record.id === selectedScheduleStudentId ? 'selected' : ''}`}
+                        className={`product-row company-child-grid-row selectable grid-cols-3 ${record.id === selectedScheduleStudentId ? 'selected' : ''}`}
                         key={record.id}
                         onClick={() => handleSelectScheduleStudent(record)}
                         role="row"
-                        style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
                         type="button"
                       >
                         <span role="cell">{String(company?.dsEmpresa ?? record.idEmpresa ?? '-')}</span>
@@ -1238,7 +1236,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                 </div>
               </div>
               <div className="product-table company-child-grid-table" role="table" aria-label="Profissionais da agenda">
-                <div className="product-row company-child-grid-row header" role="row" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                <div className="product-row company-child-grid-row header grid-cols-3" role="row">
                   <span role="columnheader">Empresa</span>
                   <span role="columnheader">Profissional</span>
                   <span role="columnheader">Status</span>
@@ -1248,7 +1246,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                   const company = relatedLookups.idEmpresa?.find((item) => String(item.id) === String(record.idEmpresa));
                   const employee = relatedLookups.idFuncionario?.find((item) => String(item.id) === String(record.idFuncionario));
                   return (
-                    <button className={`product-row company-child-grid-row selectable ${record.id === selectedScheduleEmployeeId ? 'selected' : ''}`} key={record.id} onClick={() => handleSelectScheduleEmployee(record)} role="row" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }} type="button">
+                    <button className={`product-row company-child-grid-row selectable grid-cols-3 ${record.id === selectedScheduleEmployeeId ? 'selected' : ''}`} key={record.id} onClick={() => handleSelectScheduleEmployee(record)} role="row" type="button">
                       <span role="cell">{String(company?.dsEmpresa ?? record.idEmpresa ?? '-')}</span>
                       <span role="cell">{String(employee?.nmFuncionario ?? record.idFuncionario ?? '-')}</span>
                       <span role="cell"><span className={`status-badge ${Number(record.boInativo ?? 0) === 0 ? 'active' : 'inactive'}`}>{Number(record.boInativo ?? 0) === 0 ? 'Ativo' : 'Inativo'}</span></span>
@@ -1369,7 +1367,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                 </div>
               </div>
               <div className="product-table company-child-grid-table" role="table" aria-label="Alunos da agenda">
-                <div className="product-row company-child-grid-row header" role="row" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                <div className="product-row company-child-grid-row header grid-cols-3" role="row">
                   <span role="columnheader">Empresa</span>
                   <span role="columnheader">Aluno</span>
                   <span role="columnheader">Status</span>
@@ -1379,7 +1377,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
                   const company = relatedLookups.idEmpresa?.find((item) => String(item.id) === String(record.idEmpresa));
                   const student = relatedLookups.idAluno?.find((item) => String(item.id) === String(record.idAluno));
                   return (
-                    <button className={`product-row company-child-grid-row selectable ${record.id === selectedScheduleStudentId ? 'selected' : ''}`} key={record.id} onClick={() => handleSelectScheduleStudent(record)} role="row" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }} type="button">
+                    <button className={`product-row company-child-grid-row selectable grid-cols-3 ${record.id === selectedScheduleStudentId ? 'selected' : ''}`} key={record.id} onClick={() => handleSelectScheduleStudent(record)} role="row" type="button">
                       <span role="cell">{String(company?.dsEmpresa ?? record.idEmpresa ?? '-')}</span>
                       <span role="cell">{String(student?.nmAluno ?? record.idAluno ?? '-')}</span>
                       <span role="cell"><span className={`status-badge ${Number(record.boInativo ?? 0) === 0 ? 'active' : 'inactive'}`}>{Number(record.boInativo ?? 0) === 0 ? 'Ativo' : 'Inativo'}</span></span>

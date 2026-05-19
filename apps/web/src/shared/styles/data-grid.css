@@ -53,10 +53,8 @@
 .domain-select-table,
 .product-table,
 .company-child-tabs {
+  @apply app-card;
   animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: var(--color-surface);
-  border: 0.0625rem solid #dde6df;
-  border-radius: 0.5rem;
   overflow: hidden;
 }
 
@@ -66,7 +64,7 @@
 
 .domain-select-row {
   align-items: center;
-  border-top: 0.0625rem solid #edf2ef;
+  border-top: 0.0625rem solid var(--color-border-subtle);
   display: grid;
   gap: 0.875rem;
   grid-template-columns: minmax(0, 1fr);
@@ -100,7 +98,7 @@ button.domain-select-row.selected {
 .domain-select-row.header {
   background: var(--color-surface-alt);
   border-top: 0;
-  color: #6b7a72;
+  color: var(--color-muted);
   font-size: 0.82rem;
   font-weight: 800;
   min-height: 2.875rem;
@@ -134,7 +132,7 @@ button.domain-select-row.selected {
 }
 
 .grid-toolbar h3 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: 1.35rem;
   margin: 0;
 }
@@ -143,20 +141,19 @@ button.domain-select-row.selected {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  /* min-width: 15rem; */
 }
 
 .search-field span {
-  color: #34413b;
+  color: var(--color-text-label);
   font-size: 0.85rem;
   font-weight: 800;
 }
 
 .search-field input {
   background: var(--color-surface);
-  border: 0.0625rem solid #ccd8d0;
+  border: 0.0625rem solid var(--color-border-input);
   border-radius: 0.5rem;
-  color: #17211c;
+  color: var(--color-text);
   font: inherit;
   min-height: 2.75rem;
   outline: none;
@@ -203,7 +200,7 @@ button.domain-select-row.selected {
 .product-row {
   animation: app-surface-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
   align-items: center;
-  border-top: 0.0625rem solid #edf2ef;
+  border-top: 0.0625rem solid var(--color-border-subtle);
   display: grid;
   gap: 0.875rem;
   grid-template-columns: minmax(0, 1fr) 6.875rem 6.875rem;
@@ -243,7 +240,7 @@ button.product-row.selected,
 .product-row.header {
   background: var(--color-surface-alt);
   border-top: 0;
-  color: #6b7a72;
+  color: var(--color-muted);
   font-size: 0.82rem;
   font-weight: 800;
   min-height: 2.875rem;
@@ -267,17 +264,17 @@ button.product-row.selected,
 
 .status-badge.inactive {
   background: #f0f2f1;
-  color: #6b7a72;
+  color: var(--color-muted);
 }
 
 .status-badge.pending {
-  background: #fff7ed;
-  color: #9a3412;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 .empty-row {
   animation: app-surface-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
-  color: #6b7a72;
+  color: var(--color-muted);
   padding: 1.125rem 1rem;
   transition: padding 260ms ease, opacity 260ms ease, transform 260ms ease;
 }
@@ -290,7 +287,7 @@ button.product-row.selected,
 }
 
 .grid-pagination p {
-  color: #6b7a72;
+  color: var(--color-muted);
   font-size: 0.85rem;
   font-weight: 700;
   margin: 0;
@@ -303,7 +300,7 @@ button.product-row.selected,
 }
 
 .grid-pagination span {
-  color: #52605a;
+  color: var(--color-muted-strong);
   font-size: 0.84rem;
   font-weight: 700;
 }
@@ -325,7 +322,7 @@ button.product-row.selected,
   background: #f0f2f1;
   border: 0;
   border-radius: 0.5rem;
-  color: #6b7a72;
+  color: var(--color-muted);
   cursor: pointer;
   font: inherit;
   font-size: 0.78rem;
@@ -335,8 +332,8 @@ button.product-row.selected,
 }
 
 .grid-status-toggle.active {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-dark);
 }
 
 .grid-status-toggle:hover {

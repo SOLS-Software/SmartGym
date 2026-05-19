@@ -237,7 +237,7 @@ export default function GestorPage() {
   if (themePhase && !isLoggedIn) {
     return (
       <main className="login-page">
-        <p style={{ color: 'var(--color-text)', opacity: 0.5, fontSize: '0.875rem' }}>
+        <p className="text-text/50 text-sm">
           {themePhase === 'applying' ? 'Aplicando configurações...' : 'Buscando configurações...'}
         </p>
       </main>
@@ -254,7 +254,7 @@ export default function GestorPage() {
           <div className="brand">
             <div className="logo" aria-hidden="true">
               {logoUrl
-                ? <img alt="Logo" src={logoUrl} style={{ height: '100%', objectFit: 'contain', width: '100%' }} />
+                ? <img alt="Logo" src={logoUrl} className="h-full w-full object-contain" />
                 : <Palette size={26} />}
             </div>
             <div>
@@ -320,11 +320,11 @@ export default function GestorPage() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', padding: '1.5rem' }}>
+    <main className="min-h-screen p-6">
       <header className="gestor-header">
         <div className="gestor-header-brand">
           {clientTheme?.logoUrl
-            ? <img alt="Logo" src={clientTheme.logoUrl} style={{ height: '2rem', objectFit: 'contain', borderRadius: '0.25rem' }} />
+            ? <img alt="Logo" src={clientTheme.logoUrl} className="h-8 object-contain rounded" />
             : <Palette size={20} />}
           <span>{clientTheme?.dsCliente ?? 'SmartGym'} — Gestor de Tema</span>
         </div>

@@ -7,9 +7,21 @@
   --color-accent: #1f7a53;
   --color-accent-bg: #e8f4ed;
   --color-text: #17211c;
+  --color-text-label: #34413b;
+  --color-muted: #6b7a72;
+  --color-muted-strong: #52605a;
+  --color-muted-faint: #7a8981;
   --color-bg: #f3f6f4;
   --color-surface: #ffffff;
   --color-surface-alt: #f8faf8;
+  --color-border: #dde6df;
+  --color-border-subtle: #edf2ef;
+  --color-border-input: #ccd8d0;
+  --color-danger: #dc2626;
+  --color-danger-dark: #b91c1c;
+  --color-danger-bg: #fee2e2;
+  --color-warning: #9a3412;
+  --color-warning-bg: #fff7ed;
   --font-primary: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-size-base: 14px;
 
@@ -22,132 +34,26 @@
 html.dark {
   --color-bg: #0f1a13;
   --color-text: #ccd8d0;
+  --color-text-label: #adc9b5;
+  --color-muted: #7a9882;
+  --color-muted-strong: #8aab96;
+  --color-muted-faint: #7a9882;
   --color-surface: #1a2b20;
   --color-surface-alt: #142018;
   --color-primary-bg: rgba(31, 122, 83, 0.22);
   --color-secondary-bg: rgba(31, 122, 83, 0.22);
   --color-accent-bg: rgba(31, 122, 83, 0.22);
+  --color-border: #253c2c;
+  --color-border-subtle: #1e3025;
+  --color-border-input: #253c2c;
   color-scheme: dark;
 }
 
-/* Dark mode: border overrides */
-html.dark .app-header { border-bottom-color: #253c2c; }
-html.dark .side-menu { border-right-color: #253c2c; border-bottom-color: #253c2c; }
-html.dark .registration-form,
-html.dark .domain-select-table,
-html.dark .product-table,
-html.dark .company-child-tabs,
-html.dark .login-panel,
-html.dark .student-plan-card,
-html.dark .student-promotion-card,
-html.dark .student-activity-card,
-html.dark .student-activity-enroll-toolbar,
-html.dark .student-activity-calendar-month,
-html.dark .student-calendar-grid,
-html.dark .student-calendar-details,
-html.dark .activity-calendar-month,
-html.dark .my-training-last-card,
-html.dark .my-training-action-card,
-html.dark .workout-selected-area,
-html.dark .training-option-list,
-html.dark .week-day-choice-list,
-html.dark .camera-modal,
-html.dark .file-modal,
-html.dark .membership-profile-panel,
-html.dark .membership-plan-panel,
-html.dark .membership-access-grid section { border-color: #253c2c; }
-
-html.dark .domain-select-row,
-html.dark .product-row,
-html.dark .company-child-tabs-list button,
-html.dark .training-option-list button { border-top-color: #1e3025; }
-html.dark .company-child-tabs-header,
-html.dark .workout-selected-header { border-bottom-color: #1e3025; }
-
-html.dark .student-activity-calendar-day { border-top-color: #1e3025; border-right-color: #1e3025; }
-html.dark .student-calendar-day { border-bottom-color: #1e3025; border-right-color: #1e3025; }
-html.dark .student-calendar-weekday { border-bottom-color: #253c2c; border-right-color: #1e3025; }
-
-html.dark .membership-profile-data div,
-html.dark .membership-metrics div,
-html.dark .my-training-last-grid div,
-html.dark .student-plan-summary div,
-html.dark .student-promotion-summary div,
-html.dark .student-activity-summary div,
-html.dark .student-activity-schedule-card > div,
-html.dark .student-calendar-event-card,
-html.dark .student-activity-schedules,
-html.dark .student-plan-detail-grid section,
-html.dark .student-promotion-detail-grid section,
-html.dark .student-file-row { border-color: #1e3025; }
-
-html.dark .student-plan-card.current { border-color: var(--color-primary); }
-html.dark .student-plan-card.current .student-plan-card-header { border-bottom-color: #253c2c; }
-html.dark .activity-schedule-preview { border-top-color: #1e3025; }
-html.dark .activity-calendar-weekdays { border-top-color: #1e3025; }
-html.dark .form-hint { border-color: #253c2c; }
-html.dark .field input,
-html.dark .field select,
-html.dark .search-field input,
-html.dark .login-form input,
-html.dark .login-locked-value { border-color: #253c2c; }
-html.dark .login-mode-toggle,
-html.dark .account-type-toggle { background: #142018; border-color: #253c2c; }
-
-/* Dark mode: text overrides */
-html.dark h2, html.dark h3, html.dark h4 { color: var(--color-text); }
-html.dark .menu-group button,
-html.dark .menu-nav-collapsed button { color: #adc9b5; }
-html.dark .field label,
-html.dark .login-form label { color: #adc9b5; }
-html.dark .menu-group p,
-html.dark .user-profile span,
-html.dark .grid-pagination p,
-html.dark .grid-pagination span,
-html.dark .search-field span,
-html.dark .domain-select-row.header,
-html.dark .product-row.header,
-html.dark .field-hint,
-html.dark .empty-row { color: #7a9882; }
-html.dark .form-hint { color: #7a9882; }
-html.dark .membership-profile-data span,
-html.dark .membership-metrics span,
-html.dark .membership-plan-header > span { color: #7a9882; }
-html.dark .membership-profile-data strong,
-html.dark .membership-metrics strong { color: var(--color-text); }
-html.dark .my-training-last-grid span,
-html.dark .student-plan-summary span,
-html.dark .student-promotion-summary span,
-html.dark .student-activity-summary span,
-html.dark .student-activity-schedule-card span { color: #7a9882; }
-html.dark .my-training-last-grid strong,
-html.dark .student-plan-summary strong,
-html.dark .student-promotion-summary strong,
-html.dark .student-activity-summary strong,
-html.dark .student-activity-schedule-card strong { color: var(--color-text); }
-html.dark .workout-selected-header span { color: #7a9882; }
-html.dark .student-file-row strong { color: var(--color-text); }
-html.dark .student-file-row span { color: #7a9882; }
-html.dark .student-calendar-day { color: var(--color-text); }
-html.dark .student-calendar-weekday,
-html.dark .student-activity-calendar-weekdays span,
-html.dark .activity-calendar-weekdays span,
-html.dark .activity-calendar-days span { color: #7a9882; }
-html.dark .student-activity-calendar-day { color: var(--color-text); }
-html.dark .student-calendar-event-card ul { color: #8aab96; }
-html.dark .training-option-list button { color: var(--color-text); }
-html.dark .password-checklist div { color: #7a9882; }
-html.dark .login-form input { color: var(--color-text); }
-html.dark .login-locked-value { color: var(--color-text); }
-html.dark .login-mode-toggle button,
-html.dark .account-type-toggle button { color: #7a9882; }
-html.dark .student-activity-enroll-toolbar strong { color: var(--color-text); }
-
 /* Dark mode: special elements */
 html.dark .menu-hamburger { background: #253c2c; }
-html.dark .status-toggle { background: var(--color-surface); border-color: #253c2c; }
+html.dark .status-toggle { background: var(--color-surface); border-color: var(--color-border); }
 html.dark .status-toggle:not(.active) span { background: #3d5c46; }
-html.dark .grid-status-toggle { background: var(--color-surface); color: #7a9882; }
+html.dark .grid-status-toggle { background: var(--color-surface); color: var(--color-muted); }
 html.dark .user-avatar { background: rgba(31, 122, 83, 0.25); }
 html.dark .login-feedback { background: rgba(31, 122, 83, 0.15); border-color: rgba(31, 122, 83, 0.3); }
 html.dark .form-feedback { background: rgba(31, 122, 83, 0.15); border-color: rgba(31, 122, 83, 0.3); }
@@ -163,6 +69,12 @@ html.dark .student-calendar-day.selected { box-shadow: inset 0 0 0 0.125rem var(
 html.dark .my-training-row.last-check-in { background: rgba(154, 52, 18, 0.15); }
 html.dark .training-exercise-separator-row { background: rgba(31, 122, 83, 0.18); }
 html.dark .activity-calendar-days span.selected { background: var(--color-primary); }
+html.dark .login-mode-toggle,
+html.dark .account-type-toggle { background: #142018; border-color: var(--color-border); }
+html.dark .student-plan-card.current { border-color: var(--color-primary); }
+html.dark .student-plan-card.current .student-plan-card-header { border-bottom-color: var(--color-border); }
+html.dark .activity-schedule-preview { border-top-color: var(--color-border-subtle); }
+html.dark .activity-calendar-weekdays { border-top-color: var(--color-border-subtle); }
 
 * {
   box-sizing: border-box;

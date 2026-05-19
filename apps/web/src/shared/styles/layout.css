@@ -14,7 +14,7 @@
 .app-header {
   align-items: center;
   background: var(--color-surface);
-  border-bottom: 0.0625rem solid #dde6df;
+  border-bottom: 0.0625rem solid var(--color-border);
   display: flex;
   grid-column: 1 / -1;
   justify-content: space-between;
@@ -31,13 +31,13 @@
 
 .header-brand strong,
 .user-profile strong {
-  color: #17211c;
+  color: var(--color-text);
   display: block;
   font-size: 1rem;
 }
 
 .user-profile span {
-  color: #6b7a72;
+  color: var(--color-muted);
   display: block;
   font-size: 0.84rem;
   margin-top: 0.125rem;
@@ -45,9 +45,9 @@
 
 .user-avatar {
   align-items: center;
-  background: #e8f4ed;
+  background: var(--color-primary-bg);
   border-radius: 62.4375rem;
-  color: #1f7a53;
+  color: var(--color-primary);
   display: flex;
   font-weight: 800;
   height: 2.75rem;
@@ -77,14 +77,14 @@
 }
 
 .welcome h2 {
-  color: #17211c;
+  color: var(--color-text);
   font-size: clamp(2rem, 5vw, 4rem);
   line-height: 1;
   margin: 0 0 1.125rem;
 }
 
 .welcome p:last-child {
-  color: #52605a;
+  color: var(--color-muted-strong);
   font-size: 1.08rem;
   line-height: 1.7;
   margin: 0;
@@ -93,7 +93,7 @@
 .side-menu {
   align-items: flex-start;
   background: var(--color-surface);
-  border-right: 0.0625rem solid #dde6df;
+  border-right: 0.0625rem solid var(--color-border);
   display: flex;
   flex-direction: column;
   grid-column: 1;
@@ -120,7 +120,7 @@
 }
 
 .side-menu-header strong {
-  color: #17211c;
+  color: var(--color-text);
   display: block;
   font-size: 1.4rem;
 }
@@ -139,7 +139,7 @@
 }
 
 .menu-group p {
-  color: #7a8981;
+  color: var(--color-muted-faint);
   font-size: 0.75rem;
   font-weight: 800;
   margin: 0 0 0.125rem;
@@ -151,7 +151,7 @@
   background: transparent;
   border: 0;
   border-radius: 0.5rem;
-  color: #34413b;
+  color: var(--color-text-label);
   cursor: pointer;
   display: flex;
   font: inherit;
@@ -172,7 +172,7 @@
 
 .menu-hamburger {
   align-items: center;
-  background: #17211c;
+  background: var(--color-text);
   border: 0;
   border-radius: 0.5rem;
   cursor: pointer;
@@ -218,7 +218,7 @@
   background: transparent;
   border: 0;
   border-radius: 0.5rem;
-  color: #34413b;
+  color: var(--color-text-label);
   cursor: pointer;
   display: flex;
   font: inherit;
@@ -254,7 +254,7 @@
   border-left: 3px solid var(--color-accent);
   border-radius: 0.5rem;
   box-shadow: 0 8px 24px rgba(23, 33, 28, 0.14), 0 2px 8px rgba(23, 33, 28, 0.08);
-  color: #17211c;
+  color: var(--color-text);
   content: attr(title);
   font-size: 0.75rem;
   font-weight: 700;

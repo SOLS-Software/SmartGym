@@ -752,7 +752,7 @@ export default function HomePage() {
   if (themePhase && !isLoggedIn) {
     return (
       <main className="login-page">
-        <p style={{ color: 'var(--color-text)', opacity: 0.5, fontSize: '0.875rem' }}>
+        <p className="text-text/50 text-sm">
           {themePhase === 'applying' ? 'Aplicando configurações...' : 'Buscando configurações...'}
         </p>
       </main>
@@ -786,7 +786,7 @@ export default function HomePage() {
             </button>
             <div className="logo" aria-hidden="true">
               {companyTheme?.logoUrl
-                ? <img alt="Logo" src={companyTheme.logoUrl} style={{ height: '100%', objectFit: 'contain', width: '100%' }} />
+                ? <img alt="Logo" src={companyTheme.logoUrl} className="h-full w-full object-contain" />
                 : 'SG'}
             </div>
             <div>
@@ -986,7 +986,7 @@ export default function HomePage() {
         <div className="brand">
           <div className="logo" aria-hidden="true">
             {companyTheme?.logoUrl
-              ? <img alt="Logo" src={companyTheme.logoUrl} style={{ height: '100%', objectFit: 'contain', width: '100%' }} />
+              ? <img alt="Logo" src={companyTheme.logoUrl} className="h-full w-full object-contain" />
               : 'SG'}
           </div>
           <div>
