@@ -12,6 +12,7 @@ import {
   isImageFile,
   paginateItems,
 } from '../../shared/registration/registrationHelpers';
+import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
@@ -84,7 +85,6 @@ const promotionRelatedTables: CompanyChildTable[] = [
 export function PromotionRegistration() {
   const promotionFileInputRef = useRef<HTMLInputElement | null>(null);
   const promotionNameInputRef = useRef<HTMLInputElement | null>(null);
-  const promotionRelatedFormRef = useRef<HTMLDivElement | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [timeUnits, setTimeUnits] = useState<LookupRecord[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -104,7 +104,9 @@ export function PromotionRegistration() {
   const [endDate, setEndDate] = useState('');
   const [isPromotionActive, setIsPromotionActive] = useState(true);
   const [feedback, setFeedback] = useState('');
-  const [isPromotionFieldsCollapsed, setIsPromotionFieldsCollapsed] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  type DrawerMode = 'promotion' | 'related';
+  const [drawerMode, setDrawerMode] = useState<DrawerMode>('promotion');
   const [selectedRelatedTable, setSelectedRelatedTable] = useState('');
   const [relatedRecords, setRelatedRecords] = useState<CompanyChildRecord[]>([]);
   const [isLoadingRelatedRecords, setIsLoadingRelatedRecords] = useState(false);
@@ -115,11 +117,9 @@ export function PromotionRegistration() {
   const [isRelatedActive, setIsRelatedActive] = useState(true);
   const [relatedFeedback, setRelatedFeedback] = useState('');
   const [relatedLookups, setRelatedLookups] = useState<Record<string, LookupRecord[]>>({});
-  const [isRelatedFieldsCollapsed, setIsRelatedFieldsCollapsed] = useState(false);
   const [relatedFilePreviewUrls, setRelatedFilePreviewUrls] = useState<Record<number, string>>({});
   const [relatedFileModal, setRelatedFileModal] = useState<{ title: string; url: string } | null>(null);
   const [isUploadingRelatedFile, setIsUploadingRelatedFile] = useState(false);
-  const isFormEnabled = selectedPromotionId !== null || isCreating;
   const relatedConfig = promotionRelatedTables.find((table) => table.key === selectedRelatedTable) ?? null;
   const isFileTable = relatedConfig?.key === 'promotionFiles';
   const isRelatedFormEnabled = Boolean(selectedPromotionId) && (selectedRelatedRecordId !== null || isCreatingRelated);
@@ -132,10 +132,6 @@ export function PromotionRegistration() {
       : false,
   );
   const filteredPromotions = promotions.filter((promotion) => {
-    if (selectedRelatedTable && selectedPromotionId !== null) {
-      return promotion.id === selectedPromotionId;
-    }
-
     const search = searchTerm.toLowerCase();
     const company = companies.find((item) => item.id === promotion.idEmpresa);
 
@@ -320,9 +316,9 @@ export function PromotionRegistration() {
     setIsCreating(true);
     setPromotionCompanyId(selectedCompanyId);
     setStartDate(new Date().toISOString().slice(0, 10));
-    setIsPromotionFieldsCollapsed(false);
-    setIsRelatedFieldsCollapsed(true);
     setTimeout(() => promotionNameInputRef.current?.focus(), 0);
+    setDrawerMode('promotion');
+    setIsDrawerOpen(true);
   }
 
   function handleNewRelated() {
@@ -331,12 +327,11 @@ export function PromotionRegistration() {
     setRelatedFormValues({});
     setIsRelatedActive(true);
     setRelatedFeedback('');
-    setIsPromotionFieldsCollapsed(true);
-    setIsRelatedFieldsCollapsed(false);
     if (promotionFileInputRef.current) {
       promotionFileInputRef.current.value = '';
     }
-    setTimeout(() => { promotionRelatedFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
+    setDrawerMode('related');
+    setIsDrawerOpen(true);
   }
 
   function handleSelectPromotion(promotion: Promotion) {
@@ -357,8 +352,12 @@ export function PromotionRegistration() {
     setEndDate(formatDateInput(promotion.dtEncerramento));
     setIsPromotionActive(promotion.boInativo === 0);
     setFeedback('');
-    setIsPromotionFieldsCollapsed(false);
-    setIsRelatedFieldsCollapsed(true);
+  }
+
+  function handleEditPromotion(promotion: Promotion) {
+    handleSelectPromotion(promotion);
+    setDrawerMode('promotion');
+    setIsDrawerOpen(true);
   }
 
   function handleSelectRelatedRecord(record: CompanyChildRecord) {
@@ -374,8 +373,12 @@ export function PromotionRegistration() {
     setRelatedFormValues(values);
     setIsRelatedActive(Number(record.boInativo ?? 0) === 0);
     setRelatedFeedback('');
-    setIsPromotionFieldsCollapsed(true);
-    setIsRelatedFieldsCollapsed(false);
+  }
+
+  function handleEditRelated(record: CompanyChildRecord) {
+    handleSelectRelatedRecord(record);
+    setDrawerMode('related');
+    setIsDrawerOpen(true);
   }
 
   function getCompanyLabel(companyId: number | null) {
@@ -480,6 +483,7 @@ export function PromotionRegistration() {
       setSelectedPromotionId(saved.id);
       setIsCreating(false);
       setFeedback('Promocao salva com sucesso.');
+      setIsDrawerOpen(false);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar promocao.');
     }
@@ -529,6 +533,7 @@ export function PromotionRegistration() {
       setSelectedRelatedRecordId(saved.id);
       setIsCreatingRelated(false);
       setRelatedFeedback(`${relatedConfig.label} salvo com sucesso.`);
+      setIsDrawerOpen(false);
     } catch (error) {
       setRelatedFeedback(error instanceof Error ? error.message : 'Erro ao salvar registro relacionado.');
     }
@@ -574,6 +579,7 @@ export function PromotionRegistration() {
         idTiposArquivos: saved.idTiposArquivos ? String(saved.idTiposArquivos) : '',
       });
       setRelatedFeedback(isReplacingFile ? 'Arquivo alterado com sucesso.' : 'Arquivo enviado com sucesso.');
+      setIsDrawerOpen(false);
     } catch (error) {
       setRelatedFeedback(error instanceof Error ? error.message : 'Erro ao enviar arquivo.');
     } finally {
@@ -631,7 +637,7 @@ export function PromotionRegistration() {
         <p className="section-label">Promoções</p>
       </div>
 
-      <div className="registration-split-layout plan-split-layout">
+      <div className={`activity-page-layout${selectedPromotionId !== null ? ' has-related' : ''}`}>
         <section className="data-grid-section company-grid-section">
           <RegistrationGrid<Promotion>
             ariaLabel="Promoções cadastradas"
@@ -645,6 +651,7 @@ export function PromotionRegistration() {
             isLoading={isLoadingPromotions}
             selectedId={selectedPromotionId}
             onSelect={handleSelectPromotion}
+            onEdit={handleEditPromotion}
             searchTerm={searchTerm}
             onSearch={setSearchTerm}
             searchPlaceholder="Buscar promoção"
@@ -653,291 +660,158 @@ export function PromotionRegistration() {
             totalItems={filteredPromotions.length}
             onPageChange={setPromotionsPage}
           />
-
-          {relatedConfig ? (
-            <section className="company-child-grid-section child-grid-desktop">
-              {!selectedPromotionId ? (
-                <div className="form-hint">
-                  Selecione uma promoção para visualizar os registros relacionados.
-                </div>
-              ) : (
-                <RegistrationGrid<CompanyChildRecord>
-                  ariaLabel={relatedConfig.title}
-                  label={relatedConfig.label}
-                  columns={relatedConfig.columns.map((column) => ({
-                    label: column.label,
-                    render: (record) => formatChildCell(record, column, relatedLookups[column.key]),
-                  }))}
-                  records={filteredRelatedRecords}
-                  isLoading={isLoadingRelatedRecords}
-                  selectedId={selectedRelatedRecordId}
-                  onSelect={handleSelectRelatedRecord}
-                  searchTerm={relatedSearchTerm}
-                  onSearch={setRelatedSearchTerm}
-                  onNew={handleNewRelated}
-                  newDisabled={!selectedPromotionId}
-                  variant="child"
-                />
-              )}
-            </section>
-          ) : null}
         </section>
 
-        <div className="split-form-stack">
-          <form className={`registration-form split-form-panel company-form-panel ${isPromotionFieldsCollapsed ? 'collapsed' : ''}`} onSubmit={handleSavePromotion}>
-            <div className="collapsible-panel-header">
-              <div>
-                <p className="section-label">Cadastro de Promoção</p>
-              </div>
-              <button aria-expanded={!isPromotionFieldsCollapsed} className="secondary-button" onClick={() => setIsPromotionFieldsCollapsed((current) => !current)} type="button">
-                {isPromotionFieldsCollapsed ? '+' : '-'}
-              </button>
-            </div>
+        {selectedPromotionId !== null ? (
+          <section className="data-grid-section">
+            {relatedConfig ? (
+              <RegistrationGrid<CompanyChildRecord>
+                ariaLabel={relatedConfig.title}
+                label={relatedConfig.label}
+                columns={relatedConfig.columns.map((column) => ({
+                  label: column.label,
+                  render: (record) => formatChildCell(record, column, relatedLookups[column.key]),
+                }))}
+                records={filteredRelatedRecords}
+                isLoading={isLoadingRelatedRecords}
+                selectedId={selectedRelatedRecordId}
+                onSelect={handleSelectRelatedRecord}
+                onEdit={handleEditRelated}
+                searchTerm={relatedSearchTerm}
+                onSearch={setRelatedSearchTerm}
+                onNew={handleNewRelated}
+                newDisabled={!selectedPromotionId}
+                variant="child"
+              />
+            ) : (
+              <div className="form-hint">Selecione uma aba para ver os registros relacionados.</div>
+            )}
+          </section>
+        ) : null}
 
-            {!isPromotionFieldsCollapsed ? (
-              <>
-                {!isFormEnabled ? <div className="form-hint">Selecione uma promoção acima ou clique em Novo.</div> : null}
-                {feedback ? <div className="form-feedback">{feedback}</div> : null}
+        {selectedPromotionId !== null ? (
+          <RegistrationTabs
+            tabs={promotionRelatedTables}
+            activeTab={selectedRelatedTable}
+            onTabChange={(key) => { setSelectedRelatedTable(key); setRelatedFeedback(''); }}
+            icons={promotionTabIcons}
+            ariaLabel="Tabelas relacionadas da promoção"
+          />
+        ) : null}
 
-                <RegistrationField htmlFor="promotionCompany" label="Empresa" required>
-                  <select disabled={!isFormEnabled} id="promotionCompany" onChange={(event) => setPromotionCompanyId(event.target.value)} required value={promotionCompanyId}>
-                    <option value="">Selecione</option>
-                    {companies.map((company) => (
-                      <option key={company.id} value={company.id}>
-                        {company.dsEmpresa}
-                      </option>
-                    ))}
-                  </select>
-                </RegistrationField>
-
-                <RegistrationField htmlFor="promotionName" label="Promoção" required>
-                  <input disabled={!isFormEnabled} id="promotionName" maxLength={255} onChange={(event) => setPromotionName(event.target.value)} ref={promotionNameInputRef} required type="text" value={promotionName} />
-                </RegistrationField>
-
-                <div className="field two-columns">
-                  <div>
-                    <label htmlFor="periodAmount">Período</label>
-                    <input disabled={!isFormEnabled} id="periodAmount" onChange={(event) => setPeriodAmount(event.target.value)} type="number" value={periodAmount} />
-                  </div>
-                  <div>
-                    <label htmlFor="timeUnit">Unidade de tempo</label>
-                    <select disabled={!isFormEnabled} id="timeUnit" onChange={(event) => setTimeUnitId(event.target.value)} value={timeUnitId}>
-                      <option value="">Selecione</option>
-                      {timeUnits.map((timeUnit) => (
-                        <option key={timeUnit.id} value={timeUnit.id}>
-                          {getLookupLabel(timeUnit, {
-                            key: 'idUnidadeTempo',
-                            label: 'Unidade de tempo',
-                            lookupLabelKey: 'dsUnidadeTempo',
-                            type: 'number',
-                          })}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="field two-columns">
-                  <div>
-                    <label htmlFor="discountValue">Valor desconto</label>
-                    <input disabled={!isFormEnabled} id="discountValue" onChange={(event) => setDiscountValue(event.target.value)} step="0.01" type="number" value={discountValue} />
-                  </div>
-                  <div>
-                    <label htmlFor="discountPercent">Percentual desconto</label>
-                    <input disabled={!isFormEnabled} id="discountPercent" onChange={(event) => setDiscountPercent(event.target.value)} step="0.01" type="number" value={discountPercent} />
-                  </div>
-                </div>
-
-                <div className="field two-columns">
-                  <div>
-                    <label htmlFor="startDate">Início</label>
-                    <input disabled={!isFormEnabled} id="startDate" onChange={(event) => setStartDate(event.target.value)} type="date" value={startDate} />
-                  </div>
-                  <div>
-                    <label htmlFor="endDate">Encerramento</label>
-                    <input disabled={!isFormEnabled} id="endDate" onChange={(event) => setEndDate(event.target.value)} type="date" value={endDate} />
-                  </div>
-                </div>
-
-                <RegistrationField htmlFor="promotionStatus" label="Status">
-                  <button aria-pressed={isPromotionActive} className={`status-toggle ${isPromotionActive ? 'active' : ''}`} disabled={!isFormEnabled} id="promotionStatus" onClick={handleTogglePromotionStatus} type="button">
-                    <span>{isPromotionActive ? 'Ativo' : 'Inativo'}</span>
-                  </button>
-                </RegistrationField>
-
-                <div className="form-actions">
-                  <button className="secondary-button" disabled={!isFormEnabled} onClick={() => clearForm()} type="button">
-                    Limpar
-                  </button>
-                  <button disabled={!isFormEnabled} type="submit">
-                    <Save size={16} />
-                    Salvar promoção
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </form>
-
-          {relatedConfig ? (
-            <section className="company-child-grid-section child-grid-mobile">
-              {!selectedPromotionId ? (
-                <div className="form-hint">
-                  Selecione uma promoção para visualizar os registros relacionados.
-                </div>
-              ) : (
-                <RegistrationGrid<CompanyChildRecord>
-                  ariaLabel={relatedConfig.title}
-                  label={relatedConfig.label}
-                  columns={relatedConfig.columns.map((column) => ({
-                    label: column.label,
-                    render: (record) => formatChildCell(record, column, relatedLookups[column.key]),
-                  }))}
-                  records={filteredRelatedRecords}
-                  isLoading={isLoadingRelatedRecords}
-                  selectedId={selectedRelatedRecordId}
-                  onSelect={handleSelectRelatedRecord}
-                  searchTerm={relatedSearchTerm}
-                  onSearch={setRelatedSearchTerm}
-                  onNew={handleNewRelated}
-                  newDisabled={!selectedPromotionId}
-                  variant="child"
-                />
-              )}
-            </section>
-          ) : null}
-
-          {relatedConfig ? (
-            <form className={`registration-form split-form-panel company-child-form-panel ${isRelatedFieldsCollapsed ? 'collapsed' : ''}`} onSubmit={handleSaveRelated}>
-              <div className="collapsible-panel-header">
-                <div>
-                  <p className="section-label">{relatedConfig.label}</p>
-                </div>
-                <button aria-expanded={!isRelatedFieldsCollapsed} className="secondary-button" onClick={() => setIsRelatedFieldsCollapsed((current) => !current)} type="button">
-                  {isRelatedFieldsCollapsed ? '+' : '-'}
+        <RegistrationDrawer
+          isOpen={isDrawerOpen}
+          title={drawerMode === 'promotion' ? (isCreating ? 'Nova Promoção' : 'Editar Promoção') : (relatedConfig?.label ?? 'Registro relacionado')}
+          onClose={() => setIsDrawerOpen(false)}
+        >
+          {drawerMode === 'promotion' ? (
+            <form className="drawer-fields" onSubmit={handleSavePromotion}>
+              {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
+              <RegistrationField htmlFor="promotionCompany" label="Empresa" required size="lg">
+                <select id="promotionCompany" onChange={(event) => setPromotionCompanyId(event.target.value)} required value={promotionCompanyId}>
+                  <option value="">Selecione</option>
+                  {companies.map((company) => (<option key={company.id} value={company.id}>{company.dsEmpresa}</option>))}
+                </select>
+              </RegistrationField>
+              <RegistrationField htmlFor="promotionName" label="Promoção" required size="full">
+                <input id="promotionName" maxLength={255} onChange={(event) => setPromotionName(event.target.value)} ref={promotionNameInputRef} required type="text" value={promotionName} />
+              </RegistrationField>
+              <RegistrationField htmlFor="periodAmount" label="Período" size="sm">
+                <input id="periodAmount" onChange={(event) => setPeriodAmount(event.target.value)} type="number" value={periodAmount} />
+              </RegistrationField>
+              <RegistrationField htmlFor="timeUnit" label="Unidade de tempo" size="md">
+                <select id="timeUnit" onChange={(event) => setTimeUnitId(event.target.value)} value={timeUnitId}>
+                  <option value="">Selecione</option>
+                  {timeUnits.map((timeUnit) => (<option key={timeUnit.id} value={timeUnit.id}>{getLookupLabel(timeUnit, { key: 'idUnidadeTempo', label: 'Unidade de tempo', lookupLabelKey: 'dsUnidadeTempo', type: 'number' })}</option>))}
+                </select>
+              </RegistrationField>
+              <RegistrationField htmlFor="discountValue" label="Valor desconto" size="sm">
+                <input id="discountValue" onChange={(event) => setDiscountValue(event.target.value)} step="0.01" type="number" value={discountValue} />
+              </RegistrationField>
+              <RegistrationField htmlFor="discountPercent" label="% desconto" size="sm">
+                <input id="discountPercent" onChange={(event) => setDiscountPercent(event.target.value)} step="0.01" type="number" value={discountPercent} />
+              </RegistrationField>
+              <RegistrationField htmlFor="startDate" label="Início" size="sm">
+                <input id="startDate" onChange={(event) => setStartDate(event.target.value)} type="date" value={startDate} />
+              </RegistrationField>
+              <RegistrationField htmlFor="endDate" label="Encerramento" size="sm">
+                <input id="endDate" onChange={(event) => setEndDate(event.target.value)} type="date" value={endDate} />
+              </RegistrationField>
+              <RegistrationField htmlFor="promotionStatus" label="Status" size="sm">
+                <button aria-pressed={isPromotionActive} className={`status-toggle ${isPromotionActive ? 'active' : ''}`} id="promotionStatus" onClick={handleTogglePromotionStatus} type="button">
+                  <span>{isPromotionActive ? 'Ativo' : 'Inativo'}</span>
                 </button>
+              </RegistrationField>
+              <div className="form-actions" style={{ flex: '1 1 100%' }}>
+                <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
+                <button type="submit"><Save size={16} />Salvar promoção</button>
               </div>
-
-              {!isRelatedFieldsCollapsed ? (
-                <>
-                  {relatedFeedback ? <div className="form-feedback">{relatedFeedback}</div> : null}
-
-                  {isFileTable ? (
-                    <div className="company-child-fields">
-                      <RegistrationField htmlFor="promotionFileType" label="Tipo de arquivo">
-                        <select
-                          disabled={!isRelatedFormEnabled}
-                          id="promotionFileType"
-                          onChange={(event) => setRelatedFormValues((current) => ({ ...current, idTiposArquivos: event.target.value }))}
-                          value={relatedFormValues.idTiposArquivos ?? ''}
-                        >
-                          <option value="">Selecione</option>
-                          {(relatedLookups.idTiposArquivos ?? []).map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {getLookupLabel(option, relatedConfig.fields[0]!)}
-                            </option>
-                          ))}
-                        </select>
-                      </RegistrationField>
-
-                      <RegistrationField htmlFor="promotionFileName" label="Arquivo selecionado">
-                        <input disabled id="promotionFileName" type="text" value={selectedRelatedRecord ? String(selectedRelatedRecord.dsArquivo ?? `Arquivo ${selectedRelatedRecord.id}`) : ''} />
-                      </RegistrationField>
-
-                      <RegistrationField className="file-upload-field" htmlFor="promotionFileUpload" label={selectedRelatedRecordId && !isCreatingRelated ? 'Alterar arquivo' : 'Arquivo'}>
-                        <input disabled={!isRelatedFormEnabled || isUploadingRelatedFile} id="promotionFileUpload" onChange={handleUploadRelatedFile} ref={promotionFileInputRef} type="file" />
-                      </RegistrationField>
-
-                      {selectedRelatedRecord ? (
-                        <div className="file-preview-card">
-                          {relatedFilePreviewUrls[selectedRelatedRecord.id] ? (
-                            <button className="file-preview-button" onClick={() => handleOpenRelatedFile(selectedRelatedRecord.id)} type="button">
-                              <img alt={String(selectedRelatedRecord.dsArquivo ?? `Arquivo ${selectedRelatedRecord.id}`)} src={relatedFilePreviewUrls[selectedRelatedRecord.id]} />
-                            </button>
-                          ) : (
-                            <div className="file-preview-placeholder">
-                              <strong>{String(selectedRelatedRecord.dsArquivo ?? `Arquivo ${selectedRelatedRecord.id}`)}</strong>
-                            </div>
-                          )}
-                          <div className="file-preview-actions">
-                            <button className="secondary-button" onClick={() => handleOpenRelatedFile(selectedRelatedRecord.id)} type="button">
-                              Visualizar
-                            </button>
-                            <button className="secondary-button" onClick={() => handleRemoveRelatedFile(selectedRelatedRecord.id)} type="button">
-                              Remover
-                            </button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="company-child-fields" ref={promotionRelatedFormRef}>
-                      {relatedConfig.fields.map((field) => (
-                        <RegistrationField htmlFor={`promotionRelated-${field.key}`} key={field.key} label={field.label} required={field.required}>
-                          {field.lookupEndpoint ? (
-                            <select
-                              disabled={!isRelatedFormEnabled}
-                              id={`promotionRelated-${field.key}`}
-                              onChange={(event) => setRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))}
-                              required={field.required}
-                              value={relatedFormValues[field.key] ?? ''}
-                            >
-                              <option value="">Selecione</option>
-                              {(relatedLookups[field.key] ?? []).map((option) => (
-                                <option key={option.id} value={option.id}>
-                                  {getLookupLabel(option, field)}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <input
-                              disabled={!isRelatedFormEnabled}
-                              id={`promotionRelated-${field.key}`}
-                              onChange={(event) => setRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))}
-                              required={field.required}
-                              type={field.type}
-                              value={relatedFormValues[field.key] ?? ''}
-                            />
-                          )}
-                        </RegistrationField>
-                      ))}
-                    </div>
-                  )}
-
-                  {!isRelatedFormEnabled ? <div className="form-hint">Selecione um registro relacionado acima ou clique em Novo.</div> : null}
-
-                  {!isFileTable ? (
-                    <RegistrationField htmlFor="promotionRelatedStatus" label="Status">
-                      <button aria-pressed={isRelatedActive} className={`status-toggle ${isRelatedActive ? 'active' : ''}`} disabled={!isRelatedFormEnabled} id="promotionRelatedStatus" onClick={handleToggleRelatedStatus} type="button">
-                        <span>{isRelatedActive ? 'Ativo' : 'Inativo'}</span>
-                      </button>
-                    </RegistrationField>
-                  ) : null}
-
-                  <div className="form-actions">
-                    <button className="secondary-button" disabled={!selectedPromotionId} onClick={clearRelatedForm} type="button">
-                      Limpar
-                    </button>
-                    {!isFileTable ? (
-                      <button disabled={!isRelatedFormEnabled} type="submit">
-                        <Save size={16} />
-                        Salvar {relatedConfig.label}
-                      </button>
-                    ) : null}
-                  </div>
-                </>
-              ) : null}
             </form>
-          ) : null}
-        </div>
-
-        <RegistrationTabs
-          tabs={promotionRelatedTables}
-          activeTab={selectedRelatedTable}
-          onTabChange={(key) => { setSelectedRelatedTable(key); setRelatedFeedback(''); }}
-          icons={promotionTabIcons}
-          ariaLabel="Tabelas relacionadas da promoção"
-        />
+          ) : (
+            <form className="drawer-fields" onSubmit={handleSaveRelated}>
+              {relatedFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{relatedFeedback}</div> : null}
+              {isFileTable ? (
+                <>
+                  <RegistrationField htmlFor="promotionFileType" label="Tipo de arquivo" size="md">
+                    <select disabled={!isRelatedFormEnabled || isUploadingRelatedFile} id="promotionFileType" onChange={(event) => setRelatedFormValues((current) => ({ ...current, idTiposArquivos: event.target.value }))} value={relatedFormValues.idTiposArquivos ?? ''}>
+                      <option value="">Selecione</option>
+                      {(relatedLookups.idTiposArquivos ?? []).map((option) => (<option key={option.id} value={option.id}>{getLookupLabel(option, relatedConfig!.fields[0]!)}</option>))}
+                    </select>
+                  </RegistrationField>
+                  <RegistrationField htmlFor="promotionFileName" label="Arquivo selecionado" size="full">
+                    <input disabled id="promotionFileName" type="text" value={selectedRelatedRecord ? String(selectedRelatedRecord.dsArquivo ?? `Arquivo ${selectedRelatedRecord.id}`) : ''} />
+                  </RegistrationField>
+                  <RegistrationField className="file-upload-field" htmlFor="promotionFileUpload" label={selectedRelatedRecordId && !isCreatingRelated ? 'Alterar arquivo' : 'Arquivo'} size="full">
+                    <input disabled={!isRelatedFormEnabled || isUploadingRelatedFile} id="promotionFileUpload" onChange={handleUploadRelatedFile} ref={promotionFileInputRef} type="file" />
+                  </RegistrationField>
+                  {selectedRelatedRecord ? (
+                    <div className="file-preview-card" style={{ flex: '1 1 100%' }}>
+                      {relatedFilePreviewUrls[selectedRelatedRecord.id] ? (
+                        <button className="file-preview-button" onClick={() => handleOpenRelatedFile(selectedRelatedRecord.id)} type="button">
+                          <img alt={String(selectedRelatedRecord.dsArquivo ?? `Arquivo ${selectedRelatedRecord.id}`)} src={relatedFilePreviewUrls[selectedRelatedRecord.id]} />
+                        </button>
+                      ) : (
+                        <div className="file-preview-placeholder">
+                          <strong>{String(selectedRelatedRecord.dsArquivo ?? `Arquivo ${selectedRelatedRecord.id}`)}</strong>
+                        </div>
+                      )}
+                      <div className="file-preview-actions">
+                        <button className="secondary-button" onClick={() => handleOpenRelatedFile(selectedRelatedRecord.id)} type="button">Visualizar</button>
+                        <button className="secondary-button" onClick={() => handleRemoveRelatedFile(selectedRelatedRecord.id)} type="button">Remover</button>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  {relatedConfig?.fields.map((field) => (
+                    <RegistrationField htmlFor={`promotionRelated-${field.key}`} key={field.key} label={field.label} required={field.required} size="full">
+                      {field.lookupEndpoint ? (
+                        <select disabled={!isRelatedFormEnabled} id={`promotionRelated-${field.key}`} onChange={(event) => setRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} value={relatedFormValues[field.key] ?? ''}>
+                          <option value="">Selecione</option>
+                          {(relatedLookups[field.key] ?? []).map((option) => (<option key={option.id} value={option.id}>{getLookupLabel(option, field)}</option>))}
+                        </select>
+                      ) : (
+                        <input disabled={!isRelatedFormEnabled} id={`promotionRelated-${field.key}`} onChange={(event) => setRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} type={field.type} value={relatedFormValues[field.key] ?? ''} />
+                      )}
+                    </RegistrationField>
+                  ))}
+                  <RegistrationField htmlFor="promotionRelatedStatus" label="Status" size="sm">
+                    <button aria-pressed={isRelatedActive} className={`status-toggle ${isRelatedActive ? 'active' : ''}`} disabled={!isRelatedFormEnabled} id="promotionRelatedStatus" onClick={handleToggleRelatedStatus} type="button">
+                      <span>{isRelatedActive ? 'Ativo' : 'Inativo'}</span>
+                    </button>
+                  </RegistrationField>
+                </>
+              )}
+              <div className="form-actions" style={{ flex: '1 1 100%' }}>
+                <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
+                {!isFileTable ? (<button disabled={!isRelatedFormEnabled} type="submit"><Save size={16} />Salvar {relatedConfig?.label}</button>) : null}
+              </div>
+            </form>
+          )}
+        </RegistrationDrawer>
       </div>
+
       {relatedFileModal ? (
         <div className="file-modal-overlay" role="dialog" aria-modal="true">
           <div className="file-modal">

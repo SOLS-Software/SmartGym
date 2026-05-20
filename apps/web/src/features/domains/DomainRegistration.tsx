@@ -1,11 +1,12 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useEffect, useRef, useState } from 'react';
-import { Plus, Save } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Pencil, Plus, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, GridPagination, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { DomainConfigMap, DomainRecord } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 
 const domainItems = [
   'Cargo',
@@ -50,7 +51,6 @@ const domainConfig: DomainConfigMap = {
 };
 
 export function DomainRegistration() {
-  const domainNameInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedDomain, setSelectedDomain] = useState(domainItems[0]);
   const [records, setRecords] = useState<DomainRecord[]>([]);
   const [recordsPage, setRecordsPage] = useState(1);
@@ -63,8 +63,8 @@ export function DomainRegistration() {
   const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const config = domainConfig[selectedDomain as keyof typeof domainConfig];
-  const isFormEnabled = Boolean(config) && (selectedRecordId !== null || isCreating);
   const filteredRecords = records.filter((record) =>
     record.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
@@ -159,6 +159,7 @@ export function DomainRegistration() {
     setDescription('');
     setSelectedRelationId('');
     setIsActive(false);
+    setIsDrawerOpen(false);
   }
 
   function handleChangeDomain(domain: string) {
@@ -179,7 +180,7 @@ export function DomainRegistration() {
     setSelectedRelationId('');
     setIsActive(true);
     setFeedback('');
-    setTimeout(() => domainNameInputRef.current?.focus(), 0);
+    setIsDrawerOpen(true);
   }
 
   function handleSelect(record: DomainRecord) {
@@ -190,6 +191,11 @@ export function DomainRegistration() {
     setSelectedRelationId(record.relationId ? String(record.relationId) : '');
     setIsActive(record.boInativo === 0);
     setFeedback('');
+    setIsDrawerOpen(true);
+  }
+
+  function handleEditRecord(record: DomainRecord) {
+    handleSelect(record);
   }
 
   async function handleToggleStatus() {
@@ -313,7 +319,7 @@ export function DomainRegistration() {
       </div>
 
       {config ? (
-        <section className="domain-workspace">
+        <section className="domain-workspace" style={{ gridTemplateColumns: 'minmax(18.75rem, 1.25fr) minmax(26.25rem, 1.45fr)' }}>
           <div className="domain-panel">
             <section className="data-grid-section">
               <div className="grid-toolbar">
@@ -330,8 +336,7 @@ export function DomainRegistration() {
 
                 {domainItems.map((item) => (
                   <button
-                    className={`domain-select-row selectable ${item === selectedDomain ? 'selected' : ''
-                      }`}
+                    className={`domain-select-row selectable ${item === selectedDomain ? 'selected' : ''}`}
                     key={item}
                     onClick={() => handleChangeDomain(item)}
                     role="row"
@@ -367,20 +372,31 @@ export function DomainRegistration() {
               </div>
 
               <div className="product-table domain-records-table" key={`domain-records-${selectedDomain}-${searchTerm}-${recordsPage}`} role="table" aria-label="Itens cadastrados">
-                <div className={`product-row domain-records-row ${config.relationField ? 'with-relation' : ''} header`} role="row">
+                <div
+                  className={`product-row domain-records-row ${config.relationField ? 'with-relation' : ''} header`}
+                  role="row"
+                  style={{ gridTemplateColumns: config.relationField ? `1fr 1fr auto 2.75rem` : `1fr auto 2.75rem` }}
+                >
                   <span role="columnheader">{config.label}</span>
                   {config.relationField ? <span role="columnheader">{config.relationLabel}</span> : null}
                   <span role="columnheader">Status</span>
+                  <span role="columnheader"></span>
                 </div>
 
                 {paginatedRecords.map((record) => (
-                  <button
-                    className={`product-row domain-records-row ${config.relationField ? 'with-relation' : ''} selectable ${record.id === selectedRecordId ? 'selected' : ''
-                      }`}
+                  <div
+                    className={`product-row domain-records-row ${config.relationField ? 'with-relation' : ''} selectable ${record.id === selectedRecordId ? 'selected' : ''}`}
                     key={record.id}
-                    onClick={() => handleSelect(record)}
+                    onClick={() => handleEditRecord(record)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleEditRecord(record);
+                      }
+                    }}
                     role="row"
-                    type="button"
+                    style={{ gridTemplateColumns: config.relationField ? `1fr 1fr auto 2.75rem` : `1fr auto 2.75rem` }}
+                    tabIndex={0}
                   >
                     <span role="cell">{record.name}</span>
                     {config.relationField ? <span role="cell">{record.relationName}</span> : null}
@@ -389,7 +405,20 @@ export function DomainRegistration() {
                         {record.boInativo === 0 ? 'Ativo' : 'Inativo'}
                       </span>
                     </span>
-                  </button>
+                    <span role="cell" className="grid-row-actions">
+                      <button
+                        aria-label="Editar"
+                        className="grid-edit-button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditRecord(record);
+                        }}
+                        type="button"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    </span>
+                  </div>
                 ))}
               </div>
               <GridPagination
@@ -400,96 +429,70 @@ export function DomainRegistration() {
             </section>
           </div>
 
-          <form className="registration-form domain-panel domain-form-panel" onSubmit={handleSave}>
-            {!isFormEnabled ? (
-              <div className="form-hint">Selecione um item acima ou clique em Novo.</div>
-            ) : null}
-            {feedback ? <div className="form-feedback">{feedback}</div> : null}
-
-            <div className="field">
-              <label htmlFor="domainName">{config.label}</label>
-              <input
-                disabled={!isFormEnabled}
-                id="domainName"
-                maxLength={255}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Digite aqui"
-                ref={domainNameInputRef}
-                type="text"
-                value={name}
-              />
-            </div>
-            {config.secondField ? (
-              <div className="field">
-                <label htmlFor="domainDescription">{config.secondFieldLabel}</label>
+          <RegistrationDrawer isOpen={isDrawerOpen} title={config ? config.label : 'Domínio'} onClose={() => setIsDrawerOpen(false)}>
+            <form className="drawer-fields" onSubmit={handleSave}>
+              {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
+              <div className="field field-size-full">
+                <label htmlFor="domainName">{config?.label ?? 'Nome'}</label>
                 <input
-                  disabled={!isFormEnabled}
-                  id="domainDescription"
+                  id="domainName"
                   maxLength={255}
-                  onChange={(event) => setDescription(event.target.value)}
+                  onChange={(event) => setName(event.target.value)}
                   placeholder="Digite aqui"
                   type="text"
-                  value={description}
+                  value={name}
                 />
               </div>
-            ) : null}
-            {config.relationField ? (
-              <div className="field">
-                <label htmlFor="domainRelation">{config.relationLabel}</label>
-                <select
-                  disabled={!isFormEnabled}
-                  id="domainRelation"
-                  onChange={(event) => setSelectedRelationId(event.target.value)}
-                  value={selectedRelationId}
+              {config?.secondField ? (
+                <div className="field field-size-full">
+                  <label htmlFor="domainDescription">{config.secondFieldLabel}</label>
+                  <input
+                    id="domainDescription"
+                    maxLength={255}
+                    onChange={(event) => setDescription(event.target.value)}
+                    placeholder="Digite aqui"
+                    type="text"
+                    value={description}
+                  />
+                </div>
+              ) : null}
+              {config?.relationField ? (
+                <div className="field field-size-full">
+                  <label htmlFor="domainRelation">{config.relationLabel}</label>
+                  <select
+                    id="domainRelation"
+                    onChange={(event) => setSelectedRelationId(event.target.value)}
+                    value={selectedRelationId}
+                  >
+                    <option value="">Selecione</option>
+                    {relationOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              <div className="field field-size-sm">
+                <label htmlFor="domainStatus">Status</label>
+                <button
+                  aria-pressed={isActive}
+                  className={`status-toggle ${isActive ? 'active' : ''}`}
+                  id="domainStatus"
+                  onClick={handleToggleStatus}
+                  type="button"
                 >
-                  <option value="">Selecione</option>
-                  {relationOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.name}
-                    </option>
-                  ))}
-                </select>
+                  <span>{isActive ? 'Ativo' : 'Inativo'}</span>
+                </button>
               </div>
-            ) : null}
-
-            <div className="field">
-              <label htmlFor="domainStatus">Status</label>
-              <button
-                aria-pressed={isActive}
-                className={`status-toggle ${isActive ? 'active' : ''}`}
-                disabled={!isFormEnabled}
-                id="domainStatus"
-                onClick={handleToggleStatus}
-                type="button"
-              >
-                <span>{isActive ? 'Ativo' : 'Inativo'}</span>
-              </button>
-            </div>
-
-            <div className="form-actions">
-              <button
-                className="secondary-button"
-                disabled={!isFormEnabled}
-                onClick={clearForm}
-                type="button"
-              >
-                Limpar
-              </button>
-              <button disabled={!isFormEnabled} type="submit">
-                <Save size={16} />
-                {config.saveLabel}
-              </button>
-            </div>
-          </form>
+              <div className="form-actions" style={{ flex: '1 1 100%' }}>
+                <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
+                <button type="submit"><Save size={16} />{config?.saveLabel ?? 'Salvar'}</button>
+              </div>
+            </form>
+          </RegistrationDrawer>
         </section>
-      ) : (
-        <section className="registration-form">
-          <div className="form-hint">
-            Domínio selecionado: <strong>{selectedDomain}</strong>
-          </div>
-        </section>
-      )}
+      ) : null}
     </div>
   );
 }
-

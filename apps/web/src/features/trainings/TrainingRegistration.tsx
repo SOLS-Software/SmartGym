@@ -6,36 +6,34 @@ import { Dumbbell, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, getLookupLabel, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
-import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
+import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import type { Company, CompanyChildField, CompanyChildRecord, CompanyChildTable, Level, LookupRecord, Training } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
-const trainingTabIcons = { exercises: Dumbbell };
+const trainingRelatedConfig: CompanyChildTable = {
+  key: 'exercises',
+  endpoint: 'exercises',
+  label: 'Exercícios',
+  title: 'Exercícios do treino',
+  columns: [
+    { key: 'nrOrdem', label: 'Ordem' },
+    { key: 'idExercicio', label: 'Exercicio', lookupLabelKey: 'dsExercicio' },
+    { key: 'nrSeries', label: 'Series' },
+    { key: 'nrRepeticoes', label: 'Repeticoes' },
+    { key: 'boInativo', label: 'Status', type: 'status' },
+  ],
+  fields: [
+    { key: 'idEmpresa', label: 'Empresa', type: 'number', lookupEndpoint: 'companies', lookupLabelKey: 'dsEmpresa', size: 'full' },
+    { key: 'idExercicio', label: 'Exercicio', type: 'number', lookupEndpoint: 'exercises', lookupLabelKey: 'dsExercicio', required: true, size: 'full' },
+    { key: 'idMetodoTreino', label: 'Método de treino', type: 'number', lookupEndpoint: 'training-methods', lookupLabelKey: 'nmMetodoTreino', size: 'full' },
+    { key: 'nrOrdem', label: 'Ordem', type: 'number', size: 'xs' },
+    { key: 'nrSeries', label: 'Séries', type: 'number', size: 'xs' },
+    { key: 'nrRepeticoes', label: 'Repetições', type: 'number', size: 'sm' },
+    { key: 'qtDescanso', label: 'Descanso (s)', type: 'number', size: 'sm' },
+  ],
+};
 
-const trainingRelatedTables: CompanyChildTable[] = [
-  {
-    key: 'exercises',
-    endpoint: 'exercises',
-    label: 'Exercícios',
-    title: 'Exercícios do treino',
-    columns: [
-      { key: 'nrOrdem', label: 'Ordem' },
-      { key: 'idExercicio', label: 'Exercicio', lookupLabelKey: 'dsExercicio' },
-      { key: 'nrSeries', label: 'Series' },
-      { key: 'nrRepeticoes', label: 'Repeticoes' },
-      { key: 'boInativo', label: 'Status', type: 'status' },
-    ],
-    fields: [
-      { key: 'idEmpresa', label: 'Empresa', type: 'number', lookupEndpoint: 'companies', lookupLabelKey: 'dsEmpresa' },
-      { key: 'idExercicio', label: 'Exercicio', type: 'number', lookupEndpoint: 'exercises', lookupLabelKey: 'dsExercicio', required: true },
-      { key: 'idMetodoTreino', label: 'Método de treino', type: 'number', lookupEndpoint: 'training-methods', lookupLabelKey: 'nmMetodoTreino' },
-      { key: 'nrOrdem', label: 'Ordem', type: 'number' },
-      { key: 'nrSeries', label: 'Series', type: 'number' },
-      { key: 'nrRepeticoes', label: 'Repeticoes', type: 'number' },
-      { key: 'qtDescanso', label: 'Descanso', type: 'number' },
-    ],
-  },
-];
+type DrawerMode = 'training' | 'exercise';
 
 type TrainingRegistrationProps = {
   readOnly?: boolean;
@@ -43,13 +41,16 @@ type TrainingRegistrationProps = {
 
 export function TrainingRegistration({ readOnly = false }: TrainingRegistrationProps) {
   const trainingNameInputRef = useRef<HTMLInputElement | null>(null);
-  const trainingRelatedFormRef = useRef<HTMLDivElement | null>(null);
+
+  // Training list state
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [trainingsPage, setTrainingsPage] = useState(1);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [levels, setLevels] = useState<Level[]>([]);
   const [isLoadingTrainings, setIsLoadingTrainings] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Selected training state
   const [selectedTrainingId, setSelectedTrainingId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
@@ -57,40 +58,36 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
   const [trainingName, setTrainingName] = useState('');
   const [isTrainingActive, setIsTrainingActive] = useState(true);
   const [feedback, setFeedback] = useState('');
-  const [isTrainingFieldsCollapsed, setIsTrainingFieldsCollapsed] = useState(false);
-  const [selectedTrainingRelatedTable, setSelectedTrainingRelatedTable] = useState('');
+
+  // Exercise list state
   const [trainingRelatedRecords, setTrainingRelatedRecords] = useState<CompanyChildRecord[]>([]);
   const [isLoadingTrainingRelatedRecords, setIsLoadingTrainingRelatedRecords] = useState(false);
   const [trainingRelatedSearchTerm, setTrainingRelatedSearchTerm] = useState('');
+
+  // Selected exercise state
   const [selectedTrainingRelatedRecordId, setSelectedTrainingRelatedRecordId] = useState<number | null>(null);
   const [isCreatingTrainingRelated, setIsCreatingTrainingRelated] = useState(false);
   const [trainingRelatedFormValues, setTrainingRelatedFormValues] = useState<Record<string, string>>({});
   const [isTrainingRelatedActive, setIsTrainingRelatedActive] = useState(true);
   const [trainingRelatedFeedback, setTrainingRelatedFeedback] = useState('');
   const [trainingRelatedLookups, setTrainingRelatedLookups] = useState<Record<string, LookupRecord[]>>({});
-  const [isTrainingRelatedFieldsCollapsed, setIsTrainingRelatedFieldsCollapsed] = useState(false);
-  const isFormEnabled = selectedTrainingId !== null || isCreating;
-  const trainingRelatedConfig =
-    trainingRelatedTables.find((table) => table.key === selectedTrainingRelatedTable) ?? null;
-  const isTrainingRelatedFormEnabled =
-    Boolean(selectedTrainingId) &&
-    (selectedTrainingRelatedRecordId !== null || isCreatingTrainingRelated);
-  const filteredTrainingRelatedRecords = trainingRelatedRecords.filter((record) =>
-    trainingRelatedConfig
-      ? trainingRelatedConfig.columns.some((column) =>
-        formatChildSearchValue(
-          record,
-          column,
-          trainingRelatedLookups[column.key],
-        ).includes(trainingRelatedSearchTerm.toLowerCase()),
-      )
-      : false,
-  );
-  const filteredTrainings = trainings.filter((training) => {
-    if (selectedTrainingRelatedTable && selectedTrainingId !== null) {
-      return training.id === selectedTrainingId;
-    }
 
+  // Drawer state
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [drawerMode, setDrawerMode] = useState<DrawerMode>('training');
+
+  const isTrainingFormEnabled = selectedTrainingId !== null || isCreating;
+  const isExerciseFormEnabled = Boolean(selectedTrainingId) && (selectedTrainingRelatedRecordId !== null || isCreatingTrainingRelated);
+
+  const filteredTrainingRelatedRecords = trainingRelatedRecords.filter((record) =>
+    trainingRelatedConfig.columns.some((column) =>
+      formatChildSearchValue(record, column, trainingRelatedLookups[column.key]).includes(
+        trainingRelatedSearchTerm.toLowerCase(),
+      ),
+    ),
+  );
+
+  const filteredTrainings = trainings.filter((training) => {
     const search = searchTerm.toLowerCase();
     const company = companies.find((item) => item.id === training.idEmpresa);
     const level = levels.find((item) => item.id === training.idNivel);
@@ -102,6 +99,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
       (training.boInativo === 0 ? 'ativo' : 'inativo').includes(search)
     );
   });
+
   const trainingsTotalPages = Math.max(1, Math.ceil(filteredTrainings.length / GRID_PAGE_SIZE));
   const paginatedTrainings = paginateItems(filteredTrainings, trainingsPage);
 
@@ -144,11 +142,8 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     }
   }
 
-  async function loadTrainingRelatedRecords(
-    trainingId = selectedTrainingId,
-    config = trainingRelatedConfig,
-  ) {
-    if (!config || !trainingId) {
+  async function loadExercises(trainingId = selectedTrainingId) {
+    if (!trainingId) {
       setTrainingRelatedRecords([]);
       setIsLoadingTrainingRelatedRecords(false);
       return;
@@ -156,18 +151,16 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
 
     try {
       setIsLoadingTrainingRelatedRecords(true);
-      const response = await fetch(`${apiUrl}/trainings/${trainingId}/related/${config.endpoint}`);
+      const response = await fetch(`${apiUrl}/trainings/${trainingId}/related/${trainingRelatedConfig.endpoint}`);
 
       if (!response.ok) {
-        await getApiError(response, 'Não foi possível carregar os registros relacionados.');
+        await getApiError(response, 'Não foi possível carregar os exercícios.');
       }
 
       setTrainingRelatedRecords((await response.json()) as CompanyChildRecord[]);
       setTrainingRelatedFeedback('');
     } catch (error) {
-      setTrainingRelatedFeedback(
-        error instanceof Error ? error.message : 'Erro ao carregar registros relacionados.',
-      );
+      setTrainingRelatedFeedback(error instanceof Error ? error.message : 'Erro ao carregar exercícios.');
       setTrainingRelatedRecords([]);
     } finally {
       setIsLoadingTrainingRelatedRecords(false);
@@ -180,8 +173,30 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
   }, []);
 
   useEffect(() => {
+    async function loadExerciseLookups() {
+      const lookupFields = trainingRelatedConfig.fields.filter((field) => field.lookupEndpoint);
+      const nextLookups: Record<string, LookupRecord[]> = {};
+
+      await Promise.all(
+        lookupFields.map(async (field) => {
+          if (!field.lookupEndpoint) return;
+          const response = await fetch(`${apiUrl}/${field.lookupEndpoint}`);
+          if (!response.ok) await getApiError(response, `Não foi possível carregar ${field.label}.`);
+          nextLookups[field.key] = (await response.json()) as LookupRecord[];
+        }),
+      );
+
+      setTrainingRelatedLookups((current) => ({ ...current, ...nextLookups }));
+    }
+
+    void loadExerciseLookups().catch((error) => {
+      setTrainingRelatedFeedback(error instanceof Error ? error.message : 'Erro ao carregar listas.');
+    });
+  }, []);
+
+  useEffect(() => {
     setTrainingsPage(1);
-  }, [searchTerm, selectedTrainingId]);
+  }, [searchTerm]);
 
   useEffect(() => {
     if (trainingsPage > trainingsTotalPages) {
@@ -196,48 +211,10 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     setIsTrainingRelatedActive(true);
     setTrainingRelatedSearchTerm('');
     setTrainingRelatedFeedback('');
-    void loadTrainingRelatedRecords();
-  }, [selectedTrainingId, selectedTrainingRelatedTable]);
+    void loadExercises();
+  }, [selectedTrainingId]);
 
-  useEffect(() => {
-    async function loadTrainingRelatedLookups() {
-      if (!trainingRelatedConfig) {
-        return;
-      }
-
-      const lookupFields = trainingRelatedConfig.fields.filter((field) => field.lookupEndpoint);
-      const nextLookups: Record<string, LookupRecord[]> = {};
-
-      await Promise.all(
-        lookupFields.map(async (field) => {
-          if (!field.lookupEndpoint) {
-            return;
-          }
-
-          const response = await fetch(`${apiUrl}/${field.lookupEndpoint}`);
-
-          if (!response.ok) {
-            await getApiError(response, `Não foi possível carregar ${field.label}.`);
-          }
-
-          nextLookups[field.key] = (await response.json()) as LookupRecord[];
-        }),
-      );
-
-      setTrainingRelatedLookups((current) => ({
-        ...current,
-        ...nextLookups,
-      }));
-    }
-
-    void loadTrainingRelatedLookups().catch((error) => {
-      setTrainingRelatedFeedback(
-        error instanceof Error ? error.message : 'Erro ao carregar listas relacionadas.',
-      );
-    });
-  }, [trainingRelatedConfig]);
-
-  function clearForm() {
+  function clearTrainingForm() {
     setSelectedTrainingId(null);
     setIsCreating(false);
     setSelectedCompanyId('');
@@ -252,18 +229,26 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     setTrainingRelatedFeedback('');
   }
 
+  function clearExerciseForm() {
+    setSelectedTrainingRelatedRecordId(null);
+    setIsCreatingTrainingRelated(false);
+    setTrainingRelatedFormValues({});
+    setIsTrainingRelatedActive(true);
+    setTrainingRelatedFeedback('');
+  }
+
   function handleNewTraining() {
-    clearForm();
+    clearTrainingForm();
     setIsCreating(true);
     setIsTrainingActive(true);
-    setIsTrainingFieldsCollapsed(false);
-    setIsTrainingRelatedFieldsCollapsed(true);
-    setTimeout(() => trainingNameInputRef.current?.focus(), 0);
+    setIsDrawerOpen(true);
+    setDrawerMode('training');
+    setTimeout(() => trainingNameInputRef.current?.focus(), 100);
   }
 
   function handleSelectTraining(training: Training) {
     if (training.id === selectedTrainingId) {
-      clearForm();
+      clearTrainingForm();
       return;
     }
 
@@ -275,49 +260,40 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     setIsTrainingActive(training.boInativo === 0);
     setFeedback('');
     setTrainingRelatedFeedback('');
-    setIsTrainingFieldsCollapsed(false);
-    setIsTrainingRelatedFieldsCollapsed(true);
   }
 
-  function handleSelectTrainingRelatedTable(tableKey: string) {
-    setSelectedTrainingRelatedTable(tableKey);
-    setTrainingRelatedFeedback('');
+  function handleEditTraining(training: Training) {
+    setSelectedTrainingId(training.id);
+    setIsCreating(false);
+    setSelectedCompanyId(training.idEmpresa ? String(training.idEmpresa) : '');
+    setSelectedLevelId(training.idNivel ? String(training.idNivel) : '');
+    setTrainingName(training.dsTreino);
+    setIsTrainingActive(training.boInativo === 0);
+    setFeedback('');
+    setIsDrawerOpen(true);
+    setDrawerMode('training');
   }
 
-  function clearTrainingRelatedForm() {
-    setSelectedTrainingRelatedRecordId(null);
-    setIsCreatingTrainingRelated(false);
-    setTrainingRelatedFormValues({});
-    setIsTrainingRelatedActive(true);
-    setTrainingRelatedFeedback('');
-  }
-
-  function handleNewTrainingRelated() {
+  function handleNewExercise() {
     setSelectedTrainingRelatedRecordId(null);
     setIsCreatingTrainingRelated(true);
     setTrainingRelatedFormValues(
-      trainingRelatedConfig?.fields.reduce<Record<string, string>>((current, field) => {
+      trainingRelatedConfig.fields.reduce<Record<string, string>>((current, field) => {
         if (field.key === 'idEmpresa') {
           current[field.key] = selectedCompanyId;
         } else if (['nrOrdem', 'nrSeries', 'nrRepeticoes', 'qtDescanso'].includes(field.key)) {
           current[field.key] = '0';
         }
-
         return current;
-      }, {}) ?? {},
+      }, {}),
     );
     setIsTrainingRelatedActive(true);
     setTrainingRelatedFeedback('');
-    setIsTrainingFieldsCollapsed(true);
-    setIsTrainingRelatedFieldsCollapsed(false);
-    setTimeout(() => { trainingRelatedFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
+    setIsDrawerOpen(true);
+    setDrawerMode('exercise');
   }
 
-  function handleSelectTrainingRelatedRecord(record: CompanyChildRecord) {
-    if (!trainingRelatedConfig) {
-      return;
-    }
-
+  function handleEditExercise(record: CompanyChildRecord) {
     const values = trainingRelatedConfig.fields.reduce<Record<string, string>>((current, field) => {
       const value = record[field.key];
       current[field.key] = String(value ?? '');
@@ -329,8 +305,12 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     setTrainingRelatedFormValues(values);
     setIsTrainingRelatedActive(Number(record.boInativo ?? 0) === 0);
     setTrainingRelatedFeedback('');
-    setIsTrainingFieldsCollapsed(true);
-    setIsTrainingRelatedFieldsCollapsed(false);
+    setIsDrawerOpen(true);
+    setDrawerMode('exercise');
+  }
+
+  function handleCloseDrawer() {
+    setIsDrawerOpen(false);
   }
 
   function getLevelLabel(levelId: number | null) {
@@ -341,19 +321,13 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     const nextActive = !isTrainingActive;
     setIsTrainingActive(nextActive);
 
-    if (!selectedTrainingId) {
-      return;
-    }
+    if (!selectedTrainingId) return;
 
     try {
       const response = await fetch(`${apiUrl}/trainings/${selectedTrainingId}/status`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          boInativo: nextActive ? 0 : 1,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }),
       });
 
       if (!response.ok) {
@@ -362,9 +336,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
 
       const updatedTraining = (await response.json()) as Training;
       setTrainings((current) =>
-        current.map((training) =>
-          training.id === updatedTraining.id ? updatedTraining : training,
-        ),
+        current.map((training) => (training.id === updatedTraining.id ? updatedTraining : training)),
       );
     } catch (error) {
       setIsTrainingActive(!nextActive);
@@ -391,9 +363,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
         isCreating ? `${apiUrl}/trainings` : `${apiUrl}/trainings/${selectedTrainingId}`,
         {
           method: isCreating ? 'POST' : 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         },
       );
@@ -413,29 +383,19 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     }
   }
 
-  async function handleToggleTrainingRelatedStatus() {
-    if (!trainingRelatedConfig) {
-      return;
-    }
-
+  async function handleToggleExerciseStatus() {
     const nextActive = !isTrainingRelatedActive;
     setIsTrainingRelatedActive(nextActive);
 
-    if (!selectedTrainingId || !selectedTrainingRelatedRecordId) {
-      return;
-    }
+    if (!selectedTrainingId || !selectedTrainingRelatedRecordId) return;
 
     try {
       const response = await fetch(
         `${apiUrl}/trainings/${selectedTrainingId}/related/${trainingRelatedConfig.endpoint}/${selectedTrainingRelatedRecordId}/status`,
         {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            boInativo: nextActive ? 0 : 1,
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }),
         },
       );
 
@@ -454,13 +414,8 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     }
   }
 
-  async function handleSaveTrainingRelated(event: FormEvent<HTMLFormElement>) {
+  async function handleSaveExercise(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (!trainingRelatedConfig) {
-      setTrainingRelatedFeedback('Selecione uma tabela relacionada antes de salvar.');
-      return;
-    }
 
     if (!selectedTrainingId) {
       setTrainingRelatedFeedback('Selecione um treino antes de salvar.');
@@ -483,9 +438,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
           current[field.key] = field.type === 'number' ? (value ? Number(value) : null) : value;
           return current;
         },
-        {
-          boInativo: isTrainingRelatedActive ? 0 : 1,
-        },
+        { boInativo: isTrainingRelatedActive ? 0 : 1 },
       );
 
       const response = await fetch(
@@ -494,27 +447,23 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
           : `${apiUrl}/trainings/${selectedTrainingId}/related/${trainingRelatedConfig.endpoint}`,
         {
           method: selectedTrainingRelatedRecordId ? 'PUT' : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         },
       );
 
       if (!response.ok) {
         const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Não foi possível salvar o registro relacionado.');
+        throw new Error(errorBody.message ?? 'Não foi possível salvar o exercício.');
       }
 
       const savedRecord = (await response.json()) as CompanyChildRecord;
-      await loadTrainingRelatedRecords(selectedTrainingId, trainingRelatedConfig);
+      await loadExercises(selectedTrainingId);
       setSelectedTrainingRelatedRecordId(savedRecord.id);
       setIsCreatingTrainingRelated(false);
       setTrainingRelatedFeedback(`${trainingRelatedConfig.label} salvo com sucesso.`);
     } catch (error) {
-      setTrainingRelatedFeedback(
-        error instanceof Error ? error.message : 'Erro ao salvar registro relacionado.',
-      );
+      setTrainingRelatedFeedback(error instanceof Error ? error.message : 'Erro ao salvar exercício.');
     }
   }
 
@@ -524,20 +473,28 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
         <p className="section-label">Treino</p>
       </div>
 
-      <div className="registration-split-layout plan-split-layout">
-        <section className="data-grid-section company-grid-section">
+      <div className={`training-page-layout${selectedTrainingId !== null ? ' has-exercises' : ''}`}>
+        <section className="data-grid-section">
           <RegistrationGrid<Training>
             ariaLabel="Treinos cadastrados"
             label="Treinos"
             columns={[
-              { label: 'Treino', render: (t) => t.dsTreino },
-              { label: 'Nível', render: (t) => getLevelLabel(t.idNivel) },
-              { label: 'Status', render: (t) => <span className={`status-badge ${t.boInativo === 0 ? 'active' : 'inactive'}`}>{t.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+              { label: 'Treino', render: (t) => t.dsTreino, tooltip: (t) => t.dsTreino },
+              { label: 'Nível', render: (t) => getLevelLabel(t.idNivel), tooltip: (t) => getLevelLabel(t.idNivel) },
+              {
+                label: 'Status',
+                render: (t) => (
+                  <span className={`status-badge ${t.boInativo === 0 ? 'active' : 'inactive'}`}>
+                    {t.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                  </span>
+                ),
+              },
             ]}
             records={paginatedTrainings}
             isLoading={isLoadingTrainings}
             selectedId={selectedTrainingId}
             onSelect={handleSelectTraining}
+            onEdit={readOnly ? undefined : handleEditTraining}
             searchTerm={searchTerm}
             onSearch={setSearchTerm}
             searchPlaceholder="Buscar treino"
@@ -547,70 +504,46 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
             totalItems={filteredTrainings.length}
             onPageChange={setTrainingsPage}
           />
-
-          {trainingRelatedConfig ? (
-            <section className="company-child-grid-section child-grid-desktop">
-              {!selectedTrainingId ? (
-                <div className="form-hint">
-                  Selecione um treino para visualizar os registros relacionados.
-                </div>
-              ) : (
-                <RegistrationGrid<CompanyChildRecord>
-                  ariaLabel={trainingRelatedConfig.title}
-                  label={trainingRelatedConfig.label}
-                  columns={trainingRelatedConfig.columns.map((column) => ({
-                    label: column.label,
-                    render: (record) => formatChildCell(record, column, trainingRelatedLookups[column.key]),
-                  }))}
-                  records={filteredTrainingRelatedRecords}
-                  isLoading={isLoadingTrainingRelatedRecords}
-                  selectedId={selectedTrainingRelatedRecordId}
-                  onSelect={handleSelectTrainingRelatedRecord}
-                  searchTerm={trainingRelatedSearchTerm}
-                  onSearch={setTrainingRelatedSearchTerm}
-                  onNew={handleNewTrainingRelated}
-                  newDisabled={!selectedTrainingId}
-                  showNewButton={!readOnly}
-                  variant="child"
-                />
-              )}
-            </section>
-          ) : null}
         </section>
 
-        {readOnly ? null : (
-        <div className="split-form-stack">
-        <form
-          className={`registration-form split-form-panel company-form-panel ${isTrainingFieldsCollapsed ? 'collapsed' : ''}`}
-          onSubmit={handleSaveTraining}
+        {selectedTrainingId !== null ? (
+          <section className="data-grid-section">
+            <RegistrationGrid<CompanyChildRecord>
+              ariaLabel={trainingRelatedConfig.title}
+              label={trainingRelatedConfig.label}
+              columns={trainingRelatedConfig.columns.map((column) => ({
+                label: column.label,
+                render: (record) => formatChildCell(record, column, trainingRelatedLookups[column.key]),
+              }))}
+              records={filteredTrainingRelatedRecords}
+              isLoading={isLoadingTrainingRelatedRecords}
+              selectedId={selectedTrainingRelatedRecordId}
+              onSelect={handleEditExercise}
+              onEdit={readOnly ? undefined : handleEditExercise}
+              searchTerm={trainingRelatedSearchTerm}
+              onSearch={setTrainingRelatedSearchTerm}
+              onNew={handleNewExercise}
+              newDisabled={!selectedTrainingId}
+              showNewButton={!readOnly}
+              variant="child"
+            />
+          </section>
+        ) : null}
+      </div>
+
+      {!readOnly ? (
+        <RegistrationDrawer
+          isOpen={isDrawerOpen}
+          title={drawerMode === 'training' ? 'Cadastro de Treino' : trainingRelatedConfig.label}
+          onClose={handleCloseDrawer}
         >
-          <div className="collapsible-panel-header">
-            <div>
-              <p className="section-label">Cadastro de Treino</p>
-            </div>
-            <button
-              aria-expanded={!isTrainingFieldsCollapsed}
-              className="secondary-button"
-              onClick={() => setIsTrainingFieldsCollapsed((current) => !current)}
-              type="button"
-            >
-              {isTrainingFieldsCollapsed ? '+' : '-'}
-            </button>
-          </div>
+          {drawerMode === 'training' ? (
+            <form className="drawer-fields" onSubmit={handleSaveTraining}>
+              {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
 
-          {!isTrainingFieldsCollapsed ? (
-            <>
-              {!isFormEnabled ? (
-                <div className="form-hint">
-                  Selecione um treino acima para editar ou clique em Novo.
-                </div>
-              ) : null}
-
-              {feedback ? <div className="form-feedback">{feedback}</div> : null}
-
-              <RegistrationField htmlFor="trainingName" label="Nome do treino" required>
+              <RegistrationField htmlFor="trainingName" label="Nome do treino" required size="full">
                 <input
-                  disabled={!isFormEnabled}
+                  disabled={!isTrainingFormEnabled}
                   id="trainingName"
                   maxLength={255}
                   onChange={(event) => setTrainingName(event.target.value)}
@@ -621,9 +554,9 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                 />
               </RegistrationField>
 
-              <RegistrationField htmlFor="trainingCompany" label="Empresa">
+              <RegistrationField htmlFor="trainingCompany" label="Empresa" size="lg">
                 <select
-                  disabled={!isFormEnabled}
+                  disabled={!isTrainingFormEnabled}
                   id="trainingCompany"
                   onChange={(event) => setSelectedCompanyId(event.target.value)}
                   value={selectedCompanyId}
@@ -637,9 +570,9 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                 </select>
               </RegistrationField>
 
-              <RegistrationField htmlFor="trainingLevel" label="Nível">
+              <RegistrationField htmlFor="trainingLevel" label="Nível" size="md">
                 <select
-                  disabled={!isFormEnabled}
+                  disabled={!isTrainingFormEnabled}
                   id="trainingLevel"
                   onChange={(event) => setSelectedLevelId(event.target.value)}
                   value={selectedLevelId}
@@ -653,11 +586,11 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                 </select>
               </RegistrationField>
 
-              <RegistrationField htmlFor="trainingStatus" label="Status">
+              <RegistrationField htmlFor="trainingStatus" label="Status" size="sm">
                 <button
                   aria-pressed={isTrainingActive}
                   className={`status-toggle ${isTrainingActive ? 'active' : ''}`}
-                  disabled={!isFormEnabled}
+                  disabled={!isTrainingFormEnabled}
                   id="trainingStatus"
                   onClick={handleToggleTrainingStatus}
                   type="button"
@@ -666,168 +599,103 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                 </button>
               </RegistrationField>
 
-              <div className="form-actions">
+              <div className="form-actions" style={{ flex: '1 1 100%' }}>
                 <button
                   className="secondary-button"
-                  disabled={!isFormEnabled}
-                  onClick={clearForm}
+                  onClick={() => { clearTrainingForm(); handleCloseDrawer(); }}
                   type="button"
                 >
                   Limpar
                 </button>
-                <button disabled={!isFormEnabled} type="submit">
+                <button disabled={!isTrainingFormEnabled} type="submit">
                   <Save size={16} />
                   Salvar treino
                 </button>
               </div>
-            </>
-          ) : null}
-        </form>
+            </form>
+          ) : (
+            <form className="drawer-fields" onSubmit={handleSaveExercise}>
+              {trainingRelatedFeedback ? (
+                <div className="form-feedback" style={{ flex: '1 1 100%' }}>{trainingRelatedFeedback}</div>
+              ) : null}
 
-          {trainingRelatedConfig ? (
-            <section className="company-child-grid-section child-grid-mobile">
-              {!selectedTrainingId ? (
-                <div className="form-hint">
-                  Selecione um treino para visualizar os registros relacionados.
-                </div>
-              ) : (
-                <RegistrationGrid<CompanyChildRecord>
-                  ariaLabel={trainingRelatedConfig.title}
-                  label={trainingRelatedConfig.label}
-                  columns={trainingRelatedConfig.columns.map((column) => ({
-                    label: column.label,
-                    render: (record) => formatChildCell(record, column, trainingRelatedLookups[column.key]),
-                  }))}
-                  records={filteredTrainingRelatedRecords}
-                  isLoading={isLoadingTrainingRelatedRecords}
-                  selectedId={selectedTrainingRelatedRecordId}
-                  onSelect={handleSelectTrainingRelatedRecord}
-                  searchTerm={trainingRelatedSearchTerm}
-                  onSearch={setTrainingRelatedSearchTerm}
-                  onNew={handleNewTrainingRelated}
-                  newDisabled={!selectedTrainingId}
-                  showNewButton={!readOnly}
-                  variant="child"
-                />
-              )}
-            </section>
-          ) : null}
+              {trainingRelatedConfig.fields.map((field: CompanyChildField) => (
+                <RegistrationField
+                  htmlFor={`exercise-${field.key}`}
+                  key={field.key}
+                  label={field.label}
+                  required={field.required}
+                  size={field.size}
+                >
+                  {field.lookupEndpoint ? (
+                    <select
+                      disabled={!isExerciseFormEnabled}
+                      id={`exercise-${field.key}`}
+                      onChange={(event) =>
+                        setTrainingRelatedFormValues((current) => ({
+                          ...current,
+                          [field.key]: event.target.value,
+                        }))
+                      }
+                      required={field.required}
+                      value={trainingRelatedFormValues[field.key] ?? ''}
+                    >
+                      <option value="">Selecione</option>
+                      {(trainingRelatedLookups[field.key] ?? []).map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {getLookupLabel(option, field)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      disabled={!isExerciseFormEnabled}
+                      id={`exercise-${field.key}`}
+                      onChange={(event) =>
+                        setTrainingRelatedFormValues((current) => ({
+                          ...current,
+                          [field.key]: event.target.value,
+                        }))
+                      }
+                      required={field.required}
+                      type={field.type}
+                      value={trainingRelatedFormValues[field.key] ?? ''}
+                    />
+                  )}
+                </RegistrationField>
+              ))}
 
-          {trainingRelatedConfig ? (
-            <form
-              className={`registration-form split-form-panel company-child-form-panel ${isTrainingRelatedFieldsCollapsed ? 'collapsed' : ''}`}
-              onSubmit={handleSaveTrainingRelated}
-            >
-              <div className="collapsible-panel-header">
-                <div>
-                  <p className="section-label">{trainingRelatedConfig.label}</p>
-                </div>
+              <RegistrationField htmlFor="exerciseStatus" label="Status" size="sm">
                 <button
-                  aria-expanded={!isTrainingRelatedFieldsCollapsed}
-                  className="secondary-button"
-                  onClick={() => setIsTrainingRelatedFieldsCollapsed((current) => !current)}
+                  aria-pressed={isTrainingRelatedActive}
+                  className={`status-toggle ${isTrainingRelatedActive ? 'active' : ''}`}
+                  disabled={!isExerciseFormEnabled}
+                  id="exerciseStatus"
+                  onClick={handleToggleExerciseStatus}
                   type="button"
                 >
-                  {isTrainingRelatedFieldsCollapsed ? '+' : '-'}
+                  <span>{isTrainingRelatedActive ? 'Ativo' : 'Inativo'}</span>
+                </button>
+              </RegistrationField>
+
+              <div className="form-actions" style={{ flex: '1 1 100%' }}>
+                <button
+                  className="secondary-button"
+                  disabled={!selectedTrainingId}
+                  onClick={() => { clearExerciseForm(); handleCloseDrawer(); }}
+                  type="button"
+                >
+                  Limpar
+                </button>
+                <button disabled={!isExerciseFormEnabled} type="submit">
+                  <Save size={16} />
+                  Salvar {trainingRelatedConfig.label}
                 </button>
               </div>
-
-              {!isTrainingRelatedFieldsCollapsed ? (
-                <>
-                  {trainingRelatedFeedback ? (
-                    <div className="form-feedback">{trainingRelatedFeedback}</div>
-                  ) : null}
-
-                  {!isTrainingRelatedFormEnabled ? (
-                    <div className="form-hint">
-                      Selecione um registro relacionado acima ou clique em Novo.
-                    </div>
-                  ) : null}
-
-                  <div className="company-child-fields" ref={trainingRelatedFormRef}>
-                    {trainingRelatedConfig.fields.map((field: CompanyChildField) => (
-                      <RegistrationField htmlFor={`trainingRelated-${field.key}`} key={field.key} label={field.label} required={field.required}>
-                        {field.lookupEndpoint ? (
-                          <select
-                            disabled={!isTrainingRelatedFormEnabled}
-                            id={`trainingRelated-${field.key}`}
-                            onChange={(event) =>
-                              setTrainingRelatedFormValues((current) => ({
-                                ...current,
-                                [field.key]: event.target.value,
-                              }))
-                            }
-                            required={field.required}
-                            value={trainingRelatedFormValues[field.key] ?? ''}
-                          >
-                            <option value="">Selecione</option>
-                            {(trainingRelatedLookups[field.key] ?? []).map((option) => (
-                              <option key={option.id} value={option.id}>
-                                {getLookupLabel(option, field)}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            disabled={!isTrainingRelatedFormEnabled}
-                            id={`trainingRelated-${field.key}`}
-                            onChange={(event) =>
-                              setTrainingRelatedFormValues((current) => ({
-                                ...current,
-                                [field.key]: event.target.value,
-                              }))
-                            }
-                            required={field.required}
-                            type={field.type}
-                            value={trainingRelatedFormValues[field.key] ?? ''}
-                          />
-                        )}
-                      </RegistrationField>
-                    ))}
-                  </div>
-
-                  <RegistrationField htmlFor="trainingRelatedStatus" label="Status">
-                    <button
-                      aria-pressed={isTrainingRelatedActive}
-                      className={`status-toggle ${isTrainingRelatedActive ? 'active' : ''}`}
-                      disabled={!isTrainingRelatedFormEnabled}
-                      id="trainingRelatedStatus"
-                      onClick={handleToggleTrainingRelatedStatus}
-                      type="button"
-                    >
-                      <span>{isTrainingRelatedActive ? 'Ativo' : 'Inativo'}</span>
-                    </button>
-                  </RegistrationField>
-
-                  <div className="form-actions">
-                    <button
-                      className="secondary-button"
-                      disabled={!selectedTrainingId}
-                      onClick={clearTrainingRelatedForm}
-                      type="button"
-                    >
-                      Limpar
-                    </button>
-                    <button disabled={!isTrainingRelatedFormEnabled} type="submit">
-                      <Save size={16} />
-                      Salvar {trainingRelatedConfig.label}
-                    </button>
-                  </div>
-                </>
-              ) : null}
             </form>
-          ) : null}
-        </div>
-        )}
-
-        <RegistrationTabs
-          tabs={trainingRelatedTables}
-          activeTab={selectedTrainingRelatedTable}
-          onTabChange={handleSelectTrainingRelatedTable}
-          icons={trainingTabIcons}
-          ariaLabel="Tabelas relacionadas do treino"
-        />
-      </div>
+          )}
+        </RegistrationDrawer>
+      ) : null}
     </div>
   );
 }

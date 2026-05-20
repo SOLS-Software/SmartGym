@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { BadgeCheck, CreditCard, File, FileImage, Package, Palette, Receipt, Save, Tag } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
@@ -28,7 +29,6 @@ const companyTabIcons = {
 export function CompanyRegistration() {
   const companyFileInputRef = useRef<HTMLInputElement>(null);
   const companyNameInputRef = useRef<HTMLInputElement | null>(null);
-  const companyChildFormRef = useRef<HTMLDivElement | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companiesPage, setCompaniesPage] = useState(1);
   const [isLoadingCompanies, setIsLoadingCompanies] = useState(false);
@@ -59,8 +59,9 @@ export function CompanyRegistration() {
     title: string;
     url: string;
   } | null>(null);
-  const [isCompanyFieldsCollapsed, setIsCompanyFieldsCollapsed] = useState(false);
-  const [isChildFieldsCollapsed, setIsChildFieldsCollapsed] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  type DrawerMode = 'company' | 'child';
+  const [drawerMode, setDrawerMode] = useState<DrawerMode>('company');
   const isFormEnabled = selectedCompanyId !== null || isCreating;
   const childTableConfig = companyChildTables.find((table) => table.key === selectedChildTable) ?? null;
   const isFileChildTable = selectedChildTable === 'companyFiles' || selectedChildTable === 'promotionFiles';
@@ -78,10 +79,6 @@ export function CompanyRegistration() {
       : false,
   );
   const filteredCompanies = companies.filter((company) => {
-    if (selectedChildTable && selectedCompanyId !== null) {
-      return company.id === selectedCompanyId;
-    }
-
     const search = searchTerm.toLowerCase();
 
     return (
@@ -277,9 +274,8 @@ export function CompanyRegistration() {
     setChildFormValues({});
     setIsChildActive(true);
     setChildFeedback('');
-    setIsCompanyFieldsCollapsed(true);
-    setIsChildFieldsCollapsed(false);
-    setTimeout(() => { companyChildFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
+    setDrawerMode('child');
+    setIsDrawerOpen(true);
   }
 
   function handleSelectChild(record: CompanyChildRecord) {
@@ -298,8 +294,12 @@ export function CompanyRegistration() {
     setChildFormValues(values);
     setIsChildActive(Number(record.boInativo ?? 0) === 0);
     setChildFeedback('');
-    setIsCompanyFieldsCollapsed(true);
-    setIsChildFieldsCollapsed(false);
+  }
+
+  function handleEditChild(record: CompanyChildRecord) {
+    handleSelectChild(record);
+    setDrawerMode('child');
+    setIsDrawerOpen(true);
   }
 
   async function handleToggleChildStatus() {
@@ -398,6 +398,7 @@ export function CompanyRegistration() {
       setSelectedChildRecordId(saved.id);
       setIsCreatingChild(false);
       setChildFeedback(`${childTableConfig.label} salvo com sucesso.`);
+      setIsDrawerOpen(false);
     } catch (error) {
       setChildFeedback(error instanceof Error ? error.message : 'Erro ao salvar registro filho.');
     }
@@ -451,6 +452,7 @@ export function CompanyRegistration() {
         idTiposArquivos: saved.idTiposArquivos ? String(saved.idTiposArquivos) : '',
       });
       setChildFeedback(isReplacingFile ? 'Arquivo alterado com sucesso.' : 'Arquivo enviado com sucesso.');
+      setIsDrawerOpen(false);
     } catch (error) {
       setChildFeedback(
         error instanceof Error ? error.message : 'Erro ao enviar arquivo.',
@@ -535,8 +537,8 @@ export function CompanyRegistration() {
     setFeedback('');
     setCompanyErrors({});
     setTouchedCompanyFields({});
-    setIsCompanyFieldsCollapsed(false);
-    setIsChildFieldsCollapsed(true);
+    setDrawerMode('company');
+    setIsDrawerOpen(true);
     setTimeout(() => companyNameInputRef.current?.focus(), 0);
   }
 
@@ -554,8 +556,12 @@ export function CompanyRegistration() {
     setFeedback('');
     setCompanyErrors({});
     setTouchedCompanyFields({});
-    setIsCompanyFieldsCollapsed(false);
-    setIsChildFieldsCollapsed(true);
+  }
+
+  function handleEditCompany(company: Company) {
+    handleSelectCompany(company);
+    setDrawerMode('company');
+    setIsDrawerOpen(true);
   }
 
   async function handleToggleStatus() {
@@ -683,478 +689,66 @@ export function CompanyRegistration() {
       setSelectedCompanyId(savedCompany.id);
       setIsCreating(false);
       setFeedback('Empresa salva com sucesso.');
+      setIsDrawerOpen(false);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar.');
     }
   }
 
   return (
-    <div className="form-view">
-      <div className="form-heading">
-        <p className="section-label">Cadastro de Empresa</p>
-      </div>
+    <div className={`activity-page-layout${selectedCompanyId !== null ? ' has-related' : ''}`}>
+      <section className="data-grid-section company-grid-section">
+        <RegistrationGrid<Company>
+          ariaLabel="Empresas cadastradas"
+          label="Empresas"
+          columns={[
+            { label: 'Empresa', render: (c) => c.dsEmpresa },
+            { label: 'CNPJ', render: (c) => formatCnpj(c.caCNPJ) },
+            { label: 'Status', render: (c) => <span className={`status-badge ${c.boInativo === 0 ? 'active' : 'inactive'}`}>{c.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+          ]}
+          records={paginatedCompanies}
+          isLoading={isLoadingCompanies}
+          selectedId={selectedCompanyId}
+          onSelect={handleSelectCompany}
+          onEdit={handleEditCompany}
+          searchTerm={searchTerm}
+          onSearch={setSearchTerm}
+          searchPlaceholder="Buscar empresa"
+          onNew={handleNewCompany}
+          page={companiesPage}
+          totalItems={filteredCompanies.length}
+          onPageChange={setCompaniesPage}
+        />
+      </section>
 
-      <div className="registration-split-layout plan-split-layout">
-        <section className="data-grid-section company-grid-section">
-          <RegistrationGrid<Company>
-            ariaLabel="Empresas cadastradas"
-            label="Empresas"
-            columns={[
-              { label: 'Empresa', render: (c) => c.dsEmpresa },
-              { label: 'CNPJ', render: (c) => formatCnpj(c.caCNPJ) },
-              { label: 'Status', render: (c) => <span className={`status-badge ${c.boInativo === 0 ? 'active' : 'inactive'}`}>{c.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
-            ]}
-            records={paginatedCompanies}
-            isLoading={isLoadingCompanies}
-            selectedId={selectedCompanyId}
-            onSelect={handleSelectCompany}
-            searchTerm={searchTerm}
-            onSearch={setSearchTerm}
-            searchPlaceholder="Buscar empresa"
-            onNew={handleNewCompany}
-            page={companiesPage}
-            totalItems={filteredCompanies.length}
-            onPageChange={setCompaniesPage}
-          />
-
-          <section className="company-child-grid-section child-grid-desktop">
-            {!childTableConfig ? (
-              <div className="form-hint">Selecione uma tabela filha ao lado.</div>
-            ) : !selectedCompanyId ? (
-              <div className="form-hint">
-                Selecione uma empresa para visualizar os registros filhos.
-              </div>
-            ) : (
-              <RegistrationGrid<CompanyChildRecord>
-                ariaLabel={childTableConfig.title}
-                label={childTableConfig.label}
-                columns={childTableConfig.columns.map((column) => ({
-                  label: column.label,
-                  render: (record) => formatChildCell(record, column, childLookups[column.key]),
-                }))}
-                records={filteredChildRecords}
-                isLoading={isLoadingChildRecords}
-                selectedId={selectedChildRecordId}
-                onSelect={handleSelectChild}
-                searchTerm={childSearchTerm}
-                onSearch={setChildSearchTerm}
-                onNew={handleNewChild}
-                newDisabled={!selectedCompanyId}
-                variant="child"
-              />
-            )}
-          </section>
+      {selectedCompanyId !== null ? (
+        <section className="data-grid-section">
+          {!childTableConfig ? (
+            <div className="form-hint">Selecione uma aba para ver os registros.</div>
+          ) : (
+            <RegistrationGrid<CompanyChildRecord>
+              ariaLabel={childTableConfig.title}
+              label={childTableConfig.label}
+              columns={childTableConfig.columns.map((column) => ({
+                label: column.label,
+                render: (record) => formatChildCell(record, column, childLookups[column.key]),
+              }))}
+              records={filteredChildRecords}
+              isLoading={isLoadingChildRecords}
+              selectedId={selectedChildRecordId}
+              onSelect={handleSelectChild}
+              onEdit={handleEditChild}
+              searchTerm={childSearchTerm}
+              onSearch={setChildSearchTerm}
+              onNew={handleNewChild}
+              newDisabled={!selectedCompanyId}
+              variant="child"
+            />
+          )}
         </section>
+      ) : null}
 
-        <div className="split-form-stack">
-          <form
-            className={`registration-form split-form-panel company-form-panel ${isCompanyFieldsCollapsed ? 'collapsed' : ''}`}
-            onSubmit={handleSaveCompany}
-          >
-            <div className="collapsible-panel-header">
-              <div>
-                <p className="section-label">Empresa</p>
-              </div>
-              <button
-                aria-expanded={!isCompanyFieldsCollapsed}
-                className="secondary-button"
-                onClick={() => setIsCompanyFieldsCollapsed((current) => !current)}
-                type="button"
-              >
-                {isCompanyFieldsCollapsed ? '+' : '-'}
-              </button>
-            </div>
-
-            {!isCompanyFieldsCollapsed ? (
-              <>
-                {!isFormEnabled ? (
-                  <div className="form-hint">
-                    Selecione uma empresa acima para editar ou clique em Nova empresa.
-                  </div>
-                ) : null}
-
-                {feedback ? <div className="form-feedback">{feedback}</div> : null}
-
-                <RegistrationField error={companyErrors.name} htmlFor="dsEmpresa" label="Empresa" touched={touchedCompanyFields.name}>
-                  <input
-                    className={touchedCompanyFields.name && companyErrors.name ? 'invalid' : ''}
-                    disabled={!isFormEnabled}
-                    id="dsEmpresa"
-                    maxLength={100}
-                    name="dsEmpresa"
-                    onBlur={() => validateCompanyField('name')}
-                    onChange={(event) => {
-                      const value = event.target.value.slice(0, 100);
-                      setCompanyName(value);
-
-                      if (touchedCompanyFields.name) {
-                        setCompanyErrors((current) => ({
-                          ...current,
-                          name: value.trim() ? undefined : 'Informe o nome da empresa.',
-                        }));
-                      }
-                    }}
-                    placeholder="Ex.: Academia Cliente"
-                    ref={companyNameInputRef}
-                    required
-                    type="text"
-                    value={companyName}
-                  />
-                </RegistrationField>
-
-                <RegistrationField error={companyErrors.cnpj} htmlFor="caCNPJ" label="CNPJ" touched={touchedCompanyFields.cnpj}>
-                  <input
-                    className={touchedCompanyFields.cnpj && companyErrors.cnpj ? 'invalid' : ''}
-                    disabled={!isFormEnabled}
-                    id="caCNPJ"
-                    maxLength={18}
-                    name="caCNPJ"
-                    onBlur={() => validateCompanyField('cnpj')}
-                    onChange={(event) => {
-                      const formattedCnpj = formatCnpj(event.target.value);
-                      setCompanyCnpj(formattedCnpj);
-
-                      if (touchedCompanyFields.cnpj) {
-                        setCompanyErrors((current) => ({
-                          ...current,
-                          cnpj: isValidCnpj(formattedCnpj)
-                            ? undefined
-                            : 'Informe um CNPJ válido.',
-                        }));
-                      }
-                    }}
-                    placeholder="00.000.000/0000-00"
-                    required
-                    type="text"
-                    value={companyCnpj}
-                  />
-                </RegistrationField>
-
-                <RegistrationField htmlFor="empresaStatus" label="Status">
-                  <button
-                    aria-pressed={isCompanyActive}
-                    className={`status-toggle ${isCompanyActive ? 'active' : ''}`}
-                    disabled={!isFormEnabled}
-                    id="empresaStatus"
-                    onClick={handleToggleStatus}
-                    type="button"
-                  >
-                    <span>{isCompanyActive ? 'Ativo' : 'Inativo'}</span>
-                  </button>
-                </RegistrationField>
-
-                <div className="form-actions">
-                  <button
-                    className="secondary-button"
-                    disabled={!isFormEnabled}
-                    onClick={clearForm}
-                    type="button"
-                  >
-                    Limpar
-                  </button>
-                  <button disabled={!isFormEnabled} type="submit">
-                    <Save size={16} />
-                    Salvar empresa
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </form>
-
-          <section className="company-child-grid-section child-grid-mobile">
-            {!childTableConfig ? (
-              <div className="form-hint">Selecione uma tabela filha ao lado.</div>
-            ) : !selectedCompanyId ? (
-              <div className="form-hint">
-                Selecione uma empresa para visualizar os registros filhos.
-              </div>
-            ) : (
-              <RegistrationGrid<CompanyChildRecord>
-                ariaLabel={childTableConfig.title}
-                label={childTableConfig.label}
-                columns={childTableConfig.columns.map((column) => ({
-                  label: column.label,
-                  render: (record) => formatChildCell(record, column, childLookups[column.key]),
-                }))}
-                records={filteredChildRecords}
-                isLoading={isLoadingChildRecords}
-                selectedId={selectedChildRecordId}
-                onSelect={handleSelectChild}
-                searchTerm={childSearchTerm}
-                onSearch={setChildSearchTerm}
-                onNew={handleNewChild}
-                newDisabled={!selectedCompanyId}
-                variant="child"
-              />
-            )}
-          </section>
-
-          {childTableConfig ? (
-            <form
-              className={`registration-form split-form-panel company-child-form-panel ${isChildFieldsCollapsed ? 'collapsed' : ''}`}
-              onSubmit={handleSaveChild}
-            >
-              <div className="collapsible-panel-header">
-                <div>
-                  <p className="section-label">{childTableConfig.label}</p>
-                </div>
-                <button
-                  aria-expanded={!isChildFieldsCollapsed}
-                  className="secondary-button"
-                  onClick={() => setIsChildFieldsCollapsed((current) => !current)}
-                  type="button"
-                >
-                  {isChildFieldsCollapsed ? '+' : '-'}
-                </button>
-              </div>
-
-              {!isChildFieldsCollapsed ? (
-                <>
-                  {!selectedCompanyId ? (
-                    <div className="form-hint">
-                      Selecione uma empresa para preencher os campos filhos.
-                    </div>
-                  ) : null}
-
-                  {childFeedback ? <div className="form-feedback">{childFeedback}</div> : null}
-
-                  {isFileChildTable ? (
-                    <>
-                      <div className="company-child-fields">
-                        {selectedChildTable === 'promotionFiles' ? (
-                          <RegistrationField htmlFor="promotionFilePromotion" label="Promoção">
-                            <select
-                              disabled={!selectedCompanyId || isUploadingCompanyFile}
-                              id="promotionFilePromotion"
-                              onChange={(event) =>
-                                setChildFormValues((current) => ({
-                                  ...current,
-                                  idPromocao: event.target.value,
-                                }))
-                              }
-                              value={childFormValues.idPromocao ?? ''}
-                            >
-                              <option value="">Selecione</option>
-                              {(childLookups.idPromocao ?? []).map((option) => (
-                                <option key={option.id} value={option.id}>
-                                  {getLookupLabel(option, {
-                                    key: 'idPromocao',
-                                    label: 'Promoção',
-                                    lookupLabelKey: 'dsPromocao',
-                                    type: 'number',
-                                  })}
-                                </option>
-                              ))}
-                            </select>
-                          </RegistrationField>
-                        ) : null}
-
-                        <RegistrationField htmlFor="companyFileType" label="Tipo de arquivo">
-                          <select
-                            disabled={!selectedCompanyId || isUploadingCompanyFile}
-                            id="companyFileType"
-                            onChange={(event) =>
-                              setChildFormValues((current) => ({
-                                ...current,
-                                idTiposArquivos: event.target.value,
-                              }))
-                            }
-                            value={childFormValues.idTiposArquivos ?? ''}
-                          >
-                            <option value="">Selecione</option>
-                            {(childLookups.idTiposArquivos ?? []).map((option) => (
-                              <option key={option.id} value={option.id}>
-                                {getLookupLabel(option, {
-                                  key: 'idTiposArquivos',
-                                  label: 'Tipo arquivo',
-                                  lookupLabelKey: 'dsTipo',
-                                  type: 'number',
-                                })}
-                              </option>
-                            ))}
-                          </select>
-                        </RegistrationField>
-
-                        <RegistrationField htmlFor="companyFileName" label="Arquivo selecionado">
-                          <input
-                            disabled
-                            id="companyFileName"
-                            type="text"
-                            value={
-                              selectedChildRecord
-                                ? String(selectedChildRecord.dsArquivo ?? `Arquivo ${selectedChildRecord.id}`)
-                                : 'Selecione no grid ou clique em Novo'
-                            }
-                          />
-                        </RegistrationField>
-                      </div>
-
-                      <RegistrationField
-                        error="Selecionar um novo arquivo vai alterar o arquivo selecionado."
-                        htmlFor="companyFile"
-                        label={selectedChildRecordId && !isCreatingChild ? 'Alterar arquivo' : 'Arquivo'}
-                        touched={Boolean(selectedChildRecordId && !isCreatingChild)}
-                      >
-                        <div className="file-upload-controls">
-                          <input
-                            disabled={!selectedCompanyId || isUploadingCompanyFile}
-                            id="companyFile"
-                            onChange={(event) =>
-                              void handleUploadCompanyFile(event.target.files?.[0] ?? null)
-                            }
-                            ref={companyFileInputRef}
-                            type="file"
-                          />
-                        </div>
-                      </RegistrationField>
-
-                      {selectedChildRecord ? (
-                        <div className="student-files-list">
-                          <div className="student-file-row">
-                            {companyFilePreviewUrls[selectedChildRecord.id] ? (
-                              <button
-                                className="file-preview-button"
-                                onClick={() => void handleOpenCompanyFile(selectedChildRecord.id)}
-                                type="button"
-                              >
-                                <img
-                                  alt={String(
-                                    selectedChildRecord.dsArquivo ??
-                                    selectedChildRecord.anCaminho ??
-                                    `Arquivo ${selectedChildRecord.id}`,
-                                  )}
-                                  className="student-file-preview"
-                                  src={companyFilePreviewUrls[selectedChildRecord.id]}
-                                />
-                              </button>
-                            ) : null}
-                            <div className="student-file-row-info">
-                              <strong>
-                                {String(
-                                  selectedChildRecord.dsArquivo ??
-                                  selectedChildRecord.anCaminho ??
-                                  `Arquivo ${selectedChildRecord.id}`,
-                                )}
-                              </strong>
-                            </div>
-                            <div className="student-file-actions">
-                              <button
-                                className="secondary-button"
-                                onClick={() => void handleOpenCompanyFile(selectedChildRecord.id)}
-                                type="button"
-                              >
-                                Visualizar
-                              </button>
-                              <button
-                                className="secondary-button"
-                                onClick={() => {
-                                  companyFileInputRef.current?.click();
-                                }}
-                                type="button"
-                              >
-                                Alterar
-                              </button>
-                              <button
-                                className="danger"
-                                onClick={() => void handleRemoveCompanyFile(selectedChildRecord.id)}
-                                type="button"
-                              >
-                                Remover
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : selectedCompanyId && childRecords.length === 0 ? (
-                        <div className="empty-row">Nenhum arquivo anexado.</div>
-                      ) : selectedCompanyId ? (
-                        <div className="form-hint">Selecione um arquivo no grid para visualizar ou alterar.</div>
-                      ) : null}
-                    </>
-                  ) : (
-                    <>
-                      <div className="company-child-fields" ref={companyChildFormRef}>
-                        {childTableConfig.fields.map((field) => (
-                          <RegistrationField htmlFor={`companyChild-${field.key}`} key={field.key} label={field.label} required={field.required}>
-                            {field.lookupEndpoint ? (
-                              <select
-                                disabled={!isChildFormEnabled}
-                                id={`companyChild-${field.key}`}
-                                onChange={(event) =>
-                                  setChildFormValues((current) => ({
-                                    ...current,
-                                    [field.key]: event.target.value,
-                                  }))
-                                }
-                                required={field.required}
-                                value={childFormValues[field.key] ?? ''}
-                              >
-                                <option value="">Selecione</option>
-                                {(childLookups[field.key] ?? []).map((option) => (
-                                  <option key={option.id} value={option.id}>
-                                    {getLookupLabel(option, field)}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <input
-                                disabled={!isChildFormEnabled}
-                                id={`companyChild-${field.key}`}
-                                onChange={(event) =>
-                                  setChildFormValues((current) => ({
-                                    ...current,
-                                    [field.key]: event.target.value,
-                                  }))
-                                }
-                                required={field.required}
-                                type={field.type}
-                                value={childFormValues[field.key] ?? ''}
-                              />
-                            )}
-                          </RegistrationField>
-                        ))}
-                      </div>
-
-                      {!isChildFormEnabled ? (
-                        <div className="form-hint">
-                          Selecione um registro filho acima ou clique em Novo.
-                        </div>
-                      ) : null}
-
-                      <RegistrationField htmlFor="companyChildStatus" label="Status">
-                        <button
-                          aria-pressed={isChildActive}
-                          className={`status-toggle ${isChildActive ? 'active' : ''}`}
-                          disabled={!isChildFormEnabled}
-                          id="companyChildStatus"
-                          onClick={handleToggleChildStatus}
-                          type="button"
-                        >
-                          <span>{isChildActive ? 'Ativo' : 'Inativo'}</span>
-                        </button>
-                      </RegistrationField>
-
-                      <div className="form-actions">
-                        <button
-                          className="secondary-button"
-                          disabled={!selectedCompanyId}
-                          onClick={clearChildForm}
-                          type="button"
-                        >
-                          Limpar
-                        </button>
-                        <button disabled={!isChildFormEnabled} type="submit">
-                          <Save size={16} />
-                          Salvar {childTableConfig.label}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : null}
-            </form>
-          ) : null}
-        </div>
-
+      {selectedCompanyId !== null ? (
         <RegistrationTabs
           tabs={companyChildTables}
           activeTab={selectedChildTable}
@@ -1162,7 +756,304 @@ export function CompanyRegistration() {
           icons={companyTabIcons}
           ariaLabel="Tabelas filhas da empresa"
         />
-      </div>
+      ) : null}
+
+      <RegistrationDrawer
+        isOpen={isDrawerOpen}
+        title={drawerMode === 'company' ? (isCreating ? 'Nova Empresa' : 'Editar Empresa') : (childTableConfig?.label ?? 'Registro filho')}
+        onClose={() => setIsDrawerOpen(false)}
+      >
+        {drawerMode === 'company' ? (
+          <form className="drawer-fields" onSubmit={handleSaveCompany}>
+            {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
+            <RegistrationField error={companyErrors.name} htmlFor="dsEmpresa" label="Empresa" size="full" touched={touchedCompanyFields.name}>
+              <input
+                className={touchedCompanyFields.name && companyErrors.name ? 'invalid' : ''}
+                id="dsEmpresa"
+                maxLength={100}
+                name="dsEmpresa"
+                onBlur={() => validateCompanyField('name')}
+                onChange={(event) => {
+                  const value = event.target.value.slice(0, 100);
+                  setCompanyName(value);
+
+                  if (touchedCompanyFields.name) {
+                    setCompanyErrors((current) => ({
+                      ...current,
+                      name: value.trim() ? undefined : 'Informe o nome da empresa.',
+                    }));
+                  }
+                }}
+                placeholder="Ex.: Academia Cliente"
+                ref={companyNameInputRef}
+                required
+                type="text"
+                value={companyName}
+              />
+            </RegistrationField>
+            <RegistrationField error={companyErrors.cnpj} htmlFor="caCNPJ" label="CNPJ" size="md" touched={touchedCompanyFields.cnpj}>
+              <input
+                className={touchedCompanyFields.cnpj && companyErrors.cnpj ? 'invalid' : ''}
+                id="caCNPJ"
+                maxLength={18}
+                name="caCNPJ"
+                onBlur={() => validateCompanyField('cnpj')}
+                onChange={(event) => {
+                  const formattedCnpj = formatCnpj(event.target.value);
+                  setCompanyCnpj(formattedCnpj);
+
+                  if (touchedCompanyFields.cnpj) {
+                    setCompanyErrors((current) => ({
+                      ...current,
+                      cnpj: isValidCnpj(formattedCnpj) ? undefined : 'Informe um CNPJ válido.',
+                    }));
+                  }
+                }}
+                placeholder="00.000.000/0000-00"
+                required
+                type="text"
+                value={companyCnpj}
+              />
+            </RegistrationField>
+            <RegistrationField htmlFor="empresaStatus" label="Status" size="sm">
+              <button
+                aria-pressed={isCompanyActive}
+                className={`status-toggle ${isCompanyActive ? 'active' : ''}`}
+                id="empresaStatus"
+                onClick={handleToggleStatus}
+                type="button"
+              >
+                <span>{isCompanyActive ? 'Ativo' : 'Inativo'}</span>
+              </button>
+            </RegistrationField>
+            <div className="form-actions" style={{ flex: '1 1 100%' }}>
+              <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
+              <button type="submit"><Save size={16} />Salvar empresa</button>
+            </div>
+          </form>
+        ) : childTableConfig ? (
+          <form className="drawer-fields" onSubmit={handleSaveChild}>
+            {childFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{childFeedback}</div> : null}
+            {isFileChildTable ? (
+              <>
+                {selectedChildTable === 'promotionFiles' ? (
+                  <RegistrationField htmlFor="promotionFilePromotion" label="Promoção" size="lg">
+                    <select
+                      disabled={!selectedCompanyId || isUploadingCompanyFile}
+                      id="promotionFilePromotion"
+                      onChange={(event) =>
+                        setChildFormValues((current) => ({
+                          ...current,
+                          idPromocao: event.target.value,
+                        }))
+                      }
+                      value={childFormValues.idPromocao ?? ''}
+                    >
+                      <option value="">Selecione</option>
+                      {(childLookups.idPromocao ?? []).map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {getLookupLabel(option, {
+                            key: 'idPromocao',
+                            label: 'Promoção',
+                            lookupLabelKey: 'dsPromocao',
+                            type: 'number',
+                          })}
+                        </option>
+                      ))}
+                    </select>
+                  </RegistrationField>
+                ) : null}
+                <RegistrationField htmlFor="companyFileType" label="Tipo de arquivo" size="md">
+                  <select
+                    disabled={!selectedCompanyId || isUploadingCompanyFile}
+                    id="companyFileType"
+                    onChange={(event) =>
+                      setChildFormValues((current) => ({
+                        ...current,
+                        idTiposArquivos: event.target.value,
+                      }))
+                    }
+                    value={childFormValues.idTiposArquivos ?? ''}
+                  >
+                    <option value="">Selecione</option>
+                    {(childLookups.idTiposArquivos ?? []).map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {getLookupLabel(option, {
+                          key: 'idTiposArquivos',
+                          label: 'Tipo arquivo',
+                          lookupLabelKey: 'dsTipo',
+                          type: 'number',
+                        })}
+                      </option>
+                    ))}
+                  </select>
+                </RegistrationField>
+                <RegistrationField htmlFor="companyFileName" label="Arquivo selecionado" size="full">
+                  <input
+                    disabled
+                    id="companyFileName"
+                    type="text"
+                    value={
+                      selectedChildRecord
+                        ? String(selectedChildRecord.dsArquivo ?? `Arquivo ${selectedChildRecord.id}`)
+                        : 'Selecione no grid ou clique em Novo'
+                    }
+                  />
+                </RegistrationField>
+                <RegistrationField
+                  error="Selecionar um novo arquivo vai alterar o arquivo selecionado."
+                  htmlFor="companyFile"
+                  label={selectedChildRecordId && !isCreatingChild ? 'Alterar arquivo' : 'Arquivo'}
+                  size="full"
+                  touched={Boolean(selectedChildRecordId && !isCreatingChild)}
+                >
+                  <div className="file-upload-controls">
+                    <input
+                      disabled={!selectedCompanyId || isUploadingCompanyFile}
+                      id="companyFile"
+                      onChange={(event) =>
+                        void handleUploadCompanyFile(event.target.files?.[0] ?? null)
+                      }
+                      ref={companyFileInputRef}
+                      type="file"
+                    />
+                  </div>
+                </RegistrationField>
+                {selectedChildRecord ? (
+                  <div className="student-files-list" style={{ flex: '1 1 100%' }}>
+                    <div className="student-file-row">
+                      {companyFilePreviewUrls[selectedChildRecord.id] ? (
+                        <button
+                          className="file-preview-button"
+                          onClick={() => void handleOpenCompanyFile(selectedChildRecord.id)}
+                          type="button"
+                        >
+                          <img
+                            alt={String(
+                              selectedChildRecord.dsArquivo ??
+                              selectedChildRecord.anCaminho ??
+                              `Arquivo ${selectedChildRecord.id}`,
+                            )}
+                            className="student-file-preview"
+                            src={companyFilePreviewUrls[selectedChildRecord.id]}
+                          />
+                        </button>
+                      ) : null}
+                      <div className="student-file-row-info">
+                        <strong>
+                          {String(
+                            selectedChildRecord.dsArquivo ??
+                            selectedChildRecord.anCaminho ??
+                            `Arquivo ${selectedChildRecord.id}`,
+                          )}
+                        </strong>
+                      </div>
+                      <div className="student-file-actions">
+                        <button
+                          className="secondary-button"
+                          onClick={() => void handleOpenCompanyFile(selectedChildRecord.id)}
+                          type="button"
+                        >
+                          Visualizar
+                        </button>
+                        <button
+                          className="secondary-button"
+                          onClick={() => {
+                            companyFileInputRef.current?.click();
+                          }}
+                          type="button"
+                        >
+                          Alterar
+                        </button>
+                        <button
+                          className="danger"
+                          onClick={() => void handleRemoveCompanyFile(selectedChildRecord.id)}
+                          type="button"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : selectedCompanyId && childRecords.length === 0 ? (
+                  <div className="empty-row">Nenhum arquivo anexado.</div>
+                ) : selectedCompanyId ? (
+                  <div className="form-hint">Selecione um arquivo no grid para visualizar ou alterar.</div>
+                ) : null}
+              </>
+            ) : (
+              <>
+                {childTableConfig.fields.map((field) => (
+                  <RegistrationField
+                    htmlFor={`companyChild-${field.key}`}
+                    key={field.key}
+                    label={field.label}
+                    required={field.required}
+                    size="full"
+                  >
+                    {field.lookupEndpoint ? (
+                      <select
+                        disabled={!isChildFormEnabled}
+                        id={`companyChild-${field.key}`}
+                        onChange={(event) =>
+                          setChildFormValues((current) => ({
+                            ...current,
+                            [field.key]: event.target.value,
+                          }))
+                        }
+                        required={field.required}
+                        value={childFormValues[field.key] ?? ''}
+                      >
+                        <option value="">Selecione</option>
+                        {(childLookups[field.key] ?? []).map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {getLookupLabel(option, field)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        disabled={!isChildFormEnabled}
+                        id={`companyChild-${field.key}`}
+                        onChange={(event) =>
+                          setChildFormValues((current) => ({
+                            ...current,
+                            [field.key]: event.target.value,
+                          }))
+                        }
+                        required={field.required}
+                        type={field.type}
+                        value={childFormValues[field.key] ?? ''}
+                      />
+                    )}
+                  </RegistrationField>
+                ))}
+                <RegistrationField htmlFor="companyChildStatus" label="Status" size="sm">
+                  <button
+                    aria-pressed={isChildActive}
+                    className={`status-toggle ${isChildActive ? 'active' : ''}`}
+                    disabled={!isChildFormEnabled}
+                    id="companyChildStatus"
+                    onClick={handleToggleChildStatus}
+                    type="button"
+                  >
+                    <span>{isChildActive ? 'Ativo' : 'Inativo'}</span>
+                  </button>
+                </RegistrationField>
+                <div className="form-actions" style={{ flex: '1 1 100%' }}>
+                  <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
+                  <button disabled={!isChildFormEnabled} type="submit"><Save size={16} />Salvar {childTableConfig.label}</button>
+                </div>
+              </>
+            )}
+            {isFileChildTable ? (
+              <div className="form-actions" style={{ flex: '1 1 100%' }}>
+                <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Fechar</button>
+              </div>
+            ) : null}
+          </form>
+        ) : null}
+      </RegistrationDrawer>
 
       {companyFileModal ? (
         <div className="file-modal-overlay" role="dialog" aria-modal="true">
@@ -1184,4 +1075,3 @@ export function CompanyRegistration() {
     </div>
   );
 }
-

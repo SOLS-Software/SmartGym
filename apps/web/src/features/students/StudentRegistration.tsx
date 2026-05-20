@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, CreditCard, FileText, Receipt, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
@@ -28,7 +29,6 @@ export function StudentRegistration() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
-  const studentRelatedFormRef = useRef<HTMLDivElement | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [studentsPage, setStudentsPage] = useState(1);
   const [studentFiles, setStudentFiles] = useState<StudentFile[]>([]);
@@ -51,8 +51,6 @@ export function StudentRegistration() {
   const [feedback, setFeedback] = useState('');
   const [fileFeedback, setFileFeedback] = useState('');
   const [isUploadingFile, setIsUploadingFile] = useState(false);
-  const [isStudentFieldsCollapsed, setIsStudentFieldsCollapsed] = useState(false);
-  const [isStudentFilesCollapsed, setIsStudentFilesCollapsed] = useState(false);
   const [selectedStudentRelatedTable, setSelectedStudentRelatedTable] = useState('');
   const [studentRelatedRecords, setStudentRelatedRecords] = useState<CompanyChildRecord[]>([]);
   const [isLoadingStudentRelatedRecords, setIsLoadingStudentRelatedRecords] = useState(false);
@@ -63,7 +61,6 @@ export function StudentRegistration() {
   const [isStudentRelatedActive, setIsStudentRelatedActive] = useState(true);
   const [studentRelatedFeedback, setStudentRelatedFeedback] = useState('');
   const [studentRelatedLookups, setStudentRelatedLookups] = useState<Record<string, LookupRecord[]>>({});
-  const [isStudentRelatedFieldsCollapsed, setIsStudentRelatedFieldsCollapsed] = useState(false);
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
   const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
   const [cameraFeedback, setCameraFeedback] = useState('');
@@ -71,6 +68,10 @@ export function StudentRegistration() {
   const [touchedStudentFields, setTouchedStudentFields] = useState<
     Partial<Record<StudentValidationField, boolean>>
   >({});
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  type DrawerMode = 'student' | 'related' | 'files';
+  const [drawerMode, setDrawerMode] = useState<DrawerMode>('student');
+
   const isFormEnabled = selectedStudentId !== null || isCreating;
   const studentRelatedConfig =
     studentRelatedTables.find((table) => table.key === selectedStudentRelatedTable) ?? null;
@@ -90,10 +91,6 @@ export function StudentRegistration() {
       : false,
   );
   const filteredStudents = students.filter((student) => {
-    if (selectedStudentRelatedTable && selectedStudentId !== null) {
-      return student.id === selectedStudentId;
-    }
-
     const search = searchTerm.toLowerCase();
 
     return (
@@ -339,6 +336,7 @@ export function StudentRegistration() {
     setIsCameraModalOpen(false);
     setIsCapturingPhoto(false);
     stopCameraStream();
+    setIsDrawerOpen(false);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -353,9 +351,9 @@ export function StudentRegistration() {
     clearForm();
     setIsCreating(true);
     setIsStudentActive(true);
-    setIsStudentFieldsCollapsed(false);
-    setIsStudentRelatedFieldsCollapsed(true);
     setTimeout(() => nameInputRef.current?.focus(), 0);
+    setDrawerMode('student');
+    setIsDrawerOpen(true);
   }
 
   function handleSelectStudent(student: Student) {
@@ -384,13 +382,16 @@ export function StudentRegistration() {
     setFileFeedback('');
     setStudentErrors({});
     setTouchedStudentFields({});
-    setIsStudentFieldsCollapsed(false);
-    setIsStudentRelatedFieldsCollapsed(true);
+  }
+
+  function handleEditStudent(student: Student) {
+    handleSelectStudent(student);
+    setDrawerMode('student');
+    setIsDrawerOpen(true);
   }
 
   function handleSelectStudentRelatedTable(tableKey: string) {
     setSelectedStudentRelatedTable(tableKey);
-    setIsStudentFilesCollapsed(false);
     setFileFeedback('');
     setStudentRelatedFeedback('');
     setSelectedStudentRelatedRecordId(null);
@@ -430,9 +431,14 @@ export function StudentRegistration() {
     );
     setIsStudentRelatedActive(true);
     setStudentRelatedFeedback('');
-    setIsStudentFieldsCollapsed(true);
-    setIsStudentRelatedFieldsCollapsed(false);
-    setTimeout(() => { studentRelatedFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
+
+    if (studentRelatedConfig?.key === 'files') {
+      setDrawerMode('files');
+    } else {
+      setDrawerMode('related');
+    }
+
+    setIsDrawerOpen(true);
   }
 
   function handleSelectStudentRelatedRecord(record: CompanyChildRecord) {
@@ -451,8 +457,17 @@ export function StudentRegistration() {
     setStudentRelatedFormValues(values);
     setIsStudentRelatedActive(Number(record.boInativo ?? 0) === 0);
     setStudentRelatedFeedback('');
-    setIsStudentFieldsCollapsed(true);
-    setIsStudentRelatedFieldsCollapsed(false);
+  }
+
+  function handleEditStudentRelated(record: CompanyChildRecord) {
+    handleSelectStudentRelatedRecord(record);
+    setDrawerMode('related');
+    setIsDrawerOpen(true);
+  }
+
+  function handleOpenFilesDrawer() {
+    setDrawerMode('files');
+    setIsDrawerOpen(true);
   }
 
   function getStudentValidationErrors() {
@@ -724,6 +739,7 @@ export function StudentRegistration() {
       setSelectedStudentRelatedRecordId(savedRecord.id);
       setIsCreatingStudentRelated(false);
       setStudentRelatedFeedback(`${studentRelatedConfig.label} salvo com sucesso.`);
+      setIsDrawerOpen(false);
     } catch (error) {
       setStudentRelatedFeedback(
         error instanceof Error ? error.message : 'Erro ao salvar registro relacionado.',
@@ -926,7 +942,7 @@ export function StudentRegistration() {
         <p className="section-label">Matrículas</p>
       </div>
 
-      <div className="registration-split-layout student-split-layout">
+      <div className={`activity-page-layout${selectedStudentId !== null ? ' has-related' : ''}`}>
         <section className="data-grid-section">
           <RegistrationGrid<Student>
             ariaLabel="Alunos cadastrados"
@@ -942,6 +958,7 @@ export function StudentRegistration() {
               },
             ]}
             label="Alunos"
+            onEdit={handleEditStudent}
             onNew={handleNewStudent}
             onPageChange={setStudentsPage}
             onSearch={setSearchTerm}
@@ -953,601 +970,176 @@ export function StudentRegistration() {
             selectedId={selectedStudentId}
             totalItems={filteredStudents.length}
           />
-
-          {studentRelatedConfig ? (
-            <section className="company-child-grid-section child-grid-desktop">
-              {!selectedStudentId ? (
-                <div className="form-hint">
-                  Selecione um aluno para visualizar os registros relacionados.
-                </div>
-              ) : (
-                <>
-                  <RegistrationGrid<CompanyChildRecord>
-                    ariaLabel={studentRelatedConfig.title}
-                    columns={studentRelatedConfig.columns.map((col) => ({
-                      label: col.label,
-                      render: (rec) => formatChildCell(rec, col, studentRelatedLookups[col.key]),
-                    }))}
-                    isLoading={isLoadingStudentRelatedRecords}
-                    label={studentRelatedConfig.label}
-                    newDisabled={!selectedStudentId}
-                    onNew={handleNewStudentRelated}
-                    onSearch={setStudentRelatedSearchTerm}
-                    onSelect={handleSelectStudentRelatedRecord}
-                    records={filteredStudentRelatedRecords}
-                    rowSelectable={studentRelatedConfig.key !== 'files'}
-                    searchTerm={studentRelatedSearchTerm}
-                    selectedId={selectedStudentRelatedRecordId}
-                    showNewButton={studentRelatedConfig.key !== 'files'}
-                    variant="child"
-                  />
-                </>
-              )}
-            </section>
-          ) : null}
         </section>
 
-        <div className="split-form-stack">
-          <form
-            className={`registration-form split-form-panel ${isStudentFieldsCollapsed ? 'collapsed' : ''}`}
-            onSubmit={handleSaveStudent}
-          >
-            <div className="collapsible-panel-header">
-              <div>
-                <p className="section-label">Aluno</p>
+        {selectedStudentId !== null ? (
+          <section className="data-grid-section">
+            {studentRelatedConfig ? (
+              <RegistrationGrid<CompanyChildRecord>
+                ariaLabel={studentRelatedConfig.title}
+                columns={studentRelatedConfig.columns.map((col) => ({
+                  label: col.label,
+                  render: (rec) => formatChildCell(rec, col, studentRelatedLookups[col.key]),
+                }))}
+                isLoading={isLoadingStudentRelatedRecords}
+                label={studentRelatedConfig.label}
+                newDisabled={!selectedStudentId}
+                onNew={studentRelatedConfig.key === 'files' ? handleOpenFilesDrawer : handleNewStudentRelated}
+                onSearch={setStudentRelatedSearchTerm}
+                onSelect={studentRelatedConfig.key === 'files' ? () => {} : handleSelectStudentRelatedRecord}
+                onEdit={studentRelatedConfig.key !== 'files' ? handleEditStudentRelated : undefined}
+                records={filteredStudentRelatedRecords}
+                rowSelectable={studentRelatedConfig.key !== 'files'}
+                searchTerm={studentRelatedSearchTerm}
+                selectedId={selectedStudentRelatedRecordId}
+                showNewButton={true}
+                variant="child"
+              />
+            ) : (
+              <div className="form-hint">Selecione uma aba para ver os registros.</div>
+            )}
+          </section>
+        ) : null}
+
+        {selectedStudentId !== null ? (
+          <RegistrationTabs
+            tabs={studentRelatedTables}
+            activeTab={selectedStudentRelatedTable}
+            onTabChange={handleSelectStudentRelatedTable}
+            icons={studentTabIcons}
+            ariaLabel="Tabelas relacionadas do aluno"
+          />
+        ) : null}
+
+        <RegistrationDrawer
+          isOpen={isDrawerOpen}
+          title={drawerMode === 'student' ? (isCreating ? 'Novo Aluno' : 'Editar Aluno') : drawerMode === 'files' ? 'Arquivos do Aluno' : (studentRelatedConfig?.label ?? 'Registro relacionado')}
+          onClose={() => setIsDrawerOpen(false)}
+        >
+          {drawerMode === 'student' ? (
+            <form className="drawer-fields" onSubmit={handleSaveStudent}>
+              {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
+              {/* Nome */}
+              <RegistrationField error={studentErrors.name} htmlFor="nmAluno" label="Nome" required size="full" touched={touchedStudentFields.name}>
+                <input className={touchedStudentFields.name && studentErrors.name ? 'invalid' : ''} id="nmAluno" maxLength={255} onBlur={() => validateStudentField('name')} onChange={(event) => { const value = event.target.value; setStudentName(value); if (touchedStudentFields.name) { setStudentErrors((current) => ({ ...current, name: value.trim() ? undefined : 'Informe o nome do aluno.' })); } }} placeholder="Ex.: Maria Souza" ref={nameInputRef} type="text" value={studentName} />
+              </RegistrationField>
+              {/* CPF */}
+              <RegistrationField error={studentErrors.cpf} htmlFor="caCPF" label="CPF" required size="md" touched={touchedStudentFields.cpf}>
+                <input className={touchedStudentFields.cpf && studentErrors.cpf ? 'invalid' : ''} id="caCPF" maxLength={14} onBlur={() => validateStudentField('cpf')} onChange={(event) => { const formattedCpf = formatCpf(event.target.value); setStudentCpf(formattedCpf); if (touchedStudentFields.cpf) { setStudentErrors((current) => ({ ...current, cpf: isValidCpf(formattedCpf) ? undefined : 'Informe um CPF válido.' })); } }} placeholder="000.000.000-00" ref={cpfInputRef} type="text" value={studentCpf} />
+              </RegistrationField>
+              {/* Nascimento */}
+              <RegistrationField error={studentErrors.birthDate} htmlFor="dtNascimento" label="Data de nascimento" required size="sm" touched={touchedStudentFields.birthDate}>
+                <input className={touchedStudentFields.birthDate && studentErrors.birthDate ? 'invalid' : ''} id="dtNascimento" max={new Date().toISOString().slice(0, 10)} onBlur={() => validateStudentField('birthDate')} onChange={(event) => { const value = event.target.value; setStudentBirthDate(value); if (touchedStudentFields.birthDate) { setStudentErrors((current) => ({ ...current, birthDate: isValidBirthDate(value) ? undefined : 'Informe uma data de nascimento valida.' })); } }} ref={birthDateInputRef} type="date" value={studentBirthDate} />
+              </RegistrationField>
+              {/* DDD */}
+              <RegistrationField htmlFor="nrDDD" label="DDD" size="xs">
+                <input id="nrDDD" maxLength={2} onChange={(event) => setStudentDdd(event.target.value)} placeholder="11" type="text" value={studentDdd} />
+              </RegistrationField>
+              {/* Telefone */}
+              <RegistrationField htmlFor="nrContato" label="Telefone" size="sm">
+                <input id="nrContato" maxLength={10} onChange={(event) => setStudentPhone(formatPhone(event.target.value))} placeholder="00000-0000" type="text" value={studentPhone} />
+              </RegistrationField>
+              {/* Email */}
+              <RegistrationField error={studentErrors.email} htmlFor="anEmail" label="Email" size="lg" touched={touchedStudentFields.email}>
+                <input className={touchedStudentFields.email && studentErrors.email ? 'invalid' : ''} id="anEmail" maxLength={100} onBlur={() => validateStudentField('email')} onChange={(event) => { const value = event.target.value; setStudentEmail(value); if (touchedStudentFields.email) { const trimmedEmail = value.trim(); setStudentErrors((current) => ({ ...current, email: trimmedEmail && !isValidEmail(trimmedEmail) ? 'Informe um email válido.' : undefined })); } }} placeholder="aluno@email.com" ref={emailInputRef} type="email" value={studentEmail} />
+              </RegistrationField>
+              {/* Endereço */}
+              <RegistrationField htmlFor="anLogradouro" label="Logradouro" size="full">
+                <input id="anLogradouro" maxLength={100} onChange={(event) => setStudentAddress(event.target.value)} placeholder="Rua, avenida..." type="text" value={studentAddress} />
+              </RegistrationField>
+              <RegistrationField htmlFor="anBairro" label="Bairro" size="md">
+                <input id="anBairro" maxLength={100} onChange={(event) => setStudentDistrict(event.target.value)} placeholder="Bairro" type="text" value={studentDistrict} />
+              </RegistrationField>
+              <RegistrationField htmlFor="anCoplemento" label="Complemento" size="md">
+                <input id="anCoplemento" maxLength={100} onChange={(event) => setStudentComplement(event.target.value)} placeholder="Apt, bloco..." type="text" value={studentComplement} />
+              </RegistrationField>
+              <RegistrationField htmlFor="anCEP" label="CEP" size="sm">
+                <input id="anCEP" maxLength={8} onChange={(event) => setStudentCep(event.target.value)} placeholder="Somente numeros" type="text" value={studentCep} />
+              </RegistrationField>
+              <RegistrationField htmlFor="nrEndereco" label="Número" size="xs">
+                <input id="nrEndereco" onChange={(event) => setStudentAddressNumber(event.target.value)} placeholder="0" type="number" value={studentAddressNumber} />
+              </RegistrationField>
+              {/* Status */}
+              <RegistrationField htmlFor="studentStatus" label="Status" size="sm">
+                <button aria-pressed={isStudentActive} className={`status-toggle ${isStudentActive ? 'active' : ''}`} id="studentStatus" onClick={handleToggleStatus} type="button">
+                  <span>{isStudentActive ? 'Ativo' : 'Inativo'}</span>
+                </button>
+              </RegistrationField>
+              <div className="form-actions" style={{ flex: '1 1 100%' }}>
+                <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
+                <button type="submit"><Save size={16} />Salvar aluno</button>
               </div>
-              <button
-                aria-expanded={!isStudentFieldsCollapsed}
-                className="secondary-button"
-                onClick={() => setIsStudentFieldsCollapsed((current) => !current)}
-                type="button"
-              >
-                {isStudentFieldsCollapsed ? '+' : '-'}
-              </button>
+            </form>
+          ) : drawerMode === 'files' ? (
+            <div className="drawer-fields">
+              {fileFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{fileFeedback}</div> : null}
+              <RegistrationField htmlFor="studentFile" label="Selecionar arquivo" size="full">
+                <div className="file-upload-controls">
+                  <input disabled={!selectedStudentId || isUploadingFile} id="studentFile" onChange={(event) => void handleUploadStudentFile(event.target.files?.[0] ?? null)} ref={fileInputRef} type="file" />
+                  <button className="secondary-button" disabled={!selectedStudentId || isUploadingFile} onClick={handleOpenCameraCapture} type="button">Tirar foto</button>
+                </div>
+                <input accept="image/*" capture="environment" className="camera-capture-input" disabled={!selectedStudentId || isUploadingFile} onChange={(event) => void handleUploadStudentFile(event.target.files?.[0] ?? null)} ref={cameraInputRef} type="file" />
+              </RegistrationField>
+              {isCameraModalOpen ? (
+                <div className="camera-modal-overlay" role="dialog" aria-modal="true">
+                  <div className="camera-modal">
+                    <h4>Capturar foto</h4>
+                    <video autoPlay className="camera-live-preview" muted playsInline ref={cameraVideoRef} />
+                    {cameraFeedback ? <p className="camera-modal-feedback">{cameraFeedback}</p> : null}
+                    <div className="camera-modal-actions">
+                      <button className="secondary-button" onClick={handleCloseCameraCapture} type="button">Cancelar</button>
+                      <button disabled={isCapturingPhoto || isUploadingFile} onClick={() => void handleCaptureCameraPhoto()} type="button">{isCapturingPhoto ? 'Capturando...' : 'Capturar'}</button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              <div className="student-files-list" style={{ flex: '1 1 100%' }}>
+                {studentFiles.map((file) => (
+                  <div className="student-file-row" key={file.id}>
+                    {previewUrls[file.id] ? <img alt={file.anCaminho.split('/').pop()} className="student-file-preview" src={previewUrls[file.id]} /> : null}
+                    <div className="student-file-row-info">
+                      <strong>{file.anCaminho.split('/').pop()}</strong>
+                      <span>{file.anCaminho}</span>
+                    </div>
+                    <div className="student-file-actions">
+                      <button className="secondary-button" onClick={() => void handleOpenStudentFile(file.id)} type="button">Abrir</button>
+                      <button className="secondary-button danger" onClick={() => void handleRemoveStudentFile(file.id)} type="button">Remover</button>
+                    </div>
+                  </div>
+                ))}
+                {selectedStudentId && studentFiles.length === 0 ? <div className="empty-row">Nenhum arquivo anexado.</div> : null}
+              </div>
+              <div className="form-actions" style={{ flex: '1 1 100%' }}>
+                <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Fechar</button>
+              </div>
             </div>
-
-            {!isStudentFieldsCollapsed ? (
-              <>
-                {!isFormEnabled ? (
-                  <div className="form-hint">
-                    Selecione um aluno acima para editar ou clique em Novo aluno.
-                  </div>
-                ) : null}
-
-                {feedback ? <div className="form-feedback">{feedback}</div> : null}
-
-                <RegistrationField error={studentErrors.name} htmlFor="nmAluno" label="Nome" required touched={touchedStudentFields.name}>
-                  <input
-                    className={
-                      touchedStudentFields.name && studentErrors.name ? 'invalid' : ''
-                    }
-                    disabled={!isFormEnabled}
-                    id="nmAluno"
-                    maxLength={255}
-                    onBlur={() => validateStudentField('name')}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setStudentName(value);
-
-                      if (touchedStudentFields.name) {
-                        setStudentErrors((current) => ({
-                          ...current,
-                          name: value.trim() ? undefined : 'Informe o nome do aluno.',
-                        }));
-                      }
-                    }}
-                    placeholder="Ex.: Maria Souza"
-                    ref={nameInputRef}
-                    type="text"
-                    value={studentName}
-                  />
-                </RegistrationField>
-
-                <div className="field two-columns">
-                  <div>
-                    <label htmlFor="caCPF">CPF</label>
-                    <input
-                      className={
-                        touchedStudentFields.cpf && studentErrors.cpf ? 'invalid' : ''
-                      }
-                      disabled={!isFormEnabled}
-                      id="caCPF"
-                      maxLength={14}
-                      onBlur={() => validateStudentField('cpf')}
-                      onChange={(event) => {
-                        const formattedCpf = formatCpf(event.target.value);
-                        setStudentCpf(formattedCpf);
-
-                        if (touchedStudentFields.cpf) {
-                          setStudentErrors((current) => ({
-                            ...current,
-                            cpf: isValidCpf(formattedCpf)
-                              ? undefined
-                              : 'Informe um CPF válido.',
-                          }));
-                        }
-                      }}
-                      placeholder="000.000.000-00"
-                      ref={cpfInputRef}
-                      type="text"
-                      value={studentCpf}
-                    />
-                    {touchedStudentFields.cpf && studentErrors.cpf ? (
-                      <span className="field-error">{studentErrors.cpf}</span>
-                    ) : null}
-                  </div>
-                  <div>
-                    <label htmlFor="dtNascimento">Data de nascimento *</label>
-                    <input
-                      className={
-                        touchedStudentFields.birthDate && studentErrors.birthDate
-                          ? 'invalid'
-                          : ''
-                      }
-                      disabled={!isFormEnabled}
-                      id="dtNascimento"
-                      max={new Date().toISOString().slice(0, 10)}
-                      onBlur={() => validateStudentField('birthDate')}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        setStudentBirthDate(value);
-
-                        if (touchedStudentFields.birthDate) {
-                          setStudentErrors((current) => ({
-                            ...current,
-                            birthDate: isValidBirthDate(value)
-                              ? undefined
-                              : 'Informe uma data de nascimento valida.',
-                          }));
-                        }
-                      }}
-                      ref={birthDateInputRef}
-                      type="date"
-                      value={studentBirthDate}
-                    />
-                    {touchedStudentFields.birthDate && studentErrors.birthDate ? (
-                      <span className="field-error">{studentErrors.birthDate}</span>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="field two-columns">
-                  <div>
-                    <label htmlFor="nrDDD">DDD</label>
-                    <input
-                      disabled={!isFormEnabled}
-                      id="nrDDD"
-                      maxLength={2}
-                      onChange={(event) => setStudentDdd(event.target.value)}
-                      placeholder="11"
-                      type="text"
-                      value={studentDdd}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="nrContato">Telefone</label>
-                    <input
-                      disabled={!isFormEnabled}
-                      id="nrContato"
-                      maxLength={10}
-                      onChange={(event) => setStudentPhone(formatPhone(event.target.value))}
-                      placeholder="00000-0000"
-                      type="text"
-                      value={studentPhone}
-                    />
-                  </div>
-                </div>
-
-                <RegistrationField error={studentErrors.email} htmlFor="anEmail" label="Email" touched={touchedStudentFields.email}>
-                  <input
-                    className={
-                      touchedStudentFields.email && studentErrors.email ? 'invalid' : ''
-                    }
-                    disabled={!isFormEnabled}
-                    id="anEmail"
-                    maxLength={100}
-                    onBlur={() => validateStudentField('email')}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setStudentEmail(value);
-
-                      if (touchedStudentFields.email) {
-                        const trimmedEmail = value.trim();
-                        setStudentErrors((current) => ({
-                          ...current,
-                          email:
-                            trimmedEmail && !isValidEmail(trimmedEmail)
-                              ? 'Informe um email válido.'
-                              : undefined,
-                        }));
-                      }
-                    }}
-                    placeholder="aluno@email.com"
-                    ref={emailInputRef}
-                    type="email"
-                    value={studentEmail}
-                  />
-                </RegistrationField>
-
-                <RegistrationField htmlFor="anLogradouro" label="Logradouro">
-                  <input
-                    disabled={!isFormEnabled}
-                    id="anLogradouro"
-                    maxLength={100}
-                    onChange={(event) => setStudentAddress(event.target.value)}
-                    placeholder="Rua, avenida..."
-                    type="text"
-                    value={studentAddress}
-                  />
-                </RegistrationField>
-
-                <div className="field two-columns">
-                  <div>
-                    <label htmlFor="anBairro">Bairro</label>
-                    <input
-                      disabled={!isFormEnabled}
-                      id="anBairro"
-                      maxLength={100}
-                      onChange={(event) => setStudentDistrict(event.target.value)}
-                      placeholder="Bairro"
-                      type="text"
-                      value={studentDistrict}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="anCoplemento">Complemento</label>
-                    <input
-                      disabled={!isFormEnabled}
-                      id="anCoplemento"
-                      maxLength={100}
-                      onChange={(event) => setStudentComplement(event.target.value)}
-                      placeholder="Apartamento, bloco..."
-                      type="text"
-                      value={studentComplement}
-                    />
-                  </div>
-                </div>
-
-                <div className="field two-columns">
-                  <div>
-                    <label htmlFor="anCEP">CEP</label>
-                    <input
-                      disabled={!isFormEnabled}
-                      id="anCEP"
-                      maxLength={8}
-                      onChange={(event) => setStudentCep(event.target.value)}
-                      placeholder="Somente numeros"
-                      type="text"
-                      value={studentCep}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="nrEndereco">Número</label>
-                    <input
-                      disabled={!isFormEnabled}
-                      id="nrEndereco"
-                      onChange={(event) => setStudentAddressNumber(event.target.value)}
-                      placeholder="0"
-                      type="number"
-                      value={studentAddressNumber}
-                    />
-                  </div>
-                </div>
-
-                <RegistrationField htmlFor="studentStatus" label="Status">
-                  <button
-                    aria-pressed={isStudentActive}
-                    className={`status-toggle ${isStudentActive ? 'active' : ''}`}
-                    disabled={!isFormEnabled}
-                    id="studentStatus"
-                    onClick={handleToggleStatus}
-                    type="button"
-                  >
-                    <span>{isStudentActive ? 'Ativo' : 'Inativo'}</span>
-                  </button>
-                </RegistrationField>
-
-                <div className="form-actions">
-                  <button
-                    className="secondary-button"
-                    disabled={!isFormEnabled}
-                    onClick={clearForm}
-                    type="button"
-                  >
-                    Limpar
-                  </button>
-                  <button disabled={!isFormEnabled} type="submit">
-                    <Save size={16} />
-                    Salvar aluno
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </form>
-
-          {studentRelatedConfig ? (
-            <section className="company-child-grid-section child-grid-mobile">
-              {!selectedStudentId ? (
-                <div className="form-hint">
-                  Selecione um aluno para visualizar os registros relacionados.
-                </div>
-              ) : (
-                <>
-                  <RegistrationGrid<CompanyChildRecord>
-                    ariaLabel={studentRelatedConfig.title}
-                    columns={studentRelatedConfig.columns.map((col) => ({
-                      label: col.label,
-                      render: (rec) => formatChildCell(rec, col, studentRelatedLookups[col.key]),
-                    }))}
-                    isLoading={isLoadingStudentRelatedRecords}
-                    label={studentRelatedConfig.label}
-                    newDisabled={!selectedStudentId}
-                    onNew={handleNewStudentRelated}
-                    onSearch={setStudentRelatedSearchTerm}
-                    onSelect={handleSelectStudentRelatedRecord}
-                    records={filteredStudentRelatedRecords}
-                    rowSelectable={studentRelatedConfig.key !== 'files'}
-                    searchTerm={studentRelatedSearchTerm}
-                    selectedId={selectedStudentRelatedRecordId}
-                    showNewButton={studentRelatedConfig.key !== 'files'}
-                    variant="child"
-                  />
-                </>
-              )}
-            </section>
-          ) : null}
-
-          {selectedStudentRelatedTable === 'files' ? (
-            <section className={`registration-form student-files-section ${isStudentFilesCollapsed ? 'collapsed' : ''}`}>
-              <div className="student-files-header collapsible-panel-header">
-                <div>
-                  <p className="section-label">Arquivos</p>
-                </div>
-                <button
-                  aria-expanded={!isStudentFilesCollapsed}
-                  className="secondary-button"
-                  onClick={() => setIsStudentFilesCollapsed((current) => !current)}
-                  type="button"
-                >
-                  {isStudentFilesCollapsed ? '+' : '-'}
-                </button>
-              </div>
-
-              {!isStudentFilesCollapsed ? (
-                <>
-                  {!selectedStudentId ? (
-                    <div className="form-hint">
-                      Salve ou selecione um aluno para anexar arquivos.
-                    </div>
-                  ) : null}
-
-                  {fileFeedback ? <div className="form-feedback">{fileFeedback}</div> : null}
-
-                  <RegistrationField htmlFor="studentFile" label="Selecionar arquivo">
-                    <div className="file-upload-controls">
-                      <input
-                        disabled={!selectedStudentId || isUploadingFile}
-                        id="studentFile"
-                        onChange={(event) =>
-                          void handleUploadStudentFile(event.target.files?.[0] ?? null)
-                        }
-                        ref={fileInputRef}
-                        type="file"
-                      />
-                      <button
-                        className="secondary-button"
-                        disabled={!selectedStudentId || isUploadingFile}
-                        onClick={handleOpenCameraCapture}
-                        type="button"
-                      >
-                        Tirar foto
-                      </button>
-                    </div>
-                    <input
-                      accept="image/*"
-                      capture="environment"
-                      className="camera-capture-input"
-                      disabled={!selectedStudentId || isUploadingFile}
-                      onChange={(event) =>
-                        void handleUploadStudentFile(event.target.files?.[0] ?? null)
-                      }
-                      ref={cameraInputRef}
-                      type="file"
-                    />
-                  </RegistrationField>
-
-                  {isCameraModalOpen ? (
-                    <div className="camera-modal-overlay" role="dialog" aria-modal="true">
-                      <div className="camera-modal">
-                        <h4>Capturar foto</h4>
-                        <video
-                          autoPlay
-                          className="camera-live-preview"
-                          muted
-                          playsInline
-                          ref={cameraVideoRef}
-                        />
-                        {cameraFeedback ? (
-                          <p className="camera-modal-feedback">{cameraFeedback}</p>
-                        ) : null}
-                        <div className="camera-modal-actions">
-                          <button
-                            className="secondary-button"
-                            onClick={handleCloseCameraCapture}
-                            type="button"
-                          >
-                            Cancelar
-                          </button>
-                          <button
-                            disabled={isCapturingPhoto || isUploadingFile}
-                            onClick={() => void handleCaptureCameraPhoto()}
-                            type="button"
-                          >
-                            {isCapturingPhoto ? 'Capturando...' : 'Capturar'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div className="student-files-list">
-                    {studentFiles.map((file) => (
-                      <div className="student-file-row" key={file.id}>
-                        {previewUrls[file.id] ? (
-                          <img
-                            alt={file.anCaminho.split('/').pop()}
-                            className="student-file-preview"
-                            src={previewUrls[file.id]}
-                          />
-                        ) : null}
-                        <div className="student-file-row-info">
-                          <strong>{file.anCaminho.split('/').pop()}</strong>
-                          <span>{file.anCaminho}</span>
-                        </div>
-                        <div className="student-file-actions">
-                          <button
-                            className="secondary-button"
-                            onClick={() => void handleOpenStudentFile(file.id)}
-                            type="button"
-                          >
-                            Abrir
-                          </button>
-                          <button
-                            className="secondary-button danger"
-                            onClick={() => void handleRemoveStudentFile(file.id)}
-                            type="button"
-                          >
-                            Remover
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-
-                    {selectedStudentId && studentFiles.length === 0 ? (
-                      <div className="empty-row">Nenhum arquivo anexado.</div>
-                    ) : null}
-                  </div>
-                </>
-              ) : null}
-            </section>
           ) : studentRelatedConfig ? (
-            <form
-              className={`registration-form student-files-section ${isStudentRelatedFieldsCollapsed ? 'collapsed' : ''}`}
-              onSubmit={handleSaveStudentRelated}
-            >
-              <div className="collapsible-panel-header">
-                <div>
-                  <p className="section-label">{studentRelatedConfig.label}</p>
-                </div>
-                <button
-                  aria-expanded={!isStudentRelatedFieldsCollapsed}
-                  className="secondary-button"
-                  onClick={() => setIsStudentRelatedFieldsCollapsed((current) => !current)}
-                  type="button"
-                >
-                  {isStudentRelatedFieldsCollapsed ? '+' : '-'}
+            <form className="drawer-fields" onSubmit={handleSaveStudentRelated}>
+              {studentRelatedFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{studentRelatedFeedback}</div> : null}
+              {studentRelatedConfig.fields.map((field) => (
+                <RegistrationField htmlFor={`studentRelated-${field.key}`} key={field.key} label={field.label} required={field.required} size="full">
+                  {field.lookupEndpoint ? (
+                    <select disabled={!isStudentRelatedFormEnabled} id={`studentRelated-${field.key}`} onChange={(event) => setStudentRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} value={studentRelatedFormValues[field.key] ?? ''}>
+                      <option value="">Selecione</option>
+                      {(studentRelatedLookups[field.key] ?? []).map((option) => (<option key={option.id} value={option.id}>{getLookupLabel(option, field)}</option>))}
+                    </select>
+                  ) : (
+                    <input disabled={!isStudentRelatedFormEnabled} id={`studentRelated-${field.key}`} onChange={(event) => setStudentRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} type={field.type} value={studentRelatedFormValues[field.key] ?? ''} />
+                  )}
+                </RegistrationField>
+              ))}
+              <RegistrationField htmlFor="studentRelatedStatus" label="Status" size="sm">
+                <button aria-pressed={isStudentRelatedActive} className={`status-toggle ${isStudentRelatedActive ? 'active' : ''}`} disabled={!isStudentRelatedFormEnabled} id="studentRelatedStatus" onClick={handleToggleStudentRelatedStatus} type="button">
+                  <span>{isStudentRelatedActive ? 'Ativo' : 'Inativo'}</span>
                 </button>
+              </RegistrationField>
+              <div className="form-actions" style={{ flex: '1 1 100%' }}>
+                <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
+                <button disabled={!isStudentRelatedFormEnabled} type="submit"><Save size={16} />Salvar {studentRelatedConfig.label}</button>
               </div>
-              {!isStudentRelatedFieldsCollapsed ? (
-                <>
-                  {studentRelatedFeedback ? (
-                    <div className="form-feedback">{studentRelatedFeedback}</div>
-                  ) : null}
-
-                  {!selectedStudentId ? (
-                    <div className="form-hint">
-                      Selecione um aluno antes de cadastrar registros relacionados.
-                    </div>
-                  ) : null}
-
-                  {!isStudentRelatedFormEnabled && selectedStudentId ? (
-                    <div className="form-hint">
-                      Selecione um registro relacionado acima ou clique em Novo.
-                    </div>
-                  ) : null}
-
-                  <div className="company-child-fields" ref={studentRelatedFormRef}>
-                    {studentRelatedConfig.fields.map((field) => (
-                      <RegistrationField htmlFor={`studentRelated-${field.key}`} key={field.key} label={field.label} required={field.required}>
-                        {field.lookupEndpoint ? (
-                          <select
-                            disabled={!isStudentRelatedFormEnabled}
-                            id={`studentRelated-${field.key}`}
-                            onChange={(event) =>
-                              setStudentRelatedFormValues((current) => ({
-                                ...current,
-                                [field.key]: event.target.value,
-                              }))
-                            }
-                            required={field.required}
-                            value={studentRelatedFormValues[field.key] ?? ''}
-                          >
-                            <option value="">Selecione</option>
-                            {(studentRelatedLookups[field.key] ?? []).map((option) => (
-                              <option key={option.id} value={option.id}>
-                                {getLookupLabel(option, field)}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            disabled={!isStudentRelatedFormEnabled}
-                            id={`studentRelated-${field.key}`}
-                            onChange={(event) =>
-                              setStudentRelatedFormValues((current) => ({
-                                ...current,
-                                [field.key]: event.target.value,
-                              }))
-                            }
-                            required={field.required}
-                            type={field.type}
-                            value={studentRelatedFormValues[field.key] ?? ''}
-                          />
-                        )}
-                      </RegistrationField>
-                    ))}
-                  </div>
-
-                  <RegistrationField htmlFor="studentRelatedStatus" label="Status">
-                    <button
-                      aria-pressed={isStudentRelatedActive}
-                      className={`status-toggle ${isStudentRelatedActive ? 'active' : ''}`}
-                      disabled={!isStudentRelatedFormEnabled}
-                      id="studentRelatedStatus"
-                      onClick={handleToggleStudentRelatedStatus}
-                      type="button"
-                    >
-                      <span>{isStudentRelatedActive ? 'Ativo' : 'Inativo'}</span>
-                    </button>
-                  </RegistrationField>
-
-                  <div className="form-actions">
-                    <button
-                      className="secondary-button"
-                      disabled={!selectedStudentId}
-                      onClick={clearStudentRelatedForm}
-                      type="button"
-                    >
-                      Limpar
-                    </button>
-                    <button disabled={!isStudentRelatedFormEnabled} type="submit">
-                      <Save size={16} />
-                      Salvar {studentRelatedConfig.label}
-                    </button>
-                  </div>
-                </>
-              ) : null}
             </form>
           ) : null}
-        </div>
-
-        <RegistrationTabs
-          tabs={studentRelatedTables}
-          activeTab={selectedStudentRelatedTable}
-          onTabChange={handleSelectStudentRelatedTable}
-          icons={studentTabIcons}
-          ariaLabel="Tabelas relacionadas do aluno"
-        />
+        </RegistrationDrawer>
       </div>
     </div>
   );

@@ -17,6 +17,7 @@ import { PromotionRegistration } from '../../features/promotions/PromotionRegist
 import { StudentPromotionsView } from '../../features/promotions/StudentPromotionsView';
 import { ExerciseRegistration } from '../../features/exercises/ExerciseRegistration';
 import { ActivityRegistration } from '../../features/activities/ActivityRegistration';
+import { ScheduleRegistration } from '../../features/activities/ScheduleRegistration';
 import { ActivityScheduleAssembly } from '../../features/activities/ActivityScheduleAssembly';
 import { StudentActivitiesView } from '../../features/activities/StudentActivitiesView';
 import { EmployeeRegistration } from '../../features/employees/EmployeeRegistration';
@@ -63,6 +64,7 @@ const menuItemIcons: Record<string, LucideIcon> = {
   'Empresas': Building2,
   'Tema': Palette,
   'Atividades': Activity,
+  'Agendas': Calendar,
   'Exercícios': Dumbbell,
   'Treino': ClipboardList,
   'Montar Treino': FilePlus,
@@ -86,7 +88,7 @@ const menuGroups = [
   },
   {
     title: 'TREINO',
-    items: ['Atividades', 'Exercícios', 'Treino', 'Montar Treino', 'Montagem de Agenda', 'Meu Treino', 'Calendario', 'Calendario Empresa'],
+    items: ['Atividades', 'Agendas', 'Exercícios', 'Treino', 'Montar Treino', 'Montagem de Agenda', 'Meu Treino', 'Calendario', 'Calendario Empresa'],
   },
   {
     title: 'ESTOQUE',
@@ -767,7 +769,7 @@ export default function HomePage() {
           .filter((group) => group.title === 'TREINO' || group.title === 'ALUNOS')
           .map((group) => ({
             ...group,
-            items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda'),
+            items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda' && item !== 'Agendas'),
           }));
 
     return (
@@ -908,6 +910,8 @@ export default function HomePage() {
             ) : (
               <ActivityRegistration />
             )
+          ) : activeItem === 'Agendas' ? (
+            <ScheduleRegistration />
           ) : activeItem === 'Exercícios' ? (
             <ExerciseRegistration readOnly={authUserType === 'student'} />
           ) : activeItem === 'Treino' ? (

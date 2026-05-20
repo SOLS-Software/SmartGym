@@ -4,6 +4,7 @@ import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Activity, Building2, CreditCard, DollarSign, Package, Save, Tag } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
@@ -132,7 +133,6 @@ const planRelatedTables: CompanyChildTable[] = [
 export function PlanRegistration() {
   const planFileInputRef = useRef<HTMLInputElement | null>(null);
   const planNameInputRef = useRef<HTMLInputElement | null>(null);
-  const planRelatedFormRef = useRef<HTMLDivElement | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [plansPage, setPlansPage] = useState(1);
   const [frequencies, setFrequencies] = useState<Frequency[]>([]);
@@ -144,7 +144,9 @@ export function PlanRegistration() {
   const [planFrequencyId, setPlanFrequencyId] = useState('');
   const [isPlanActive, setIsPlanActive] = useState(true);
   const [feedback, setFeedback] = useState('');
-  const [isPlanFieldsCollapsed, setIsPlanFieldsCollapsed] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  type DrawerMode = 'plan' | 'related';
+  const [drawerMode, setDrawerMode] = useState<DrawerMode>('plan');
   const [selectedPlanRelatedTable, setSelectedPlanRelatedTable] = useState('');
   const [planRelatedRecords, setPlanRelatedRecords] = useState<CompanyChildRecord[]>([]);
   const [isLoadingPlanRelatedRecords, setIsLoadingPlanRelatedRecords] = useState(false);
@@ -155,11 +157,9 @@ export function PlanRegistration() {
   const [isPlanRelatedActive, setIsPlanRelatedActive] = useState(true);
   const [planRelatedFeedback, setPlanRelatedFeedback] = useState('');
   const [planRelatedLookups, setPlanRelatedLookups] = useState<Record<string, LookupRecord[]>>({});
-  const [isPlanRelatedFieldsCollapsed, setIsPlanRelatedFieldsCollapsed] = useState(false);
   const [planRelatedFilePreviewUrls, setPlanRelatedFilePreviewUrls] = useState<Record<number, string>>({});
   const [planRelatedFileModal, setPlanRelatedFileModal] = useState<{ title: string; url: string } | null>(null);
   const [isUploadingPlanRelatedFile, setIsUploadingPlanRelatedFile] = useState(false);
-  const isFormEnabled = selectedPlanId !== null || isCreating;
   const isPlanRelatedFormEnabled =
     Boolean(selectedPlanId) && (selectedPlanRelatedRecordId !== null || isCreatingPlanRelated);
   const planRelatedConfig =
@@ -180,10 +180,6 @@ export function PlanRegistration() {
       : false,
   );
   const filteredPlans = plans.filter((plan) => {
-    if (selectedPlanRelatedTable && selectedPlanId !== null) {
-      return plan.id === selectedPlanId;
-    }
-
     const search = searchTerm.toLowerCase();
     const frequency = frequencies.find((item) => item.id === plan.idFrequencia);
 
@@ -359,8 +355,8 @@ export function PlanRegistration() {
     clearForm();
     setIsCreating(true);
     setIsPlanActive(true);
-    setIsPlanFieldsCollapsed(false);
-    setIsPlanRelatedFieldsCollapsed(true);
+    setDrawerMode('plan');
+    setIsDrawerOpen(true);
     setTimeout(() => planNameInputRef.current?.focus(), 0);
   }
 
@@ -376,8 +372,12 @@ export function PlanRegistration() {
     setPlanFrequencyId(plan.idFrequencia ? String(plan.idFrequencia) : '');
     setIsPlanActive(plan.boInativo === 0);
     setFeedback('');
-    setIsPlanFieldsCollapsed(false);
-    setIsPlanRelatedFieldsCollapsed(true);
+  }
+
+  function handleEditPlan(plan: Plan) {
+    handleSelectPlan(plan);
+    setDrawerMode('plan');
+    setIsDrawerOpen(true);
   }
 
   function handleSelectPlanRelatedTable(tableKey: string) {
@@ -404,13 +404,8 @@ export function PlanRegistration() {
     if (planFileInputRef.current) {
       planFileInputRef.current.value = '';
     }
-    setIsPlanFieldsCollapsed(true);
-    setIsPlanRelatedFieldsCollapsed(false);
-    setTimeout(() => {
-      planRelatedFormRef.current
-        ?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')
-        ?.focus();
-    }, 0);
+    setDrawerMode('related');
+    setIsDrawerOpen(true);
   }
 
   function handleSelectPlanRelatedRecord(record: CompanyChildRecord) {
@@ -429,8 +424,12 @@ export function PlanRegistration() {
     setPlanRelatedFormValues(values);
     setIsPlanRelatedActive(Number(record.boInativo ?? 0) === 0);
     setPlanRelatedFeedback('');
-    setIsPlanFieldsCollapsed(true);
-    setIsPlanRelatedFieldsCollapsed(false);
+  }
+
+  function handleEditPlanRelated(record: CompanyChildRecord) {
+    handleSelectPlanRelatedRecord(record);
+    setDrawerMode('related');
+    setIsDrawerOpen(true);
   }
 
   async function handleTogglePlanStatus() {
@@ -500,6 +499,7 @@ export function PlanRegistration() {
       setSelectedPlanId(savedPlan.id);
       setIsCreating(false);
       setFeedback('Plano salvo com sucesso.');
+      setIsDrawerOpen(false);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar plano.');
     }
@@ -597,6 +597,7 @@ export function PlanRegistration() {
         idTiposArquivos: saved.idTiposArquivos ? String(saved.idTiposArquivos) : '',
       });
       setPlanRelatedFeedback(isReplacingFile ? 'Arquivo alterado com sucesso.' : 'Arquivo enviado com sucesso.');
+      setIsDrawerOpen(false);
     } catch (error) {
       setPlanRelatedFeedback(error instanceof Error ? error.message : 'Erro ao enviar arquivo.');
     } finally {
@@ -700,6 +701,7 @@ export function PlanRegistration() {
       setSelectedPlanRelatedRecordId(saved.id);
       setIsCreatingPlanRelated(false);
       setPlanRelatedFeedback(`${planRelatedConfig.label} salvo com sucesso.`);
+      setIsDrawerOpen(false);
     } catch (error) {
       setPlanRelatedFeedback(error instanceof Error ? error.message : 'Erro ao salvar registro relacionado.');
     }
@@ -711,421 +713,162 @@ export function PlanRegistration() {
   }
 
   return (
-    <div className="form-view company-view">
-      <div className="form-heading">
-        <p className="section-label">Planos</p>
-      </div>
+    <div className={`activity-page-layout${selectedPlanId !== null ? ' has-related' : ''}`}>
+      <section className="data-grid-section company-grid-section">
+        <RegistrationGrid<Plan>
+          ariaLabel="Planos cadastrados"
+          columns={[
+            { label: 'Plano', render: (plan) => plan.dsPlano },
+            { label: 'Frequência', render: (plan) => getFrequencyLabel(plan.idFrequencia) },
+            {
+              label: 'Status', render: (plan) => (
+                <span className={`status-badge ${plan.boInativo === 0 ? 'active' : 'inactive'}`}>
+                  {plan.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                </span>
+              ),
+            },
+          ]}
+          isLoading={isLoadingPlans}
+          label="Planos"
+          onEdit={handleEditPlan}
+          onNew={handleNewPlan}
+          onPageChange={setPlansPage}
+          onSearch={setSearchTerm}
+          onSelect={handleSelectPlan}
+          page={plansPage}
+          records={paginatedPlans}
+          searchPlaceholder="Buscar plano"
+          searchTerm={searchTerm}
+          selectedId={selectedPlanId}
+          totalItems={filteredPlans.length}
+        />
+      </section>
 
-      <div className="registration-split-layout plan-split-layout">
-        <section className="data-grid-section company-grid-section">
-          <RegistrationGrid<Plan>
-            ariaLabel="Planos cadastrados"
-            columns={[
-              { label: 'Plano', render: (plan) => plan.dsPlano },
-              { label: 'Frequência', render: (plan) => getFrequencyLabel(plan.idFrequencia) },
-              {
-                label: 'Status', render: (plan) => (
-                  <span className={`status-badge ${plan.boInativo === 0 ? 'active' : 'inactive'}`}>
-                    {plan.boInativo === 0 ? 'Ativo' : 'Inativo'}
-                  </span>
-                ),
-              },
-            ]}
-            isLoading={isLoadingPlans}
-            label="Planos"
-            onNew={handleNewPlan}
-            onPageChange={setPlansPage}
-            onSearch={setSearchTerm}
-            onSelect={handleSelectPlan}
-            page={plansPage}
-            records={paginatedPlans}
-            searchPlaceholder="Buscar plano"
-            searchTerm={searchTerm}
-            selectedId={selectedPlanId}
-            totalItems={filteredPlans.length}
-          />
-
+      {selectedPlanId !== null ? (
+        <section className="data-grid-section">
           {planRelatedConfig ? (
-            <section className="company-child-grid-section child-grid-desktop">
-              {!selectedPlanId ? (
-                <div className="form-hint">
-                  Selecione um plano para visualizar os registros relacionados.
-                </div>
-              ) : (
-                <>
-                  <RegistrationGrid<CompanyChildRecord>
-                    ariaLabel={planRelatedConfig.title}
-                    columns={planRelatedConfig.columns.map((col) => ({
-                      label: col.label,
-                      render: (rec) => formatChildCell(rec, col, planRelatedLookups[col.key]),
-                    }))}
-                    isLoading={isLoadingPlanRelatedRecords}
-                    label={planRelatedConfig.label}
-                    newDisabled={!selectedPlanId}
-                    onNew={handleNewPlanRelated}
-                    onSearch={setPlanRelatedSearchTerm}
-                    onSelect={handleSelectPlanRelatedRecord}
-                    records={filteredPlanRelatedRecords}
-                    searchTerm={planRelatedSearchTerm}
-                    selectedId={selectedPlanRelatedRecordId}
-                    variant="child"
-                  />
-                </>
-              )}
-            </section>
-          ) : null}
+            <RegistrationGrid<CompanyChildRecord>
+              ariaLabel={planRelatedConfig.title}
+              columns={planRelatedConfig.columns.map((col) => ({ label: col.label, render: (rec) => formatChildCell(rec, col, planRelatedLookups[col.key]) }))}
+              isLoading={isLoadingPlanRelatedRecords}
+              label={planRelatedConfig.label}
+              newDisabled={!selectedPlanId}
+              onNew={handleNewPlanRelated}
+              onSearch={setPlanRelatedSearchTerm}
+              onSelect={handleSelectPlanRelatedRecord}
+              onEdit={handleEditPlanRelated}
+              records={filteredPlanRelatedRecords}
+              searchTerm={planRelatedSearchTerm}
+              selectedId={selectedPlanRelatedRecordId}
+              variant="child"
+            />
+          ) : (
+            <div className="form-hint">Selecione uma aba para ver os registros.</div>
+          )}
         </section>
+      ) : null}
 
-        <div className="split-form-stack">
-          <form
-            className={`registration-form split-form-panel company-form-panel ${isPlanFieldsCollapsed ? 'collapsed' : ''}`}
-            onSubmit={handleSavePlan}
-          >
-            <div className="collapsible-panel-header">
-              <div>
-                <p className="section-label">Cadastro de Plano</p>
-              </div>
-              <button
-                aria-expanded={!isPlanFieldsCollapsed}
-                className="secondary-button"
-                onClick={() => setIsPlanFieldsCollapsed((current) => !current)}
-                type="button"
-              >
-                {isPlanFieldsCollapsed ? '+' : '-'}
+      {selectedPlanId !== null ? (
+        <RegistrationTabs tabs={planRelatedTables} activeTab={selectedPlanRelatedTable} onTabChange={handleSelectPlanRelatedTable} icons={planTabIcons} ariaLabel="Tabelas relacionadas do plano" />
+      ) : null}
+
+      <RegistrationDrawer
+        isOpen={isDrawerOpen}
+        title={drawerMode === 'plan' ? (isCreating ? 'Novo Plano' : 'Editar Plano') : (planRelatedConfig?.label ?? 'Registro relacionado')}
+        onClose={() => setIsDrawerOpen(false)}
+      >
+        {drawerMode === 'plan' ? (
+          <form className="drawer-fields" onSubmit={handleSavePlan}>
+            {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
+            <RegistrationField htmlFor="planName" label="Nome do plano" required size="full">
+              <input id="planName" maxLength={255} onChange={(event) => setPlanName(event.target.value)} ref={planNameInputRef} required type="text" value={planName} />
+            </RegistrationField>
+            <RegistrationField htmlFor="planFrequency" label="Frequência" size="md">
+              <select id="planFrequency" onChange={(event) => setPlanFrequencyId(event.target.value)} value={planFrequencyId}>
+                <option value="">Selecione</option>
+                {frequencies.map((frequency) => (<option key={frequency.id} value={frequency.id}>{frequency.dsFrequencia}</option>))}
+              </select>
+            </RegistrationField>
+            <RegistrationField htmlFor="planStatus" label="Status" size="sm">
+              <button aria-pressed={isPlanActive} className={`status-toggle ${isPlanActive ? 'active' : ''}`} id="planStatus" onClick={handleTogglePlanStatus} type="button">
+                <span>{isPlanActive ? 'Ativo' : 'Inativo'}</span>
               </button>
+            </RegistrationField>
+            <div className="form-actions" style={{ flex: '1 1 100%' }}>
+              <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
+              <button type="submit"><Save size={16} />Salvar plano</button>
             </div>
-
-            {!isPlanFieldsCollapsed ? (
+          </form>
+        ) : (
+          <form className="drawer-fields" onSubmit={handleSavePlanRelated}>
+            {planRelatedFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{planRelatedFeedback}</div> : null}
+            {isPlanRelatedFileTable ? (
               <>
-                {!isFormEnabled ? (
-                  <div className="form-hint">
-                    Selecione um plano acima para editar ou clique em Novo.
-                  </div>
-                ) : null}
-
-                {feedback ? <div className="form-feedback">{feedback}</div> : null}
-
-                <RegistrationField htmlFor="planName" label="Nome do plano" required>
-                  <input
-                    disabled={!isFormEnabled}
-                    id="planName"
-                    maxLength={255}
-                    onChange={(event) => setPlanName(event.target.value)}
-                    ref={planNameInputRef}
-                    required
-                    type="text"
-                    value={planName}
-                  />
-                </RegistrationField>
-
-                <RegistrationField htmlFor="planFrequency" label="Frequência">
-                  <select
-                    disabled={!isFormEnabled}
-                    id="planFrequency"
-                    onChange={(event) => setPlanFrequencyId(event.target.value)}
-                    value={planFrequencyId}
-                  >
+                <RegistrationField htmlFor="planPromotionFilePromotion" label="Promoção" required size="lg">
+                  <select disabled={!isPlanRelatedFormEnabled} id="planPromotionFilePromotion" onChange={(event) => setPlanRelatedFormValues((current) => ({ ...current, idPromocao: event.target.value }))} required value={planRelatedFormValues.idPromocao ?? ''}>
                     <option value="">Selecione</option>
-                    {frequencies.map((frequency) => (
-                      <option key={frequency.id} value={frequency.id}>
-                        {frequency.dsFrequencia}
-                      </option>
-                    ))}
+                    {(planRelatedLookups.idPromocao ?? []).map((option) => (<option key={option.id} value={option.id}>{getLookupLabel(option, planRelatedConfig!.fields.find((field) => field.key === 'idPromocao') ?? planRelatedConfig!.fields[0]!)}</option>))}
                   </select>
                 </RegistrationField>
-
-                <RegistrationField htmlFor="planStatus" label="Status">
-                  <button
-                    aria-pressed={isPlanActive}
-                    className={`status-toggle ${isPlanActive ? 'active' : ''}`}
-                    disabled={!isFormEnabled}
-                    id="planStatus"
-                    onClick={handleTogglePlanStatus}
-                    type="button"
-                  >
-                    <span>{isPlanActive ? 'Ativo' : 'Inativo'}</span>
+                <RegistrationField htmlFor="planPromotionFileType" label="Tipo de arquivo" size="md">
+                  <select disabled={!isPlanRelatedFormEnabled} id="planPromotionFileType" onChange={(event) => setPlanRelatedFormValues((current) => ({ ...current, idTiposArquivos: event.target.value }))} value={planRelatedFormValues.idTiposArquivos ?? ''}>
+                    <option value="">Selecione</option>
+                    {(planRelatedLookups.idTiposArquivos ?? []).map((option) => (<option key={option.id} value={option.id}>{getLookupLabel(option, planRelatedConfig!.fields.find((field) => field.key === 'idTiposArquivos') ?? planRelatedConfig!.fields[0]!)}</option>))}
+                  </select>
+                </RegistrationField>
+                <RegistrationField htmlFor="planPromotionFileName" label="Arquivo selecionado" size="full">
+                  <input disabled id="planPromotionFileName" type="text" value={selectedPlanRelatedRecord ? String(selectedPlanRelatedRecord.dsArquivo ?? `Arquivo ${selectedPlanRelatedRecord.id}`) : ''} />
+                </RegistrationField>
+                <RegistrationField className="file-upload-field" htmlFor="planPromotionFileUpload" label={selectedPlanRelatedRecordId && !isCreatingPlanRelated ? 'Alterar arquivo' : 'Arquivo'} size="full">
+                  <input disabled={!isPlanRelatedFormEnabled || isUploadingPlanRelatedFile} id="planPromotionFileUpload" onChange={handleUploadPlanRelatedFile} ref={planFileInputRef} type="file" />
+                </RegistrationField>
+                {selectedPlanRelatedRecord ? (
+                  <div className="file-preview-card" style={{ flex: '1 1 100%' }}>
+                    {planRelatedFilePreviewUrls[selectedPlanRelatedRecord.id] ? (
+                      <button className="file-preview-button" onClick={() => handleOpenPlanRelatedFile(selectedPlanRelatedRecord.id)} type="button">
+                        <img alt={String(selectedPlanRelatedRecord.dsArquivo ?? `Arquivo ${selectedPlanRelatedRecord.id}`)} src={planRelatedFilePreviewUrls[selectedPlanRelatedRecord.id]} />
+                      </button>
+                    ) : (
+                      <div className="file-preview-placeholder">
+                        <strong>{String(selectedPlanRelatedRecord.dsArquivo ?? `Arquivo ${selectedPlanRelatedRecord.id}`)}</strong>
+                      </div>
+                    )}
+                    <div className="file-preview-actions">
+                      <button className="secondary-button" onClick={() => handleOpenPlanRelatedFile(selectedPlanRelatedRecord.id)} type="button">Visualizar</button>
+                      <button className="secondary-button" onClick={() => handleRemovePlanRelatedFile(selectedPlanRelatedRecord.id)} type="button">Remover</button>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <>
+                {planRelatedConfig?.fields.map((field) => (
+                  <RegistrationField htmlFor={`planRelated-${field.key}`} key={field.key} label={field.label} required={field.required} size="full">
+                    {field.lookupEndpoint ? (
+                      <select disabled={!isPlanRelatedFormEnabled} id={`planRelated-${field.key}`} onChange={(event) => setPlanRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} value={planRelatedFormValues[field.key] ?? ''}>
+                        <option value="">Selecione</option>
+                        {(planRelatedLookups[field.key] ?? []).map((option) => (<option key={option.id} value={option.id}>{getLookupLabel(option, field)}</option>))}
+                      </select>
+                    ) : (
+                      <input disabled={!isPlanRelatedFormEnabled} id={`planRelated-${field.key}`} onChange={(event) => setPlanRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} type={field.type} value={planRelatedFormValues[field.key] ?? ''} />
+                    )}
+                  </RegistrationField>
+                ))}
+                <RegistrationField htmlFor="planRelatedStatus" label="Status" size="sm">
+                  <button aria-pressed={isPlanRelatedActive} className={`status-toggle ${isPlanRelatedActive ? 'active' : ''}`} disabled={!isPlanRelatedFormEnabled} id="planRelatedStatus" onClick={handleTogglePlanRelatedStatus} type="button">
+                    <span>{isPlanRelatedActive ? 'Ativo' : 'Inativo'}</span>
                   </button>
                 </RegistrationField>
-
-                <div className="form-actions">
-                  <button
-                    className="secondary-button"
-                    disabled={!isFormEnabled}
-                    onClick={clearForm}
-                    type="button"
-                  >
-                    Limpar
-                  </button>
-                  <button disabled={!isFormEnabled} type="submit">
-                    <Save size={16} />
-                    Salvar plano
-                  </button>
-                </div>
               </>
-            ) : null}
+            )}
+            <div className="form-actions" style={{ flex: '1 1 100%' }}>
+              <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
+              {!isPlanRelatedFileTable ? (<button disabled={!isPlanRelatedFormEnabled} type="submit"><Save size={16} />Salvar {planRelatedConfig?.label}</button>) : null}
+            </div>
           </form>
+        )}
+      </RegistrationDrawer>
 
-          {planRelatedConfig ? (
-            <section className="company-child-grid-section child-grid-mobile">
-              {!selectedPlanId ? (
-                <div className="form-hint">
-                  Selecione um plano para visualizar os registros relacionados.
-                </div>
-              ) : (
-                <>
-                  <RegistrationGrid<CompanyChildRecord>
-                    ariaLabel={planRelatedConfig.title}
-                    columns={planRelatedConfig.columns.map((col) => ({
-                      label: col.label,
-                      render: (rec) => formatChildCell(rec, col, planRelatedLookups[col.key]),
-                    }))}
-                    isLoading={isLoadingPlanRelatedRecords}
-                    label={planRelatedConfig.label}
-                    newDisabled={!selectedPlanId}
-                    onNew={handleNewPlanRelated}
-                    onSearch={setPlanRelatedSearchTerm}
-                    onSelect={handleSelectPlanRelatedRecord}
-                    records={filteredPlanRelatedRecords}
-                    searchTerm={planRelatedSearchTerm}
-                    selectedId={selectedPlanRelatedRecordId}
-                    variant="child"
-                  />
-                </>
-              )}
-            </section>
-          ) : null}
-
-          {planRelatedConfig ? (
-            <form
-              className={`registration-form split-form-panel company-child-form-panel ${isPlanRelatedFieldsCollapsed ? 'collapsed' : ''}`}
-              onSubmit={handleSavePlanRelated}
-            >
-              <div className="collapsible-panel-header">
-                <div>
-                  <p className="section-label">{planRelatedConfig.label}</p>
-                </div>
-                <button
-                  aria-expanded={!isPlanRelatedFieldsCollapsed}
-                  className="secondary-button"
-                  onClick={() => setIsPlanRelatedFieldsCollapsed((current) => !current)}
-                  type="button"
-                >
-                  {isPlanRelatedFieldsCollapsed ? '+' : '-'}
-                </button>
-              </div>
-
-              {!isPlanRelatedFieldsCollapsed ? (
-                <>
-                  {planRelatedFeedback ? (
-                    <div className="form-feedback">{planRelatedFeedback}</div>
-                  ) : null}
-
-                  {isPlanRelatedFileTable ? (
-                    <div className="company-child-fields">
-                      <RegistrationField htmlFor="planPromotionFilePromotion" label="Promoção" required>
-                        <select
-                          disabled={!isPlanRelatedFormEnabled}
-                          id="planPromotionFilePromotion"
-                          onChange={(event) =>
-                            setPlanRelatedFormValues((current) => ({
-                              ...current,
-                              idPromocao: event.target.value,
-                            }))
-                          }
-                          required
-                          value={planRelatedFormValues.idPromocao ?? ''}
-                        >
-                          <option value="">Selecione</option>
-                          {(planRelatedLookups.idPromocao ?? []).map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {getLookupLabel(
-                                option,
-                                planRelatedConfig.fields.find((field) => field.key === 'idPromocao') ?? planRelatedConfig.fields[0]!,
-                              )}
-                            </option>
-                          ))}
-                        </select>
-                      </RegistrationField>
-
-                      <RegistrationField htmlFor="planPromotionFileType" label="Tipo de arquivo">
-                        <select
-                          disabled={!isPlanRelatedFormEnabled}
-                          id="planPromotionFileType"
-                          onChange={(event) =>
-                            setPlanRelatedFormValues((current) => ({
-                              ...current,
-                              idTiposArquivos: event.target.value,
-                            }))
-                          }
-                          value={planRelatedFormValues.idTiposArquivos ?? ''}
-                        >
-                          <option value="">Selecione</option>
-                          {(planRelatedLookups.idTiposArquivos ?? []).map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {getLookupLabel(
-                                option,
-                                planRelatedConfig.fields.find((field) => field.key === 'idTiposArquivos') ?? planRelatedConfig.fields[0]!,
-                              )}
-                            </option>
-                          ))}
-                        </select>
-                      </RegistrationField>
-
-                      <RegistrationField htmlFor="planPromotionFileName" label="Arquivo selecionado">
-                        <input
-                          disabled
-                          id="planPromotionFileName"
-                          type="text"
-                          value={
-                            selectedPlanRelatedRecord
-                              ? String(selectedPlanRelatedRecord.dsArquivo ?? `Arquivo ${selectedPlanRelatedRecord.id}`)
-                              : ''
-                          }
-                        />
-                      </RegistrationField>
-
-                      <RegistrationField className="file-upload-field" htmlFor="planPromotionFileUpload" label={selectedPlanRelatedRecordId && !isCreatingPlanRelated ? 'Alterar arquivo' : 'Arquivo'}>
-                        <input
-                          disabled={!isPlanRelatedFormEnabled || isUploadingPlanRelatedFile}
-                          id="planPromotionFileUpload"
-                          onChange={handleUploadPlanRelatedFile}
-                          ref={planFileInputRef}
-                          type="file"
-                        />
-                      </RegistrationField>
-
-                      {selectedPlanRelatedRecord ? (
-                        <div className="file-preview-card">
-                          {planRelatedFilePreviewUrls[selectedPlanRelatedRecord.id] ? (
-                            <button
-                              className="file-preview-button"
-                              onClick={() => handleOpenPlanRelatedFile(selectedPlanRelatedRecord.id)}
-                              type="button"
-                            >
-                              <img
-                                alt={String(selectedPlanRelatedRecord.dsArquivo ?? `Arquivo ${selectedPlanRelatedRecord.id}`)}
-                                src={planRelatedFilePreviewUrls[selectedPlanRelatedRecord.id]}
-                              />
-                            </button>
-                          ) : (
-                            <div className="file-preview-placeholder">
-                              <strong>{String(selectedPlanRelatedRecord.dsArquivo ?? `Arquivo ${selectedPlanRelatedRecord.id}`)}</strong>
-                            </div>
-                          )}
-                          <div className="file-preview-actions">
-                            <button
-                              className="secondary-button"
-                              onClick={() => handleOpenPlanRelatedFile(selectedPlanRelatedRecord.id)}
-                              type="button"
-                            >
-                              Visualizar
-                            </button>
-                            <button
-                              className="secondary-button"
-                              onClick={() => handleRemovePlanRelatedFile(selectedPlanRelatedRecord.id)}
-                              type="button"
-                            >
-                              Remover
-                            </button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="company-child-fields" ref={planRelatedFormRef}>
-                      {planRelatedConfig.fields.map((field) => (
-                        <RegistrationField htmlFor={`planRelated-${field.key}`} key={field.key} label={field.label} required={field.required}>
-                          {field.lookupEndpoint ? (
-                            <select
-                              disabled={!isPlanRelatedFormEnabled}
-                              id={`planRelated-${field.key}`}
-                              onChange={(event) =>
-                                setPlanRelatedFormValues((current) => ({
-                                  ...current,
-                                  [field.key]: event.target.value,
-                                }))
-                              }
-                              required={field.required}
-                              value={planRelatedFormValues[field.key] ?? ''}
-                            >
-                              <option value="">Selecione</option>
-                              {(planRelatedLookups[field.key] ?? []).map((option) => (
-                                <option key={option.id} value={option.id}>
-                                  {getLookupLabel(option, field)}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <input
-                              disabled={!isPlanRelatedFormEnabled}
-                              id={`planRelated-${field.key}`}
-                              onChange={(event) =>
-                                setPlanRelatedFormValues((current) => ({
-                                  ...current,
-                                  [field.key]: event.target.value,
-                                }))
-                              }
-                              required={field.required}
-                              type={field.type}
-                              value={planRelatedFormValues[field.key] ?? ''}
-                            />
-                          )}
-                        </RegistrationField>
-                      ))}
-                    </div>
-                  )}
-
-                  {!isPlanRelatedFormEnabled ? (
-                    <div className="form-hint">
-                      Selecione um registro relacionado acima ou clique em Novo.
-                    </div>
-                  ) : null}
-
-                  {!isPlanRelatedFileTable ? (
-                    <RegistrationField htmlFor="planRelatedStatus" label="Status">
-                      <button
-                        aria-pressed={isPlanRelatedActive}
-                        className={`status-toggle ${isPlanRelatedActive ? 'active' : ''}`}
-                        disabled={!isPlanRelatedFormEnabled}
-                        id="planRelatedStatus"
-                        onClick={handleTogglePlanRelatedStatus}
-                        type="button"
-                      >
-                        <span>{isPlanRelatedActive ? 'Ativo' : 'Inativo'}</span>
-                      </button>
-                    </RegistrationField>
-                  ) : null}
-
-                  <div className="form-actions">
-                    <button
-                      className="secondary-button"
-                      disabled={!selectedPlanId}
-                      onClick={clearPlanRelatedForm}
-                      type="button"
-                    >
-                      Limpar
-                    </button>
-                    {!isPlanRelatedFileTable ? (
-                      <button disabled={!isPlanRelatedFormEnabled} type="submit">
-                        <Save size={16} />
-                        Salvar {planRelatedConfig.label}
-                      </button>
-                    ) : null}
-                  </div>
-                </>
-              ) : null}
-            </form>
-          ) : null}
-        </div>
-
-        <RegistrationTabs
-          tabs={planRelatedTables}
-          activeTab={selectedPlanRelatedTable}
-          onTabChange={handleSelectPlanRelatedTable}
-          icons={planTabIcons}
-          ariaLabel="Tabelas relacionadas do plano"
-        />
-      </div>
       {planRelatedFileModal ? (
         <div className="file-modal-overlay" role="dialog" aria-modal="true">
           <div className="file-modal">
@@ -1142,5 +885,3 @@ export function PlanRegistration() {
     </div>
   );
 }
-
-

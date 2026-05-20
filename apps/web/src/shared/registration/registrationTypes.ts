@@ -202,6 +202,7 @@ export type CompanyChildField = {
   required?: boolean;
   lookupEndpoint?: string;
   lookupLabelKey?: string;
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'full';
 };
 
 export type CompanyChildColumn = {

@@ -2,8 +2,9 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Save } from 'lucide-react';
-import { GRID_PAGE_SIZE, GridPagination, formatDateInput, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
+import { Pencil, Plus, Save } from 'lucide-react';
+import { GRID_PAGE_SIZE, GridPagination, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import type { Company, Exercise, ExerciseFile } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
@@ -14,12 +15,14 @@ type ExerciseRegistrationProps = {
 export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exerciseNameInputRef = useRef<HTMLInputElement | null>(null);
+
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [exercisesPage, setExercisesPage] = useState(1);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [exerciseFiles, setExerciseFiles] = useState<ExerciseFile[]>([]);
   const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
+
   const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
@@ -28,19 +31,25 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
   const [feedback, setFeedback] = useState('');
   const [fileFeedback, setFileFeedback] = useState('');
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
   const isFormEnabled = selectedExerciseId !== null || isCreating;
+
   const filteredExercises = exercises.filter((exercise) =>
     exercise.dsExercicio.toLowerCase().includes(searchTerm.toLowerCase()),
   );
   const exercisesTotalPages = Math.max(1, Math.ceil(filteredExercises.length / GRID_PAGE_SIZE));
   const paginatedExercises = paginateItems(filteredExercises, exercisesPage);
 
+  const getCompanyLabel = (companyId: number | null) =>
+    companies.find((c) => c.id === companyId)?.dsEmpresa ?? '-';
+
   async function loadExercises() {
     try {
       const response = await fetch(`${apiUrl}/exercises`);
       if (!response.ok) await getApiError(response, 'Não foi possível carregar os exercícios.');
-      const data = (await response.json()) as Exercise[];
-      setExercises(data);
+      setExercises((await response.json()) as Exercise[]);
       setFeedback('');
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao carregar exercícios.');
@@ -58,36 +67,10 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
     }
   }
 
-  useEffect(() => {
-    void loadExercises();
-    void loadCompanies();
-  }, []);
-
-  useEffect(() => {
-    setExercisesPage(1);
-  }, [searchTerm]);
-
-  useEffect(() => {
-    if (exercisesPage > exercisesTotalPages) {
-      setExercisesPage(exercisesTotalPages);
-    }
-  }, [exercisesPage, exercisesTotalPages]);
-
-  useEffect(() => {
-    if (!selectedExerciseId) {
-      setExerciseFiles([]);
-      setPreviewUrls({});
-      setFileFeedback('');
-      return;
-    }
-
-    void loadExerciseFiles(selectedExerciseId);
-  }, [selectedExerciseId]);
-
   async function loadExerciseFiles(exerciseId: number) {
     try {
       const response = await fetch(`${apiUrl}/exercises/${exerciseId}/files`);
-      if (!response.ok) await getApiError(response, 'Não foi possível carregar os arquivos do exercício.');
+      if (!response.ok) await getApiError(response, 'Não foi possível carregar os arquivos.');
       const data = (await response.json()) as ExerciseFile[];
       setExerciseFiles(data);
       setFileFeedback('');
@@ -116,6 +99,29 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
     }
   }
 
+  useEffect(() => {
+    void loadExercises();
+    void loadCompanies();
+  }, []);
+
+  useEffect(() => {
+    setExercisesPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (exercisesPage > exercisesTotalPages) setExercisesPage(exercisesTotalPages);
+  }, [exercisesPage, exercisesTotalPages]);
+
+  useEffect(() => {
+    if (!selectedExerciseId) {
+      setExerciseFiles([]);
+      setPreviewUrls({});
+      setFileFeedback('');
+      return;
+    }
+    void loadExerciseFiles(selectedExerciseId);
+  }, [selectedExerciseId]);
+
   function clearForm() {
     setSelectedExerciseId(null);
     setIsCreating(false);
@@ -133,10 +139,11 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
     clearForm();
     setIsCreating(true);
     setIsExerciseActive(true);
-    setTimeout(() => exerciseNameInputRef.current?.focus(), 0);
+    setIsDrawerOpen(true);
+    setTimeout(() => exerciseNameInputRef.current?.focus(), 100);
   }
 
-  function handleSelectExercise(exercise: Exercise) {
+  function handleEditExercise(exercise: Exercise) {
     setSelectedExerciseId(exercise.id);
     setIsCreating(false);
     setSelectedCompanyId(exercise.idEmpresa ? String(exercise.idEmpresa) : '');
@@ -144,6 +151,11 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
     setIsExerciseActive(exercise.boInativo === 0);
     setFeedback('');
     setFileFeedback('');
+    setIsDrawerOpen(true);
+  }
+
+  function handleCloseDrawer() {
+    setIsDrawerOpen(false);
   }
 
   async function handleToggleStatus() {
@@ -198,7 +210,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
       });
       setSelectedExerciseId(saved.id);
       setIsCreating(false);
-      setFeedback('Exercicio salvo com sucesso.');
+      setFeedback('Exercício salvo com sucesso.');
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar.');
     }
@@ -246,7 +258,6 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
         const errorBody = (await response.json()) as { message?: string };
         throw new Error(errorBody.message ?? 'Não foi possível abrir o arquivo.');
       }
-
       const data = (await response.json()) as { url: string };
       window.open(data.url, '_blank', 'noopener,noreferrer');
     } catch (error) {
@@ -282,17 +293,16 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
         <p>Cadastre os exercícios e anexe arquivos de apoio como imagens e vídeos.</p>
       </div>
 
-      <div className="registration-split-layout">
-        <section className="data-grid-section">
-          <div className="grid-toolbar">
-            <div>
-              <p className="section-label">Exercícios</p>
-              <h3>Exercícios cadastrados</h3>
-            </div>
+      <section className="data-grid-section">
+        <div className="grid-toolbar">
+          <div className="child-grid-toolbar-label">
+            <p className="section-label">Exercícios cadastrados</p>
+          </div>
+          <div className="child-grid-toolbar-actions">
             <label className="search-field">
               <span>Pesquisar</span>
               <input
-                onChange={(event) => setSearchTerm(event.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar exercício"
                 type="search"
                 value={searchTerm}
@@ -301,155 +311,211 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
             {!readOnly ? (
               <button className="new-button" onClick={handleNewExercise} type="button">
                 <Plus size={16} />
-                Novo exercício
+                Novo
               </button>
             ) : null}
           </div>
+        </div>
 
-          <div className="product-table" key={`exercises-${searchTerm}-${exercisesPage}`} role="table" aria-label="Exercícios cadastrados">
-            <div className="product-row header" role="row">
-              <span role="columnheader">Exercício</span>
-              <span role="columnheader">Empresa</span>
-              <span role="columnheader">Status</span>
-            </div>
+        <div aria-label="Exercícios cadastrados" className="product-table" role="table">
+          <div
+            className="product-row header"
+            role="row"
+            style={readOnly ? undefined : { gridTemplateColumns: 'minmax(0, 1fr) 6.875rem 6.875rem 2.75rem' }}
+          >
+            <span role="columnheader">Exercício</span>
+            <span role="columnheader">Empresa</span>
+            <span role="columnheader">Status</span>
+            {!readOnly ? <span role="columnheader" /> : null}
+          </div>
 
-            {paginatedExercises.map((exercise) => (
+          {paginatedExercises.map((exercise) =>
+            readOnly ? (
               <button
-                className={`product-row selectable ${exercise.id === selectedExerciseId ? 'selected' : ''}`}
+                className={`product-row selectable${exercise.id === selectedExerciseId ? ' selected' : ''}`}
                 key={exercise.id}
-                onClick={() => handleSelectExercise(exercise)}
+                onClick={() => handleEditExercise(exercise)}
                 role="row"
                 type="button"
               >
-                <span role="cell">{exercise.dsExercicio}</span>
-                <span role="cell">
-                  {companies.find((company) => company.id === exercise.idEmpresa)?.dsEmpresa ?? '-'}
-                </span>
+                <span role="cell" title={exercise.dsExercicio}>{exercise.dsExercicio}</span>
+                <span role="cell" title={getCompanyLabel(exercise.idEmpresa)}>{getCompanyLabel(exercise.idEmpresa)}</span>
                 <span role="cell">
                   <span className={`status-badge ${exercise.boInativo === 0 ? 'active' : 'inactive'}`}>
                     {exercise.boInativo === 0 ? 'Ativo' : 'Inativo'}
                   </span>
                 </span>
               </button>
-            ))}
-          </div>
-          <GridPagination
-            onChange={setExercisesPage}
-            page={exercisesPage}
-            totalItems={filteredExercises.length}
-          />
-        </section>
+            ) : (
+              <div
+                className={`product-row selectable${exercise.id === selectedExerciseId ? ' selected' : ''}`}
+                key={exercise.id}
+                onClick={() => handleEditExercise(exercise)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleEditExercise(exercise); } }}
+                role="row"
+                style={{ gridTemplateColumns: 'minmax(0, 1fr) 6.875rem 6.875rem 2.75rem' }}
+                tabIndex={0}
+              >
+                <span role="cell" title={exercise.dsExercicio}>{exercise.dsExercicio}</span>
+                <span role="cell" title={getCompanyLabel(exercise.idEmpresa)}>{getCompanyLabel(exercise.idEmpresa)}</span>
+                <span role="cell">
+                  <span className={`status-badge ${exercise.boInativo === 0 ? 'active' : 'inactive'}`}>
+                    {exercise.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                  </span>
+                </span>
+                <span role="cell" className="grid-row-actions">
+                  <button
+                    aria-label="Editar exercício"
+                    className="grid-edit-button"
+                    onClick={(e) => { e.stopPropagation(); handleEditExercise(exercise); }}
+                    type="button"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                </span>
+              </div>
+            )
+          )}
 
-        {readOnly ? null : (
-        <form className="registration-form split-form-panel" onSubmit={handleSaveExercise}>
-          {!isFormEnabled ? <div className="form-hint">Selecione um exercício acima ou clique em Novo.</div> : null}
-          {feedback ? <div className="form-feedback">{feedback}</div> : null}
+          {paginatedExercises.length === 0 ? (
+            <div className="empty-row">Nenhum exercício encontrado.</div>
+          ) : null}
+        </div>
 
-          <div className="field">
-            <label htmlFor="exerciseCompany">Empresa</label>
-            <select
-              disabled={!isFormEnabled}
-              id="exerciseCompany"
-              onChange={(event) => setSelectedCompanyId(event.target.value)}
-              value={selectedCompanyId}
-            >
-              <option value="">Selecione uma empresa</option>
-              {companies.map((company) => (
-                <option key={company.id} value={String(company.id)}>
-                  {company.dsEmpresa}
-                </option>
-              ))}
-            </select>
-          </div>
+        <GridPagination onChange={setExercisesPage} page={exercisesPage} totalItems={filteredExercises.length} />
+      </section>
 
-          <div className="field">
-            <label htmlFor="exerciseName">Nome do exercício</label>
-            <input
-              disabled={!isFormEnabled}
-              id="exerciseName"
-              maxLength={255}
-              onChange={(event) => setExerciseName(event.target.value)}
-              placeholder="Ex.: Supino reto"
-              ref={exerciseNameInputRef}
-              type="text"
-              value={exerciseName}
-            />
-          </div>
+      {!readOnly ? (
+        <RegistrationDrawer
+          isOpen={isDrawerOpen}
+          title={isCreating ? 'Novo Exercício' : 'Editar Exercício'}
+          onClose={handleCloseDrawer}
+        >
+          <form className="drawer-form" onSubmit={handleSaveExercise}>
+            {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
-          <div className="field">
-            <label htmlFor="exerciseStatus">Status</label>
-            <button
-              aria-pressed={isExerciseActive}
-              className={`status-toggle ${isExerciseActive ? 'active' : ''}`}
-              disabled={!isFormEnabled}
-              id="exerciseStatus"
-              onClick={handleToggleStatus}
-              type="button"
-            >
-              <span>{isExerciseActive ? 'Ativo' : 'Inativo'}</span>
-            </button>
-          </div>
-
-          <div className="form-actions">
-            <button className="secondary-button" disabled={!isFormEnabled} onClick={clearForm} type="button">
-              Limpar
-            </button>
-            <button disabled={!isFormEnabled} type="submit">
-              <Save size={16} />
-              Salvar exercício
-            </button>
-          </div>
-
-          <section className="student-files-section" aria-label="Arquivos do exercício">
-            <div className="student-files-header">
-              <h3>Arquivos do exercício</h3>
-            </div>
-            {!selectedExerciseId ? (
-              <div className="form-hint">Salve ou selecione um exercício para anexar arquivos.</div>
-            ) : null}
-            {fileFeedback ? <div className="form-feedback">{fileFeedback}</div> : null}
-            <div className="file-upload-controls">
+            <div className="field">
+              <label htmlFor="exerciseName">Nome do exercício</label>
               <input
-                disabled={!selectedExerciseId || isUploadingFile}
-                id="exerciseFile"
-                onChange={(event) => {
-                  const [file] = Array.from(event.target.files ?? []);
-                  void handleUploadExerciseFile(file ?? null);
-                }}
-                ref={fileInputRef}
-                type="file"
+                disabled={!isFormEnabled}
+                id="exerciseName"
+                maxLength={255}
+                onChange={(e) => setExerciseName(e.target.value)}
+                placeholder="Ex.: Supino reto"
+                ref={exerciseNameInputRef}
+                required
+                type="text"
+                value={exerciseName}
               />
             </div>
 
-            <div className="student-files-list">
-              {exerciseFiles.map((file) => (
-                <div className="student-file-row" key={file.id}>
-                  {previewUrls[file.id] ? (
-                    <img alt={file.dsArquivo ?? file.anCaminho} className="student-file-preview" src={previewUrls[file.id]} />
-                  ) : null}
-                  <div className="student-file-row-info">
-                    <strong>{file.dsArquivo ?? file.anCaminho.split('/').pop() ?? `Arquivo ${file.id}`}</strong>
-                    <span>{file.anCaminho}</span>
-                  </div>
-                  <div className="student-file-actions">
-                    <button className="secondary-button" onClick={() => void handleOpenExerciseFile(file.id)} type="button">
-                      Visualizar
-                    </button>
-                    <button className="danger" onClick={() => void handleRemoveExerciseFile(file.id)} type="button">
-                      Remover
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {selectedExerciseId && exerciseFiles.length === 0 ? (
-                <div className="empty-row">Nenhum arquivo anexado.</div>
-              ) : null}
+            <div className="field">
+              <label htmlFor="exerciseCompany">Empresa</label>
+              <select
+                disabled={!isFormEnabled}
+                id="exerciseCompany"
+                onChange={(e) => setSelectedCompanyId(e.target.value)}
+                value={selectedCompanyId}
+              >
+                <option value="">Selecione</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={String(company.id)}>
+                    {company.dsEmpresa}
+                  </option>
+                ))}
+              </select>
             </div>
-          </section>
-        </form>
-        )}
-      </div>
+
+            <div className="field">
+              <label htmlFor="exerciseStatus">Status</label>
+              <button
+                aria-pressed={isExerciseActive}
+                className={`status-toggle ${isExerciseActive ? 'active' : ''}`}
+                disabled={!isFormEnabled}
+                id="exerciseStatus"
+                onClick={handleToggleStatus}
+                type="button"
+              >
+                <span>{isExerciseActive ? 'Ativo' : 'Inativo'}</span>
+              </button>
+            </div>
+
+            <div className="form-actions">
+              <button
+                className="secondary-button"
+                onClick={() => { clearForm(); handleCloseDrawer(); }}
+                type="button"
+              >
+                Limpar
+              </button>
+              <button disabled={!isFormEnabled} type="submit">
+                <Save size={16} />
+                Salvar exercício
+              </button>
+            </div>
+
+            {selectedExerciseId ? (
+              <section aria-label="Arquivos do exercício" className="exercise-files-section">
+                <div className="exercise-files-header">
+                  <p className="section-label">Arquivos</p>
+                </div>
+
+                {fileFeedback ? <div className="form-feedback">{fileFeedback}</div> : null}
+
+                <div className="file-upload-controls">
+                  <input
+                    disabled={isUploadingFile}
+                    id="exerciseFile"
+                    onChange={(e) => {
+                      const [file] = Array.from(e.target.files ?? []);
+                      void handleUploadExerciseFile(file ?? null);
+                    }}
+                    ref={fileInputRef}
+                    type="file"
+                  />
+                </div>
+
+                <div className="student-files-list">
+                  {exerciseFiles.map((file) => (
+                    <div className="student-file-row" key={file.id}>
+                      {previewUrls[file.id] ? (
+                        <img
+                          alt={file.dsArquivo ?? file.anCaminho}
+                          className="student-file-preview"
+                          src={previewUrls[file.id]}
+                        />
+                      ) : null}
+                      <div className="student-file-row-info">
+                        <strong>{file.dsArquivo ?? file.anCaminho.split('/').pop() ?? `Arquivo ${file.id}`}</strong>
+                        <span>{file.anCaminho}</span>
+                      </div>
+                      <div className="student-file-actions">
+                        <button
+                          className="secondary-button"
+                          onClick={() => void handleOpenExerciseFile(file.id)}
+                          type="button"
+                        >
+                          Visualizar
+                        </button>
+                        <button
+                          className="danger"
+                          onClick={() => void handleRemoveExerciseFile(file.id)}
+                          type="button"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {exerciseFiles.length === 0 ? (
+                    <div className="empty-row">Nenhum arquivo anexado.</div>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
+          </form>
+        </RegistrationDrawer>
+      ) : null}
     </div>
   );
 }
-

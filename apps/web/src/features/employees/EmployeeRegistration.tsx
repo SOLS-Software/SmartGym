@@ -4,11 +4,11 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { FileText, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
-import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 
-const employeeTabIcons = { files: FileText };
+const _employeeTabIcons = { files: FileText };
 import type { Company, CompanyChildRecord, CompanyChildTable, Employee, LookupRecord, Role } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 type EmployeeValidationField =
@@ -81,10 +81,11 @@ function isValidPastDate(value: string) {
   return date <= new Date(new Date().setHours(0, 0, 0, 0));
 }
 
+type DrawerMode = 'employee' | 'related';
+
 export function EmployeeRegistration() {
   const employeeFileInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
-  const employeeRelatedFormRef = useRef<HTMLDivElement | null>(null);
   const cpfInputRef = useRef<HTMLInputElement>(null);
   const birthDateInputRef = useRef<HTMLInputElement>(null);
   const admissionDateInputRef = useRef<HTMLInputElement>(null);
@@ -110,12 +111,11 @@ export function EmployeeRegistration() {
   const [employeeAdmissionDate, setEmployeeAdmissionDate] = useState('');
   const [isEmployeeActive, setIsEmployeeActive] = useState(true);
   const [feedback, setFeedback] = useState('');
-  const [isEmployeeFieldsCollapsed, setIsEmployeeFieldsCollapsed] = useState(false);
   const [employeeErrors, setEmployeeErrors] = useState<EmployeeValidationErrors>({});
   const [touchedEmployeeFields, setTouchedEmployeeFields] = useState<
     Partial<Record<EmployeeValidationField, boolean>>
   >({});
-  const [selectedEmployeeRelatedTable, setSelectedEmployeeRelatedTable] = useState('');
+  const selectedEmployeeRelatedTable = 'files';
   const [employeeRelatedRecords, setEmployeeRelatedRecords] = useState<CompanyChildRecord[]>([]);
   const [isLoadingEmployeeRelatedRecords, setIsLoadingEmployeeRelatedRecords] = useState(false);
   const [employeeRelatedSearchTerm, setEmployeeRelatedSearchTerm] = useState('');
@@ -128,12 +128,11 @@ export function EmployeeRegistration() {
   const [employeeFilePreviewUrls, setEmployeeFilePreviewUrls] = useState<Record<number, string>>({});
   const [employeeFileModal, setEmployeeFileModal] = useState<{ title: string; url: string } | null>(null);
   const [isUploadingEmployeeFile, setIsUploadingEmployeeFile] = useState(false);
-  const [isEmployeeRelatedFieldsCollapsed, setIsEmployeeRelatedFieldsCollapsed] = useState(false);
-  const isFormEnabled = selectedEmployeeId !== null || isCreating;
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [drawerMode, setDrawerMode] = useState<DrawerMode>('employee');
+
   const employeeRelatedConfig =
     employeeRelatedTables.find((table) => table.key === selectedEmployeeRelatedTable) ?? null;
-  const isEmployeeRelatedFormEnabled =
-    Boolean(selectedEmployeeId) && (selectedEmployeeRelatedRecordId !== null || isCreatingEmployeeRelated);
   const filteredEmployeeRelatedRecords = employeeRelatedRecords.filter((record) =>
     employeeRelatedConfig
       ? employeeRelatedConfig.columns.some((column) =>
@@ -142,10 +141,6 @@ export function EmployeeRegistration() {
       : false,
   );
   const filteredEmployees = employees.filter((employee) => {
-    if (selectedEmployeeRelatedTable && selectedEmployeeId !== null) {
-      return employee.id === selectedEmployeeId;
-    }
-
     const search = searchTerm.toLowerCase();
     const role = roles.find((item) => item.id === employee.idCargo);
     const company = companies.find((item) => item.id === employee.idEmpresa);
@@ -342,9 +337,9 @@ export function EmployeeRegistration() {
     setIsCreating(true);
     setIsEmployeeActive(true);
     setEmployeeAdmissionDate(new Date().toISOString().slice(0, 10));
-    setIsEmployeeFieldsCollapsed(false);
-    setIsEmployeeRelatedFieldsCollapsed(true);
     setTimeout(() => nameInputRef.current?.focus(), 0);
+    setDrawerMode('employee');
+    setIsDrawerOpen(true);
   }
 
   function handleSelectEmployee(employee: Employee) {
@@ -369,13 +364,12 @@ export function EmployeeRegistration() {
     setTouchedEmployeeFields({});
     setFeedback('');
     setEmployeeRelatedFeedback('');
-    setIsEmployeeFieldsCollapsed(false);
-    setIsEmployeeRelatedFieldsCollapsed(true);
   }
 
-  function handleSelectEmployeeRelatedTable(tableKey: string) {
-    setSelectedEmployeeRelatedTable(tableKey);
-    setEmployeeRelatedFeedback('');
+  function handleEditEmployee(employee: Employee) {
+    handleSelectEmployee(employee);
+    setDrawerMode('employee');
+    setIsDrawerOpen(true);
   }
 
   function clearEmployeeRelatedForm() {
@@ -392,9 +386,8 @@ export function EmployeeRegistration() {
     setEmployeeRelatedFormValues({});
     setIsEmployeeRelatedActive(true);
     setEmployeeRelatedFeedback('');
-    setIsEmployeeFieldsCollapsed(true);
-    setIsEmployeeRelatedFieldsCollapsed(false);
-    setTimeout(() => { employeeRelatedFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
+    setDrawerMode('related');
+    setIsDrawerOpen(true);
   }
 
   function handleSelectEmployeeRelatedRecord(record: CompanyChildRecord) {
@@ -412,8 +405,12 @@ export function EmployeeRegistration() {
     setEmployeeRelatedFormValues(values);
     setIsEmployeeRelatedActive(Number(record.boInativo ?? 0) === 0);
     setEmployeeRelatedFeedback('');
-    setIsEmployeeFieldsCollapsed(true);
-    setIsEmployeeRelatedFieldsCollapsed(false);
+  }
+
+  function handleEditEmployeeRelated(record: CompanyChildRecord) {
+    handleSelectEmployeeRelatedRecord(record);
+    setDrawerMode('related');
+    setIsDrawerOpen(true);
   }
 
   function getRoleLabel(roleId: number | null) {
@@ -610,6 +607,7 @@ export function EmployeeRegistration() {
       setSelectedEmployeeId(savedEmployee.id);
       setIsCreating(false);
       setFeedback('Funcionário salvo com sucesso.');
+      setIsDrawerOpen(false);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar funcionário.');
     }
@@ -713,6 +711,7 @@ export function EmployeeRegistration() {
       setSelectedEmployeeRelatedRecordId(savedRecord.id);
       setIsCreatingEmployeeRelated(false);
       setEmployeeRelatedFeedback(`${employeeRelatedConfig.label} salvo com sucesso.`);
+      setIsDrawerOpen(false);
     } catch (error) {
       setEmployeeRelatedFeedback(
         error instanceof Error ? error.message : 'Erro ao salvar registro relacionado.',
@@ -755,6 +754,7 @@ export function EmployeeRegistration() {
         idTiposArquivos: saved.idTiposArquivos ? String(saved.idTiposArquivos) : '',
       });
       setEmployeeRelatedFeedback(isReplacingFile ? 'Arquivo alterado com sucesso.' : 'Arquivo enviado com sucesso.');
+      setIsDrawerOpen(false);
     } catch (error) {
       setEmployeeRelatedFeedback(error instanceof Error ? error.message : 'Erro ao enviar arquivo.');
     } finally {
@@ -811,7 +811,7 @@ export function EmployeeRegistration() {
         <p className="section-label">Profissionais</p>
       </div>
 
-      <div className="registration-split-layout plan-split-layout">
+      <div className={`training-page-layout${selectedEmployeeId !== null ? ' has-exercises' : ''}`}>
         <section className="data-grid-section company-grid-section">
           <RegistrationGrid<Employee>
             ariaLabel="Funcionários cadastrados"
@@ -825,6 +825,7 @@ export function EmployeeRegistration() {
             isLoading={isLoadingEmployees}
             selectedId={selectedEmployeeId}
             onSelect={handleSelectEmployee}
+            onEdit={handleEditEmployee}
             searchTerm={searchTerm}
             onSearch={setSearchTerm}
             searchPlaceholder="Buscar funcionário"
@@ -833,565 +834,126 @@ export function EmployeeRegistration() {
             totalItems={filteredEmployees.length}
             onPageChange={setEmployeesPage}
           />
-
-          {employeeRelatedConfig ? (
-            <section className="company-child-grid-section child-grid-desktop">
-              {!selectedEmployeeId ? (
-                <div className="form-hint">
-                  Selecione um funcionario para visualizar os registros relacionados.
-                </div>
-              ) : (
-                <RegistrationGrid<CompanyChildRecord>
-                  ariaLabel={employeeRelatedConfig.title}
-                  label={employeeRelatedConfig.label}
-                  columns={employeeRelatedConfig.columns.map((column) => ({
-                    label: column.label,
-                    render: (record) => formatChildCell(record, column, employeeRelatedLookups[column.key]),
-                  }))}
-                  records={filteredEmployeeRelatedRecords}
-                  isLoading={isLoadingEmployeeRelatedRecords}
-                  selectedId={selectedEmployeeRelatedRecordId}
-                  onSelect={handleSelectEmployeeRelatedRecord}
-                  searchTerm={employeeRelatedSearchTerm}
-                  onSearch={setEmployeeRelatedSearchTerm}
-                  onNew={handleNewEmployeeRelated}
-                  newDisabled={!selectedEmployeeId}
-                  variant="child"
-                />
-              )}
-            </section>
-          ) : null}
         </section>
 
-        <div className="split-form-stack">
-        <form
-          className={`registration-form split-form-panel company-form-panel ${isEmployeeFieldsCollapsed ? 'collapsed' : ''}`}
-          onSubmit={handleSaveEmployee}
+        {selectedEmployeeId !== null ? (
+          <section className="data-grid-section">
+            {employeeRelatedConfig ? (
+              <RegistrationGrid<CompanyChildRecord>
+                ariaLabel={employeeRelatedConfig.title}
+                label={employeeRelatedConfig.label}
+                columns={employeeRelatedConfig.columns.map((column) => ({
+                  label: column.label,
+                  render: (record) => formatChildCell(record, column, employeeRelatedLookups[column.key]),
+                }))}
+                records={filteredEmployeeRelatedRecords}
+                isLoading={isLoadingEmployeeRelatedRecords}
+                selectedId={selectedEmployeeRelatedRecordId}
+                onSelect={handleSelectEmployeeRelatedRecord}
+                onEdit={handleEditEmployeeRelated}
+                searchTerm={employeeRelatedSearchTerm}
+                onSearch={setEmployeeRelatedSearchTerm}
+                onNew={handleNewEmployeeRelated}
+                newDisabled={!selectedEmployeeId}
+                variant="child"
+              />
+            ) : null}
+          </section>
+        ) : null}
+
+        <RegistrationDrawer
+          isOpen={isDrawerOpen}
+          title={drawerMode === 'employee' ? (isCreating ? 'Novo Funcionário' : 'Editar Funcionário') : 'Arquivo do Funcionário'}
+          onClose={() => setIsDrawerOpen(false)}
         >
-          <div className="collapsible-panel-header">
-            <div>
-              <p className="section-label">Cadastro de Funcionário</p>
-            </div>
-            <button
-              aria-expanded={!isEmployeeFieldsCollapsed}
-              className="secondary-button"
-              onClick={() => setIsEmployeeFieldsCollapsed((current) => !current)}
-              type="button"
-            >
-              {isEmployeeFieldsCollapsed ? '+' : '-'}
-            </button>
-          </div>
-
-          {!isEmployeeFieldsCollapsed ? (
-            <>
-              {!isFormEnabled ? (
-                <div className="form-hint">
-                  Selecione um funcionário acima para editar ou clique em Novo.
-                </div>
-              ) : null}
-
-              {feedback ? <div className="form-feedback">{feedback}</div> : null}
-
-              <div className="company-child-fields">
-                <RegistrationField error={employeeErrors.name} htmlFor="employeeName" label="Nome do funcionário" required touched={touchedEmployeeFields.name}>
-                  <input
-                    className={touchedEmployeeFields.name && employeeErrors.name ? 'invalid' : ''}
-                    disabled={!isFormEnabled}
-                    id="employeeName"
-                    maxLength={255}
-                    onBlur={() => validateEmployeeField('name')}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setEmployeeName(value);
-
-                      if (touchedEmployeeFields.name) {
-                        setEmployeeErrors((current) => ({
-                          ...current,
-                          name: value.trim() ? undefined : 'Informe o nome do funcionário.',
-                        }));
-                      }
-                    }}
-                    placeholder="Ex.: Joao Souza"
-                    ref={nameInputRef}
-                    type="text"
-                    value={employeeName}
-                  />
-                </RegistrationField>
-
-                <RegistrationField error={employeeErrors.cpf} htmlFor="employeeCpf" label="CPF" required touched={touchedEmployeeFields.cpf}>
-                  <input
-                    className={touchedEmployeeFields.cpf && employeeErrors.cpf ? 'invalid' : ''}
-                    disabled={!isFormEnabled}
-                    id="employeeCpf"
-                    maxLength={14}
-                    onBlur={() => validateEmployeeField('cpf')}
-                    onChange={(event) => {
-                      const formattedCpf = formatCpf(event.target.value);
-                      setEmployeeCpf(formattedCpf);
-
-                      if (touchedEmployeeFields.cpf) {
-                        setEmployeeErrors((current) => ({
-                          ...current,
-                          cpf: isValidCpf(formattedCpf) ? undefined : 'Informe um CPF válido.',
-                        }));
-                      }
-                    }}
-                    placeholder="000.000.000-00"
-                    ref={cpfInputRef}
-                    type="text"
-                    value={employeeCpf}
-                  />
-                </RegistrationField>
-
-                <RegistrationField htmlFor="employeeCompany" label="Empresa">
-                  <select
-                    disabled={!isFormEnabled}
-                    id="employeeCompany"
-                    onChange={(event) => setSelectedCompanyId(event.target.value)}
-                    value={selectedCompanyId}
-                  >
-                    <option value="">Selecione</option>
-                    {companies.map((company) => (
-                      <option key={company.id} value={company.id}>
-                        {company.dsEmpresa}
-                      </option>
-                    ))}
-                  </select>
-                </RegistrationField>
-
-                <RegistrationField htmlFor="employeeRole" label="Cargo">
-                  <select
-                    disabled={!isFormEnabled}
-                    id="employeeRole"
-                    onChange={(event) => setSelectedRoleId(event.target.value)}
-                    value={selectedRoleId}
-                  >
-                    <option value="">Selecione</option>
-                    {roles.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.dsCargo}
-                      </option>
-                    ))}
-                  </select>
-                </RegistrationField>
-
-                <RegistrationField error={employeeErrors.birthDate} htmlFor="employeeBirthDate" label="Nascimento" touched={touchedEmployeeFields.birthDate}>
-                  <input
-                    className={
-                      touchedEmployeeFields.birthDate && employeeErrors.birthDate
-                        ? 'invalid'
-                        : ''
-                    }
-                    disabled={!isFormEnabled}
-                    id="employeeBirthDate"
-                    max={new Date().toISOString().slice(0, 10)}
-                    onBlur={() => validateEmployeeField('birthDate')}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setEmployeeBirthDate(value);
-
-                      if (touchedEmployeeFields.birthDate) {
-                        setEmployeeErrors((current) => ({
-                          ...current,
-                          birthDate:
-                            !value || isValidPastDate(value)
-                              ? undefined
-                              : 'Informe uma data de nascimento valida.',
-                        }));
-                      }
-                    }}
-                    ref={birthDateInputRef}
-                    type="date"
-                    value={employeeBirthDate}
-                  />
-                </RegistrationField>
-
-                <RegistrationField error={employeeErrors.admissionDate} htmlFor="employeeAdmissionDate" label="Admissao" touched={touchedEmployeeFields.admissionDate}>
-                  <input
-                    className={
-                      touchedEmployeeFields.admissionDate && employeeErrors.admissionDate
-                        ? 'invalid'
-                        : ''
-                    }
-                    disabled={!isFormEnabled}
-                    id="employeeAdmissionDate"
-                    onBlur={() => validateEmployeeField('admissionDate')}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setEmployeeAdmissionDate(value);
-
-                      if (touchedEmployeeFields.admissionDate) {
-                        setEmployeeErrors((current) => ({
-                          ...current,
-                          admissionDate:
-                            !value || isValidDateInput(value)
-                              ? undefined
-                              : 'Informe uma data de admissao valida.',
-                        }));
-                      }
-                    }}
-                    ref={admissionDateInputRef}
-                    type="date"
-                    value={employeeAdmissionDate}
-                  />
-                </RegistrationField>
-
-                <RegistrationField error={employeeErrors.ddd} htmlFor="employeeDdd" label="DDD" touched={touchedEmployeeFields.ddd}>
-                  <input
-                    className={touchedEmployeeFields.ddd && employeeErrors.ddd ? 'invalid' : ''}
-                    disabled={!isFormEnabled}
-                    id="employeeDdd"
-                    maxLength={2}
-                    onBlur={() => validateEmployeeField('ddd')}
-                    onChange={(event) => {
-                      const value = onlyDigits(event.target.value).slice(0, 2);
-                      setEmployeeDdd(value);
-
-                      if (touchedEmployeeFields.ddd || touchedEmployeeFields.phone) {
-                        const phone = onlyDigits(employeePhone);
-                        setEmployeeErrors((current) => ({
-                          ...current,
-                          ddd:
-                            phone && !value
-                              ? 'Informe o DDD do contato.'
-                              : value && value.length !== 2
-                                ? 'Informe o DDD com 2 digitos.'
-                                : undefined,
-                          phone:
-                            value && !phone
-                              ? 'Informe o contato.'
-                              : current.phone,
-                        }));
-                      }
-                    }}
-                    placeholder="11"
-                    ref={dddInputRef}
-                    type="text"
-                    value={employeeDdd}
-                  />
-                </RegistrationField>
-
-                <RegistrationField error={employeeErrors.phone} htmlFor="employeePhone" label="Contato" touched={touchedEmployeeFields.phone}>
-                  <input
-                    className={touchedEmployeeFields.phone && employeeErrors.phone ? 'invalid' : ''}
-                    disabled={!isFormEnabled}
-                    id="employeePhone"
-                    maxLength={10}
-                    onBlur={() => validateEmployeeField('phone')}
-                    onChange={(event) => {
-                      const formattedPhone = formatPhone(event.target.value);
-                      const phone = onlyDigits(formattedPhone);
-                      setEmployeePhone(formattedPhone);
-
-                      if (touchedEmployeeFields.phone || touchedEmployeeFields.ddd) {
-                        setEmployeeErrors((current) => ({
-                          ...current,
-                          ddd:
-                            phone && !employeeDdd
-                              ? 'Informe o DDD do contato.'
-                              : current.ddd,
-                          phone:
-                            phone && phone.length !== 8 && phone.length !== 9
-                              ? 'Informe um contato com 8 ou 9 digitos.'
-                              : employeeDdd && !phone
-                                ? 'Informe o contato.'
-                                : undefined,
-                        }));
-                      }
-                    }}
-                    placeholder="00000-0000"
-                    ref={phoneInputRef}
-                    type="text"
-                    value={employeePhone}
-                  />
-                </RegistrationField>
-
-                <RegistrationField error={employeeErrors.email} htmlFor="employeeEmail" label="Email" touched={touchedEmployeeFields.email}>
-                  <input
-                    className={touchedEmployeeFields.email && employeeErrors.email ? 'invalid' : ''}
-                    disabled={!isFormEnabled}
-                    id="employeeEmail"
-                    maxLength={100}
-                    onBlur={() => validateEmployeeField('email')}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setEmployeeEmail(value);
-
-                      if (touchedEmployeeFields.email) {
-                        const trimmedEmail = value.trim();
-                        setEmployeeErrors((current) => ({
-                          ...current,
-                          email:
-                            trimmedEmail && !isValidEmail(trimmedEmail)
-                              ? 'Informe um email válido.'
-                              : undefined,
-                        }));
-                      }
-                    }}
-                    placeholder="profissional@email.com"
-                    ref={emailInputRef}
-                    type="email"
-                    value={employeeEmail}
-                  />
-                </RegistrationField>
-
-                <RegistrationField htmlFor="employeeStatus" label="Status">
-                  <button
-                    aria-pressed={isEmployeeActive}
-                    className={`status-toggle ${isEmployeeActive ? 'active' : ''}`}
-                    disabled={!isFormEnabled}
-                    id="employeeStatus"
-                    onClick={handleToggleEmployeeStatus}
-                    type="button"
-                  >
-                    <span>{isEmployeeActive ? 'Ativo' : 'Inativo'}</span>
-                  </button>
-                </RegistrationField>
-              </div>
-
-              <div className="form-actions">
-                <button
-                  className="secondary-button"
-                  disabled={!isFormEnabled}
-                  onClick={clearForm}
-                  type="button"
-                >
-                  Limpar
+          {drawerMode === 'employee' ? (
+            <form className="drawer-fields" onSubmit={handleSaveEmployee}>
+              {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
+              <RegistrationField error={employeeErrors.name} htmlFor="employeeName" label="Nome do funcionário" required size="full" touched={touchedEmployeeFields.name}>
+                <input className={touchedEmployeeFields.name && employeeErrors.name ? 'invalid' : ''} id="employeeName" maxLength={255} onBlur={() => validateEmployeeField('name')} onChange={(event) => { const value = event.target.value; setEmployeeName(value); if (touchedEmployeeFields.name) { setEmployeeErrors((current) => ({ ...current, name: value.trim() ? undefined : 'Informe o nome do funcionário.' })); } }} placeholder="Ex.: Joao Souza" ref={nameInputRef} type="text" value={employeeName} />
+              </RegistrationField>
+              <RegistrationField error={employeeErrors.cpf} htmlFor="employeeCpf" label="CPF" required size="md" touched={touchedEmployeeFields.cpf}>
+                <input className={touchedEmployeeFields.cpf && employeeErrors.cpf ? 'invalid' : ''} id="employeeCpf" maxLength={14} onBlur={() => validateEmployeeField('cpf')} onChange={(event) => { const formattedCpf = formatCpf(event.target.value); setEmployeeCpf(formattedCpf); if (touchedEmployeeFields.cpf) { setEmployeeErrors((current) => ({ ...current, cpf: isValidCpf(formattedCpf) ? undefined : 'Informe um CPF válido.' })); } }} placeholder="000.000.000-00" ref={cpfInputRef} type="text" value={employeeCpf} />
+              </RegistrationField>
+              <RegistrationField htmlFor="employeeCompany" label="Empresa" size="lg">
+                <select id="employeeCompany" onChange={(event) => setSelectedCompanyId(event.target.value)} value={selectedCompanyId}>
+                  <option value="">Selecione</option>
+                  {companies.map((company) => (<option key={company.id} value={company.id}>{company.dsEmpresa}</option>))}
+                </select>
+              </RegistrationField>
+              <RegistrationField htmlFor="employeeRole" label="Cargo" size="md">
+                <select id="employeeRole" onChange={(event) => setSelectedRoleId(event.target.value)} value={selectedRoleId}>
+                  <option value="">Selecione</option>
+                  {roles.map((role) => (<option key={role.id} value={role.id}>{role.dsCargo}</option>))}
+                </select>
+              </RegistrationField>
+              <RegistrationField error={employeeErrors.birthDate} htmlFor="employeeBirthDate" label="Nascimento" size="sm" touched={touchedEmployeeFields.birthDate}>
+                <input className={touchedEmployeeFields.birthDate && employeeErrors.birthDate ? 'invalid' : ''} id="employeeBirthDate" max={new Date().toISOString().slice(0, 10)} onBlur={() => validateEmployeeField('birthDate')} onChange={(event) => { const value = event.target.value; setEmployeeBirthDate(value); if (touchedEmployeeFields.birthDate) { setEmployeeErrors((current) => ({ ...current, birthDate: !value || isValidPastDate(value) ? undefined : 'Informe uma data de nascimento valida.' })); } }} ref={birthDateInputRef} type="date" value={employeeBirthDate} />
+              </RegistrationField>
+              <RegistrationField error={employeeErrors.admissionDate} htmlFor="employeeAdmissionDate" label="Admissão" size="sm" touched={touchedEmployeeFields.admissionDate}>
+                <input className={touchedEmployeeFields.admissionDate && employeeErrors.admissionDate ? 'invalid' : ''} id="employeeAdmissionDate" onBlur={() => validateEmployeeField('admissionDate')} onChange={(event) => { const value = event.target.value; setEmployeeAdmissionDate(value); if (touchedEmployeeFields.admissionDate) { setEmployeeErrors((current) => ({ ...current, admissionDate: !value || isValidDateInput(value) ? undefined : 'Informe uma data de admissao valida.' })); } }} ref={admissionDateInputRef} type="date" value={employeeAdmissionDate} />
+              </RegistrationField>
+              <RegistrationField error={employeeErrors.ddd} htmlFor="employeeDdd" label="DDD" size="xs" touched={touchedEmployeeFields.ddd}>
+                <input className={touchedEmployeeFields.ddd && employeeErrors.ddd ? 'invalid' : ''} id="employeeDdd" maxLength={2} onBlur={() => validateEmployeeField('ddd')} onChange={(event) => { const value = onlyDigits(event.target.value).slice(0, 2); setEmployeeDdd(value); if (touchedEmployeeFields.ddd || touchedEmployeeFields.phone) { const phone = onlyDigits(employeePhone); setEmployeeErrors((current) => ({ ...current, ddd: phone && !value ? 'Informe o DDD do contato.' : value && value.length !== 2 ? 'Informe o DDD com 2 digitos.' : undefined, phone: value && !phone ? 'Informe o contato.' : current.phone })); } }} placeholder="11" ref={dddInputRef} type="text" value={employeeDdd} />
+              </RegistrationField>
+              <RegistrationField error={employeeErrors.phone} htmlFor="employeePhone" label="Contato" size="sm" touched={touchedEmployeeFields.phone}>
+                <input className={touchedEmployeeFields.phone && employeeErrors.phone ? 'invalid' : ''} id="employeePhone" maxLength={10} onBlur={() => validateEmployeeField('phone')} onChange={(event) => { const formattedPhone = formatPhone(event.target.value); const phone = onlyDigits(formattedPhone); setEmployeePhone(formattedPhone); if (touchedEmployeeFields.phone || touchedEmployeeFields.ddd) { setEmployeeErrors((current) => ({ ...current, ddd: phone && !employeeDdd ? 'Informe o DDD do contato.' : current.ddd, phone: phone && phone.length !== 8 && phone.length !== 9 ? 'Informe um contato com 8 ou 9 digitos.' : employeeDdd && !phone ? 'Informe o contato.' : undefined })); } }} placeholder="00000-0000" ref={phoneInputRef} type="text" value={employeePhone} />
+              </RegistrationField>
+              <RegistrationField error={employeeErrors.email} htmlFor="employeeEmail" label="Email" size="lg" touched={touchedEmployeeFields.email}>
+                <input className={touchedEmployeeFields.email && employeeErrors.email ? 'invalid' : ''} id="employeeEmail" maxLength={100} onBlur={() => validateEmployeeField('email')} onChange={(event) => { const value = event.target.value; setEmployeeEmail(value); if (touchedEmployeeFields.email) { const trimmedEmail = value.trim(); setEmployeeErrors((current) => ({ ...current, email: trimmedEmail && !isValidEmail(trimmedEmail) ? 'Informe um email válido.' : undefined })); } }} placeholder="profissional@email.com" ref={emailInputRef} type="email" value={employeeEmail} />
+              </RegistrationField>
+              <RegistrationField htmlFor="employeeStatus" label="Status" size="sm">
+                <button aria-pressed={isEmployeeActive} className={`status-toggle ${isEmployeeActive ? 'active' : ''}`} id="employeeStatus" onClick={handleToggleEmployeeStatus} type="button">
+                  <span>{isEmployeeActive ? 'Ativo' : 'Inativo'}</span>
                 </button>
-                <button disabled={!isFormEnabled} type="submit">
-                  <Save size={16} />
-                  Salvar funcionário
-                </button>
+              </RegistrationField>
+              <div className="form-actions" style={{ flex: '1 1 100%' }}>
+                <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
+                <button type="submit"><Save size={16} />Salvar funcionário</button>
               </div>
-            </>
-          ) : null}
-        </form>
-
-          {employeeRelatedConfig ? (
-            <section className="company-child-grid-section child-grid-mobile">
-              {!selectedEmployeeId ? (
-                <div className="form-hint">
-                  Selecione um funcionario para visualizar os registros relacionados.
-                </div>
-              ) : (
-                <RegistrationGrid<CompanyChildRecord>
-                  ariaLabel={employeeRelatedConfig.title}
-                  label={employeeRelatedConfig.label}
-                  columns={employeeRelatedConfig.columns.map((column) => ({
-                    label: column.label,
-                    render: (record) => formatChildCell(record, column, employeeRelatedLookups[column.key]),
-                  }))}
-                  records={filteredEmployeeRelatedRecords}
-                  isLoading={isLoadingEmployeeRelatedRecords}
-                  selectedId={selectedEmployeeRelatedRecordId}
-                  onSelect={handleSelectEmployeeRelatedRecord}
-                  searchTerm={employeeRelatedSearchTerm}
-                  onSearch={setEmployeeRelatedSearchTerm}
-                  onNew={handleNewEmployeeRelated}
-                  newDisabled={!selectedEmployeeId}
-                  variant="child"
-                />
-              )}
-            </section>
-          ) : null}
-
-          {employeeRelatedConfig ? (
-            <form
-              className={`registration-form split-form-panel company-child-form-panel ${isEmployeeRelatedFieldsCollapsed ? 'collapsed' : ''}`}
-              onSubmit={handleSaveEmployeeRelated}
-            >
-              <div className="collapsible-panel-header">
-                <div>
-                  <p className="section-label">{employeeRelatedConfig.label}</p>
-                </div>
-                <button
-                  aria-expanded={!isEmployeeRelatedFieldsCollapsed}
-                  className="secondary-button"
-                  onClick={() => setIsEmployeeRelatedFieldsCollapsed((current) => !current)}
-                  type="button"
-                >
-                  {isEmployeeRelatedFieldsCollapsed ? '+' : '-'}
-                </button>
-              </div>
-
-              {!isEmployeeRelatedFieldsCollapsed ? (
-                <>
-                  {employeeRelatedFeedback ? (
-                    <div className="form-feedback">{employeeRelatedFeedback}</div>
-                  ) : null}
-
-                  {employeeRelatedConfig.key === 'files' ? (
-                    <>
-                      <div className="company-child-fields">
-                        <RegistrationField htmlFor="employeeFileType" label="Tipo de arquivo">
-                          <select
-                            disabled={!selectedEmployeeId || isUploadingEmployeeFile}
-                            id="employeeFileType"
-                            onChange={(event) =>
-                              setEmployeeRelatedFormValues((current) => ({
-                                ...current,
-                                idTiposArquivos: event.target.value,
-                              }))
-                            }
-                            value={employeeRelatedFormValues.idTiposArquivos ?? ''}
-                          >
-                            <option value="">Selecione</option>
-                            {(employeeRelatedLookups.idTiposArquivos ?? []).map((option) => (
-                              <option key={option.id} value={option.id}>
-                                {getLookupLabel(option, employeeRelatedConfig.fields.find((field) => field.key === 'idTiposArquivos') ?? employeeRelatedConfig.fields[0]!)}
-                              </option>
-                            ))}
-                          </select>
-                        </RegistrationField>
-
-                        <RegistrationField htmlFor="employeeFileName" label="Arquivo selecionado">
-                          <input
-                            disabled
-                            id="employeeFileName"
-                            type="text"
-                            value={
-                              selectedEmployeeRelatedRecordId
-                                ? String(employeeRelatedRecords.find((record) => record.id === selectedEmployeeRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedEmployeeRelatedRecordId}`)
-                                : 'Selecione no grid ou clique em Novo'
-                            }
-                          />
-                        </RegistrationField>
-                      </div>
-
-                      <RegistrationField htmlFor="employeeFile" label={selectedEmployeeRelatedRecordId && !isCreatingEmployeeRelated ? 'Alterar arquivo' : 'Arquivo'}>
-                        <input
-                          disabled={!selectedEmployeeId || isUploadingEmployeeFile}
-                          id="employeeFile"
-                          onChange={(event) => void handleUploadEmployeeFile(event.target.files?.[0] ?? null)}
-                          ref={employeeFileInputRef}
-                          type="file"
-                        />
-                      </RegistrationField>
-
-                      {selectedEmployeeRelatedRecordId ? (
-                        <div className="student-files-list">
-                          <div className="student-file-row">
-                            {employeeFilePreviewUrls[selectedEmployeeRelatedRecordId] ? (
-                              <button className="file-preview-button" onClick={() => void handleOpenEmployeeFile(selectedEmployeeRelatedRecordId)} type="button">
-                                <img
-                                  alt={String(employeeRelatedRecords.find((record) => record.id === selectedEmployeeRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedEmployeeRelatedRecordId}`)}
-                                  className="student-file-preview"
-                                  src={employeeFilePreviewUrls[selectedEmployeeRelatedRecordId]}
-                                />
-                              </button>
-                            ) : null}
-                            <div className="student-file-row-info">
-                              <strong>{String(employeeRelatedRecords.find((record) => record.id === selectedEmployeeRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedEmployeeRelatedRecordId}`)}</strong>
-                            </div>
-                            <div className="student-file-actions">
-                              <button className="secondary-button" onClick={() => void handleOpenEmployeeFile(selectedEmployeeRelatedRecordId)} type="button">
-                                Visualizar
-                              </button>
-                              <button className="secondary-button" onClick={() => employeeFileInputRef.current?.click()} type="button">
-                                Alterar
-                              </button>
-                              <button className="danger" onClick={() => void handleRemoveEmployeeFile(selectedEmployeeRelatedRecordId)} type="button">
-                                Remover
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : selectedEmployeeId ? (
-                        <div className="form-hint">Selecione um arquivo no grid para visualizar ou alterar.</div>
-                      ) : null}
-                    </>
-                  ) : (
-                    <>
-                      {!isEmployeeRelatedFormEnabled ? (
-                        <div className="form-hint">
-                          Selecione um registro relacionado acima ou clique em Novo.
-                        </div>
-                      ) : null}
-
-                      <div className="company-child-fields" ref={employeeRelatedFormRef}>
-                        {employeeRelatedConfig.fields.map((field) => (
-                          <RegistrationField htmlFor={`employeeRelated-${field.key}`} key={field.key} label={field.label} required={field.required}>
-                            {field.lookupEndpoint ? (
-                              <select
-                                disabled={!isEmployeeRelatedFormEnabled}
-                                id={`employeeRelated-${field.key}`}
-                                onChange={(event) =>
-                                  setEmployeeRelatedFormValues((current) => ({
-                                    ...current,
-                                    [field.key]: event.target.value,
-                                  }))
-                                }
-                                required={field.required}
-                                value={employeeRelatedFormValues[field.key] ?? ''}
-                              >
-                                <option value="">Selecione</option>
-                                {(employeeRelatedLookups[field.key] ?? []).map((option) => (
-                                  <option key={option.id} value={option.id}>
-                                    {getLookupLabel(option, field)}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <input
-                                disabled={!isEmployeeRelatedFormEnabled}
-                                id={`employeeRelated-${field.key}`}
-                                onChange={(event) =>
-                                  setEmployeeRelatedFormValues((current) => ({
-                                    ...current,
-                                    [field.key]: event.target.value,
-                                  }))
-                                }
-                                required={field.required}
-                                type={field.type}
-                                value={employeeRelatedFormValues[field.key] ?? ''}
-                              />
-                            )}
-                          </RegistrationField>
-                        ))}
-                      </div>
-
-                      <RegistrationField htmlFor="employeeRelatedStatus" label="Status">
-                        <button
-                          aria-pressed={isEmployeeRelatedActive}
-                          className={`status-toggle ${isEmployeeRelatedActive ? 'active' : ''}`}
-                          disabled={!isEmployeeRelatedFormEnabled}
-                          id="employeeRelatedStatus"
-                          onClick={handleToggleEmployeeRelatedStatus}
-                          type="button"
-                        >
-                          <span>{isEmployeeRelatedActive ? 'Ativo' : 'Inativo'}</span>
-                        </button>
-                      </RegistrationField>
-
-                      <div className="form-actions">
-                        <button
-                          className="secondary-button"
-                          disabled={!selectedEmployeeId}
-                          onClick={clearEmployeeRelatedForm}
-                          type="button"
-                        >
-                          Limpar
-                        </button>
-                        <button disabled={!isEmployeeRelatedFormEnabled} type="submit">
-                          <Save size={16} />
-                          Salvar {employeeRelatedConfig.label}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : null}
             </form>
-          ) : null}
-        </div>
-
-        <RegistrationTabs
-          tabs={employeeRelatedTables}
-          activeTab={selectedEmployeeRelatedTable}
-          onTabChange={handleSelectEmployeeRelatedTable}
-          icons={employeeTabIcons}
-          ariaLabel="Tabelas relacionadas do funcionário"
-        />
+          ) : (
+            <form className="drawer-fields" onSubmit={handleSaveEmployeeRelated}>
+              {employeeRelatedFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{employeeRelatedFeedback}</div> : null}
+              <RegistrationField htmlFor="employeeFileType" label="Tipo de arquivo" size="md">
+                <select disabled={!selectedEmployeeId || isUploadingEmployeeFile} id="employeeFileType" onChange={(event) => setEmployeeRelatedFormValues((current) => ({ ...current, idTiposArquivos: event.target.value }))} value={employeeRelatedFormValues.idTiposArquivos ?? ''}>
+                  <option value="">Selecione</option>
+                  {(employeeRelatedLookups.idTiposArquivos ?? []).map((option) => (<option key={option.id} value={option.id}>{getLookupLabel(option, employeeRelatedConfig?.fields.find((field) => field.key === 'idTiposArquivos') ?? employeeRelatedConfig?.fields[0]!)}</option>))}
+                </select>
+              </RegistrationField>
+              <RegistrationField htmlFor="employeeFileName" label="Arquivo selecionado" size="full">
+                <input disabled id="employeeFileName" type="text" value={selectedEmployeeRelatedRecordId ? String(employeeRelatedRecords.find((record) => record.id === selectedEmployeeRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedEmployeeRelatedRecordId}`) : 'Selecione no grid ou clique em Novo'} />
+              </RegistrationField>
+              <RegistrationField htmlFor="employeeFile" label={selectedEmployeeRelatedRecordId && !isCreatingEmployeeRelated ? 'Alterar arquivo' : 'Arquivo'} size="full">
+                <input disabled={!selectedEmployeeId || isUploadingEmployeeFile} id="employeeFile" onChange={(event) => void handleUploadEmployeeFile(event.target.files?.[0] ?? null)} ref={employeeFileInputRef} type="file" />
+              </RegistrationField>
+              {selectedEmployeeRelatedRecordId ? (
+                <div className="student-files-list" style={{ flex: '1 1 100%' }}>
+                  <div className="student-file-row">
+                    {employeeFilePreviewUrls[selectedEmployeeRelatedRecordId] ? (
+                      <button className="file-preview-button" onClick={() => void handleOpenEmployeeFile(selectedEmployeeRelatedRecordId)} type="button">
+                        <img alt={String(employeeRelatedRecords.find((record) => record.id === selectedEmployeeRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedEmployeeRelatedRecordId}`)} className="student-file-preview" src={employeeFilePreviewUrls[selectedEmployeeRelatedRecordId]} />
+                      </button>
+                    ) : null}
+                    <div className="student-file-row-info">
+                      <strong>{String(employeeRelatedRecords.find((record) => record.id === selectedEmployeeRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedEmployeeRelatedRecordId}`)}</strong>
+                    </div>
+                    <div className="student-file-actions">
+                      <button className="secondary-button" onClick={() => void handleOpenEmployeeFile(selectedEmployeeRelatedRecordId)} type="button">Visualizar</button>
+                      <button className="secondary-button" onClick={() => employeeFileInputRef.current?.click()} type="button">Alterar</button>
+                      <button className="danger" onClick={() => void handleRemoveEmployeeFile(selectedEmployeeRelatedRecordId)} type="button">Remover</button>
+                    </div>
+                  </div>
+                </div>
+              ) : selectedEmployeeId ? (
+                <div className="form-hint">Selecione um arquivo no grid para visualizar ou alterar.</div>
+              ) : null}
+              <div className="form-actions" style={{ flex: '1 1 100%' }}>
+                <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
+              </div>
+            </form>
+          )}
+        </RegistrationDrawer>
       </div>
       {employeeFileModal ? (
         <div className="file-modal-overlay" role="dialog" aria-modal="true">

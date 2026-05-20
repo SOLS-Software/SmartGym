@@ -2,15 +2,13 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { FileText, Save } from 'lucide-react';
+import { Pencil, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, getLookupLabel, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
-import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import type { Company, CompanyChildRecord, CompanyChildTable, LookupRecord, Product } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
-
-const productTabIcons = { files: FileText };
 
 const productRelatedTables: CompanyChildTable[] = [
   {
@@ -36,7 +34,7 @@ const productRelatedTables: CompanyChildTable[] = [
 function normalizeText(value: unknown) {
   return String(value ?? '')
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[̀-ͯ]/g, '')
     .toLowerCase();
 }
 
@@ -47,7 +45,6 @@ function getProductFileTypeOptions(options: LookupRecord[]) {
 export function ProductRegistration() {
   const productFileInputRef = useRef<HTMLInputElement>(null);
   const productNameInputRef = useRef<HTMLInputElement | null>(null);
-  const productRelatedFormRef = useRef<HTMLDivElement | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [productsPage, setProductsPage] = useState(1);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -59,7 +56,7 @@ export function ProductRegistration() {
   const [productStock, setProductStock] = useState('');
   const [isProductActive, setIsProductActive] = useState(false);
   const [feedback, setFeedback] = useState('');
-  const [selectedRelatedTable, setSelectedRelatedTable] = useState('');
+  const selectedRelatedTable = 'files';
   const [relatedRecords, setRelatedRecords] = useState<CompanyChildRecord[]>([]);
   const [isLoadingRelatedRecords, setIsLoadingRelatedRecords] = useState(false);
   const [relatedSearchTerm, setRelatedSearchTerm] = useState('');
@@ -72,12 +69,12 @@ export function ProductRegistration() {
   const [relatedFilePreviewUrls, setRelatedFilePreviewUrls] = useState<Record<number, string>>({});
   const [relatedFileModal, setRelatedFileModal] = useState<{ title: string; url: string } | null>(null);
   const [isUploadingRelatedFile, setIsUploadingRelatedFile] = useState(false);
-  const [isProductFieldsCollapsed, setIsProductFieldsCollapsed] = useState(false);
-  const [isRelatedFieldsCollapsed, setIsRelatedFieldsCollapsed] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  type DrawerMode = 'product' | 'related';
+  const [drawerMode, setDrawerMode] = useState<DrawerMode>('product');
   const isFormEnabled = selectedProductId !== null || isCreating;
   const relatedConfig = productRelatedTables.find((table) => table.key === selectedRelatedTable) ?? null;
   const productFileTypeOptions = getProductFileTypeOptions(relatedLookups.idTiposArquivos ?? []);
-  const isRelatedFormEnabled = Boolean(selectedProductId) && (selectedRelatedRecordId !== null || isCreatingRelated);
   const filteredRelatedRecords = relatedRecords.filter((record) =>
     relatedConfig
       ? relatedConfig.columns.some((column) =>
@@ -85,13 +82,9 @@ export function ProductRegistration() {
       )
       : false,
   );
-  const filteredProducts = products.filter((product) => {
-    if (selectedRelatedTable && selectedProductId !== null) {
-      return product.id === selectedProductId;
-    }
-
-    return product.dsProduto.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  const filteredProducts = products.filter((product) =>
+    product.dsProduto.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
   const productsTotalPages = Math.max(1, Math.ceil(filteredProducts.length / GRID_PAGE_SIZE));
   const paginatedProducts = paginateItems(filteredProducts, productsPage);
 
@@ -259,9 +252,9 @@ export function ProductRegistration() {
     setIsCreating(true);
     setProductStock('0');
     setIsProductActive(true);
-    setIsProductFieldsCollapsed(false);
-    setIsRelatedFieldsCollapsed(true);
     setTimeout(() => productNameInputRef.current?.focus(), 0);
+    setDrawerMode('product');
+    setIsDrawerOpen(true);
   }
 
   function handleSelectProduct(product: Product) {
@@ -278,13 +271,12 @@ export function ProductRegistration() {
     setIsProductActive(product.boInativo === 0);
     setFeedback('');
     setRelatedFeedback('');
-    setIsProductFieldsCollapsed(false);
-    setIsRelatedFieldsCollapsed(true);
   }
 
-  function handleSelectRelatedTable(tableKey: string) {
-    setSelectedRelatedTable(tableKey);
-    setRelatedFeedback('');
+  function handleEditProduct(product: Product) {
+    handleSelectProduct(product);
+    setDrawerMode('product');
+    setIsDrawerOpen(true);
   }
 
   function clearRelatedForm() {
@@ -301,9 +293,8 @@ export function ProductRegistration() {
     setRelatedFormValues({});
     setIsRelatedActive(true);
     setRelatedFeedback('');
-    setIsProductFieldsCollapsed(true);
-    setIsRelatedFieldsCollapsed(false);
-    setTimeout(() => { productRelatedFormRef.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled])')?.focus(); }, 0);
+    setDrawerMode('related');
+    setIsDrawerOpen(true);
   }
 
   function handleSelectRelatedRecord(record: CompanyChildRecord) {
@@ -321,8 +312,12 @@ export function ProductRegistration() {
     setRelatedFormValues(values);
     setIsRelatedActive(Number(record.boInativo ?? 0) === 0);
     setRelatedFeedback('');
-    setIsProductFieldsCollapsed(true);
-    setIsRelatedFieldsCollapsed(false);
+  }
+
+  function handleEditRelated(record: CompanyChildRecord) {
+    handleSelectRelatedRecord(record);
+    setDrawerMode('related');
+    setIsDrawerOpen(true);
   }
 
   async function handleToggleStatus() {
@@ -389,6 +384,7 @@ export function ProductRegistration() {
       setSelectedProductId(savedProduct.id);
       setIsCreating(false);
       setFeedback('Produto salvo com sucesso.');
+      setIsDrawerOpen(false);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar.');
     }
@@ -480,6 +476,7 @@ export function ProductRegistration() {
       setSelectedRelatedRecordId(saved.id);
       setIsCreatingRelated(false);
       setRelatedFeedback(`${relatedConfig.label} salvo com sucesso.`);
+      setIsDrawerOpen(false);
     } catch (error) {
       setRelatedFeedback(error instanceof Error ? error.message : 'Erro ao salvar registro relacionado.');
     }
@@ -520,6 +517,7 @@ export function ProductRegistration() {
         idTiposArquivos: saved.idTiposArquivos ? String(saved.idTiposArquivos) : '',
       });
       setRelatedFeedback(isReplacingFile ? 'Arquivo alterado com sucesso.' : 'Arquivo enviado com sucesso.');
+      setIsDrawerOpen(false);
     } catch (error) {
       setRelatedFeedback(error instanceof Error ? error.message : 'Erro ao enviar arquivo.');
     } finally {
@@ -576,7 +574,7 @@ export function ProductRegistration() {
         <p className="section-label">Estoque</p>
       </div>
 
-      <div className="registration-split-layout plan-split-layout">
+      <div className={`training-page-layout${selectedProductId !== null ? ' has-exercises' : ''}`}>
         <section className="data-grid-section company-grid-section">
           <RegistrationGrid<Product>
             ariaLabel="Produtos cadastrados"
@@ -589,6 +587,7 @@ export function ProductRegistration() {
             records={paginatedProducts}
             selectedId={selectedProductId}
             onSelect={handleSelectProduct}
+            onEdit={handleEditProduct}
             searchTerm={searchTerm}
             onSearch={setSearchTerm}
             searchPlaceholder="Buscar produto"
@@ -597,341 +596,103 @@ export function ProductRegistration() {
             totalItems={filteredProducts.length}
             onPageChange={setProductsPage}
           />
-
-          {relatedConfig ? (
-            <section className="company-child-grid-section child-grid-desktop">
-              {!selectedProductId ? (
-                <div className="form-hint">Selecione um produto para visualizar os registros relacionados.</div>
-              ) : (
-                <RegistrationGrid<CompanyChildRecord>
-                  ariaLabel={relatedConfig.title}
-                  label={relatedConfig.label}
-                  columns={relatedConfig.columns.map((column) => ({
-                    label: column.label,
-                    render: (record) => formatChildCell(record, column, relatedLookups[column.key]),
-                  }))}
-                  records={filteredRelatedRecords}
-                  isLoading={isLoadingRelatedRecords}
-                  selectedId={selectedRelatedRecordId}
-                  onSelect={handleSelectRelatedRecord}
-                  searchTerm={relatedSearchTerm}
-                  onSearch={setRelatedSearchTerm}
-                  onNew={handleNewRelated}
-                  newDisabled={!selectedProductId}
-                  variant="child"
-                />
-              )}
-            </section>
-          ) : null}
         </section>
 
-        <div className="split-form-stack">
-          <form
-            className={`registration-form split-form-panel company-form-panel ${isProductFieldsCollapsed ? 'collapsed' : ''}`}
-            onSubmit={handleSaveProduct}
-          >
-            <div className="collapsible-panel-header">
-              <div>
-                <p className="section-label">Cadastro de Produto</p>
-              </div>
-              <button
-                aria-expanded={!isProductFieldsCollapsed}
-                className="secondary-button"
-                onClick={() => setIsProductFieldsCollapsed((current) => !current)}
-                type="button"
-              >
-                {isProductFieldsCollapsed ? '+' : '-'}
-              </button>
-            </div>
+        {selectedProductId !== null ? (
+          <section className="data-grid-section">
+            <RegistrationGrid<CompanyChildRecord>
+              ariaLabel={relatedConfig?.title ?? 'Arquivos do produto'}
+              label={relatedConfig?.label ?? 'Arquivos'}
+              columns={(relatedConfig?.columns ?? []).map((column) => ({
+                label: column.label,
+                render: (record) => formatChildCell(record, column, relatedLookups[column.key]),
+              }))}
+              records={filteredRelatedRecords}
+              isLoading={isLoadingRelatedRecords}
+              selectedId={selectedRelatedRecordId}
+              onSelect={handleSelectRelatedRecord}
+              onEdit={handleEditRelated}
+              searchTerm={relatedSearchTerm}
+              onSearch={setRelatedSearchTerm}
+              onNew={handleNewRelated}
+              newDisabled={!selectedProductId}
+              variant="child"
+            />
+          </section>
+        ) : null}
 
-            {!isProductFieldsCollapsed ? (
-              <>
-                {!isFormEnabled ? (
-                  <div className="form-hint">Selecione um produto acima para editar ou clique em Novo.</div>
-                ) : null}
-
-                {feedback ? <div className="form-feedback">{feedback}</div> : null}
-
-                <RegistrationField htmlFor="idEmpresa" label="Empresa">
-                  <select
-                    disabled={!isFormEnabled}
-                    id="idEmpresa"
-                    name="idEmpresa"
-                    onChange={(event) => setSelectedCompanyId(event.target.value)}
-                    value={selectedCompanyId}
-                  >
-                    <option value="">Sem empresa</option>
-                    {companies.map((company) => (
-                      <option key={company.id} value={company.id}>
-                        {company.dsEmpresa}
-                      </option>
-                    ))}
-                  </select>
-                </RegistrationField>
-
-                <RegistrationField htmlFor="dsProduto" label="Produto">
-                  <input
-                    disabled={!isFormEnabled}
-                    id="dsProduto"
-                    maxLength={255}
-                    name="dsProduto"
-                    onChange={(event) => setProductName(event.target.value)}
-                    placeholder="Ex.: Whey Protein 900g"
-                    ref={productNameInputRef}
-                    type="text"
-                    value={productName}
-                  />
-                </RegistrationField>
-
-                <div className="field two-columns">
-                  <div>
-                    <label htmlFor="qtEstoque">Quantidade em estoque</label>
-                    <input
-                      disabled={!isFormEnabled}
-                      id="qtEstoque"
-                      min="0"
-                      name="qtEstoque"
-                      onChange={(event) => setProductStock(event.target.value)}
-                      placeholder="0"
-                      type="number"
-                      value={productStock}
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="boInativo">Status</label>
-                    <input name="boInativo" type="hidden" value={isProductActive ? '0' : '1'} />
-                    <button
-                      aria-pressed={isProductActive}
-                      className={`status-toggle ${isProductActive ? 'active' : ''}`}
-                      disabled={!isFormEnabled}
-                      onClick={handleToggleStatus}
-                      type="button"
-                    >
-                      <span>{isProductActive ? 'Ativo' : 'Inativo'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="form-actions">
-                  <button className="secondary-button" disabled={!isFormEnabled} onClick={clearForm} type="button">
-                    Limpar
-                  </button>
-                  <button disabled={!isFormEnabled} type="submit">
-                    <Save size={16} />
-                    Salvar produto
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </form>
-
-          {relatedConfig ? (
-            <section className="company-child-grid-section child-grid-mobile">
-              {!selectedProductId ? (
-                <div className="form-hint">Selecione um produto para visualizar os registros relacionados.</div>
-              ) : (
-                <RegistrationGrid<CompanyChildRecord>
-                  ariaLabel={relatedConfig.title}
-                  label={relatedConfig.label}
-                  columns={relatedConfig.columns.map((column) => ({
-                    label: column.label,
-                    render: (record) => formatChildCell(record, column, relatedLookups[column.key]),
-                  }))}
-                  records={filteredRelatedRecords}
-                  isLoading={isLoadingRelatedRecords}
-                  selectedId={selectedRelatedRecordId}
-                  onSelect={handleSelectRelatedRecord}
-                  searchTerm={relatedSearchTerm}
-                  onSearch={setRelatedSearchTerm}
-                  onNew={handleNewRelated}
-                  newDisabled={!selectedProductId}
-                  variant="child"
-                />
-              )}
-            </section>
-          ) : null}
-
-          {relatedConfig ? (
-            <form
-              className={`registration-form split-form-panel company-child-form-panel ${isRelatedFieldsCollapsed ? 'collapsed' : ''}`}
-              onSubmit={handleSaveRelated}
-            >
-              <div className="collapsible-panel-header">
-                <div>
-                  <p className="section-label">{relatedConfig.label}</p>
-                </div>
-                <button
-                  aria-expanded={!isRelatedFieldsCollapsed}
-                  className="secondary-button"
-                  onClick={() => setIsRelatedFieldsCollapsed((current) => !current)}
-                  type="button"
-                >
-                  {isRelatedFieldsCollapsed ? '+' : '-'}
+        <RegistrationDrawer
+          isOpen={isDrawerOpen}
+          title={drawerMode === 'product' ? (isCreating ? 'Novo Produto' : 'Editar Produto') : 'Arquivo do Produto'}
+          onClose={() => { setIsDrawerOpen(false); }}
+        >
+          {drawerMode === 'product' ? (
+            <form className="drawer-fields" onSubmit={handleSaveProduct}>
+              {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
+              <RegistrationField htmlFor="idEmpresa" label="Empresa" size="lg">
+                <select disabled={!isFormEnabled} id="idEmpresa" onChange={(event) => setSelectedCompanyId(event.target.value)} value={selectedCompanyId}>
+                  <option value="">Sem empresa</option>
+                  {companies.map((company) => (<option key={company.id} value={company.id}>{company.dsEmpresa}</option>))}
+                </select>
+              </RegistrationField>
+              <RegistrationField htmlFor="dsProduto" label="Produto" size="full">
+                <input disabled={!isFormEnabled} id="dsProduto" maxLength={255} onChange={(event) => setProductName(event.target.value)} placeholder="Ex.: Whey Protein 900g" ref={productNameInputRef} type="text" value={productName} />
+              </RegistrationField>
+              <RegistrationField htmlFor="qtEstoque" label="Estoque" size="sm">
+                <input disabled={!isFormEnabled} id="qtEstoque" min="0" onChange={(event) => setProductStock(event.target.value)} placeholder="0" type="number" value={productStock} />
+              </RegistrationField>
+              <RegistrationField htmlFor="boInativo" label="Status" size="sm">
+                <button aria-pressed={isProductActive} className={`status-toggle ${isProductActive ? 'active' : ''}`} disabled={!isFormEnabled} onClick={handleToggleStatus} type="button">
+                  <span>{isProductActive ? 'Ativo' : 'Inativo'}</span>
                 </button>
+              </RegistrationField>
+              <div className="form-actions" style={{ flex: '1 1 100%' }}>
+                <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
+                <button disabled={!isFormEnabled} type="submit"><Save size={16} />Salvar produto</button>
               </div>
-
-              {!isRelatedFieldsCollapsed ? (
-                <>
-                  {relatedFeedback ? <div className="form-feedback">{relatedFeedback}</div> : null}
-
-                  {relatedConfig.key === 'files' ? (
-                    <>
-                      <div className="company-child-fields">
-                        <RegistrationField htmlFor="productFileType" label="Tipo de arquivo">
-                          <select
-                            disabled={!selectedProductId || isUploadingRelatedFile}
-                            id="productFileType"
-                            onChange={(event) =>
-                              setRelatedFormValues((current) => ({ ...current, idTiposArquivos: event.target.value }))
-                            }
-                            value={relatedFormValues.idTiposArquivos ?? ''}
-                          >
-                            <option value="">Selecione</option>
-                            {productFileTypeOptions.map((option) => (
-                              <option key={option.id} value={option.id}>
-                                {getLookupLabel(option, relatedConfig.fields.find((field) => field.key === 'idTiposArquivos') ?? relatedConfig.fields[0]!)}
-                              </option>
-                            ))}
-                          </select>
-                        </RegistrationField>
-
-                        <RegistrationField htmlFor="productFileName" label="Arquivo selecionado">
-                          <input
-                            disabled
-                            id="productFileName"
-                            type="text"
-                            value={
-                              selectedRelatedRecordId
-                                ? String(relatedRecords.find((record) => record.id === selectedRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedRelatedRecordId}`)
-                                : 'Selecione no grid ou clique em Novo'
-                            }
-                          />
-                        </RegistrationField>
-                      </div>
-
-                      <RegistrationField htmlFor="productFile" label={selectedRelatedRecordId && !isCreatingRelated ? 'Alterar arquivo' : 'Arquivo'}>
-                        <input
-                          disabled={!selectedProductId || isUploadingRelatedFile}
-                          id="productFile"
-                          onChange={(event) => void handleUploadRelatedFile(event.target.files?.[0] ?? null)}
-                          ref={productFileInputRef}
-                          type="file"
-                        />
-                      </RegistrationField>
-
-                      {selectedRelatedRecordId ? (
-                        <div className="student-files-list">
-                          <div className="student-file-row">
-                            {relatedFilePreviewUrls[selectedRelatedRecordId] ? (
-                              <button className="file-preview-button" onClick={() => void handleOpenRelatedFile(selectedRelatedRecordId)} type="button">
-                                <img
-                                  alt={String(relatedRecords.find((record) => record.id === selectedRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedRelatedRecordId}`)}
-                                  className="student-file-preview"
-                                  src={relatedFilePreviewUrls[selectedRelatedRecordId]}
-                                />
-                              </button>
-                            ) : null}
-                            <div className="student-file-row-info">
-                              <strong>{String(relatedRecords.find((record) => record.id === selectedRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedRelatedRecordId}`)}</strong>
-                            </div>
-                            <div className="student-file-actions">
-                              <button className="secondary-button" onClick={() => void handleOpenRelatedFile(selectedRelatedRecordId)} type="button">
-                                Visualizar
-                              </button>
-                              <button className="secondary-button" onClick={() => productFileInputRef.current?.click()} type="button">
-                                Alterar
-                              </button>
-                              <button className="danger" onClick={() => void handleRemoveRelatedFile(selectedRelatedRecordId)} type="button">
-                                Remover
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : selectedProductId ? (
-                        <div className="form-hint">Selecione um arquivo no grid para visualizar ou alterar.</div>
-                      ) : null}
-                    </>
-                  ) : (
-                    <>
-                      {!isRelatedFormEnabled ? (
-                        <div className="form-hint">Selecione um registro relacionado acima ou clique em Novo.</div>
-                      ) : null}
-
-                      <div className="company-child-fields" ref={productRelatedFormRef}>
-                        {relatedConfig.fields.map((field) => (
-                          <RegistrationField htmlFor={`productRelated-${field.key}`} key={field.key} label={field.label} required={field.required}>
-                            {field.lookupEndpoint ? (
-                              <select
-                                disabled={!isRelatedFormEnabled}
-                                id={`productRelated-${field.key}`}
-                                onChange={(event) =>
-                                  setRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))
-                                }
-                                required={field.required}
-                                value={relatedFormValues[field.key] ?? ''}
-                              >
-                                <option value="">Selecione</option>
-                                {(relatedLookups[field.key] ?? []).map((option) => (
-                                  <option key={option.id} value={option.id}>
-                                    {getLookupLabel(option, field)}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <input
-                                disabled={!isRelatedFormEnabled}
-                                id={`productRelated-${field.key}`}
-                                onChange={(event) =>
-                                  setRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))
-                                }
-                                required={field.required}
-                                type={field.type}
-                                value={relatedFormValues[field.key] ?? ''}
-                              />
-                            )}
-                          </RegistrationField>
-                        ))}
-                      </div>
-
-                      <RegistrationField htmlFor="productRelatedStatus" label="Status">
-                        <button
-                          aria-pressed={isRelatedActive}
-                          className={`status-toggle ${isRelatedActive ? 'active' : ''}`}
-                          disabled={!isRelatedFormEnabled}
-                          id="productRelatedStatus"
-                          onClick={handleToggleRelatedStatus}
-                          type="button"
-                        >
-                          <span>{isRelatedActive ? 'Ativo' : 'Inativo'}</span>
-                        </button>
-                      </RegistrationField>
-
-                      <div className="form-actions">
-                        <button className="secondary-button" disabled={!selectedProductId} onClick={clearRelatedForm} type="button">
-                          Limpar
-                        </button>
-                        <button disabled={!isRelatedFormEnabled} type="submit">
-                          <Save size={16} />
-                          Salvar {relatedConfig.label}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : null}
             </form>
-          ) : null}
-        </div>
-
-        <RegistrationTabs
-          tabs={productRelatedTables}
-          activeTab={selectedRelatedTable}
-          onTabChange={handleSelectRelatedTable}
-          icons={productTabIcons}
-          ariaLabel="Tabelas relacionadas do produto"
-        />
+          ) : (
+            <form className="drawer-fields" onSubmit={handleSaveRelated}>
+              {relatedFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{relatedFeedback}</div> : null}
+              <RegistrationField htmlFor="productFileType" label="Tipo de arquivo" size="md">
+                <select disabled={!selectedProductId || isUploadingRelatedFile} id="productFileType" onChange={(event) => setRelatedFormValues((current) => ({ ...current, idTiposArquivos: event.target.value }))} value={relatedFormValues.idTiposArquivos ?? ''}>
+                  <option value="">Selecione</option>
+                  {productFileTypeOptions.map((option) => (<option key={option.id} value={option.id}>{getLookupLabel(option, relatedConfig?.fields.find((field) => field.key === 'idTiposArquivos') ?? relatedConfig?.fields[0]!)}</option>))}
+                </select>
+              </RegistrationField>
+              <RegistrationField htmlFor="productFileName" label="Arquivo selecionado" size="full">
+                <input disabled id="productFileName" type="text" value={selectedRelatedRecordId ? String(relatedRecords.find((record) => record.id === selectedRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedRelatedRecordId}`) : 'Clique em Novo ou selecione no grid'} />
+              </RegistrationField>
+              <RegistrationField htmlFor="productFile" label={selectedRelatedRecordId && !isCreatingRelated ? 'Alterar arquivo' : 'Arquivo'} size="full">
+                <input disabled={!selectedProductId || isUploadingRelatedFile} id="productFile" onChange={(event) => void handleUploadRelatedFile(event.target.files?.[0] ?? null)} ref={productFileInputRef} type="file" />
+              </RegistrationField>
+              {selectedRelatedRecordId ? (
+                <div className="student-files-list" style={{ flex: '1 1 100%' }}>
+                  <div className="student-file-row">
+                    {relatedFilePreviewUrls[selectedRelatedRecordId] ? (
+                      <button className="file-preview-button" onClick={() => void handleOpenRelatedFile(selectedRelatedRecordId)} type="button">
+                        <img alt={String(relatedRecords.find((record) => record.id === selectedRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedRelatedRecordId}`)} className="student-file-preview" src={relatedFilePreviewUrls[selectedRelatedRecordId]} />
+                      </button>
+                    ) : null}
+                    <div className="student-file-row-info">
+                      <strong>{String(relatedRecords.find((record) => record.id === selectedRelatedRecordId)?.dsArquivo ?? `Arquivo ${selectedRelatedRecordId}`)}</strong>
+                    </div>
+                    <div className="student-file-actions">
+                      <button className="secondary-button" onClick={() => void handleOpenRelatedFile(selectedRelatedRecordId)} type="button">Visualizar</button>
+                      <button className="secondary-button" onClick={() => productFileInputRef.current?.click()} type="button">Alterar</button>
+                      <button className="danger" onClick={() => void handleRemoveRelatedFile(selectedRelatedRecordId)} type="button">Remover</button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              <div className="form-actions" style={{ flex: '1 1 100%' }}>
+                <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
+              </div>
+            </form>
+          )}
+        </RegistrationDrawer>
       </div>
+
       {relatedFileModal ? (
         <div className="file-modal-overlay" role="dialog" aria-modal="true">
           <div className="file-modal">

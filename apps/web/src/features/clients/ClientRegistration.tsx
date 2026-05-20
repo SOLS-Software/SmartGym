@@ -1,10 +1,11 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useEffect, useRef, useState } from 'react';
-import { Plus, Save } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Pencil, Plus, Save } from 'lucide-react';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { GridPagination, paginateItems } from '../../shared/registration/registrationHelpers';
+import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { formatCnpj } from '../companies/companyUtils';
 
 type Client = {
@@ -15,13 +16,12 @@ type Client = {
 };
 
 export function ClientRegistration() {
-  const nameInputRef = useRef<HTMLInputElement>(null);
-
   const [clients, setClients] = useState<Client[]>([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const [clientName, setClientName] = useState('');
   const [clientCnpj, setClientCnpj] = useState('');
@@ -37,8 +37,6 @@ export function ClientRegistration() {
     );
   });
   const paginatedClients = paginateItems(filteredClients, page);
-  const selectedClient = clients.find((c) => c.id === selectedClientId) ?? null;
-  const isFormEnabled = isCreating || selectedClientId !== null;
 
   useEffect(() => {
     void loadClients();
@@ -63,7 +61,7 @@ export function ClientRegistration() {
     setClientCnpj('');
     setIsActive(true);
     setFeedback('');
-    setTimeout(() => nameInputRef.current?.focus(), 0);
+    setIsDrawerOpen(true);
   }
 
   function handleSelect(client: Client) {
@@ -73,6 +71,7 @@ export function ClientRegistration() {
     setClientCnpj(client.caCNPJ ?? '');
     setIsActive(client.boInativo === 0);
     setFeedback('');
+    setIsDrawerOpen(true);
   }
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
@@ -139,145 +138,142 @@ export function ClientRegistration() {
   }
 
   return (
-    <div className="form-view company-view">
+    <div className="form-view">
       <div className="form-heading">
         <p className="section-label">Administração</p>
         <h2>Clientes</h2>
         <p>Cadastre clientes, configure temas e gerencie logo e favicon de cada um.</p>
       </div>
 
-      <div className="client-workspace">
-        {/* ── Left: client list ── */}
-        <div className="domain-panel">
-          <section className="data-grid-section">
-            <div className="grid-toolbar">
-              <div>
-                <p className="section-label">Lista</p>
-                <h3>Clientes</h3>
+      <div className="domain-panel">
+        <section className="data-grid-section">
+          <div className="grid-toolbar">
+            <div>
+              <p className="section-label">Lista</p>
+              <h3>Clientes</h3>
+            </div>
+            <button className="new-button" onClick={handleNew} type="button">
+              <Plus size={16} />
+              Novo
+            </button>
+          </div>
+
+          <label className="search-field mb-2">
+            <span>Pesquisar</span>
+            <input
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Nome ou CNPJ"
+              type="search"
+              value={search}
+            />
+          </label>
+
+          <div className="domain-select-table" role="table" aria-label="Clientes">
+            <div
+              className="domain-select-row header"
+              role="row"
+              style={{ gridTemplateColumns: 'minmax(0, 1fr) 2.75rem' }}
+            >
+              <span role="columnheader">Cliente</span>
+              <span role="columnheader"></span>
+            </div>
+            {paginatedClients.map((c) => (
+              <div
+                className={`domain-select-row selectable ${c.id === selectedClientId ? 'selected' : ''}`}
+                key={c.id}
+                onClick={() => handleSelect(c)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleSelect(c);
+                  }
+                }}
+                role="row"
+                style={{ gridTemplateColumns: 'minmax(0, 1fr) 2.75rem' }}
+                tabIndex={0}
+              >
+                <span role="cell" className="flex items-center justify-between gap-2">
+                  <span>{c.dsCliente}</span>
+                  <span className={`status-badge shrink-0 ${c.boInativo === 0 ? 'active' : 'inactive'}`}>
+                    {c.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                  </span>
+                </span>
+                <span role="cell" className="grid-row-actions">
+                  <button
+                    aria-label="Editar cliente"
+                    className="grid-edit-button"
+                    onClick={(e) => { e.stopPropagation(); handleSelect(c); }}
+                    type="button"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                </span>
               </div>
-              <button className="new-button" onClick={handleNew} type="button">
-                <Plus size={16} />
-                Novo
+            ))}
+            {filteredClients.length === 0 && (
+              <div className="form-hint m-2 rounded-md">
+                {search ? 'Nenhum cliente encontrado.' : 'Nenhum cliente cadastrado.'}
+              </div>
+            )}
+          </div>
+
+          <GridPagination onChange={setPage} page={page} totalItems={filteredClients.length} />
+        </section>
+      </div>
+
+      <RegistrationDrawer
+        isOpen={isDrawerOpen}
+        title={isCreating ? 'Novo Cliente' : 'Editar Cliente'}
+        onClose={() => setIsDrawerOpen(false)}
+      >
+        <form className="drawer-fields" onSubmit={handleSave}>
+          {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
+          <div className="field field-size-full">
+            <label htmlFor="clientName">Nome do Cliente *</label>
+            <input
+              id="clientName"
+              maxLength={255}
+              onChange={(e) => setClientName(e.target.value)}
+              placeholder="Ex: Academia Fitness"
+              required
+              type="text"
+              value={clientName}
+            />
+          </div>
+          <div className="field field-size-md">
+            <label htmlFor="clientCnpj">CNPJ</label>
+            <input
+              id="clientCnpj"
+              maxLength={18}
+              onChange={(e) => setClientCnpj(formatCnpj(e.target.value))}
+              placeholder="00.000.000/0000-00"
+              type="text"
+              value={clientCnpj}
+            />
+          </div>
+          {!isCreating ? (
+            <div className="field field-size-sm">
+              <label htmlFor="clientStatus">Status</label>
+              <button
+                aria-pressed={isActive}
+                className={`status-toggle ${isActive ? 'active' : ''}`}
+                id="clientStatus"
+                onClick={handleToggleStatus}
+                type="button"
+              >
+                <span>{isActive ? 'Ativo' : 'Inativo'}</span>
               </button>
             </div>
-
-            <label className="search-field mb-2">
-              <span>Pesquisar</span>
-              <input
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Nome ou CNPJ"
-                type="search"
-                value={search}
-              />
-            </label>
-
-            <div className="domain-select-table" role="table" aria-label="Clientes">
-              <div className="domain-select-row header" role="row">
-                <span role="columnheader">Cliente</span>
-              </div>
-              {paginatedClients.map((c) => (
-                <button
-                  className={`domain-select-row selectable ${c.id === selectedClientId ? 'selected' : ''}`}
-                  key={c.id}
-                  onClick={() => handleSelect(c)}
-                  role="row"
-                  type="button"
-                >
-                  <span role="cell" className="flex items-center justify-between gap-2">
-                    <span>{c.dsCliente}</span>
-                    <span className={`status-badge shrink-0 ${c.boInativo === 0 ? 'active' : 'inactive'}`}>
-                      {c.boInativo === 0 ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </span>
-                </button>
-              ))}
-              {filteredClients.length === 0 && (
-                <div className="form-hint m-2 rounded-md">
-                  {search ? 'Nenhum cliente encontrado.' : 'Nenhum cliente cadastrado.'}
-                </div>
-              )}
-            </div>
-
-            <GridPagination onChange={setPage} page={page} totalItems={filteredClients.length} />
-          </section>
-        </div>
-
-        {/* ── Right: details + theme ── */}
-        <div className="client-detail-panel">
-          {!isFormEnabled ? (
-            <div className="registration-form domain-form-panel">
-              <div className="form-hint">
-                Selecione um cliente ou clique em Novo para começar.
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Client info form */}
-              <form className="registration-form domain-form-panel" onSubmit={handleSave}>
-                <div>
-                  <p className="section-label">{isCreating ? 'Novo Cliente' : 'Dados'}</p>
-                  <h3 className="theme-section-title">
-                    {isCreating ? 'Cadastrar Cliente' : selectedClient?.dsCliente}
-                  </h3>
-                </div>
-
-                {feedback ? <div className="form-feedback">{feedback}</div> : null}
-
-                <div className="two-columns">
-                  <div className="field col-span-full">
-                    <label htmlFor="clientName">Nome do Cliente *</label>
-                    <input
-                      id="clientName"
-                      maxLength={255}
-                      onChange={(e) => setClientName(e.target.value)}
-                      placeholder="Ex: Academia Fitness"
-                      ref={nameInputRef}
-                      required
-                      type="text"
-                      value={clientName}
-                    />
-                  </div>
-
-                  <div className="field">
-                    <label htmlFor="clientCnpj">CNPJ</label>
-                    <input
-                      id="clientCnpj"
-                      maxLength={18}
-                      onChange={(e) => setClientCnpj(formatCnpj(e.target.value))}
-                      placeholder="00.000.000/0000-00"
-                      type="text"
-                      value={clientCnpj}
-                    />
-                  </div>
-
-                  {!isCreating && (
-                    <div className="field">
-                      <label htmlFor="clientStatus">Status</label>
-                      <button
-                        aria-pressed={isActive}
-                        className={`status-toggle ${isActive ? 'active' : ''}`}
-                        id="clientStatus"
-                        onClick={handleToggleStatus}
-                        type="button"
-                      >
-                        <span>{isActive ? 'Ativo' : 'Inativo'}</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="form-actions">
-                  <button disabled={isSaving} type="submit">
-                    <Save size={16} />
-                    {isSaving ? 'Salvando...' : isCreating ? 'Criar cliente' : 'Salvar dados'}
-                  </button>
-                </div>
-              </form>
-
-            </>
-          )}
-        </div>
-      </div>
+          ) : null}
+          <div className="form-actions" style={{ flex: '1 1 100%' }}>
+            <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
+            <button disabled={isSaving} type="submit">
+              <Save size={16} />
+              {isSaving ? 'Salvando...' : isCreating ? 'Criar cliente' : 'Salvar dados'}
+            </button>
+          </div>
+        </form>
+      </RegistrationDrawer>
     </div>
   );
 }
