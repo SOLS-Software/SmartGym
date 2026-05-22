@@ -866,7 +866,7 @@ export function StudentTrainingAssembly({
                   <span role="columnheader">Sequência</span>
                   <span role="columnheader">Cadastro</span>
                   <span role="columnheader">Status</span>
-                  <span role="columnheader">Acao</span>
+                  <span role="columnheader">Ação</span>
                 </div>
 
                 {isLoadingStudentTrainings ? <div className="empty-row">Carregando treinos...</div> : null}
@@ -954,11 +954,13 @@ export function StudentTrainingAssembly({
                   <div className="product-table exercise-grid-animated" key={selectedStudentTrainingId ?? 'empty'} role="table" aria-label="Exercícios vinculados ao treino">
                     <div className="product-row training-exercise-row header" role="row">
                       <span role="columnheader">Ordem</span>
-                      <span role="columnheader">Exercicio</span>
+                      <span role="columnheader">Exercício</span>
                       <span role="columnheader">Método</span>
-                      <span role="columnheader">Series</span>
-                      <span role="columnheader">Repeticoes</span>
+                      <span role="columnheader">Séries</span>
+                      <span role="columnheader">Repetições</span>
                       <span role="columnheader">Descanso</span>
+                      <span role="columnheader">Peso</span>
+                      <span role="columnheader">Unidade</span>
                     </div>
 
                     {isLoadingSelectedTrainingExercises ? (
@@ -974,6 +976,8 @@ export function StudentTrainingAssembly({
                           <span role="cell">{trainingExercise.nrSeries}</span>
                           <span role="cell">{trainingExercise.nrRepeticoes}</span>
                           <span role="cell">{trainingExercise.qtDescanso} s</span>
+                          <span role="cell">{trainingExercise.qtPeso || '-'}</span>
+                          <span role="cell">{trainingExercise.cnUnidadeMedida || '-'}</span>
                         </div>
                       ))
                       : null}
@@ -999,10 +1003,10 @@ export function StudentTrainingAssembly({
                     <div className="product-table" key={`grouped-exercises-${studentTrainingSearchTerm}-${displayedStudentTrainings.length}`} role="table" aria-label="Exercícios agrupados por treino">
                       <div className="product-row training-exercise-row header" role="row">
                         <span role="columnheader">Ordem</span>
-                        <span role="columnheader">Exercicio</span>
+                        <span role="columnheader">Exercício</span>
                         <span role="columnheader">Método</span>
-                        <span role="columnheader">Series</span>
-                        <span role="columnheader">Repeticoes</span>
+                        <span role="columnheader">Séries</span>
+                        <span role="columnheader">Repetições</span>
                         <span role="columnheader">Descanso</span>
                       </div>
 
@@ -1026,6 +1030,8 @@ export function StudentTrainingAssembly({
                                 <span role="cell">{trainingExercise.nrSeries}</span>
                                 <span role="cell">{trainingExercise.nrRepeticoes}</span>
                                 <span role="cell">{trainingExercise.qtDescanso} s</span>
+                                <span role="cell">{trainingExercise.qtPeso || '-'}</span>
+                                <span role="cell">{trainingExercise.cnUnidadeMedida || '-'}</span>
                               </div>
                             ))}
 
@@ -1048,7 +1054,7 @@ export function StudentTrainingAssembly({
             <form className="registration-form workout-training-form" onSubmit={handleSaveStudentTraining}>
               <div className="collapsible-panel-header">
                 <div>
-                  <p className="section-label">AlunoTreino</p>
+                  <p className="section-label">Treinos</p>
                 </div>
               </div>
 

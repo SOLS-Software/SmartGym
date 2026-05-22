@@ -586,4 +586,11 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       return reply.code(400).send({ message: 'Erro ao alterar status da categoria.' });
     }
   });
+
+  app.get('/measurement-units', async () => {
+    return prisma.unidadeMedida.findMany({
+      where: { boInativo: 0 },
+      orderBy: { cnUnidade: 'asc' },
+    });
+  });
 }

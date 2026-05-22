@@ -84,7 +84,7 @@ const menuItemIcons: Record<string, LucideIcon> = {
 const menuGroups = [
   {
     title: 'EMPRESA',
-    items: ['Clientes', 'Empresas', 'Tema'],
+    items: ['Clientes', 'Empresas'],
   },
   {
     title: 'TREINO',
@@ -261,6 +261,10 @@ export default function HomePage() {
     const { logoUrl, faviconUrl, ...core } = companyTheme;
     localStorage.setItem(THEME_CACHE_KEY, JSON.stringify(core));
   }, [themeFingerprint]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeItem]);
 
   useEffect(() => {
     if (localStorage.getItem(DARK_MODE_KEY) === '1') {
@@ -772,6 +776,8 @@ export default function HomePage() {
             items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda' && item !== 'Agendas'),
           }));
 
+    const activeGroup = menuGroups.find((g) => g.items.includes(activeItem))?.title ?? '';
+
     return (
       <main className={`home-page ${isMenuOpen ? '' : 'menu-collapsed'}`}>
         <header className="app-header">
@@ -792,8 +798,8 @@ export default function HomePage() {
                 : 'SG'}
             </div>
             <div>
-              <p className="eyebrow">SmartGym</p>
-              <strong>{companyTheme?.dsCliente ?? 'Academia Cliente'}</strong>
+              <p className="eyebrow">{activeGroup}</p>
+              <strong>{activeItem.toUpperCase()}</strong>
             </div>
           </div>
 

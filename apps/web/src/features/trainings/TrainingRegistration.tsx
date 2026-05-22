@@ -10,6 +10,13 @@ import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer
 import type { Company, CompanyChildField, CompanyChildRecord, CompanyChildTable, Level, LookupRecord, Training } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
+const MEASUREMENT_UNITS = [
+  { value: 'KG', label: 'KG – Quilograma' },
+  { value: 'G', label: 'G – Grama' },
+  { value: 'LBS', label: 'LBS – Libra' },
+  { value: 'OZ', label: 'OZ – Onça' },
+];
+
 const trainingRelatedConfig: CompanyChildTable = {
   key: 'exercises',
   endpoint: 'exercises',
@@ -17,19 +24,23 @@ const trainingRelatedConfig: CompanyChildTable = {
   title: 'Exercícios do treino',
   columns: [
     { key: 'nrOrdem', label: 'Ordem' },
-    { key: 'idExercicio', label: 'Exercicio', lookupLabelKey: 'dsExercicio' },
-    { key: 'nrSeries', label: 'Series' },
-    { key: 'nrRepeticoes', label: 'Repeticoes' },
+    { key: 'idExercicio', label: 'Exercício', lookupLabelKey: 'dsExercicio' },
+    { key: 'nrSeries', label: 'Séries' },
+    { key: 'nrRepeticoes', label: 'Repetições' },
+    { key: 'qtPeso', label: 'Peso' },
+    { key: 'cnUnidadeMedida', label: 'Unidade' },
     { key: 'boInativo', label: 'Status', type: 'status' },
   ],
   fields: [
     { key: 'idEmpresa', label: 'Empresa', type: 'number', lookupEndpoint: 'companies', lookupLabelKey: 'dsEmpresa', size: 'full' },
-    { key: 'idExercicio', label: 'Exercicio', type: 'number', lookupEndpoint: 'exercises', lookupLabelKey: 'dsExercicio', required: true, size: 'full' },
+    { key: 'idExercicio', label: 'Exercício', type: 'number', lookupEndpoint: 'exercises', lookupLabelKey: 'dsExercicio', required: true, size: 'full' },
     { key: 'idMetodoTreino', label: 'Método de treino', type: 'number', lookupEndpoint: 'training-methods', lookupLabelKey: 'nmMetodoTreino', size: 'full' },
     { key: 'nrOrdem', label: 'Ordem', type: 'number', size: 'xs' },
     { key: 'nrSeries', label: 'Séries', type: 'number', size: 'xs' },
     { key: 'nrRepeticoes', label: 'Repetições', type: 'number', size: 'sm' },
     { key: 'qtDescanso', label: 'Descanso (s)', type: 'number', size: 'sm' },
+    { key: 'qtPeso', label: 'Peso', type: 'number', size: 'sm' },
+    { key: 'cnUnidadeMedida', label: 'Unidade', type: 'text', selectOptions: MEASUREMENT_UNITS, size: 'sm' },
   ],
 };
 
@@ -293,6 +304,10 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     setDrawerMode('exercise');
   }
 
+  function handleSelectExercise(record: CompanyChildRecord) {
+    setSelectedTrainingRelatedRecordId(record.id);
+  }
+
   function handleEditExercise(record: CompanyChildRecord) {
     const values = trainingRelatedConfig.fields.reduce<Record<string, string>>((current, field) => {
       const value = record[field.key];
@@ -518,7 +533,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
               records={filteredTrainingRelatedRecords}
               isLoading={isLoadingTrainingRelatedRecords}
               selectedId={selectedTrainingRelatedRecordId}
-              onSelect={handleEditExercise}
+              onSelect={handleSelectExercise}
               onEdit={readOnly ? undefined : handleEditExercise}
               searchTerm={trainingRelatedSearchTerm}
               onSearch={setTrainingRelatedSearchTerm}
@@ -627,7 +642,27 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                   required={field.required}
                   size={field.size}
                 >
-                  {field.lookupEndpoint ? (
+                  {field.selectOptions ? (
+                    <select
+                      disabled={!isExerciseFormEnabled}
+                      id={`exercise-${field.key}`}
+                      onChange={(event) =>
+                        setTrainingRelatedFormValues((current) => ({
+                          ...current,
+                          [field.key]: event.target.value,
+                        }))
+                      }
+                      required={field.required}
+                      value={trainingRelatedFormValues[field.key] ?? ''}
+                    >
+                      <option value="">Selecione</option>
+                      {field.selectOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : field.lookupEndpoint ? (
                     <select
                       disabled={!isExerciseFormEnabled}
                       id={`exercise-${field.key}`}

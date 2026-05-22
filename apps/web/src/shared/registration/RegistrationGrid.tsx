@@ -31,6 +31,7 @@ type RegistrationGridProps<T extends { id: number }> = {
   page?: number;
   totalItems?: number;
   onPageChange?: (page: number) => void;
+  gridTemplateColumns?: string;
 };
 
 export function RegistrationGrid<T extends { id: number }>({
@@ -54,14 +55,17 @@ export function RegistrationGrid<T extends { id: number }>({
   page,
   totalItems,
   onPageChange,
+  gridTemplateColumns,
 }: RegistrationGridProps<T>) {
   const isChild = variant === 'child';
   const editColWidth = onEdit ? ' 2.75rem' : '';
-  const gridStyle = isChild
-    ? { gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))${editColWidth}` }
-    : onEdit
-      ? { gridTemplateColumns: `minmax(0, 1fr) 6.875rem 6.875rem${editColWidth}` }
-      : undefined;
+  const gridStyle = gridTemplateColumns
+    ? { gridTemplateColumns: `${gridTemplateColumns}${editColWidth}` }
+    : isChild
+      ? { gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))${editColWidth}` }
+      : onEdit
+        ? { gridTemplateColumns: `minmax(0, 1fr) 6.875rem 6.875rem${editColWidth}` }
+        : undefined;
 
   const tableClass = isChild
     ? 'product-table company-child-grid-table'

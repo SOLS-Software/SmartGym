@@ -334,7 +334,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
               <button
                 className={`product-row selectable${exercise.id === selectedExerciseId ? ' selected' : ''}`}
                 key={exercise.id}
-                onClick={() => handleEditExercise(exercise)}
+                onClick={() => setSelectedExerciseId(exercise.id)}
                 role="row"
                 type="button"
               >
@@ -350,8 +350,8 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
               <div
                 className={`product-row selectable${exercise.id === selectedExerciseId ? ' selected' : ''}`}
                 key={exercise.id}
-                onClick={() => handleEditExercise(exercise)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleEditExercise(exercise); } }}
+                onClick={() => setSelectedExerciseId(exercise.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedExerciseId(exercise.id); } }}
                 role="row"
                 style={{ gridTemplateColumns: 'minmax(0, 1fr) 6.875rem 6.875rem 2.75rem' }}
                 tabIndex={0}

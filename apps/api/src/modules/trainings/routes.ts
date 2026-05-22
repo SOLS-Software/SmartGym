@@ -112,6 +112,8 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
           nrSeries: Number(request.body.nrSeries ?? 0),
           nrRepeticoes: Number(request.body.nrRepeticoes ?? 0),
           qtDescanso: Number(request.body.qtDescanso ?? 0),
+          qtPeso: Number(request.body.qtPeso ?? 0),
+          cnUnidadeMedida: String(request.body.cnUnidadeMedida ?? ''),
           boInativo: Number(request.body.boInativo ?? 0),
         },
       });
@@ -158,6 +160,8 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
           nrSeries: Number(request.body.nrSeries ?? 0),
           nrRepeticoes: Number(request.body.nrRepeticoes ?? 0),
           qtDescanso: Number(request.body.qtDescanso ?? 0),
+          qtPeso: Number(request.body.qtPeso ?? 0),
+          cnUnidadeMedida: String(request.body.cnUnidadeMedida ?? ''),
           boInativo: Number(request.body.boInativo ?? 0),
         },
       });

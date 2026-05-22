@@ -2,7 +2,7 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Save } from 'lucide-react';
+import { Pencil, Plus, Save } from 'lucide-react';
 import {
   GRID_PAGE_SIZE,
   GridPagination,
@@ -10,7 +10,7 @@ import {
   formatDateInput,
   paginateItems,
 } from '../../shared/registration/registrationHelpers';
-import type { Activity, Company, Employee, LookupRecord } from '../../shared/registration/registrationTypes';
+import type { Activity, Company, Employee, LookupRecord, Sport } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 type ActivitySchedule = {
@@ -60,6 +60,7 @@ export function ActivityScheduleAssembly() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [sports, setSports] = useState<Sport[]>([]);
   const [activitiesPage, setActivitiesPage] = useState(1);
   const [schedulesPage, setSchedulesPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -90,6 +91,7 @@ export function ActivityScheduleAssembly() {
     return (
       activity.dsAtividade.toLowerCase().includes(search) ||
       getCompanyName(activity.idEmpresa).toLowerCase().includes(search) ||
+      getSportName(activity.idEsporte).toLowerCase().includes(search) ||
       (activity.boInativo === 0 ? 'ativo' : 'inativo').includes(search)
     );
   });
@@ -137,10 +139,11 @@ export function ActivityScheduleAssembly() {
 
   async function loadLookups() {
     try {
-      const [companiesResponse, categoriesResponse, employeesResponse] = await Promise.all([
+      const [companiesResponse, categoriesResponse, employeesResponse, sportsResponse] = await Promise.all([
         fetch(`${apiUrl}/companies`),
         fetch(`${apiUrl}/categories`),
         fetch(`${apiUrl}/employees`),
+        fetch(`${apiUrl}/sports`),
       ]);
 
       const failedLookup = [companiesResponse, categoriesResponse, employeesResponse].find((response) => !response.ok);
@@ -151,6 +154,9 @@ export function ActivityScheduleAssembly() {
       setCompanies(((await companiesResponse.json()) as Company[]).filter((company) => company.boInativo === 0));
       setCategories(((await categoriesResponse.json()) as Category[]).filter((category) => Number(category.boInativo ?? 0) === 0));
       setEmployees(((await employeesResponse.json()) as Employee[]).filter((employee) => employee.boInativo === 0));
+      if (sportsResponse.ok) {
+        setSports(((await sportsResponse.json()) as Sport[]).filter((sport) => sport.boInativo === 0));
+      }
     } catch (error) {
       setScheduleFeedback(error instanceof Error ? error.message : 'Erro ao carregar listas.');
     }
@@ -210,6 +216,10 @@ export function ActivityScheduleAssembly() {
 
   function getCompanyName(companyId: number | null) {
     return companies.find((company) => company.id === companyId)?.dsEmpresa ?? '-';
+  }
+
+  function getSportName(sportId: number | null) {
+    return sports.find((sport) => sport.id === sportId)?.dsEsporte ?? '-';
   }
 
   function getCategoryName(categoryId: number | null) {
@@ -630,6 +640,7 @@ export function ActivityScheduleAssembly() {
         <div className="product-table" key={`activities-${searchTerm}-${activitiesPage}`} role="table" aria-label="Atividades cadastradas">
           <div className="product-row activity-schedule-activity-row header" role="row">
             <span role="columnheader">Atividade</span>
+            <span role="columnheader">Esporte</span>
             <span role="columnheader">Empresa</span>
             <span role="columnheader">Status</span>
           </div>
@@ -646,6 +657,7 @@ export function ActivityScheduleAssembly() {
                 type="button"
               >
                 <span role="cell">{activity.dsAtividade}</span>
+                <span role="cell">{getSportName(activity.idEsporte)}</span>
                 <span role="cell">{getCompanyName(activity.idEmpresa)}</span>
                 <span role="cell">
                   <span className={`status-badge ${activity.boInativo === 0 ? 'active' : 'inactive'}`}>
@@ -843,56 +855,6 @@ export function ActivityScheduleAssembly() {
             </div>
           </form>
 
-          <section className="activity-schedule-preview" aria-label="Previsualizacao da agenda">
-            <div className="activity-schedule-preview-header">
-              <div>
-                <p className="section-label">Previsualizacao</p>
-                <h4>Calendario da montagem</h4>
-              </div>
-              <strong>
-                {previewScheduleDates.length} agenda{previewScheduleDates.length === 1 ? '' : 's'}
-              </strong>
-            </div>
-
-            {previewCalendarMonths.length > 0 ? (
-              <div className="activity-calendar-preview-grid">
-                {previewCalendarMonths.map((month) => (
-                  <div className="activity-calendar-month" key={month.key}>
-                    <h5>{month.label}</h5>
-                    <div className="activity-calendar-weekdays" aria-hidden="true">
-                      {calendarWeekDays.map((day) => (
-                        <span key={day}>{day}</span>
-                      ))}
-                    </div>
-                    <div className="activity-calendar-days">
-                      {month.days.map((day) => (
-                        <span
-                          className={day.selected ? 'selected' : day.day ? '' : 'empty'}
-                          key={day.key}
-                        >
-                          {day.day ?? ''}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="form-hint">
-                Informe o periodo e selecione os dias da semana para visualizar a montagem.
-              </div>
-            )}
-
-            {previewScheduleDates.length > 0 ? (
-              <div className="activity-preview-summary">
-                <span>{startTime || '--:--'} ate {endTime || '--:--'}</span>
-                <span>{getCategoryName(selectedCategoryId ? Number(selectedCategoryId) : null)}</span>
-                <span>{getEmployeeName(selectedEmployeeId ? Number(selectedEmployeeId) : null)}</span>
-                <span>{studentLimit || '0'} aluno{studentLimit === '1' ? '' : 's'}</span>
-              </div>
-            ) : null}
-          </section>
-
           <div className="activity-schedule-grid-layout">
             <section className="data-grid-section workout-training-grid">
               <div className="grid-toolbar">
@@ -935,7 +897,7 @@ export function ActivityScheduleAssembly() {
                   <span role="columnheader">Horario</span>
                   <span role="columnheader">Alunos</span>
                   <span role="columnheader">Status</span>
-                  <span role="columnheader">Acao</span>
+                  <span role="columnheader">Ação</span>
                 </div>
 
                 {isLoadingSchedules ? <div className="empty-row">Carregando agenda...</div> : null}
@@ -945,7 +907,7 @@ export function ActivityScheduleAssembly() {
                     <div
                       className={`product-row activity-schedule-row selectable ${schedule.id === selectedScheduleId ? 'selected' : ''}`}
                       key={schedule.id}
-                      onClick={() => handleSelectSchedule(schedule)}
+                      onClick={() => setSelectedScheduleId(schedule.id)}
                       role="row"
                     >
                       <span role="cell">{getCompanyName(schedule.idEmpresa)}</span>
@@ -961,7 +923,15 @@ export function ActivityScheduleAssembly() {
                           {schedule.boInativo === 0 ? 'Ativo' : 'Inativo'}
                         </span>
                       </span>
-                      <span role="cell">
+                      <span role="cell" className="grid-row-actions">
+                        <button
+                          aria-label="Editar agenda"
+                          className="grid-edit-button"
+                          onClick={(e) => { e.stopPropagation(); handleSelectSchedule(schedule); }}
+                          type="button"
+                        >
+                          <Pencil size={13} />
+                        </button>
                         <button
                           className={`grid-status-toggle ${schedule.boInativo === 0 ? 'active' : ''}`}
                           onClick={(event) => {
@@ -987,6 +957,56 @@ export function ActivityScheduleAssembly() {
                 page={schedulesPage}
                 totalItems={filteredSchedules.length}
               />
+            </section>
+
+            <section className="activity-schedule-preview" aria-label="Previsualizacao da agenda">
+              <div className="activity-schedule-preview-header">
+                <div>
+                  <p className="section-label">Previsualizacao</p>
+                  <h4>Calendario da montagem</h4>
+                </div>
+                <strong>
+                  {previewScheduleDates.length} agenda{previewScheduleDates.length === 1 ? '' : 's'}
+                </strong>
+              </div>
+
+              {previewCalendarMonths.length > 0 ? (
+                <div className="activity-calendar-preview-grid">
+                  {previewCalendarMonths.map((month) => (
+                    <div className="activity-calendar-month" key={month.key}>
+                      <h5>{month.label}</h5>
+                      <div className="activity-calendar-weekdays" aria-hidden="true">
+                        {calendarWeekDays.map((day) => (
+                          <span key={day}>{day}</span>
+                        ))}
+                      </div>
+                      <div className="activity-calendar-days">
+                        {month.days.map((day) => (
+                          <span
+                            className={day.selected ? 'selected' : day.day ? '' : 'empty'}
+                            key={day.key}
+                          >
+                            {day.day ?? ''}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="form-hint">
+                  Informe o periodo e selecione os dias da semana para visualizar a montagem.
+                </div>
+              )}
+
+              {previewScheduleDates.length > 0 ? (
+                <div className="activity-preview-summary">
+                  <span>{startTime || '--:--'} ate {endTime || '--:--'}</span>
+                  <span>{getCategoryName(selectedCategoryId ? Number(selectedCategoryId) : null)}</span>
+                  <span>{getEmployeeName(selectedEmployeeId ? Number(selectedEmployeeId) : null)}</span>
+                  <span>{studentLimit || '0'} aluno{studentLimit === '1' ? '' : 's'}</span>
+                </div>
+              ) : null}
             </section>
 
           </div>

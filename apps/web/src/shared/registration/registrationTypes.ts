@@ -146,6 +146,8 @@ export type TrainingExercise = {
   nrSeries: number;
   nrRepeticoes: number;
   qtDescanso: number;
+  qtPeso: number;
+  cnUnidadeMedida: string;
   boInativo: number;
 };
 
@@ -202,6 +204,7 @@ export type CompanyChildField = {
   required?: boolean;
   lookupEndpoint?: string;
   lookupLabelKey?: string;
+  selectOptions?: Array<{ value: string; label: string }>;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'full';
 };
 

@@ -701,6 +701,7 @@ export function CompanyRegistration() {
         <RegistrationGrid<Company>
           ariaLabel="Empresas cadastradas"
           label="Empresas"
+          gridTemplateColumns="minmax(0, 1fr) 12rem 6.875rem"
           columns={[
             { label: 'Empresa', render: (c) => c.dsEmpresa },
             { label: 'CNPJ', render: (c) => formatCnpj(c.caCNPJ) },
@@ -721,42 +722,6 @@ export function CompanyRegistration() {
         />
       </section>
 
-      {selectedCompanyId !== null ? (
-        <section className="data-grid-section">
-          {!childTableConfig ? (
-            <div className="form-hint">Selecione uma aba para ver os registros.</div>
-          ) : (
-            <RegistrationGrid<CompanyChildRecord>
-              ariaLabel={childTableConfig.title}
-              label={childTableConfig.label}
-              columns={childTableConfig.columns.map((column) => ({
-                label: column.label,
-                render: (record) => formatChildCell(record, column, childLookups[column.key]),
-              }))}
-              records={filteredChildRecords}
-              isLoading={isLoadingChildRecords}
-              selectedId={selectedChildRecordId}
-              onSelect={handleSelectChild}
-              onEdit={handleEditChild}
-              searchTerm={childSearchTerm}
-              onSearch={setChildSearchTerm}
-              onNew={handleNewChild}
-              newDisabled={!selectedCompanyId}
-              variant="child"
-            />
-          )}
-        </section>
-      ) : null}
-
-      {selectedCompanyId !== null ? (
-        <RegistrationTabs
-          tabs={companyChildTables}
-          activeTab={selectedChildTable}
-          onTabChange={setSelectedChildTable}
-          icons={companyTabIcons}
-          ariaLabel="Tabelas filhas da empresa"
-        />
-      ) : null}
 
       <RegistrationDrawer
         isOpen={isDrawerOpen}

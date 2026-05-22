@@ -528,18 +528,20 @@ model Pagamento {
 }
 
 model TreinoExercicio {
-  id             Int      @id @default(autoincrement())
-  idEmpresa      Int?
-  idTreino       Int?
-  idExercicio    Int?
-  idMetodoTreino Int?
-  nrOrdem        Int      @default(0)
-  nrSeries       Int      @default(0)
-  nrRepeticoes   Int      @default(0)
-  qtDescanso     Int      @default(0)
-  dtCadastro     DateTime @default(now())
-  dtAlteracao    DateTime @updatedAt
-  boInativo      Int      @default(0)
+  id               Int      @id @default(autoincrement())
+  idEmpresa        Int?
+  idTreino         Int?
+  idExercicio      Int?
+  idMetodoTreino   Int?
+  nrOrdem          Int      @default(0)
+  nrSeries         Int      @default(0)
+  nrRepeticoes     Int      @default(0)
+  qtDescanso       Int      @default(0)
+  qtPeso           Decimal  @default(0) @db.Decimal(8, 2)
+  cnUnidadeMedida  String   @default("") @db.VarChar(10)
+  dtCadastro       DateTime @default(now())
+  dtAlteracao      DateTime @updatedAt
+  boInativo        Int      @default(0)
 
   empresa      Empresa?      @relation(fields: [idEmpresa], references: [id])
   treino       Treino?       @relation(fields: [idTreino], references: [id])
@@ -547,6 +549,16 @@ model TreinoExercicio {
   metodoTreino MetodoTreino? @relation(fields: [idMetodoTreino], references: [id])
 
   @@map("tb_TreinoExercicios")
+}
+
+model UnidadeMedida {
+  id         Int      @id @default(autoincrement())
+  cnUnidade  String   @unique @default("") @db.VarChar(10)
+  dsUnidade  String   @default("") @db.VarChar(50)
+  dtCadastro DateTime @default(now())
+  boInativo  Int      @default(0)
+
+  @@map("tb_UnidadesMedidas")
 }
 
 model AlunoTreino {
