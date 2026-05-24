@@ -18,6 +18,7 @@ import { StudentPromotionsView } from '../../features/promotions/StudentPromotio
 import { ExerciseRegistration } from '../../features/exercises/ExerciseRegistration';
 import { ActivityRegistration } from '../../features/activities/ActivityRegistration';
 import { ScheduleRegistration } from '../../features/activities/ScheduleRegistration';
+import { AgendaView } from '../../features/activities/AgendaView';
 import { ActivityScheduleAssembly } from '../../features/activities/ActivityScheduleAssembly';
 import { StudentActivitiesView } from '../../features/activities/StudentActivitiesView';
 import { EmployeeRegistration } from '../../features/employees/EmployeeRegistration';
@@ -773,7 +774,7 @@ export default function HomePage() {
           .filter((group) => group.title === 'TREINO' || group.title === 'ALUNOS')
           .map((group) => ({
             ...group,
-            items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda' && item !== 'Agendas'),
+            items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda'),
           }));
 
     const activeGroup = menuGroups.find((g) => g.items.includes(activeItem))?.title ?? '';
@@ -917,7 +918,11 @@ export default function HomePage() {
               <ActivityRegistration />
             )
           ) : activeItem === 'Agendas' ? (
-            <ScheduleRegistration />
+            <AgendaView
+              userType={authUserType === 'student' ? 'student' : 'employee'}
+              studentId={authUserStudentId}
+              studentName={authUserName}
+            />
           ) : activeItem === 'Exercícios' ? (
             <ExerciseRegistration readOnly={authUserType === 'student'} />
           ) : activeItem === 'Treino' ? (

@@ -18,6 +18,7 @@ import { registerAccessRoutes } from './modules/access/routes.js';
 import { registerLookupRoutes } from './modules/lookups/routes.js';
 import { registerAuxiliaryRoutes } from './modules/auxiliary/routes.js';
 import { registerControlidRoutes } from './modules/controlid/routes.js';
+import { registerAgendaRoutes } from './modules/agendas/routes.js';
 
 validateEnv();
 
@@ -99,3 +100,4 @@ await registerAccessRoutes(app);
 await registerLookupRoutes(app);
 await registerAuxiliaryRoutes(app);
 await registerControlidRoutes(app);
+await registerAgendaRoutes(app);

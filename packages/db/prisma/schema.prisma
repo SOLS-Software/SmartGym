@@ -260,6 +260,7 @@ model Aluno {
   treinos               Treino[]
   alunoTreinos          AlunoTreino[]
   alunoAtividadeAgendas AlunoAtividadeAgenda[]
+  alunoCheckIns         AlunoCheckIn[]
   alunosPontos          AlunoPonto[]
   produtoMovimentacoes  ProdutoMovimentacao[]
   alunoArquivos         AlunoArquivo[]
@@ -748,6 +749,7 @@ model PromocaoArquivo {
 model AlunoCheckIn {
   id                      Int      @id @default(autoincrement())
   idEmpresa               Int?
+  idAluno                 Int?
   idAlunoPlano            Int?
   idAlunoTreinosSequencia Int?
   idAtividadeAgenda       Int?
@@ -757,11 +759,13 @@ model AlunoCheckIn {
   boInativo               Int      @default(0)
 
   empresa              Empresa?              @relation(fields: [idEmpresa], references: [id])
+  aluno                Aluno?                @relation(fields: [idAluno], references: [id])
   alunoPlano           AlunoPlano?           @relation(fields: [idAlunoPlano], references: [id])
   alunoTreinoSequencia AlunoTreinoSequencia? @relation(fields: [idAlunoTreinosSequencia], references: [id])
   atividadeAgenda      AtividadeAgenda?      @relation(fields: [idAtividadeAgenda], references: [id])
   ponto                Ponto?                @relation(fields: [idPontos], references: [id])
 
+  @@index([idAluno, idAtividadeAgenda])
   @@map("tb_AlunoCheckIns")
 }
 

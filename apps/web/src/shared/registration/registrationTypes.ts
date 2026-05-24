@@ -264,3 +264,30 @@ export type StudentValidationErrors = Partial<Record<StudentValidationField, str
 
 export type CompanyValidationField = 'name' | 'cnpj';
 export type CompanyValidationErrors = Partial<Record<CompanyValidationField, string>>;
+
+export type AgendaSession = {
+  id: number;
+  idEmpresa: number | null;
+  dsEmpresa: string | null;
+  idAtividade: number | null;
+  dsAtividade: string | null;
+  idEsporte: number | null;
+  idCategoria: number | null;
+  dsCategoria: string | null;
+  dtInicial: string;
+  dtFinal: string;
+  qtAlunos: number | null;
+  qtInscritos: number;
+  boInativo: number;
+  profissionais: Array<{ id: number; nome: string | null }>;
+  alunoIds: number[];
+};
+
+export type EnrolledStudent = {
+  id: number;
+  idAluno: number;
+  nmAluno: string;
+  caCPF: string;
+  dtCadastro: string;
+  presente: boolean;
+};
