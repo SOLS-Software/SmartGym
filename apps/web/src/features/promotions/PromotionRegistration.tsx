@@ -355,7 +355,7 @@ export function PromotionRegistration() {
   }
 
   function handleEditPromotion(promotion: Promotion) {
-    handleSelectPromotion(promotion);
+    if (promotion.id !== selectedPromotionId) handleSelectPromotion(promotion);
     setDrawerMode('promotion');
     setIsDrawerOpen(true);
   }
@@ -376,7 +376,7 @@ export function PromotionRegistration() {
   }
 
   function handleEditRelated(record: CompanyChildRecord) {
-    handleSelectRelatedRecord(record);
+    if (record.id !== selectedRelatedRecordId) handleSelectRelatedRecord(record);
     setDrawerMode('related');
     setIsDrawerOpen(true);
   }

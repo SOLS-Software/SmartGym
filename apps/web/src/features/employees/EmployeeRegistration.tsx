@@ -367,7 +367,7 @@ export function EmployeeRegistration() {
   }
 
   function handleEditEmployee(employee: Employee) {
-    handleSelectEmployee(employee);
+    if (employee.id !== selectedEmployeeId) handleSelectEmployee(employee);
     setDrawerMode('employee');
     setIsDrawerOpen(true);
   }
@@ -408,7 +408,7 @@ export function EmployeeRegistration() {
   }
 
   function handleEditEmployeeRelated(record: CompanyChildRecord) {
-    handleSelectEmployeeRelatedRecord(record);
+    if (record.id !== selectedEmployeeRelatedRecordId) handleSelectEmployeeRelatedRecord(record);
     setDrawerMode('related');
     setIsDrawerOpen(true);
   }

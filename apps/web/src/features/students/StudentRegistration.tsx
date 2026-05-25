@@ -385,7 +385,7 @@ export function StudentRegistration() {
   }
 
   function handleEditStudent(student: Student) {
-    handleSelectStudent(student);
+    if (student.id !== selectedStudentId) handleSelectStudent(student);
     setDrawerMode('student');
     setIsDrawerOpen(true);
   }
@@ -460,7 +460,7 @@ export function StudentRegistration() {
   }
 
   function handleEditStudentRelated(record: CompanyChildRecord) {
-    handleSelectStudentRelatedRecord(record);
+    if (record.id !== selectedStudentRelatedRecordId) handleSelectStudentRelatedRecord(record);
     setDrawerMode('related');
     setIsDrawerOpen(true);
   }

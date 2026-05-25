@@ -297,7 +297,7 @@ export function CompanyRegistration() {
   }
 
   function handleEditChild(record: CompanyChildRecord) {
-    handleSelectChild(record);
+    if (record.id !== selectedChildRecordId) handleSelectChild(record);
     setDrawerMode('child');
     setIsDrawerOpen(true);
   }
@@ -559,7 +559,7 @@ export function CompanyRegistration() {
   }
 
   function handleEditCompany(company: Company) {
-    handleSelectCompany(company);
+    if (company.id !== selectedCompanyId) handleSelectCompany(company);
     setDrawerMode('company');
     setIsDrawerOpen(true);
   }

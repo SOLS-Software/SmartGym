@@ -375,7 +375,7 @@ export function PlanRegistration() {
   }
 
   function handleEditPlan(plan: Plan) {
-    handleSelectPlan(plan);
+    if (plan.id !== selectedPlanId) handleSelectPlan(plan);
     setDrawerMode('plan');
     setIsDrawerOpen(true);
   }
@@ -427,7 +427,7 @@ export function PlanRegistration() {
   }
 
   function handleEditPlanRelated(record: CompanyChildRecord) {
-    handleSelectPlanRelatedRecord(record);
+    if (record.id !== selectedPlanRelatedRecordId) handleSelectPlanRelatedRecord(record);
     setDrawerMode('related');
     setIsDrawerOpen(true);
   }

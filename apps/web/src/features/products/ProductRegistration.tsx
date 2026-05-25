@@ -274,7 +274,7 @@ export function ProductRegistration() {
   }
 
   function handleEditProduct(product: Product) {
-    handleSelectProduct(product);
+    if (product.id !== selectedProductId) handleSelectProduct(product);
     setDrawerMode('product');
     setIsDrawerOpen(true);
   }
@@ -315,7 +315,7 @@ export function ProductRegistration() {
   }
 
   function handleEditRelated(record: CompanyChildRecord) {
-    handleSelectRelatedRecord(record);
+    if (record.id !== selectedRelatedRecordId) handleSelectRelatedRecord(record);
     setDrawerMode('related');
     setIsDrawerOpen(true);
   }
