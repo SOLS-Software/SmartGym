@@ -227,4 +227,51 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       });
     }
   });
+
+  // GET /employees/:id/calendar — sessions the employee is assigned to in the month
+  app.get<{
+    Params: { id: string };
+    Querystring: { month?: string };
+  }>('/employees/:id/calendar', async (request, reply) => {
+    try {
+      const idFuncionario = Number(request.params.id);
+      assertValidId(idFuncionario, 'Funcionário inválido.');
+
+      const month = request.query.month ?? new Date().toISOString().slice(0, 7);
+      if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('Informe o mês no formato YYYY-MM.');
+
+      const year = Number(month.slice(0, 4));
+      const monthNumber = Number(month.slice(5, 7));
+      const startsAt = new Date(year, monthNumber - 1, 1);
+      const endsAt = new Date(year, monthNumber, 1);
+
+      const sessions = await prisma.funcionarioAtividadeAgenda.findMany({
+        where: {
+          idFuncionario,
+          boInativo: 0,
+          atividadeAgenda: {
+            boInativo: 0,
+            dtInicial: { gte: startsAt, lt: endsAt },
+          },
+        },
+        include: {
+          atividadeAgenda: {
+            include: {
+              atividade: true,
+              categoria: true,
+              empresa: true,
+              alunoAtividadeAgendas: { where: { boInativo: 0 }, select: { id: true } },
+            },
+          },
+        },
+        orderBy: { dtCadastro: 'asc' },
+      });
+
+      return { sessions };
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao carregar calendário do funcionário.',
+      });
+    }
+  });
 }

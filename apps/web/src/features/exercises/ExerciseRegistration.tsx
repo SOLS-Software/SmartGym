@@ -286,12 +286,12 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Treino</p>
+      <h2 className="module-page-title">CADASTRO DE EXERCÍCIOS</h2>
+    </header>
     <div className="form-view">
-      <div className="form-heading">
-        <p className="section-label">Treino</p>
-        <h2>Cadastro de Exercício</h2>
-        <p>Cadastre os exercícios e anexe arquivos de apoio como imagens e vídeos.</p>
-      </div>
 
       <section className="data-grid-section">
         <div className="grid-toolbar">
@@ -517,5 +517,6 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
         </RegistrationDrawer>
       ) : null}
     </div>
+    </>
   );
 }

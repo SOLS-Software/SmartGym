@@ -138,12 +138,12 @@ export function ClientRegistration() {
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Empresa</p>
+      <h2 className="module-page-title">CADASTRO DE CLIENTES</h2>
+    </header>
     <div className="form-view">
-      <div className="form-heading">
-        <p className="section-label">Administração</p>
-        <h2>Clientes</h2>
-        <p>Cadastre clientes, configure temas e gerencie logo e favicon de cada um.</p>
-      </div>
 
       <div className="domain-panel">
         <section className="data-grid-section">
@@ -275,5 +275,6 @@ export function ClientRegistration() {
         </form>
       </RegistrationDrawer>
     </div>
+    </>
   );
 }

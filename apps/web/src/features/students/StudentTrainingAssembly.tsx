@@ -718,10 +718,12 @@ export function StudentTrainingAssembly({
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Treino</p>
+      <h2 className="module-page-title">MONTAGEM DE TREINO</h2>
+    </header>
     <div className="form-view workout-assembly-view">
-      <div className="form-heading">
-        <p className="section-label">Montagem de treino</p>
-      </div>
 
       <section className="workout-students-grid data-grid-section">
         <div className="grid-toolbar">
@@ -1156,5 +1158,6 @@ export function StudentTrainingAssembly({
         </div>
       )}
     </div>
+    </>
   );
 }

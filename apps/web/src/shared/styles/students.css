@@ -888,13 +888,43 @@
 }
 
 .student-calendar-day span.check-in,
-.student-calendar-day span.activity {
+.student-calendar-day span.activity,
+.student-calendar-day span.gym-check-in,
+.student-calendar-day span.attended,
+.student-calendar-day span.session {
   background: var(--color-primary-bg);
   color: var(--color-primary);
 }
 
 .student-calendar-day span.agenda,
-.student-calendar-day span.promotion {
+.student-calendar-day span.promotion,
+.student-calendar-day span.enrolled {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.student-calendar-legend {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.student-calendar-legend span {
+  border-radius: 0.375rem;
+  font-size: 0.74rem;
+  font-weight: 800;
+  padding: 0.3rem 0.5rem;
+}
+
+.student-calendar-legend span.gym-check-in,
+.student-calendar-legend span.attended,
+.student-calendar-legend span.session {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.student-calendar-legend span.enrolled {
   background: var(--color-warning-bg);
   color: var(--color-warning);
 }
@@ -1198,12 +1228,14 @@
 .agenda-filter-bar {
   align-items: flex-end;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
 }
 
 .agenda-filter-bar .field {
+  flex: 1 1 11rem;
   margin: 0;
-  min-width: 12rem;
+  min-width: 10rem;
 }
 
 .agenda-employee-layout {
@@ -1247,6 +1279,7 @@
 .agenda-detail-header h3 {
   color: var(--color-text);
   font-size: 1.2rem;
+  font-weight: 800;
   margin: 0;
 }
 

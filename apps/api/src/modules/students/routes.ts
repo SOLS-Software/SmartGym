@@ -611,7 +611,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       const startsAt = new Date(year, monthNumber - 1, 1);
       const endsAt = new Date(year, monthNumber, 1);
 
-      const [checkIns, activitySchedules] = await Promise.all([
+      const [checkIns, activitySchedules, activityPresences] = await Promise.all([
         prisma.alunoCheckIn.findMany({
           where: {
             alunoPlano: { idAluno },
@@ -628,13 +628,6 @@ export async function registerStudentRoutes(app: FastifyInstance) {
                     funcionario: true,
                   },
                 },
-              },
-            },
-            atividadeAgenda: {
-              include: {
-                atividade: true,
-                categoria: true,
-                empresa: true,
               },
             },
           },
@@ -665,9 +658,31 @@ export async function registerStudentRoutes(app: FastifyInstance) {
           },
           orderBy: { dtCadastro: 'asc' },
         }),
+        prisma.alunoCheckIn.findMany({
+          where: {
+            idAluno,
+            idAtividadeAgenda: { not: null },
+            boInativo: 0,
+            atividadeAgenda: { dtInicial: { gte: startsAt, lt: endsAt } },
+          },
+          include: {
+            atividadeAgenda: {
+              include: {
+                atividade: true,
+                categoria: true,
+                empresa: true,
+                funcionarioAtividadeAgendas: {
+                  where: { boInativo: 0 },
+                  include: { funcionario: true },
+                },
+              },
+            },
+          },
+          orderBy: { dtCadastro: 'asc' },
+        }),
       ]);
 
-      return { checkIns, activitySchedules };
+      return { checkIns, activitySchedules, activityPresences };
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao carregar calendario do aluno.',

@@ -806,10 +806,12 @@ export function EmployeeRegistration() {
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">RH</p>
+      <h2 className="module-page-title">CADASTRO DE PROFISSIONAIS</h2>
+    </header>
     <div className="form-view company-view">
-      <div className="form-heading">
-        <p className="section-label">Profissionais</p>
-      </div>
 
       <div className={`training-page-layout${selectedEmployeeId !== null ? ' has-exercises' : ''}`}>
         <section className="data-grid-section company-grid-section">
@@ -969,5 +971,6 @@ export function EmployeeRegistration() {
         </div>
       ) : null}
     </div>
+    </>
   );
 }

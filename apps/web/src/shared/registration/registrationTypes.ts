@@ -281,6 +281,7 @@ export type AgendaSession = {
   boInativo: number;
   profissionais: Array<{ id: number; nome: string | null }>;
   alunoIds: number[];
+  presentAlunoIds: number[];
 };
 
 export type EnrolledStudent = {

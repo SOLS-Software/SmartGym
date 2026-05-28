@@ -130,11 +130,33 @@
 }
 
 .activity-schedule-row {
-  grid-template-columns: minmax(9rem, 1fr) minmax(9rem, 0.85fr) minmax(10rem, 1fr) 7rem 7rem minmax(8rem, 0.8fr) 8rem 5.5rem 6.5rem 9.5rem;
+  grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1fr) 9rem minmax(11rem, 1fr) 6rem minmax(7rem, 0.8fr) 9rem;
 }
 
-.workout-training-grid .activity-schedule-actions {
+.activity-schedule-actions {
   grid-template-columns: minmax(12rem, 1fr) max-content max-content;
+}
+
+.schedule-agenda-toolbar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.625rem;
+}
+
+.schedule-agenda-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.schedule-agenda-header .section-label {
+  margin: 0;
+}
+
+.schedule-novo-button {
+  width: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 .activity-schedule-builder-form {
@@ -150,6 +172,62 @@
 
 .activity-week-days-field {
   grid-column: span 2;
+}
+
+/* ── Schedule assembly new layout ── */
+
+.schedule-assembly-layout {
+  align-items: start;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(18rem, 0.55fr) minmax(0, 1fr);
+}
+
+.schedule-drawer-layout {
+  align-items: start;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr) 22rem;
+}
+
+.schedule-drawer-form {
+  align-items: start;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.schedule-weekdays-field {
+  grid-column: span 2;
+}
+
+.schedule-weekdays-field input[type='checkbox']:disabled,
+.schedule-weekdays-field input[type='checkbox']:disabled + span {
+  cursor: default;
+  opacity: 1;
+}
+
+.schedule-drawer-actions {
+  grid-column: span 2;
+  justify-content: flex-end;
+}
+
+.schedule-drawer-preview {
+  position: sticky;
+  top: 0;
+}
+
+.preview-session-card {
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .schedule-assembly-layout {
+    grid-template-columns: 1fr;
+  }
+  .schedule-drawer-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 .week-day-choice-list {

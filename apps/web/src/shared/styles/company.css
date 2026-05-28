@@ -1,3 +1,31 @@
+.company-file-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.company-file-actions .secondary-button {
+  background: var(--color-surface-alt);
+  border: 0.0625rem solid var(--color-border);
+  color: var(--color-muted-strong);
+}
+
+.company-file-actions .secondary-button:hover {
+  background: var(--color-border);
+}
+
+.company-file-actions .danger {
+  background: var(--color-danger-bg);
+  border: 0.0625rem solid var(--color-danger-bg);
+  border-radius: 0.5rem;
+  color: var(--color-danger-dark);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+}
+
 .company-view .form-heading {
   align-items: baseline;
   display: flex;

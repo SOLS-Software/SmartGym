@@ -713,6 +713,11 @@ export function PlanRegistration() {
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Alunos</p>
+      <h2 className="module-page-title">CADASTRO DE PLANOS</h2>
+    </header>
     <div className={`activity-page-layout${selectedPlanId !== null ? ' has-related' : ''}`}>
       <section className="data-grid-section company-grid-section">
         <RegistrationGrid<Plan>
@@ -883,5 +888,6 @@ export function PlanRegistration() {
         </div>
       ) : null}
     </div>
+    </>
   );
 }

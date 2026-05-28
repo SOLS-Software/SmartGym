@@ -569,10 +569,12 @@ export function ProductRegistration() {
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Estoque</p>
+      <h2 className="module-page-title">CADASTRO DE PRODUTOS</h2>
+    </header>
     <div className="form-view company-view">
-      <div className="form-heading">
-        <p className="section-label">Estoque</p>
-      </div>
 
       <div className={`training-page-layout${selectedProductId !== null ? ' has-exercises' : ''}`}>
         <section className="data-grid-section company-grid-section">
@@ -707,5 +709,6 @@ export function ProductRegistration() {
         </div>
       ) : null}
     </div>
+    </>
   );
 }

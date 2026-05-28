@@ -2,7 +2,7 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Pencil, Plus, Save } from 'lucide-react';
+import { Clock, Pencil, Plus, Save, Users } from 'lucide-react';
 import {
   GRID_PAGE_SIZE,
   GridPagination,
@@ -10,6 +10,7 @@ import {
   formatDateInput,
   paginateItems,
 } from '../../shared/registration/registrationHelpers';
+import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import type { Activity, Company, Employee, LookupRecord, Sport } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
@@ -68,6 +69,7 @@ export function ActivityScheduleAssembly() {
   const [selectedActivityId, setSelectedActivityId] = useState<number | null>(null);
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null);
   const [isCreatingSchedule, setIsCreatingSchedule] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
@@ -84,8 +86,8 @@ export function ActivityScheduleAssembly() {
   const [feedback, setFeedback] = useState('');
   const [scheduleFeedback, setScheduleFeedback] = useState('');
 
-  const selectedActivity = activities.find((activity) => activity.id === selectedActivityId) ?? null;
-  const isScheduleFormEnabled = Boolean(selectedActivityId) && (selectedScheduleId !== null || isCreatingSchedule);
+  const selectedActivity = activities.find((a) => a.id === selectedActivityId) ?? null;
+
   const filteredActivities = activities.filter((activity) => {
     const search = searchTerm.toLowerCase();
     return (
@@ -95,13 +97,10 @@ export function ActivityScheduleAssembly() {
       (activity.boInativo === 0 ? 'ativo' : 'inativo').includes(search)
     );
   });
+
   const filteredSchedules = schedules.filter((schedule) => {
     const search = scheduleSearchTerm.toLowerCase();
-
-    if (!showInactiveSchedules && schedule.boInativo !== 0) {
-      return false;
-    }
-
+    if (!showInactiveSchedules && schedule.boInativo !== 0) return false;
     return (
       getCompanyName(schedule.idEmpresa).toLowerCase().includes(search) ||
       getCategoryName(schedule.idCategoria).toLowerCase().includes(search) ||
@@ -112,23 +111,18 @@ export function ActivityScheduleAssembly() {
       (schedule.boInativo === 0 ? 'ativo' : 'inativo').includes(search)
     );
   });
-  const activitiesTotalPages = Math.max(1, Math.ceil(filteredActivities.length / GRID_PAGE_SIZE));
-  const schedulesTotalPages = Math.max(1, Math.ceil(filteredSchedules.length / GRID_PAGE_SIZE));
+
   const paginatedActivities = paginateItems(filteredActivities, activitiesPage);
   const paginatedSchedules = paginateItems(filteredSchedules, schedulesPage);
-  const previewScheduleDates = getScheduleDatesInPeriod();
-  const previewCalendarMonths = getPreviewCalendarMonths(previewScheduleDates);
+
+  // ── Loaders ────────────────────────────────────────────────────
 
   async function loadActivities() {
     try {
       setIsLoadingActivities(true);
       const response = await fetch(`${apiUrl}/activities`);
-
-      if (!response.ok) {
-        await getApiError(response, 'Nao foi possivel carregar as atividades.');
-      }
-
-      setActivities(((await response.json()) as Activity[]).filter((activity) => activity.boInativo === 0));
+      if (!response.ok) await getApiError(response, 'Não foi possível carregar as atividades.');
+      setActivities(((await response.json()) as Activity[]).filter((a) => a.boInativo === 0));
       setFeedback('');
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao carregar atividades.');
@@ -139,103 +133,99 @@ export function ActivityScheduleAssembly() {
 
   async function loadLookups() {
     try {
-      const [companiesResponse, categoriesResponse, employeesResponse, sportsResponse] = await Promise.all([
+      const [companiesRes, categoriesRes, employeesRes, sportsRes] = await Promise.all([
         fetch(`${apiUrl}/companies`),
         fetch(`${apiUrl}/categories`),
         fetch(`${apiUrl}/employees`),
         fetch(`${apiUrl}/sports`),
       ]);
-
-      const failedLookup = [companiesResponse, categoriesResponse, employeesResponse].find((response) => !response.ok);
-      if (failedLookup) {
-        await getApiError(failedLookup, 'Nao foi possivel carregar empresas e categorias.');
-      }
-
-      setCompanies(((await companiesResponse.json()) as Company[]).filter((company) => company.boInativo === 0));
-      setCategories(((await categoriesResponse.json()) as Category[]).filter((category) => Number(category.boInativo ?? 0) === 0));
-      setEmployees(((await employeesResponse.json()) as Employee[]).filter((employee) => employee.boInativo === 0));
-      if (sportsResponse.ok) {
-        setSports(((await sportsResponse.json()) as Sport[]).filter((sport) => sport.boInativo === 0));
-      }
+      setCompanies(((await companiesRes.json()) as Company[]).filter((c) => c.boInativo === 0));
+      setCategories(((await categoriesRes.json()) as Category[]).filter((c) => Number(c.boInativo ?? 0) === 0));
+      setEmployees(((await employeesRes.json()) as Employee[]).filter((e) => e.boInativo === 0));
+      if (sportsRes.ok) setSports(((await sportsRes.json()) as Sport[]).filter((s) => s.boInativo === 0));
     } catch (error) {
       setScheduleFeedback(error instanceof Error ? error.message : 'Erro ao carregar listas.');
     }
   }
 
   async function loadSchedules(activityId = selectedActivityId) {
-    if (!activityId) {
-      setSchedules([]);
-      setIsLoadingSchedules(false);
-      return;
-    }
-
+    if (!activityId) { setSchedules([]); setIsLoadingSchedules(false); return; }
     try {
       setIsLoadingSchedules(true);
       const response = await fetch(`${apiUrl}/activities/${activityId}/related/schedules`);
-
-      if (!response.ok) {
-        await getApiError(response, 'Nao foi possivel carregar a agenda da atividade.');
-      }
-
+      if (!response.ok) await getApiError(response, 'Não foi possível carregar a agenda.');
       const data = (await response.json()) as ActivitySchedule[];
       setSchedules(data);
       await loadScheduleEmployees(activityId, data);
       setScheduleFeedback('');
     } catch (error) {
       setSchedules([]);
-      setScheduleFeedback(error instanceof Error ? error.message : 'Erro ao carregar agenda da atividade.');
+      setScheduleFeedback(error instanceof Error ? error.message : 'Erro ao carregar agenda.');
     } finally {
       setIsLoadingSchedules(false);
     }
   }
 
-  useEffect(() => {
-    void loadActivities();
-    void loadLookups();
-  }, []);
-
-  useEffect(() => {
-    setActivitiesPage(1);
-  }, [searchTerm]);
-
-  useEffect(() => {
-    setSchedulesPage(1);
-  }, [scheduleSearchTerm, selectedActivityId, showInactiveSchedules]);
-
-  useEffect(() => {
-    if (activitiesPage > activitiesTotalPages) {
-      setActivitiesPage(activitiesTotalPages);
+  async function loadScheduleEmployees(activityId = selectedActivityId, scheduleRecords = schedules) {
+    if (!activityId) { setScheduleEmployees([]); return; }
+    try {
+      const records = await Promise.all(
+        scheduleRecords.map(async (s) => {
+          const res = await fetch(`${apiUrl}/activities/${activityId}/related/schedules/${s.id}/employees`);
+          if (!res.ok) await getApiError(res, 'Não foi possível carregar os profissionais.');
+          return (await res.json()) as ScheduleEmployee[];
+        }),
+      );
+      setScheduleEmployees(records.flat());
+    } catch {
+      setScheduleEmployees([]);
     }
-  }, [activitiesPage, activitiesTotalPages]);
+  }
 
+  // ── Effects ────────────────────────────────────────────────────
+
+  useEffect(() => { void loadActivities(); void loadLookups(); }, []);
+  useEffect(() => { setActivitiesPage(1); }, [searchTerm]);
+  useEffect(() => { setSchedulesPage(1); }, [scheduleSearchTerm, selectedActivityId, showInactiveSchedules]);
+
+  // Em modo edição, sincroniza os dias da semana com o período selecionado
   useEffect(() => {
-    if (schedulesPage > schedulesTotalPages) {
-      setSchedulesPage(schedulesTotalPages);
+    if (isCreatingSchedule || !startDate || !endDate) return;
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return;
+    const days = new Set<string>();
+    const current = new Date(start);
+    while (current <= end) {
+      days.add(String(current.getDay()));
+      current.setDate(current.getDate() + 1);
     }
-  }, [schedulesPage, schedulesTotalPages]);
+    setSelectedWeekDays(
+      weekDays.filter((d) => days.has(d.value)).map((d) => d.value),
+    );
+  }, [isCreatingSchedule, startDate, endDate]);
 
-  function getCompanyName(companyId: number | null) {
-    return companies.find((company) => company.id === companyId)?.dsEmpresa ?? '-';
+  // ── Helpers ────────────────────────────────────────────────────
+
+  function getCompanyName(id: number | null) {
+    return companies.find((c) => c.id === id)?.dsEmpresa ?? '-';
   }
 
-  function getSportName(sportId: number | null) {
-    return sports.find((sport) => sport.id === sportId)?.dsEsporte ?? '-';
+  function getSportName(id: number | null) {
+    return sports.find((s) => s.id === id)?.dsEsporte ?? '-';
   }
 
-  function getCategoryName(categoryId: number | null) {
-    return String(categories.find((category) => category.id === categoryId)?.dsCategoria ?? '-');
+  function getCategoryName(id: number | null) {
+    return String(categories.find((c) => c.id === id)?.dsCategoria ?? '-');
   }
 
-  function getEmployeeName(employeeId: number | null) {
-    return employees.find((employee) => employee.id === employeeId)?.nmFuncionario ?? '-';
+  function getEmployeeName(id: number | null) {
+    return employees.find((e) => e.id === id)?.nmFuncionario ?? '-';
   }
 
   function getScheduleEmployeeName(scheduleId: number) {
-    const employeeSchedule = scheduleEmployees.find(
-      (record) => record.idAtividadeAgenda === scheduleId && record.boInativo === 0,
-    );
-
-    return getEmployeeName(employeeSchedule?.idFuncionario ?? null);
+    const rec = scheduleEmployees.find((r) => r.idAtividadeAgenda === scheduleId && r.boInativo === 0);
+    return getEmployeeName(rec?.idFuncionario ?? null);
   }
 
   function getDateInputValue(value: string | null) {
@@ -257,14 +247,14 @@ export function ActivityScheduleAssembly() {
 
   function getWeekDayLabelFromSchedule(schedule: ActivitySchedule) {
     const dayValue = getWeekDayValue(schedule.dtInicial);
-    return weekDays.find((day) => day.value === dayValue)?.label ?? '-';
+    return weekDays.find((d) => d.value === dayValue)?.label ?? '-';
   }
 
   function getScheduleTimeLabel(schedule: ActivitySchedule) {
-    const initialTime = getTimeInputValue(schedule.dtInicial);
-    const finalTime = getTimeInputValue(schedule.dtFinal);
-    if (!initialTime && !finalTime) return '-';
-    return `${initialTime || '--:--'} ate ${finalTime || '--:--'}`;
+    const ini = getTimeInputValue(schedule.dtInicial);
+    const fin = getTimeInputValue(schedule.dtFinal);
+    if (!ini && !fin) return '-';
+    return `${ini || '--:--'} ate ${fin || '--:--'}`;
   }
 
   function combineDateTime(dateValue: string, timeValue: string) {
@@ -273,20 +263,13 @@ export function ActivityScheduleAssembly() {
   }
 
   function getScheduleDatesInPeriod() {
-    if (!startDate || !endDate) {
-      return [];
-    }
-
+    if (!startDate || !endDate) return [];
     const start = new Date(`${startDate}T00:00:00`);
     const end = new Date(`${endDate}T00:00:00`);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
-      return [];
-    }
-
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return [];
     const selectedDays = new Set(selectedWeekDays);
     const dates: string[] = [];
     const current = new Date(start);
-
     while (current <= end) {
       if (selectedDays.has(String(current.getDay()))) {
         dates.push(
@@ -295,92 +278,43 @@ export function ActivityScheduleAssembly() {
       }
       current.setDate(current.getDate() + 1);
     }
-
     return dates;
   }
 
   function getPreviewCalendarMonths(scheduleDates: string[]) {
-    if (!startDate || !endDate) {
-      return [];
-    }
-
+    if (!startDate || !endDate) return [];
     const start = new Date(`${startDate}T00:00:00`);
     const end = new Date(`${endDate}T00:00:00`);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
-      return [];
-    }
-
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return [];
     const selectedDates = new Set(scheduleDates);
-    const months: Array<{
-      key: string;
-      label: string;
-      days: Array<{ key: string; day: number | null; selected: boolean }>;
-    }> = [];
+    const months: Array<{ key: string; label: string; days: Array<{ key: string; day: number | null; selected: boolean }> }> = [];
     const current = new Date(start.getFullYear(), start.getMonth(), 1);
     const lastMonth = new Date(end.getFullYear(), end.getMonth(), 1);
-
     while (current <= lastMonth) {
       const year = current.getFullYear();
       const month = current.getMonth();
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
-      const leadingEmptyDays = (firstDay.getDay() + 6) % 7;
+      const leadingEmpty = (firstDay.getDay() + 6) % 7;
       const days: Array<{ key: string; day: number | null; selected: boolean }> = [];
-
-      for (let index = 0; index < leadingEmptyDays; index += 1) {
-        days.push({ key: `empty-${year}-${month}-${index}`, day: null, selected: false });
+      for (let i = 0; i < leadingEmpty; i += 1) days.push({ key: `empty-${year}-${month}-${i}`, day: null, selected: false });
+      for (let d = 1; d <= lastDay.getDate(); d += 1) {
+        const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        days.push({ key: dateKey, day: d, selected: selectedDates.has(dateKey) });
       }
-
-      for (let day = 1; day <= lastDay.getDate(); day += 1) {
-        const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        days.push({
-          key: dateKey,
-          day,
-          selected: selectedDates.has(dateKey),
-        });
-      }
-
-      months.push({
-        key: `${year}-${month}`,
-        label: firstDay.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
-        days,
-      });
+      months.push({ key: `${year}-${month}`, label: firstDay.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }), days });
       current.setMonth(current.getMonth() + 1);
     }
-
     return months;
   }
 
-  async function loadScheduleEmployees(activityId = selectedActivityId, scheduleRecords = schedules) {
-    if (!activityId) {
-      setScheduleEmployees([]);
-      return;
-    }
-
-    try {
-      const records = await Promise.all(
-        scheduleRecords.map(async (schedule) => {
-          const response = await fetch(`${apiUrl}/activities/${activityId}/related/schedules/${schedule.id}/employees`);
-
-          if (!response.ok) {
-            await getApiError(response, 'Nao foi possivel carregar os profissionais da agenda.');
-          }
-
-          return (await response.json()) as ScheduleEmployee[];
-        }),
-      );
-
-      setScheduleEmployees(records.flat());
-    } catch (error) {
-      setScheduleEmployees([]);
-      setScheduleFeedback(error instanceof Error ? error.message : 'Erro ao carregar profissionais da agenda.');
-    }
-  }
+  // ── Handlers ───────────────────────────────────────────────────
 
   function handleSelectActivity(activity: Activity) {
     setSelectedActivityId(activity.id);
     setSelectedScheduleId(null);
     setIsCreatingSchedule(false);
+    setIsDrawerOpen(false);
     setScheduleEmployees([]);
     clearScheduleFields();
     setFeedback('');
@@ -393,19 +327,17 @@ export function ActivityScheduleAssembly() {
     setIsCreatingSchedule(true);
     clearScheduleFields();
     setScheduleFeedback('');
-    setTimeout(() => scheduleStartInputRef.current?.focus(), 0);
+    setIsDrawerOpen(true);
+    setTimeout(() => scheduleStartInputRef.current?.focus(), 50);
   }
 
-  function handleSelectSchedule(schedule: ActivitySchedule) {
+  function handleEditSchedule(schedule: ActivitySchedule) {
     setSelectedScheduleId(schedule.id);
     setIsCreatingSchedule(false);
     setSelectedCompanyId(schedule.idEmpresa ? String(schedule.idEmpresa) : '');
     setSelectedCategoryId(schedule.idCategoria ? String(schedule.idCategoria) : '');
     setSelectedEmployeeId(
-      String(
-        scheduleEmployees.find((record) => record.idAtividadeAgenda === schedule.id && record.boInativo === 0)
-          ?.idFuncionario ?? '',
-      ),
+      String(scheduleEmployees.find((r) => r.idAtividadeAgenda === schedule.id && r.boInativo === 0)?.idFuncionario ?? ''),
     );
     setStartDate(getDateInputValue(schedule.dtInicial));
     setEndDate(getDateInputValue(schedule.dtFinal));
@@ -415,6 +347,7 @@ export function ActivityScheduleAssembly() {
     setStudentLimit(schedule.qtAlunos ? String(schedule.qtAlunos) : '');
     setIsScheduleActive(schedule.boInativo === 0);
     setScheduleFeedback('');
+    setIsDrawerOpen(true);
   }
 
   function clearScheduleFields() {
@@ -430,149 +363,87 @@ export function ActivityScheduleAssembly() {
     setIsScheduleActive(true);
   }
 
-  function handleToggleWeekDay(dayValue: string) {
-    setSelectedWeekDays((current) =>
-      current.includes(dayValue)
-        ? current.filter((value) => value !== dayValue)
-        : weekDays
-          .filter((day) => [...current, dayValue].includes(day.value))
-          .map((day) => day.value),
-    );
-  }
-
-  async function saveScheduleEmployee(scheduleId: number) {
-    if (!selectedActivityId || !selectedEmployeeId) {
-      return;
-    }
-
-    const activeEmployeeRecords = scheduleEmployees.filter(
-      (record) => record.idAtividadeAgenda === scheduleId && record.boInativo === 0,
-    );
-    const currentEmployeeRecord = activeEmployeeRecords[0];
-    const payload = {
-      idEmpresa: selectedCompanyId || null,
-      idFuncionario: selectedEmployeeId,
-      boInativo: 0,
-    };
-
-    if (currentEmployeeRecord) {
-      const response = await fetch(
-        `${apiUrl}/activities/${selectedActivityId}/related/schedules/${scheduleId}/employees/${currentEmployeeRecord.id}`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        },
-      );
-
-      if (!response.ok) {
-        await getApiError(response, 'Nao foi possivel salvar o profissional da agenda.');
-      }
-    } else {
-      const response = await fetch(`${apiUrl}/activities/${selectedActivityId}/related/schedules/${scheduleId}/employees`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        await getApiError(response, 'Nao foi possivel salvar o profissional da agenda.');
-      }
-    }
-  }
-
-  function clearScheduleForm() {
+  function handleCloseDrawer() {
+    setIsDrawerOpen(false);
     setSelectedScheduleId(null);
     setIsCreatingSchedule(false);
     clearScheduleFields();
     setScheduleFeedback('');
   }
 
+  function handleToggleWeekDay(dayValue: string) {
+    setSelectedWeekDays((current) =>
+      current.includes(dayValue)
+        ? current.filter((v) => v !== dayValue)
+        : weekDays.filter((d) => [...current, dayValue].includes(d.value)).map((d) => d.value),
+    );
+  }
+
+  async function saveScheduleEmployee(scheduleId: number) {
+    if (!selectedActivityId || !selectedEmployeeId) return;
+    const activeRec = scheduleEmployees.find((r) => r.idAtividadeAgenda === scheduleId && r.boInativo === 0);
+    const payload = { idEmpresa: selectedCompanyId || null, idFuncionario: selectedEmployeeId, boInativo: 0 };
+    if (activeRec) {
+      const res = await fetch(`${apiUrl}/activities/${selectedActivityId}/related/schedules/${scheduleId}/employees/${activeRec.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      if (!res.ok) await getApiError(res, 'Não foi possível salvar o profissional.');
+    } else {
+      const res = await fetch(`${apiUrl}/activities/${selectedActivityId}/related/schedules/${scheduleId}/employees`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      if (!res.ok) await getApiError(res, 'Não foi possível salvar o profissional.');
+    }
+  }
+
   async function handleToggleScheduleStatus(schedule: ActivitySchedule) {
     if (!selectedActivityId) return;
     const nextInactive = schedule.boInativo === 0 ? 1 : 0;
-
     try {
-      const response = await fetch(`${apiUrl}/activities/${selectedActivityId}/related/schedules/${schedule.id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boInativo: nextInactive }),
+      const res = await fetch(`${apiUrl}/activities/${selectedActivityId}/related/schedules/${schedule.id}/status`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ boInativo: nextInactive }),
       });
-
-      if (!response.ok) {
-        await getApiError(response, 'Nao foi possivel alterar o status da agenda.');
-      }
-
+      if (!res.ok) await getApiError(res, 'Não foi possível alterar o status.');
       await loadSchedules(selectedActivityId);
-      setSelectedScheduleId(null);
-      setIsCreatingSchedule(false);
-      clearScheduleFields();
       setScheduleFeedback(nextInactive === 1 ? 'Agenda inativada.' : 'Agenda ativada.');
     } catch (error) {
-      setScheduleFeedback(error instanceof Error ? error.message : 'Erro ao alterar status da agenda.');
+      setScheduleFeedback(error instanceof Error ? error.message : 'Erro ao alterar status.');
     }
   }
 
   async function handleSaveSchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (!selectedActivityId) {
-      setScheduleFeedback('Selecione uma atividade antes de salvar.');
-      return;
-    }
-
-    if (!startDate || !endDate) {
-      setScheduleFeedback('Informe o periodo da agenda.');
-      return;
-    }
-
-    if (!startTime || !endTime) {
-      setScheduleFeedback('Informe o horario da agenda.');
-      return;
-    }
-
-    if (isCreatingSchedule && selectedWeekDays.length === 0) {
-      setScheduleFeedback('Selecione pelo menos um dia da semana.');
-      return;
-    }
+    if (!selectedActivityId) { setScheduleFeedback('Selecione uma atividade.'); return; }
+    if (!startDate || !endDate) { setScheduleFeedback('Informe o período da agenda.'); return; }
+    if (!startTime || !endTime) { setScheduleFeedback('Informe o horário da agenda.'); return; }
+    if (isCreatingSchedule && selectedWeekDays.length === 0) { setScheduleFeedback('Selecione pelo menos um dia da semana.'); return; }
 
     try {
       if (isCreatingSchedule) {
         const scheduleDates = getScheduleDatesInPeriod();
-
-        if (scheduleDates.length === 0) {
-          setScheduleFeedback('Nenhuma data encontrada para os dias selecionados no periodo.');
-          return;
-        }
-
-        for (const scheduleDate of scheduleDates) {
-          const response = await fetch(`${apiUrl}/activities/${selectedActivityId}/related/schedules`, {
+        if (scheduleDates.length === 0) { setScheduleFeedback('Nenhuma data encontrada para os dias selecionados.'); return; }
+        for (const date of scheduleDates) {
+          const res = await fetch(`${apiUrl}/activities/${selectedActivityId}/related/schedules`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               idEmpresa: selectedCompanyId || null,
               idCategoria: selectedCategoryId || null,
-              dtInicial: combineDateTime(scheduleDate, startTime),
-              dtFinal: combineDateTime(scheduleDate, endTime),
+              dtInicial: combineDateTime(date, startTime),
+              dtFinal: combineDateTime(date, endTime),
               qtAlunos: studentLimit || null,
               boInativo: isScheduleActive ? 0 : 1,
             }),
           });
-
-          if (!response.ok) {
-            await getApiError(response, 'Nao foi possivel salvar a agenda.');
-          }
-
-          const savedSchedule = (await response.json()) as ActivitySchedule;
-          await saveScheduleEmployee(savedSchedule.id);
+          if (!res.ok) await getApiError(res, 'Não foi possível salvar a agenda.');
+          const saved = (await res.json()) as ActivitySchedule;
+          await saveScheduleEmployee(saved.id);
         }
+        const count = getScheduleDatesInPeriod().length;
+        setScheduleFeedback(`${count} agenda${count !== 1 ? 's' : ''} salva${count !== 1 ? 's' : ''} com sucesso.`);
       } else {
-        if (!selectedScheduleId) {
-          setScheduleFeedback('Selecione uma agenda antes de salvar.');
-          return;
-        }
-
-        const response = await fetch(`${apiUrl}/activities/${selectedActivityId}/related/schedules/${selectedScheduleId}`, {
+        if (!selectedScheduleId) { setScheduleFeedback('Selecione uma agenda.'); return; }
+        const res = await fetch(`${apiUrl}/activities/${selectedActivityId}/related/schedules/${selectedScheduleId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -584,289 +455,100 @@ export function ActivityScheduleAssembly() {
             boInativo: isScheduleActive ? 0 : 1,
           }),
         });
-
-        if (!response.ok) {
-          await getApiError(response, 'Nao foi possivel salvar a agenda.');
-        }
-
-        const savedSchedule = (await response.json()) as ActivitySchedule;
-        await saveScheduleEmployee(savedSchedule.id);
+        if (!res.ok) await getApiError(res, 'Não foi possível salvar a agenda.');
+        const saved = (await res.json()) as ActivitySchedule;
+        await saveScheduleEmployee(saved.id);
+        setScheduleFeedback('Agenda salva com sucesso.');
       }
 
       await loadSchedules(selectedActivityId);
-      setSelectedScheduleId(null);
-      setIsCreatingSchedule(false);
-      clearScheduleFields();
-      if (isCreatingSchedule) {
-        const scheduleDates = getScheduleDatesInPeriod();
-        setScheduleFeedback(`${scheduleDates.length} agenda${scheduleDates.length > 1 ? 's' : ''} salva${scheduleDates.length > 1 ? 's' : ''} com sucesso.`);
-      } else {
-        setScheduleFeedback('Agenda salva com sucesso.');
-      }
+      handleCloseDrawer();
     } catch (error) {
       setScheduleFeedback(error instanceof Error ? error.message : 'Erro ao salvar agenda.');
     }
   }
 
+  // ── Render ─────────────────────────────────────────────────────
+
+  const previewScheduleDates = getScheduleDatesInPeriod();
+  const previewCalendarMonths = getPreviewCalendarMonths(previewScheduleDates);
+
   return (
-    <div className="workout-assembly-view">
-      <div className="form-heading">
-        <div>
-          <p className="section-label">Montagem</p>
-          <h2>Montagem de Agenda</h2>
-        </div>
-      </div>
+    <>
+      <header className="module-page-header">
+        <p className="section-label">Atividade</p>
+        <h2 className="module-page-title">MONTAGEM DE AGENDA</h2>
+      </header>
 
-      {feedback ? <div className="form-feedback">{feedback}</div> : null}
+      <div className="workout-assembly-view">
+        {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
-      <section className="data-grid-section workout-students-grid">
-        <div className="grid-toolbar">
-          <div className="child-grid-toolbar-label">
-            <p className="section-label">Atividades cadastradas</p>
-          </div>
-          <div className="child-grid-toolbar-actions">
-            <label className="search-field">
-              <span>Pesquisar</span>
-              <input
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Buscar atividade"
-                type="search"
-                value={searchTerm}
-              />
-            </label>
-          </div>
-        </div>
-
-        <div className="product-table" key={`activities-${searchTerm}-${activitiesPage}`} role="table" aria-label="Atividades cadastradas">
-          <div className="product-row activity-schedule-activity-row header" role="row">
-            <span role="columnheader">Atividade</span>
-            <span role="columnheader">Esporte</span>
-            <span role="columnheader">Empresa</span>
-            <span role="columnheader">Status</span>
-          </div>
-
-          {isLoadingActivities ? <div className="empty-row">Carregando atividades...</div> : null}
-
-          {!isLoadingActivities
-            ? paginatedActivities.map((activity) => (
-              <button
-                className={`product-row activity-schedule-activity-row selectable ${activity.id === selectedActivityId ? 'selected' : ''}`}
-                key={activity.id}
-                onClick={() => handleSelectActivity(activity)}
-                role="row"
-                type="button"
-              >
-                <span role="cell">{activity.dsAtividade}</span>
-                <span role="cell">{getSportName(activity.idEsporte)}</span>
-                <span role="cell">{getCompanyName(activity.idEmpresa)}</span>
-                <span role="cell">
-                  <span className={`status-badge ${activity.boInativo === 0 ? 'active' : 'inactive'}`}>
-                    {activity.boInativo === 0 ? 'Ativo' : 'Inativo'}
-                  </span>
-                </span>
-              </button>
-            ))
-            : null}
-
-          {!isLoadingActivities && filteredActivities.length === 0 ? (
-            <div className="empty-row">Nenhuma atividade encontrada.</div>
-          ) : null}
-        </div>
-
-        <GridPagination
-          onChange={setActivitiesPage}
-          page={activitiesPage}
-          totalItems={filteredActivities.length}
-        />
-      </section>
-
-      {selectedActivity ? (
-        <section className="workout-selected-area">
-          <div className="workout-selected-header">
-            <div>
-              <p className="section-label">Atividade selecionada</p>
-              <h3>{selectedActivity.dsAtividade}</h3>
-            </div>
-            <span>{getCompanyName(selectedActivity.idEmpresa)}</span>
-          </div>
-
-          <form className="registration-form activity-schedule-builder-form" onSubmit={handleSaveSchedule}>
-            <div className="collapsible-panel-header">
-              <div>
-                <p className="section-label">Montagem da agenda</p>
+        <div className="schedule-assembly-layout">
+          {/* Grid de atividades */}
+          <section className="data-grid-section workout-students-grid">
+            <div className="grid-toolbar">
+              <div className="child-grid-toolbar-label">
+                <p className="section-label">Atividades</p>
+              </div>
+              <div className="child-grid-toolbar-actions">
+                <label className="search-field">
+                  <span>Pesquisar</span>
+                  <input
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Buscar atividade"
+                    type="search"
+                    value={searchTerm}
+                  />
+                </label>
               </div>
             </div>
 
-            {scheduleFeedback ? <div className="form-feedback">{scheduleFeedback}</div> : null}
-
-            {!isScheduleFormEnabled ? (
-              <div className="form-hint">Selecione uma agenda no grid ou clique em Novo.</div>
-            ) : null}
-
-            <div className="activity-schedule-fields">
-              <div className="field">
-                <label htmlFor="activityScheduleStart">Periodo de</label>
-                <input
-                  disabled={!isScheduleFormEnabled}
-                  id="activityScheduleStart"
-                  onChange={(event) => setStartDate(event.target.value)}
-                  ref={scheduleStartInputRef}
-                  type="date"
-                  value={startDate}
-                />
+            <div className="product-table" role="table" aria-label="Atividades">
+              <div className="product-row activity-schedule-activity-row header" role="row">
+                <span role="columnheader">Atividade</span>
+                <span role="columnheader">Esporte</span>
+                <span role="columnheader">Status</span>
               </div>
-
-              <div className="field">
-                <label htmlFor="activityScheduleEnd">Periodo ate</label>
-                <input
-                  disabled={!isScheduleFormEnabled}
-                  id="activityScheduleEnd"
-                  onChange={(event) => setEndDate(event.target.value)}
-                  type="date"
-                  value={endDate}
-                />
-              </div>
-
-              <div className="field activity-week-days-field">
-                <label>Dias da semana</label>
-                <div className="week-day-choice-list">
-                  {weekDays.map((day) => (
-                    <label className="checkbox-field" key={day.value}>
-                      <input
-                        checked={selectedWeekDays.includes(day.value)}
-                        disabled={!isScheduleFormEnabled}
-                        onChange={() => handleToggleWeekDay(day.value)}
-                        type="checkbox"
-                      />
-                      <span>{day.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="field">
-                <label htmlFor="activityScheduleEmployee">Profissional</label>
-                <select
-                  disabled={!isScheduleFormEnabled}
-                  id="activityScheduleEmployee"
-                  onChange={(event) => setSelectedEmployeeId(event.target.value)}
-                  value={selectedEmployeeId}
-                >
-                  <option value="">Selecione</option>
-                  {employees.map((employee) => (
-                    <option key={employee.id} value={employee.id}>
-                      {employee.nmFuncionario}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="field">
-                <label htmlFor="activityScheduleStartTime">Horario de</label>
-                <input
-                  disabled={!isScheduleFormEnabled}
-                  id="activityScheduleStartTime"
-                  onChange={(event) => setStartTime(event.target.value)}
-                  type="time"
-                  value={startTime}
-                />
-              </div>
-
-              <div className="field">
-                <label htmlFor="activityScheduleEndTime">Horario ate</label>
-                <input
-                  disabled={!isScheduleFormEnabled}
-                  id="activityScheduleEndTime"
-                  onChange={(event) => setEndTime(event.target.value)}
-                  type="time"
-                  value={endTime}
-                />
-              </div>
-
-              <div className="field">
-                <label htmlFor="activityScheduleCategory">Categoria</label>
-                <select
-                  disabled={!isScheduleFormEnabled}
-                  id="activityScheduleCategory"
-                  onChange={(event) => setSelectedCategoryId(event.target.value)}
-                  value={selectedCategoryId}
-                >
-                  <option value="">Selecione</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {String(category.dsCategoria ?? category.id)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="field">
-                <label htmlFor="activityScheduleStudents">Quantidade de alunos</label>
-                <input
-                  disabled={!isScheduleFormEnabled}
-                  id="activityScheduleStudents"
-                  min="0"
-                  onChange={(event) => setStudentLimit(event.target.value)}
-                  type="number"
-                  value={studentLimit}
-                />
-              </div>
-
-              <div className="field">
-                <label htmlFor="activityScheduleCompany">Empresa</label>
-                <select
-                  disabled={!isScheduleFormEnabled}
-                  id="activityScheduleCompany"
-                  onChange={(event) => setSelectedCompanyId(event.target.value)}
-                  value={selectedCompanyId}
-                >
-                  <option value="">Selecione</option>
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.dsEmpresa}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="field">
-                <label htmlFor="activityScheduleStatus">Status</label>
+              {isLoadingActivities ? <div className="empty-row">Carregando...</div> : null}
+              {!isLoadingActivities ? paginatedActivities.map((activity) => (
                 <button
-                  aria-pressed={isScheduleActive}
-                  className={`status-toggle ${isScheduleActive ? 'active' : ''}`}
-                  disabled={!isScheduleFormEnabled}
-                  id="activityScheduleStatus"
-                  onClick={() => setIsScheduleActive((current) => !current)}
+                  className={`product-row activity-schedule-activity-row selectable ${activity.id === selectedActivityId ? 'selected' : ''}`}
+                  key={activity.id}
+                  onClick={() => handleSelectActivity(activity)}
+                  role="row"
                   type="button"
                 >
-                  <span>{isScheduleActive ? 'Ativo' : 'Inativo'}</span>
+                  <span role="cell">{activity.dsAtividade}</span>
+                  <span role="cell">{getSportName(activity.idEsporte)}</span>
+                  <span role="cell">
+                    <span className={`status-badge ${activity.boInativo === 0 ? 'active' : 'inactive'}`}>
+                      {activity.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </span>
                 </button>
-              </div>
+              )) : null}
+              {!isLoadingActivities && filteredActivities.length === 0 ? (
+                <div className="empty-row">Nenhuma atividade encontrada.</div>
+              ) : null}
             </div>
 
-            <div className="form-actions">
-              <button className="secondary-button" disabled={!selectedActivityId} onClick={clearScheduleForm} type="button">
-                Limpar
-              </button>
-              <button disabled={!isScheduleFormEnabled} type="submit">
-                <Save size={16} />
-                Salvar montagem
-              </button>
-            </div>
-          </form>
+            <GridPagination onChange={setActivitiesPage} page={activitiesPage} totalItems={filteredActivities.length} />
+          </section>
 
-          <div className="activity-schedule-grid-layout">
-            <section className="data-grid-section workout-training-grid">
-              <div className="grid-toolbar">
-                <div className="child-grid-toolbar-label">
-                  <p className="section-label">Agenda da atividade</p>
+          {/* Grid de agendas da atividade */}
+          {selectedActivity ? (
+            <section className="data-grid-section">
+              <div className="grid-toolbar schedule-agenda-toolbar">
+                <div className="schedule-agenda-header">
+                  <p className="section-label">Agenda</p>
+                  <strong>{selectedActivity.dsAtividade}</strong>
                 </div>
                 <div className="child-grid-toolbar-actions activity-schedule-actions">
                   <label className="search-field">
                     <span>Pesquisar</span>
                     <input
-                      onChange={(event) => setScheduleSearchTerm(event.target.value)}
-                      placeholder="Buscar agenda"
+                      onChange={(e) => setScheduleSearchTerm(e.target.value)}
+                      placeholder="Buscar"
                       type="search"
                       value={scheduleSearchTerm}
                     />
@@ -874,148 +556,273 @@ export function ActivityScheduleAssembly() {
                   <label className="checkbox-field toolbar-checkbox-field">
                     <input
                       checked={showInactiveSchedules}
-                      onChange={(event) => setShowInactiveSchedules(event.target.checked)}
+                      onChange={(e) => setShowInactiveSchedules(e.target.checked)}
                       type="checkbox"
                     />
-                    <span>Mostrar inativos</span>
+                    <span>Inativos</span>
                   </label>
-                  <button className="new-button" onClick={handleNewSchedule} type="button">
+                  <button className="new-button schedule-novo-button" onClick={handleNewSchedule} type="button">
                     <Plus size={16} />
                     Novo
                   </button>
                 </div>
               </div>
 
-              <div className="product-table" key={`activity-schedules-${scheduleSearchTerm}-${schedulesPage}-${showInactiveSchedules}`} role="table" aria-label="Agenda da atividade">
+              {scheduleFeedback ? <div className="form-feedback">{scheduleFeedback}</div> : null}
+
+              <div className="product-table" role="table" aria-label="Agenda da atividade">
                 <div className="product-row activity-schedule-row header" role="row">
-                  <span role="columnheader">Empresa</span>
                   <span role="columnheader">Categoria</span>
                   <span role="columnheader">Profissional</span>
-                  <span role="columnheader">Inicial</span>
-                  <span role="columnheader">Final</span>
-                  <span role="columnheader">Dias</span>
-                  <span role="columnheader">Horario</span>
+                  <span role="columnheader">Data</span>
+                  <span role="columnheader">Horário</span>
                   <span role="columnheader">Alunos</span>
                   <span role="columnheader">Status</span>
                   <span role="columnheader">Ação</span>
                 </div>
 
-                {isLoadingSchedules ? <div className="empty-row">Carregando agenda...</div> : null}
+                {isLoadingSchedules ? <div className="empty-row">Carregando...</div> : null}
 
-                {!isLoadingSchedules
-                  ? paginatedSchedules.map((schedule) => (
-                    <div
-                      className={`product-row activity-schedule-row selectable ${schedule.id === selectedScheduleId ? 'selected' : ''}`}
-                      key={schedule.id}
-                      onClick={() => setSelectedScheduleId(schedule.id)}
-                      role="row"
-                    >
-                      <span role="cell">{getCompanyName(schedule.idEmpresa)}</span>
-                      <span role="cell">{getCategoryName(schedule.idCategoria)}</span>
-                      <span role="cell">{getScheduleEmployeeName(schedule.id)}</span>
-                      <span role="cell">{schedule.dtInicial ? formatDateDisplay(schedule.dtInicial) : '-'}</span>
-                      <span role="cell">{schedule.dtFinal ? formatDateDisplay(schedule.dtFinal) : '-'}</span>
-                      <span role="cell">{getWeekDayLabelFromSchedule(schedule)}</span>
-                      <span role="cell">{getScheduleTimeLabel(schedule)}</span>
-                      <span role="cell">{schedule.qtAlunos ?? '-'}</span>
-                      <span role="cell">
-                        <span className={`status-badge ${schedule.boInativo === 0 ? 'active' : 'inactive'}`}>
-                          {schedule.boInativo === 0 ? 'Ativo' : 'Inativo'}
-                        </span>
+                {!isLoadingSchedules ? paginatedSchedules.map((schedule) => (
+                  <div
+                    className="product-row activity-schedule-row selectable"
+                    key={schedule.id}
+                    role="row"
+                  >
+                    <span role="cell">{getCategoryName(schedule.idCategoria)}</span>
+                    <span role="cell">{getScheduleEmployeeName(schedule.id)}</span>
+                    <span role="cell">{schedule.dtInicial ? formatDateDisplay(schedule.dtInicial) : '-'}</span>
+                    <span role="cell">{getScheduleTimeLabel(schedule)}</span>
+                    <span role="cell">{schedule.qtAlunos ?? '-'}</span>
+                    <span role="cell">
+                      <span className={`status-badge ${schedule.boInativo === 0 ? 'active' : 'inactive'}`}>
+                        {schedule.boInativo === 0 ? 'Ativo' : 'Inativo'}
                       </span>
-                      <span role="cell" className="grid-row-actions">
-                        <button
-                          aria-label="Editar agenda"
-                          className="grid-edit-button"
-                          onClick={(e) => { e.stopPropagation(); handleSelectSchedule(schedule); }}
-                          type="button"
-                        >
-                          <Pencil size={13} />
-                        </button>
-                        <button
-                          className={`grid-status-toggle ${schedule.boInativo === 0 ? 'active' : ''}`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void handleToggleScheduleStatus(schedule);
-                          }}
-                          type="button"
-                        >
-                          {schedule.boInativo === 0 ? 'Inativar' : 'Ativar'}
-                        </button>
-                      </span>
-                    </div>
-                  ))
-                  : null}
+                    </span>
+                    <span role="cell" className="grid-row-actions">
+                      <button
+                        aria-label="Editar agenda"
+                        className="grid-edit-button"
+                        onClick={() => handleEditSchedule(schedule)}
+                        type="button"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        className={`grid-status-toggle ${schedule.boInativo === 0 ? 'active' : ''}`}
+                        onClick={() => void handleToggleScheduleStatus(schedule)}
+                        type="button"
+                      >
+                        {schedule.boInativo === 0 ? 'Inativar' : 'Ativar'}
+                      </button>
+                    </span>
+                  </div>
+                )) : null}
 
                 {!isLoadingSchedules && filteredSchedules.length === 0 ? (
-                  <div className="empty-row">Nenhuma agenda vinculada a esta atividade.</div>
+                  <div className="empty-row">Nenhuma agenda cadastrada.</div>
                 ) : null}
               </div>
 
-              <GridPagination
-                onChange={setSchedulesPage}
-                page={schedulesPage}
-                totalItems={filteredSchedules.length}
-              />
+              <GridPagination onChange={setSchedulesPage} page={schedulesPage} totalItems={filteredSchedules.length} />
             </section>
-
-            <section className="activity-schedule-preview" aria-label="Previsualizacao da agenda">
-              <div className="activity-schedule-preview-header">
-                <div>
-                  <p className="section-label">Previsualizacao</p>
-                  <h4>Calendario da montagem</h4>
-                </div>
-                <strong>
-                  {previewScheduleDates.length} agenda{previewScheduleDates.length === 1 ? '' : 's'}
-                </strong>
-              </div>
-
-              {previewCalendarMonths.length > 0 ? (
-                <div className="activity-calendar-preview-grid">
-                  {previewCalendarMonths.map((month) => (
-                    <div className="activity-calendar-month" key={month.key}>
-                      <h5>{month.label}</h5>
-                      <div className="activity-calendar-weekdays" aria-hidden="true">
-                        {calendarWeekDays.map((day) => (
-                          <span key={day}>{day}</span>
-                        ))}
-                      </div>
-                      <div className="activity-calendar-days">
-                        {month.days.map((day) => (
-                          <span
-                            className={day.selected ? 'selected' : day.day ? '' : 'empty'}
-                            key={day.key}
-                          >
-                            {day.day ?? ''}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="form-hint">
-                  Informe o periodo e selecione os dias da semana para visualizar a montagem.
-                </div>
-              )}
-
-              {previewScheduleDates.length > 0 ? (
-                <div className="activity-preview-summary">
-                  <span>{startTime || '--:--'} ate {endTime || '--:--'}</span>
-                  <span>{getCategoryName(selectedCategoryId ? Number(selectedCategoryId) : null)}</span>
-                  <span>{getEmployeeName(selectedEmployeeId ? Number(selectedEmployeeId) : null)}</span>
-                  <span>{studentLimit || '0'} aluno{studentLimit === '1' ? '' : 's'}</span>
-                </div>
-              ) : null}
-            </section>
-
-          </div>
-        </section>
-      ) : (
-        <div className="form-hint workout-empty-selection">
-          Selecione uma atividade no grid para visualizar a model AtividadeAgenda.
+          ) : (
+            <div className="form-hint workout-empty-selection">
+              Selecione uma atividade para ver as agendas.
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+
+      {/* Drawer de montagem */}
+      <RegistrationDrawer
+        isOpen={isDrawerOpen}
+        title={isCreatingSchedule ? 'Nova Agenda' : 'Editar Agenda'}
+        onClose={handleCloseDrawer}
+      >
+        <div className="schedule-drawer-layout">
+          {/* Formulário */}
+          <form className="schedule-drawer-form" onSubmit={handleSaveSchedule}>
+            {scheduleFeedback ? <div className="form-feedback" style={{ gridColumn: '1 / -1' }}>{scheduleFeedback}</div> : null}
+
+            <div className="field">
+              <label htmlFor="scheduleStart">Período de</label>
+              <input
+                id="scheduleStart"
+                onChange={(e) => setStartDate(e.target.value)}
+                ref={scheduleStartInputRef}
+                type="date"
+                value={startDate}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="scheduleEnd">Período até</label>
+              <input
+                id="scheduleEnd"
+                onChange={(e) => setEndDate(e.target.value)}
+                type="date"
+                value={endDate}
+              />
+            </div>
+
+            <div className="field schedule-weekdays-field">
+              <label>Dias da semana</label>
+              <div className="week-day-choice-list">
+                {weekDays.map((day) => (
+                  <label className="checkbox-field" key={day.value}>
+                    <input
+                      checked={selectedWeekDays.includes(day.value)}
+                      disabled={!isCreatingSchedule}
+                      onChange={() => handleToggleWeekDay(day.value)}
+                      type="checkbox"
+                    />
+                    <span>{day.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="field">
+              <label htmlFor="scheduleStartTime">Horário de</label>
+              <input
+                id="scheduleStartTime"
+                onChange={(e) => setStartTime(e.target.value)}
+                type="time"
+                value={startTime}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="scheduleEndTime">Horário até</label>
+              <input
+                id="scheduleEndTime"
+                onChange={(e) => setEndTime(e.target.value)}
+                type="time"
+                value={endTime}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="scheduleEmployee">Profissional</label>
+              <select id="scheduleEmployee" onChange={(e) => setSelectedEmployeeId(e.target.value)} value={selectedEmployeeId}>
+                <option value="">Selecione</option>
+                {employees.map((e) => <option key={e.id} value={e.id}>{e.nmFuncionario}</option>)}
+              </select>
+            </div>
+
+            <div className="field">
+              <label htmlFor="scheduleCategory">Categoria</label>
+              <select id="scheduleCategory" onChange={(e) => setSelectedCategoryId(e.target.value)} value={selectedCategoryId}>
+                <option value="">Selecione</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{String(c.dsCategoria ?? c.id)}</option>)}
+              </select>
+            </div>
+
+            <div className="field">
+              <label htmlFor="scheduleStudents">Qtd. alunos</label>
+              <input
+                id="scheduleStudents"
+                min="0"
+                onChange={(e) => setStudentLimit(e.target.value)}
+                type="number"
+                value={studentLimit}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="scheduleCompany">Empresa</label>
+              <select id="scheduleCompany" onChange={(e) => setSelectedCompanyId(e.target.value)} value={selectedCompanyId}>
+                <option value="">Selecione</option>
+                {companies.map((c) => <option key={c.id} value={c.id}>{c.dsEmpresa}</option>)}
+              </select>
+            </div>
+
+            <div className="field">
+              <label htmlFor="scheduleStatus">Status</label>
+              <button
+                aria-pressed={isScheduleActive}
+                className={`status-toggle ${isScheduleActive ? 'active' : ''}`}
+                id="scheduleStatus"
+                onClick={() => setIsScheduleActive((v) => !v)}
+                type="button"
+              >
+                <span>{isScheduleActive ? 'Ativo' : 'Inativo'}</span>
+              </button>
+            </div>
+
+            <div className="form-actions schedule-drawer-actions">
+              <button className="secondary-button" onClick={handleCloseDrawer} type="button">Cancelar</button>
+              <button type="submit"><Save size={16} />Salvar montagem</button>
+            </div>
+          </form>
+
+          {/* Pré-visualização */}
+          <aside className="activity-schedule-preview schedule-drawer-preview">
+            <div className="activity-schedule-preview-header">
+              <div>
+                <p className="section-label">Pré-visualização</p>
+                <h4>Calendário da montagem</h4>
+              </div>
+              <strong>
+                {previewScheduleDates.length} agenda{previewScheduleDates.length !== 1 ? 's' : ''}
+              </strong>
+            </div>
+
+            {previewCalendarMonths.length > 0 ? (
+              <div className="activity-calendar-preview-grid">
+                {previewCalendarMonths.map((month) => (
+                  <div className="activity-calendar-month" key={month.key}>
+                    <h5>{month.label}</h5>
+                    <div className="activity-calendar-weekdays" aria-hidden="true">
+                      {calendarWeekDays.map((d) => <span key={d}>{d}</span>)}
+                    </div>
+                    <div className="activity-calendar-days">
+                      {month.days.map((day) => (
+                        <span className={day.selected ? 'selected' : day.day ? '' : 'empty'} key={day.key}>
+                          {day.day ?? ''}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="form-hint">
+                Informe o período e selecione os dias da semana para visualizar.
+              </div>
+            )}
+
+            {previewScheduleDates.length > 0 ? (
+              <div className="agenda-session-card preview-session-card">
+                <div className="agenda-session-card-header">
+                  <div>
+                    <strong className="agenda-session-activity">{selectedActivity?.dsAtividade ?? '-'}</strong>
+                    {selectedCategoryId ? (
+                      <span className="agenda-session-category">{getCategoryName(Number(selectedCategoryId))}</span>
+                    ) : null}
+                  </div>
+                  {studentLimit ? (
+                    <div className="agenda-session-capacity">
+                      <Users size={13} />
+                      <strong>0/{studentLimit}</strong>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="agenda-session-meta">
+                  <span>
+                    <Clock size={12} />
+                    {startTime || '--:--'} — {endTime || '--:--'}
+                  </span>
+                  {selectedEmployeeId ? (
+                    <span>{getEmployeeName(Number(selectedEmployeeId))}</span>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </aside>
+        </div>
+      </RegistrationDrawer>
+    </>
   );
 }

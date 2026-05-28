@@ -12,16 +12,18 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       idEsporte?: string;
       idFuncionario?: string;
       idEmpresa?: string;
+      idCategoria?: string;
     };
   }>('/agenda-sessions', async (request, reply) => {
     try {
-      const { dtInicial, dtFinal, idAtividade, idEsporte, idFuncionario, idEmpresa } = request.query;
+      const { dtInicial, dtFinal, idAtividade, idEsporte, idFuncionario, idEmpresa, idCategoria } = request.query;
 
       const sessions = await prisma.atividadeAgenda.findMany({
         where: {
           ...(idEmpresa ? { idEmpresa: Number(idEmpresa) } : {}),
           ...(idAtividade ? { idAtividade: Number(idAtividade) } : {}),
-          ...(dtInicial ? { dtInicial: { gte: new Date(dtInicial) } } : {}),
+          ...(idCategoria ? { idCategoria: Number(idCategoria) } : {}),
+          ...(dtInicial ? { dtInicial: { gte: new Date(dtInicial), lte: new Date(`${dtInicial}T23:59:59`) } } : {}),
           ...(dtFinal ? { dtFinal: { lte: new Date(`${dtFinal}T23:59:59`) } } : {}),
           ...(idEsporte ? { atividade: { idEsporte: Number(idEsporte) } } : {}),
           ...(idFuncionario
@@ -39,6 +41,10 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
           alunoAtividadeAgendas: {
             where: { boInativo: 0 },
             select: { id: true, idAluno: true },
+          },
+          alunoCheckIns: {
+            where: { boInativo: 0 },
+            select: { idAluno: true },
           },
         },
         orderBy: { dtInicial: 'asc' },
@@ -63,6 +69,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
           nome: fe.funcionario?.nmFuncionario ?? null,
         })),
         alunoIds: session.alunoAtividadeAgendas.map((e) => e.idAluno),
+        presentAlunoIds: session.alunoCheckIns.map((ci) => ci.idAluno),
       }));
     } catch (error) {
       return reply.code(400).send({

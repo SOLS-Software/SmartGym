@@ -275,25 +275,27 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
 
     if (!studentId) {
         return (
+            <>
+            <header className="module-page-header">
+                <p className="section-label">Treino</p>
+                <h2 className="module-page-title">MEU TREINO</h2>
+            </header>
             <div className="form-view">
-                <div className="form-heading">
-                    <p className="section-label">Meu Treino</p>
-                    <h2>Sem acesso</h2>
-                    <p>Faça login como aluno para visualizar seu treino.</p>
-                </div>
+                <p>Faça login como aluno para visualizar seu treino.</p>
             </div>
+            </>
         );
     }
 
     const workoutStartTarget = getWorkoutStartTarget();
 
     return (
+        <>
+        <header className="module-page-header">
+            <p className="section-label">Treino</p>
+            <h2 className="module-page-title">MEU TREINO</h2>
+        </header>
         <div className="form-view workout-assembly-view">
-            <div className="form-heading">
-                <p className="section-label">Meu Treino</p>
-                <h2>{studentName}</h2>
-                <p>Confira aqui seus treinos ativos e os exercícios de cada um.</p>
-            </div>
 
             {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
@@ -458,5 +460,6 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
                 </section>
             ) : null}
         </div>
+        </>
     );
 }

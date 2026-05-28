@@ -177,15 +177,16 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
 
   // ── Render ─────────────────────────────────────────────────────
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Atividade</p>
+      <h2 className="module-page-title">CADASTRO DE ATIVIDADES</h2>
+    </header>
     <div className="form-view">
-      <div className="form-heading">
-        <p className="section-label">Atividades</p>
-      </div>
-
       <section className="data-grid-section">
         <RegistrationGrid<Activity>
           ariaLabel="Atividades cadastradas"
-          label="Atividades"
+          label=""
           columns={[
             { label: 'Atividade', render: (a) => a.dsAtividade, tooltip: (a) => a.dsAtividade },
             { label: 'Esporte', render: (a) => getSportLabel(a.idEsporte), tooltip: (a) => getSportLabel(a.idEsporte) },
@@ -236,12 +237,13 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
               </button>
             </RegistrationField>
             <div className="form-actions" style={{ flex: '1 1 100%' }}>
-              <button className="secondary-button" onClick={() => { clearActivityForm(); setIsDrawerOpen(false); }} type="button">Limpar</button>
+              <button className="secondary-button" onClick={() => { clearActivityForm(); setIsDrawerOpen(false); }} type="button">Cancelar</button>
               <button disabled={!isFormEnabled} type="submit"><Save size={16} />Salvar atividade</button>
             </div>
           </form>
         </RegistrationDrawer>
       ) : null}
     </div>
+    </>
   );
 }

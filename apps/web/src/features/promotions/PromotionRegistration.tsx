@@ -632,10 +632,12 @@ export function PromotionRegistration() {
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Alunos</p>
+      <h2 className="module-page-title">CADASTRO DE PROMOÇÕES</h2>
+    </header>
     <div className="form-view company-view">
-      <div className="form-heading">
-        <p className="section-label">Promoções</p>
-      </div>
 
       <div className={`activity-page-layout${selectedPromotionId !== null ? ' has-related' : ''}`}>
         <section className="data-grid-section company-grid-section">
@@ -826,5 +828,6 @@ export function PromotionRegistration() {
         </div>
       ) : null}
     </div>
+    </>
   );
 }

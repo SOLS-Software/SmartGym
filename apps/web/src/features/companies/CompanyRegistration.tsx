@@ -43,7 +43,7 @@ export function CompanyRegistration() {
   const [touchedCompanyFields, setTouchedCompanyFields] = useState<
     Partial<Record<CompanyValidationField, boolean>>
   >({});
-  const [selectedChildTable, setSelectedChildTable] = useState('');
+  const [selectedChildTable, setSelectedChildTable] = useState('companyFiles');
   const [childRecords, setChildRecords] = useState<CompanyChildRecord[]>([]);
   const [isLoadingChildRecords, setIsLoadingChildRecords] = useState(false);
   const [childSearchTerm, setChildSearchTerm] = useState('');
@@ -298,6 +298,7 @@ export function CompanyRegistration() {
 
   function handleEditChild(record: CompanyChildRecord) {
     if (record.id !== selectedChildRecordId) handleSelectChild(record);
+    setChildFeedback('');
     setDrawerMode('child');
     setIsDrawerOpen(true);
   }
@@ -451,7 +452,7 @@ export function CompanyRegistration() {
         idPromocao: saved.idPromocao ? String(saved.idPromocao) : '',
         idTiposArquivos: saved.idTiposArquivos ? String(saved.idTiposArquivos) : '',
       });
-      setChildFeedback(isReplacingFile ? 'Arquivo alterado com sucesso.' : 'Arquivo enviado com sucesso.');
+      setChildFeedback('');
       setIsDrawerOpen(false);
     } catch (error) {
       setChildFeedback(
@@ -696,6 +697,11 @@ export function CompanyRegistration() {
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Empresa</p>
+      <h2 className="module-page-title">CADASTRO DE EMPRESAS</h2>
+    </header>
     <div className={`activity-page-layout${selectedCompanyId !== null ? ' has-related' : ''}`}>
       <section className="data-grid-section company-grid-section">
         <RegistrationGrid<Company>
@@ -722,6 +728,29 @@ export function CompanyRegistration() {
         />
       </section>
 
+      {selectedCompanyId !== null ? (
+        <section className="data-grid-section company-child-grid-section">
+          <RegistrationGrid<CompanyChildRecord>
+            ariaLabel="Arquivos da empresa"
+            label="Arquivos da Empresa"
+            columns={[
+              { label: 'Arquivo', render: (r) => String(r.dsArquivo ?? '-') },
+              { label: 'Tipo', render: (r) => formatChildCell(r, { key: 'idTiposArquivos', label: 'Tipo', lookupLabelKey: 'dsTipo', type: 'number' }, childLookups['idTiposArquivos']) },
+              { label: 'Status', render: (r) => <span className={`status-badge ${r.boInativo === 0 ? 'active' : 'inactive'}`}>{r.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+            ]}
+            records={filteredChildRecords}
+            isLoading={isLoadingChildRecords}
+            selectedId={selectedChildRecordId}
+            onSelect={(record) => void handleOpenCompanyFile(record.id)}
+            onEdit={handleEditChild}
+            searchTerm={childSearchTerm}
+            onSearch={setChildSearchTerm}
+            onNew={handleNewChild}
+            newDisabled={!selectedCompanyId}
+            variant="child"
+          />
+        </section>
+      ) : null}
 
       <RegistrationDrawer
         isOpen={isDrawerOpen}
@@ -913,7 +942,7 @@ export function CompanyRegistration() {
                           )}
                         </strong>
                       </div>
-                      <div className="student-file-actions">
+                      <div className="company-file-actions">
                         <button
                           className="secondary-button"
                           onClick={() => void handleOpenCompanyFile(selectedChildRecord.id)}
@@ -1038,5 +1067,6 @@ export function CompanyRegistration() {
         </div>
       ) : null}
     </div>
+    </>
   );
 }

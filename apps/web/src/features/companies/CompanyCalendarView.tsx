@@ -302,12 +302,12 @@ export function CompanyCalendarView({ userName }: CompanyCalendarViewProps) {
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Atividade</p>
+      <h2 className="module-page-title">CALENDÁRIO DA EMPRESA</h2>
+    </header>
     <div className="form-view student-calendar-view company-calendar-view">
-      <div className="form-heading student-calendar-heading">
-        <p className="section-label">Calendario da empresa</p>
-        <h2>{userName}</h2>
-        <p>Visualize atividades e promocoes cadastradas por mes.</p>
-      </div>
 
       {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
@@ -425,5 +425,6 @@ export function CompanyCalendarView({ userName }: CompanyCalendarViewProps) {
         </aside>
       </section>
     </div>
+    </>
   );
 }

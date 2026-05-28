@@ -311,12 +311,12 @@ export function DomainRegistration() {
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Domínios</p>
+      <h2 className="module-page-title">CADASTRO DE DOMÍNIOS</h2>
+    </header>
     <div className="form-view company-view">
-      <div className="form-heading">
-        <p className="section-label">Domínios</p>
-        <h2>Cadastro de Domínios</h2>
-        <p>Tabelas de apoio para tipos e configurações gerais do sistema.</p>
-      </div>
 
       {config ? (
         <section className="domain-workspace" style={{ gridTemplateColumns: 'minmax(18.75rem, 1.25fr) minmax(26.25rem, 1.45fr)' }}>
@@ -494,5 +494,6 @@ export function DomainRegistration() {
         </section>
       ) : null}
     </div>
+    </>
   );
 }

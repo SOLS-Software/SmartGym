@@ -937,10 +937,12 @@ export function StudentRegistration() {
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Alunos</p>
+      <h2 className="module-page-title">MATRÍCULAS</h2>
+    </header>
     <div className="form-view">
-      <div className="form-heading">
-        <p className="section-label">Matrículas</p>
-      </div>
 
       <div className={`activity-page-layout${selectedStudentId !== null ? ' has-related' : ''}`}>
         <section className="data-grid-section">
@@ -1142,5 +1144,6 @@ export function StudentRegistration() {
         </RegistrationDrawer>
       </div>
     </div>
+    </>
   );
 }

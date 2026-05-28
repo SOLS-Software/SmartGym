@@ -483,10 +483,12 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Treino</p>
+      <h2 className="module-page-title">CADASTRO DE TREINOS</h2>
+    </header>
     <div className="form-view company-view">
-      <div className="form-heading">
-        <p className="section-label">Treino</p>
-      </div>
 
       <div className={`training-page-layout${selectedTrainingId !== null ? ' has-exercises' : ''}`}>
         <section className="data-grid-section">
@@ -732,5 +734,6 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
         </RegistrationDrawer>
       ) : null}
     </div>
+    </>
   );
 }

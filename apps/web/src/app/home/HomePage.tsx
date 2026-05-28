@@ -71,8 +71,8 @@ const menuItemIcons: Record<string, LucideIcon> = {
   'Montar Treino': FilePlus,
   'Montagem de Agenda': CalendarPlus,
   'Meu Treino': UserCheck,
-  'Calendario': Calendar,
-  'Calendario Empresa': CalendarRange,
+  'Calendário': Calendar,
+  'Calendário Empresa': CalendarRange,
   'Produtos': Package,
   'Compras': ShoppingCart,
   'Matrículas': BadgeCheck,
@@ -88,8 +88,12 @@ const menuGroups = [
     items: ['Clientes', 'Empresas'],
   },
   {
+    title: 'ATIVIDADE',
+    items: ['Atividades', 'Agendas', 'Montagem de Agenda', 'Calendário', 'Calendário Empresa'],
+  },
+  {
     title: 'TREINO',
-    items: ['Atividades', 'Agendas', 'Exercícios', 'Treino', 'Montar Treino', 'Montagem de Agenda', 'Meu Treino', 'Calendario', 'Calendario Empresa'],
+    items: ['Exercícios', 'Treino', 'Montar Treino', 'Meu Treino'],
   },
   {
     title: 'ESTOQUE',
@@ -771,7 +775,7 @@ export default function HomePage() {
       authUserType === 'employee'
         ? menuGroups
         : menuGroups
-          .filter((group) => group.title === 'TREINO' || group.title === 'ALUNOS')
+          .filter((group) => group.title === 'TREINO' || group.title === 'ALUNOS' || group.title === 'ATIVIDADE')
           .map((group) => ({
             ...group,
             items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda'),
@@ -936,6 +940,13 @@ export default function HomePage() {
             <ActivityScheduleAssembly />
           ) : activeItem === 'Produtos' ? (
             <ProductRegistration />
+          ) : activeItem === 'Compras' ? (
+            <div>
+              <header className="module-page-header">
+                <p className="section-label">Estoque</p>
+                <h2 className="module-page-title">COMPRAS</h2>
+              </header>
+            </div>
           ) : activeItem === 'Matrículas' ? (
             authUserType === 'student' ? (
               <StudentMembershipView
@@ -969,16 +980,19 @@ export default function HomePage() {
               studentId={authUserStudentId}
               studentName={authUserName}
             />
-          ) : activeItem === 'Calendario' ? (
+          ) : activeItem === 'Calendário' ? (
             authUserType === 'student' ? (
               <StudentCalendarView
                 studentId={authUserStudentId}
                 studentName={authUserName}
               />
             ) : (
-              <CompanyCalendarView userName={authUserName} />
+              <StudentCalendarView
+                employeeId={authUserEmployeeId}
+                employeeName={authUserName}
+              />
             )
-          ) : activeItem === 'Calendario Empresa' ? (
+          ) : activeItem === 'Calendário Empresa' ? (
             <CompanyCalendarView userName={authUserName} />
           ) : (
             <div className="welcome">

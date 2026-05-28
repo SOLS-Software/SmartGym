@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import { CalendarDays, CheckCircle, Clock, Users, XCircle } from 'lucide-react';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
-import type { AgendaSession, EnrolledStudent } from '../../shared/registration/registrationTypes';
+import type { Activity, AgendaSession, Employee, EnrolledStudent, Sport } from '../../shared/registration/registrationTypes';
+
+type Category = { id: number; dsCategoria: string; boInativo: number };
 
 type AgendaViewProps = {
   userType: 'employee' | 'student';
@@ -64,12 +66,71 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [presenceSubmitting, setPresenceSubmitting] = useState<number | null>(null);
 
+  // Student plan — activity IDs allowed by the student's plans
+  const [allowedActivityIds, setAllowedActivityIds] = useState<Set<number>>(new Set());
+  const [planHasActivities, setPlanHasActivities] = useState(false);
+
+  // Lookup data
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [sports, setSports] = useState<Sport[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+
   // Filters (employee only)
-  const [filterDate, setFilterDate] = useState('');
+  const [filterDate, setFilterDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [filterActivity, setFilterActivity] = useState('');
+  const [filterSport, setFilterSport] = useState('');
+  const [filterEmployee, setFilterEmployee] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
 
   useEffect(() => {
     void loadSessions();
+  }, [filterDate, filterActivity, filterSport, filterEmployee, filterCategory]);
+
+  useEffect(() => {
+    void loadLookups();
   }, []);
+
+  useEffect(() => {
+    if (userType === 'student' && studentId) void loadStudentPlan(studentId);
+  }, [userType, studentId]);
+
+  async function loadStudentPlan(idAluno: number) {
+    try {
+      const response = await fetch(`${apiUrl}/students/${idAluno}/related/plans`);
+      if (!response.ok) return;
+      const plans = (await response.json()) as Array<{
+        plano: { planoAtividades: Array<{ idAtividade: number | null; boInativo: number }> } | null;
+      }>;
+      const ids = new Set<number>();
+      for (const alunoPlano of plans) {
+        for (const pa of alunoPlano.plano?.planoAtividades ?? []) {
+          if (pa.boInativo === 0 && pa.idAtividade !== null) ids.add(pa.idAtividade);
+        }
+      }
+      setAllowedActivityIds(ids);
+      setPlanHasActivities(ids.size > 0);
+    } catch {
+      // falha silenciosa — mantém restrição
+    }
+  }
+
+  async function loadLookups() {
+    try {
+      const [activitiesRes, sportsRes, employeesRes, categoriesRes] = await Promise.all([
+        fetch(`${apiUrl}/activities`),
+        fetch(`${apiUrl}/sports`),
+        fetch(`${apiUrl}/employees`),
+        fetch(`${apiUrl}/categories`),
+      ]);
+      setActivities(((await activitiesRes.json()) as Activity[]).filter((a) => a.boInativo === 0));
+      setSports(((await sportsRes.json()) as Sport[]).filter((s) => s.boInativo === 0));
+      setEmployees((await employeesRes.json()) as Employee[]);
+      setCategories(((await categoriesRes.json()) as Category[]).filter((c) => c.boInativo === 0));
+    } catch {
+      // lookups não-críticos: falhar silenciosamente
+    }
+  }
 
   async function loadSessions() {
     try {
@@ -77,6 +138,10 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
       setFeedback('');
       const params = new URLSearchParams();
       if (filterDate) params.set('dtInicial', filterDate);
+      if (filterActivity) params.set('idAtividade', filterActivity);
+      if (filterSport) params.set('idEsporte', filterSport);
+      if (filterEmployee) params.set('idFuncionario', filterEmployee);
+      if (filterCategory) params.set('idCategoria', filterCategory);
       const response = await fetch(`${apiUrl}/agenda-sessions?${params.toString()}`);
       if (!response.ok) await getApiError(response, 'Erro ao carregar agendas.');
       const data = (await response.json()) as AgendaSession[];
@@ -195,6 +260,48 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
           <p>Inscreva-se nas aulas disponíveis.</p>
         </div>
 
+        <div className="agenda-filter-bar">
+          <label className="field">
+            <span>Data</span>
+            <input onChange={(e) => setFilterDate(e.target.value)} type="date" value={filterDate} />
+          </label>
+          <label className="field">
+            <span>Atividade</span>
+            <select onChange={(e) => setFilterActivity(e.target.value)} value={filterActivity}>
+              <option value="">Todas</option>
+              {activities.map((a) => <option key={a.id} value={a.id}>{a.dsAtividade}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Esporte</span>
+            <select onChange={(e) => setFilterSport(e.target.value)} value={filterSport}>
+              <option value="">Todos</option>
+              {sports.map((s) => <option key={s.id} value={s.id}>{s.dsEsporte}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Professor</span>
+            <select onChange={(e) => setFilterEmployee(e.target.value)} value={filterEmployee}>
+              <option value="">Todos</option>
+              {employees.map((e) => <option key={e.id} value={e.id}>{e.nmFuncionario}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Categoria</span>
+            <select onChange={(e) => setFilterCategory(e.target.value)} value={filterCategory}>
+              <option value="">Todas</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.dsCategoria}</option>)}
+            </select>
+          </label>
+          <button
+            className="ghost-button"
+            onClick={() => { setFilterActivity(''); setFilterSport(''); setFilterEmployee(''); setFilterCategory(''); }}
+            type="button"
+          >
+            Limpar
+          </button>
+        </div>
+
         {feedback ? <div className={`form-feedback ${feedback.toLowerCase().includes('sucesso') ? 'success' : ''}`}>{feedback}</div> : null}
 
         {isLoading ? <div className="form-hint">Carregando agendas...</div> : null}
@@ -213,8 +320,10 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
               <div className="agenda-day-sessions">
                 {daySessions.map((session) => {
                   const isEnrolled = studentId !== null && session.alunoIds.includes(studentId);
+                  const isPresent = studentId !== null && session.presentAlunoIds.includes(studentId);
                   const isFull = session.qtAlunos !== null && session.qtInscritos >= session.qtAlunos;
                   const isWorking = submittingId === session.id;
+                  const isAllowed = !planHasActivities || (session.idAtividade !== null && allowedActivityIds.has(session.idAtividade));
 
                   return (
                     <div className={`agenda-session-card ${isEnrolled ? 'enrolled' : ''} ${isFull && !isEnrolled ? 'full' : ''}`} key={session.id}>
@@ -225,11 +334,11 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
                         </div>
                         <div className="agenda-session-capacity">
                           <Users size={13} />
-                          <span>
+                          <strong>
                             {session.qtAlunos !== null
                               ? `${session.qtInscritos}/${session.qtAlunos}`
                               : `${session.qtInscritos} inscritos`}
-                          </span>
+                          </strong>
                         </div>
                       </div>
 
@@ -245,7 +354,11 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
                       </div>
 
                       <div className="agenda-session-actions">
-                        {isEnrolled ? (
+                        {isPresent ? (
+                          <span className="agenda-enrolled-badge">
+                            <CheckCircle size={13} /> Presente
+                          </span>
+                        ) : isEnrolled ? (
                           <>
                             <span className="agenda-enrolled-badge">
                               <CheckCircle size={13} /> Inscrito
@@ -262,6 +375,10 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
                         ) : isFull ? (
                           <span className="agenda-full-badge">
                             <XCircle size={13} /> Lotado
+                          </span>
+                        ) : !isAllowed ? (
+                          <span className="agenda-full-badge" title="Esta atividade não está incluída no seu plano">
+                            <XCircle size={13} /> Não incluso no plano
                           </span>
                         ) : (
                           <button
@@ -287,27 +404,55 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
 
   // Employee view
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Atividade</p>
+      <h2 className="module-page-title">AGENDAS</h2>
+    </header>
     <div className="form-view agenda-view">
-      <div className="form-heading">
-        <p className="section-label">Gestão de Agendas</p>
-        <h2>Agendas</h2>
-      </div>
-
       {feedback ? <div className={`form-feedback ${feedback.toLowerCase().includes('sucesso') ? 'success' : ''}`}>{feedback}</div> : null}
 
       <div className="agenda-employee-layout">
         <div className="agenda-sessions-panel">
           <div className="agenda-filter-bar">
             <label className="field">
-              <span>Filtrar por data</span>
-              <input
-                onChange={(e) => setFilterDate(e.target.value)}
-                type="date"
-                value={filterDate}
-              />
+              <span>Data</span>
+              <input onChange={(e) => setFilterDate(e.target.value)} type="date" value={filterDate} />
             </label>
-            <button className="new-button" onClick={() => void loadSessions()} type="button">
-              Buscar
+            <label className="field">
+              <span>Atividade</span>
+              <select onChange={(e) => setFilterActivity(e.target.value)} value={filterActivity}>
+                <option value="">Todas</option>
+                {activities.map((a) => <option key={a.id} value={a.id}>{a.dsAtividade}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              <span>Esporte</span>
+              <select onChange={(e) => setFilterSport(e.target.value)} value={filterSport}>
+                <option value="">Todos</option>
+                {sports.map((s) => <option key={s.id} value={s.id}>{s.dsEsporte}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              <span>Professor</span>
+              <select onChange={(e) => setFilterEmployee(e.target.value)} value={filterEmployee}>
+                <option value="">Todos</option>
+                {employees.map((e) => <option key={e.id} value={e.id}>{e.nmFuncionario}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              <span>Categoria</span>
+              <select onChange={(e) => setFilterCategory(e.target.value)} value={filterCategory}>
+                <option value="">Todas</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.dsCategoria}</option>)}
+              </select>
+            </label>
+            <button
+              className="ghost-button"
+              onClick={() => { setFilterActivity(''); setFilterSport(''); setFilterEmployee(''); setFilterCategory(''); }}
+              type="button"
+            >
+              Limpar
             </button>
           </div>
 
@@ -333,11 +478,11 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
                         <strong className="agenda-session-activity">{session.dsAtividade ?? '-'}</strong>
                         <div className="agenda-session-capacity">
                           <Users size={13} />
-                          <span>
+                          <strong>
                             {session.qtAlunos !== null
                               ? `${session.qtInscritos}/${session.qtAlunos}`
                               : `${session.qtInscritos} inscritos`}
-                          </span>
+                          </strong>
                         </div>
                       </div>
                       <div className="agenda-session-meta">
@@ -365,12 +510,14 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
             <div className="agenda-detail-header">
               <div>
                 <p className="section-label">Sessão selecionada</p>
-                <h3>{selectedSession.dsAtividade ?? '-'}</h3>
+                <h3><strong>{selectedSession.dsAtividade ?? '-'}</strong></h3>
                 <p className="agenda-detail-meta">
                   {formatDateTime(selectedSession.dtInicial)} — {formatTime(selectedSession.dtFinal)}
-                  {selectedSession.dsCategoria ? ` · ${selectedSession.dsCategoria}` : ''}
                   {selectedSession.dsEmpresa ? ` · ${selectedSession.dsEmpresa}` : ''}
                 </p>
+                {selectedSession.dsCategoria ? (
+                  <span className="agenda-session-category">{selectedSession.dsCategoria}</span>
+                ) : null}
               </div>
               <button
                 className={`ghost-button ${selectedSession.boInativo ? 'success' : 'danger'}`}
@@ -418,5 +565,6 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
         )}
       </div>
     </div>
+    </>
   );
 }
