@@ -735,7 +735,7 @@ export function CompanyRegistration() {
             label="Arquivos da Empresa"
             columns={[
               { label: 'Arquivo', render: (r) => String(r.dsArquivo ?? '-') },
-              { label: 'Tipo', render: (r) => formatChildCell(r, { key: 'idTiposArquivos', label: 'Tipo', lookupLabelKey: 'dsTipo', type: 'number' }, childLookups['idTiposArquivos']) },
+              { label: 'Tipo', render: (r) => formatChildCell(r, { key: 'idTiposArquivos', label: 'Tipo', lookupLabelKey: 'dsTipo' }, childLookups['idTiposArquivos']) },
               { label: 'Status', render: (r) => <span className={`status-badge ${r.boInativo === 0 ? 'active' : 'inactive'}`}>{r.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
             ]}
             records={filteredChildRecords}
