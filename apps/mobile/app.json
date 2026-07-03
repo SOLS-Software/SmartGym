@@ -18,6 +18,16 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "android": {
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.anonymous.smartgym"
+    },
+    "ios": {
+      "bundleIdentifier": "com.anonymous.smartgym"
     }
   }
 }

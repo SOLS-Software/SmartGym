@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"] // Required for the extensions block
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
 }
 
 model Empresa {
@@ -102,20 +104,22 @@ model Atividade {
 }
 
 model AtividadeAgenda {
-  id          Int       @id @default(autoincrement())
-  idEmpresa   Int?
-  idAtividade Int?
-  idCategoria Int?
-  dtInicial   DateTime?
-  dtFinal     DateTime?
-  qtAlunos    Int?
-  dtCadastro  DateTime  @default(now())
-  dtAlteracao DateTime  @updatedAt
-  boInativo   Int       @default(0)
+  id           Int       @id @default(autoincrement())
+  idEmpresa    Int?
+  idAtividade  Int?
+  idCategoria  Int?
+  idLocalidade Int?
+  dtInicial    DateTime?
+  dtFinal      DateTime?
+  qtAlunos     Int?
+  dtCadastro   DateTime  @default(now())
+  dtAlteracao  DateTime  @updatedAt
+  boInativo    Int       @default(0)
 
   empresa                     Empresa?                     @relation(fields: [idEmpresa], references: [id])
   atividade                   Atividade?                   @relation(fields: [idAtividade], references: [id])
   categoria                   Categoria?                   @relation(fields: [idCategoria], references: [id])
+  localidade                  Localidade?                  @relation(fields: [idLocalidade], references: [id])
   alunoAtividadeAgendas       AlunoAtividadeAgenda[]
   funcionarioAtividadeAgendas FuncionarioAtividadeAgenda[]
   alunoCheckIns               AlunoCheckIn[]
@@ -163,9 +167,10 @@ model Exercicio {
   dtAlteracao DateTime @updatedAt
   boInativo   Int      @default(0)
 
-  empresa           Empresa?           @relation(fields: [idEmpresa], references: [id])
-  treinoExercicios  TreinoExercicio[]
-  exercicioArquivos ExercicioArquivo[]
+  empresa              Empresa?               @relation(fields: [idEmpresa], references: [id])
+  exercicioEquipamento ExercicioEquipamento[]
+  treinoExercicios     TreinoExercicio[]
+  exercicioArquivos    ExercicioArquivo[]
 
   @@map("tb_Exercicios")
 }
@@ -529,20 +534,20 @@ model Pagamento {
 }
 
 model TreinoExercicio {
-  id               Int      @id @default(autoincrement())
-  idEmpresa        Int?
-  idTreino         Int?
-  idExercicio      Int?
-  idMetodoTreino   Int?
-  nrOrdem          Int      @default(0)
-  nrSeries         Int      @default(0)
-  nrRepeticoes     Int      @default(0)
-  qtDescanso       Int      @default(0)
-  qtPeso           Decimal  @default(0) @db.Decimal(8, 2)
-  cnUnidadeMedida  String   @default("") @db.VarChar(10)
-  dtCadastro       DateTime @default(now())
-  dtAlteracao      DateTime @updatedAt
-  boInativo        Int      @default(0)
+  id              Int      @id @default(autoincrement())
+  idEmpresa       Int?
+  idTreino        Int?
+  idExercicio     Int?
+  idMetodoTreino  Int?
+  nrOrdem         Int      @default(0)
+  nrSeries        Int      @default(0)
+  nrRepeticoes    Int      @default(0)
+  qtDescanso      Int      @default(0)
+  qtPeso          Decimal  @default(0) @db.Decimal(8, 2)
+  cnUnidadeMedida String   @default("") @db.VarChar(10)
+  dtCadastro      DateTime @default(now())
+  dtAlteracao     DateTime @updatedAt
+  boInativo       Int      @default(0)
 
   empresa      Empresa?      @relation(fields: [idEmpresa], references: [id])
   treino       Treino?       @relation(fields: [idTreino], references: [id])
@@ -628,8 +633,8 @@ model EmpresaArquivo {
   dtAlteracao     DateTime @updatedAt
   boInativo       Int      @default(0)
 
-  empresa     Empresa?     @relation(fields: [idEmpresa], references: [id])
-  tipoArquivo TipoArquivo? @relation(fields: [idTiposArquivos], references: [id])
+  empresa     Empresa?          @relation(fields: [idEmpresa], references: [id])
+  tipoArquivo TipoArquivo?      @relation(fields: [idTiposArquivos], references: [id])
   temaLogo    TemaCustomizado[] @relation("logo")
   temaFavicon TemaCustomizado[] @relation("favicon")
 
@@ -669,6 +674,23 @@ model AlunoArquivo {
   alunoBiometriaFacials AlunoBiometriaFacial[]
 
   @@map("tb_AlunoArquivos")
+}
+
+model EquipamentoArquivo {
+  id              Int      @id @default(autoincrement())
+  idEquipamento   Int
+  idTiposArquivos Int?
+  dsArquivo       String   @default("") @db.VarChar(255)
+  anCaminho       String   @default("") @db.VarChar(255)
+  cnChaveAcesso   Int?
+  cnDistribuidor  Int?
+  dtCadastro      DateTime @default(now())
+  dtAlteracao     DateTime @updatedAt
+  boInativo       Int      @default(0)
+
+  equipamento Equipamento? @relation(fields: [idEquipamento], references: [id])
+
+  @@map("tb_EquipamentoArquivos")
 }
 
 model AlunoBiometriaFacial {
@@ -913,34 +935,34 @@ model DominioCorporativo {
 }
 
 model TemaCustomizado {
-  id                Int      @id @default(autoincrement())
-  idCliente         Int?     @unique
-  idEmpresa         Int?     @unique
-  corPrimaria       String   @default("#000000") @db.VarChar(7)
-  corSecundaria     String   @default("#FFFFFF") @db.VarChar(7)
-  corAcentuacao     String   @default("#FF0000") @db.VarChar(7)
-  corTexto          String   @default("#000000") @db.VarChar(7)
-  corFundo          String   @default("#FFFFFF") @db.VarChar(7)
-  fontePrincipal    String   @default("Roboto") @db.VarChar(100)
-  fonteSecundaria   String   @default("Open Sans") @db.VarChar(100)
-  tamanhoBase       Int      @default(14)
-  espacamentoPadrao Int      @default(16)
-  raioCardBorder    Int      @default(8)
-  boModoEscuro      Int      @default(0)
-  idArquivoLogo            Int?
-  idArquivoFavicon         Int?
-  idClienteArquivoLogo     Int?
-  idClienteArquivoFavicon  Int?
-  dtCadastro               DateTime @default(now())
-  dtAlteracao       DateTime @updatedAt
-  boInativo         Int      @default(0)
+  id                      Int      @id @default(autoincrement())
+  idCliente               Int?     @unique
+  idEmpresa               Int?     @unique
+  corPrimaria             String   @default("#000000") @db.VarChar(7)
+  corSecundaria           String   @default("#FFFFFF") @db.VarChar(7)
+  corAcentuacao           String   @default("#FF0000") @db.VarChar(7)
+  corTexto                String   @default("#000000") @db.VarChar(7)
+  corFundo                String   @default("#FFFFFF") @db.VarChar(7)
+  fontePrincipal          String   @default("Roboto") @db.VarChar(100)
+  fonteSecundaria         String   @default("Open Sans") @db.VarChar(100)
+  tamanhoBase             Int      @default(14)
+  espacamentoPadrao       Int      @default(16)
+  raioCardBorder          Int      @default(8)
+  boModoEscuro            Int      @default(0)
+  idArquivoLogo           Int?
+  idArquivoFavicon        Int?
+  idClienteArquivoLogo    Int?
+  idClienteArquivoFavicon Int?
+  dtCadastro              DateTime @default(now())
+  dtAlteracao             DateTime @updatedAt
+  boInativo               Int      @default(0)
 
-  cliente               Cliente?         @relation(fields: [idCliente], references: [id], onDelete: Cascade)
-  empresa               Empresa?         @relation(fields: [idEmpresa], references: [id], onDelete: Cascade)
-  arquivoLogo           EmpresaArquivo?  @relation("logo", fields: [idArquivoLogo], references: [id])
-  arquivoFavicon        EmpresaArquivo?  @relation("favicon", fields: [idArquivoFavicon], references: [id])
-  clienteArquivoLogo    ClienteArquivo?  @relation("clienteLogo", fields: [idClienteArquivoLogo], references: [id])
-  clienteArquivoFavicon ClienteArquivo?  @relation("clienteFavicon", fields: [idClienteArquivoFavicon], references: [id])
+  cliente               Cliente?        @relation(fields: [idCliente], references: [id], onDelete: Cascade)
+  empresa               Empresa?        @relation(fields: [idEmpresa], references: [id], onDelete: Cascade)
+  arquivoLogo           EmpresaArquivo? @relation("logo", fields: [idArquivoLogo], references: [id])
+  arquivoFavicon        EmpresaArquivo? @relation("favicon", fields: [idArquivoFavicon], references: [id])
+  clienteArquivoLogo    ClienteArquivo? @relation("clienteLogo", fields: [idClienteArquivoLogo], references: [id])
+  clienteArquivoFavicon ClienteArquivo? @relation("clienteFavicon", fields: [idClienteArquivoFavicon], references: [id])
 
   @@map("tb_TemasCustomizados")
 }
@@ -962,19 +984,19 @@ model Cliente {
 }
 
 model Catraca {
-  id            Int      @id @default(autoincrement())
-  idEmpresa     Int?
-  dsCatraca     String   @default("") @db.VarChar(100)
-  dsFabricante  String   @default("controlid") @db.VarChar(50)
-  dsModelo      String   @default("") @db.VarChar(50)
-  caSerial      String   @default("") @db.VarChar(100)
-  anIp          String   @default("") @db.VarChar(45)
-  anMac         String   @default("") @db.VarChar(17)
-  caToken       String   @default("") @db.VarChar(100)
-  dtUltimoPush  DateTime?
-  dtCadastro    DateTime @default(now())
-  dtAlteracao   DateTime @updatedAt
-  boInativo     Int      @default(0)
+  id           Int       @id @default(autoincrement())
+  idEmpresa    Int?
+  dsCatraca    String    @default("") @db.VarChar(100)
+  dsFabricante String    @default("controlid") @db.VarChar(50)
+  dsModelo     String    @default("") @db.VarChar(50)
+  caSerial     String    @default("") @db.VarChar(100)
+  anIp         String    @default("") @db.VarChar(45)
+  anMac        String    @default("") @db.VarChar(17)
+  caToken      String    @default("") @db.VarChar(100)
+  dtUltimoPush DateTime?
+  dtCadastro   DateTime  @default(now())
+  dtAlteracao  DateTime  @updatedAt
+  boInativo    Int       @default(0)
 
   eventos CatracaEvento[]
 
@@ -984,22 +1006,22 @@ model Catraca {
 }
 
 model CatracaEvento {
-  id                 Int      @id @default(autoincrement())
-  idCatraca          Int?
-  idAluno            Int?
+  id                  Int      @id @default(autoincrement())
+  idCatraca           Int?
+  idAluno             Int?
   idEventoDispositivo BigInt?
-  nrUsuarioCatraca   String?  @db.VarChar(50)
-  nrTipoEvento       Int?
-  dsTipoEvento       String   @default("") @db.VarChar(50)
-  boAcessoLiberado   Int      @default(0)
-  dsIdentificacao    String   @default("") @db.VarChar(50)
-  dsCartao           String   @default("") @db.VarChar(50)
-  dsPortal           String   @default("") @db.VarChar(20)
-  dsDirecao          String   @default("") @db.VarChar(20)
-  anIpOrigem         String   @default("") @db.VarChar(45)
-  dtEvento           DateTime
-  jsPayload          Json?
-  dtCadastro         DateTime @default(now())
+  nrUsuarioCatraca    String?  @db.VarChar(50)
+  nrTipoEvento        Int?
+  dsTipoEvento        String   @default("") @db.VarChar(50)
+  boAcessoLiberado    Int      @default(0)
+  dsIdentificacao     String   @default("") @db.VarChar(50)
+  dsCartao            String   @default("") @db.VarChar(50)
+  dsPortal            String   @default("") @db.VarChar(20)
+  dsDirecao           String   @default("") @db.VarChar(20)
+  anIpOrigem          String   @default("") @db.VarChar(45)
+  dtEvento            DateTime
+  jsPayload           Json?
+  dtCadastro          DateTime @default(now())
 
   catraca Catraca? @relation(fields: [idCatraca], references: [id])
 
@@ -1007,4 +1029,67 @@ model CatracaEvento {
   @@index([idAluno, dtEvento])
   @@index([dtEvento])
   @@map("tb_CatracaEventos")
+}
+
+model Equipamento {
+  id            Int       @id @default(autoincrement())
+  nrEquipamento Int?
+  dsEquipamento String?   @db.VarChar(200)
+  nmEquipamento String?   @db.VarChar(100)
+  dtAquisicao   DateTime?
+  dtCadastro    DateTime  @default(now())
+  dtAlteracao   DateTime  @updatedAt
+  boInativo     Int       @default(0)
+
+  manutencoes           EquipamentoManutencao[]
+  exercicioEquipamentos ExercicioEquipamento[]
+  equipamentoArquivos   EquipamentoArquivo[]
+
+  @@map("tb_Equipamentos")
+}
+
+model EquipamentoManutencao {
+  id            Int       @id @default(autoincrement())
+  idEquipamento Int?
+  dtExecucao    DateTime?
+  dtValidade    DateTime?
+  dtCadastro    DateTime  @default(now())
+  dtAlteracao   DateTime  @updatedAt
+  boInativo     Int       @default(0)
+
+  equipamento Equipamento? @relation(fields: [idEquipamento], references: [id])
+
+  @@index([dtExecucao])
+  @@map("tb_EquipamentoManutencoes")
+}
+
+model ExercicioEquipamento {
+  id            Int      @id @default(autoincrement())
+  idExericio    Int?
+  idEquipamento Int?
+  dtCadastro    DateTime @default(now())
+  dtAlteracao   DateTime @updatedAt
+  boInativo     Int      @default(0)
+
+  exercicio   Exercicio?   @relation(fields: [idExericio], references: [id])
+  equipamento Equipamento? @relation(fields: [idEquipamento], references: [id])
+
+  @@map("tb_ExercicioEquipamentos")
+}
+
+model Localidade {
+  id             Int                                  @id @default(autoincrement())
+  idEmpresa      Int?
+  nmLocalidade   String                               @default("") @db.VarChar(255)
+  dsLocalidade   String                               @default("") @db.VarChar(255)
+  cnLocalidadeTP Int                                  @default(0)
+  geoLocalidade  Unsupported("geometry(Point, 4326)")
+  dtCadastro     DateTime                             @default(now())
+  dtAlteracao    DateTime                             @updatedAt
+  boInativo      Int                                  @default(0)
+
+  atividadeAgendas AtividadeAgenda[]
+
+  @@index([geoLocalidade], name: "geo", type: Gist)
+  @@map("tb_Localidades")
 }

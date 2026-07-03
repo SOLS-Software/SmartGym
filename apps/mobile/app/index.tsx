@@ -17,6 +17,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useCurrentClient } from '../lib/hooks/useCurrentClient';
+import { useTheme } from '../lib/contexts/ThemeContext';
 
 function getApiUrl() {
   const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
@@ -211,6 +213,10 @@ type StudentValidationField = 'name' | 'cpf' | 'birthDate' | 'email';
 type StudentValidationErrors = Partial<Record<StudentValidationField, string>>;
 
 function CompanyRegistration() {
+  const theme = useTheme();
+  const primary = theme?.corPrimaria ?? '#1f7a53';
+  const dark = theme?.corTexto ?? '#17211c';
+  const r = theme?.raioCardBorder ?? 8;
   const [companies, setCompanies] = useState<Company[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
@@ -386,7 +392,7 @@ function CompanyRegistration() {
           style={styles.searchInput}
           value={searchTerm}
         />
-        <Pressable onPress={handleNewCompany} style={styles.newButton}>
+        <Pressable onPress={handleNewCompany} style={[styles.newButton, { backgroundColor: dark, borderRadius: r }]}>
           <Text style={styles.newButtonText}>Nova empresa</Text>
         </Pressable>
 
@@ -397,7 +403,8 @@ function CompanyRegistration() {
               onPress={() => handleSelectCompany(company)}
               style={[
                 styles.productCard,
-                company.id === selectedCompanyId && styles.productCardSelected,
+                { borderRadius: r },
+                company.id === selectedCompanyId && [styles.productCardSelected, { borderColor: primary }],
               ]}
             >
               <View style={styles.productCardHeader}>
@@ -479,7 +486,7 @@ function CompanyRegistration() {
           <View
             style={[
               styles.statusToggleThumb,
-              isCompanyActive && styles.statusToggleThumbActive,
+              isCompanyActive && [styles.statusToggleThumbActive, { backgroundColor: primary }],
             ]}
           >
             <Text style={styles.statusToggleText}>
@@ -499,7 +506,7 @@ function CompanyRegistration() {
           <Pressable
             disabled={!isFormEnabled}
             onPress={handleSaveCompany}
-            style={[styles.saveButton, !isFormEnabled && styles.disabledControl]}
+            style={[styles.saveButton, { backgroundColor: primary, borderRadius: r }, !isFormEnabled && styles.disabledControl]}
           >
             <Text style={styles.saveButtonText}>Salvar empresa</Text>
           </Pressable>
@@ -510,6 +517,10 @@ function CompanyRegistration() {
 }
 
 function ProductRegistration() {
+  const theme = useTheme();
+  const primary = theme?.corPrimaria ?? '#1f7a53';
+  const dark = theme?.corTexto ?? '#17211c';
+  const r = theme?.raioCardBorder ?? 8;
   const [products, setProducts] = useState<Product[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -700,7 +711,7 @@ function ProductRegistration() {
           style={styles.searchInput}
           value={searchTerm}
         />
-        <Pressable onPress={handleNewProduct} style={styles.newButton}>
+        <Pressable onPress={handleNewProduct} style={[styles.newButton, { backgroundColor: dark, borderRadius: r }]}>
           <Text style={styles.newButtonText}>Novo produto</Text>
         </Pressable>
 
@@ -711,7 +722,8 @@ function ProductRegistration() {
               onPress={() => handleSelectProduct(product)}
               style={[
                 styles.productCard,
-                product.id === selectedProductId && styles.productCardSelected,
+                { borderRadius: r },
+                product.id === selectedProductId && [styles.productCardSelected, { borderColor: primary }],
               ]}
             >
               <View style={styles.productCardHeader}>
@@ -828,7 +840,7 @@ function ProductRegistration() {
           <View
             style={[
               styles.statusToggleThumb,
-              isProductActive && styles.statusToggleThumbActive,
+              isProductActive && [styles.statusToggleThumbActive, { backgroundColor: primary }],
             ]}
           >
             <Text style={styles.statusToggleText}>
@@ -848,7 +860,7 @@ function ProductRegistration() {
           <Pressable
             disabled={!isFormEnabled}
             onPress={handleSaveProduct}
-            style={[styles.saveButton, !isFormEnabled && styles.disabledControl]}
+            style={[styles.saveButton, { backgroundColor: primary, borderRadius: r }, !isFormEnabled && styles.disabledControl]}
           >
             <Text style={styles.saveButtonText}>Salvar produto</Text>
           </Pressable>
@@ -997,6 +1009,10 @@ function isValidCpf(value: string) {
 }
 
 function StudentRegistration() {
+  const theme = useTheme();
+  const primary = theme?.corPrimaria ?? '#1f7a53';
+  const dark = theme?.corTexto ?? '#17211c';
+  const r = theme?.raioCardBorder ?? 8;
   const cameraRef = useRef<CameraView>(null);
   const nameInputRef = useRef<TextInput>(null);
   const cpfInputRef = useRef<TextInput>(null);
@@ -1572,7 +1588,7 @@ function StudentRegistration() {
           style={styles.searchInput}
           value={searchTerm}
         />
-        <Pressable onPress={handleNewStudent} style={styles.newButton}>
+        <Pressable onPress={handleNewStudent} style={[styles.newButton, { backgroundColor: dark, borderRadius: r }]}>
           <Text style={styles.newButtonText}>Novo aluno</Text>
         </Pressable>
 
@@ -1583,7 +1599,8 @@ function StudentRegistration() {
               onPress={() => handleSelectStudent(student)}
               style={[
                 styles.productCard,
-                student.id === selectedStudentId && styles.productCardSelected,
+                { borderRadius: r },
+                student.id === selectedStudentId && [styles.productCardSelected, { borderColor: primary }],
               ]}
             >
               <View style={styles.productCardHeader}>
@@ -1889,7 +1906,7 @@ function StudentRegistration() {
           <View
             style={[
               styles.statusToggleThumb,
-              isStudentActive && styles.statusToggleThumbActive,
+              isStudentActive && [styles.statusToggleThumbActive, { backgroundColor: primary }],
             ]}
           >
             <Text style={styles.statusToggleText}>
@@ -1909,7 +1926,7 @@ function StudentRegistration() {
           <Pressable
             disabled={!isFormEnabled}
             onPress={handleSaveStudent}
-            style={[styles.saveButton, !isFormEnabled && styles.disabledControl]}
+            style={[styles.saveButton, { backgroundColor: primary, borderRadius: r }, !isFormEnabled && styles.disabledControl]}
           >
             <Text style={styles.saveButtonText}>Salvar aluno</Text>
           </Pressable>
@@ -2079,6 +2096,12 @@ function getPasswordValidationMessage(password: string) {
 }
 
 export default function HomeScreen() {
+  const appTheme = useTheme();
+  const primary = appTheme?.corPrimaria ?? '#1f7a53';
+  const bg = appTheme?.corFundo ?? '#f3f6f4';
+  const dark = appTheme?.corTexto ?? '#17211c';
+  const r = appTheme?.raioCardBorder ?? 8;
+  const { setCurrentClient } = useCurrentClient();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState<AppTab>('HOME');
   const [activeRegistration, setActiveRegistration] =
@@ -2187,9 +2210,29 @@ export default function HomeScreen() {
         throw new Error(errorBody.message ?? 'Não foi possível entrar.');
       }
 
-      const user = (await response.json()) as { name: string; type: 'student' | 'employee' };
+      const user = (await response.json()) as { name: string; type: 'student' | 'employee'; clientId?: number };
       setAuthUserName(user.name);
       setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
+
+      // Salvar clientId se API retornar, caso contrário buscar o primeiro cliente
+      if (user.clientId) {
+        await setCurrentClient(user.clientId);
+      } else {
+        try {
+          const clientsResponse = await fetch(`${apiUrl}/clients`);
+          if (clientsResponse.ok) {
+            const clients = (await clientsResponse.json()) as Array<{ id: number }>;
+            const first = clients[0];
+            if (first) {
+              await setCurrentClient(first.id);
+            }
+          }
+        } catch {
+          // Se não conseguir buscar clientes, continua mesmo assim
+          console.warn('Não foi possível carregar clientes');
+        }
+      }
+
       setIsLoggedIn(true);
       setActiveTab('HOME');
     } catch (error) {
@@ -2482,10 +2525,10 @@ export default function HomeScreen() {
           style={styles.screenScroller}
           contentContainerStyle={styles.homeContent}
         >
-          <View style={styles.logo}>
+          <View style={[styles.logo, { backgroundColor: primary, borderRadius: r }]}>
             <Text style={styles.logoText}>SG</Text>
           </View>
-          <Text style={styles.sectionLabel}>SmartGym</Text>
+          <Text style={[styles.sectionLabel, { color: primary }]}>SmartGym</Text>
           <Text style={styles.selectedTitle}>Painel principal</Text>
           <Text style={styles.selectedText}>
             Acompanhe os módulos da academia e acesse os cadastros pela barra
@@ -2507,10 +2550,10 @@ export default function HomeScreen() {
           style={styles.screenScroller}
           contentContainerStyle={styles.homeContent}
         >
-          <View style={styles.logo}>
+          <View style={[styles.logo, { backgroundColor: primary, borderRadius: r }]}>
             <Text style={styles.logoText}>SG</Text>
           </View>
-          <Text style={styles.sectionLabel}>Empresa</Text>
+          <Text style={[styles.sectionLabel, { color: primary }]}>Empresa</Text>
           <Text style={styles.selectedTitle}>Academia Cliente</Text>
           <Text style={styles.selectedText}>
             Informações principais da empresa ativa na plataforma SmartGym.
@@ -2577,7 +2620,7 @@ export default function HomeScreen() {
                     style={styles.searchInput}
                     value={domainSearch}
                   />
-                  <Pressable onPress={handleNewDomainRecord} style={styles.newButton}>
+                  <Pressable onPress={handleNewDomainRecord} style={[styles.newButton, { backgroundColor: dark, borderRadius: r }]}>
                     <Text style={styles.newButtonText}>Novo</Text>
                   </Pressable>
 
@@ -2592,7 +2635,8 @@ export default function HomeScreen() {
                           onPress={() => handleSelectDomainRecord(record)}
                           style={[
                             styles.productCard,
-                            record.id === selectedDomainRecordId && styles.productCardSelected,
+                            { borderRadius: r },
+                            record.id === selectedDomainRecordId && [styles.productCardSelected, { borderColor: primary }],
                           ]}
                         >
                           <View style={styles.productCardHeader}>
@@ -2665,7 +2709,7 @@ export default function HomeScreen() {
                     <View
                       style={[
                         styles.statusToggleThumb,
-                        isDomainRecordActive && styles.statusToggleThumbActive,
+                        isDomainRecordActive && [styles.statusToggleThumbActive, { backgroundColor: primary }],
                       ]}
                     >
                       <Text style={styles.statusToggleText}>
@@ -2691,6 +2735,7 @@ export default function HomeScreen() {
                       onPress={handleSaveDomainRecord}
                       style={[
                         styles.saveButton,
+                        { backgroundColor: primary, borderRadius: r },
                         !isCreatingDomainRecord &&
                         !selectedDomainRecordId &&
                         styles.disabledControl,
@@ -2798,14 +2843,14 @@ export default function HomeScreen() {
     }
 
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: bg }]}>
         <View style={styles.card}>
           <View style={styles.brand}>
-            <View style={styles.logo}>
+            <View style={[styles.logo, { backgroundColor: primary, borderRadius: r }]}>
               <Text style={styles.logoText}>SG</Text>
             </View>
             <View>
-              <Text style={styles.eyebrow}>SmartGym</Text>
+              <Text style={[styles.eyebrow, { color: primary }]}>SmartGym</Text>
               <Text style={styles.title}>Sua conta</Text>
             </View>
           </View>
@@ -2820,7 +2865,8 @@ export default function HomeScreen() {
               <Text style={styles.selectLikeText}>{authUserRole}</Text>
             </View>
             <Pressable
-              onPress={() => {
+              onPress={async () => {
+                await setCurrentClient(null);
                 setIsLoggedIn(false);
                 setActiveTab('HOME');
               }}
@@ -2836,15 +2882,15 @@ export default function HomeScreen() {
 
   if (!isLoggedIn) {
     return (
-      <View style={styles.appShell}>
+      <View style={[styles.appShell, { backgroundColor: bg }]}>
         <ScrollView contentContainerStyle={styles.loginScroller}>
           <View style={styles.card}>
             <View style={styles.brand}>
-              <View style={styles.logo}>
+              <View style={[styles.logo, { backgroundColor: primary, borderRadius: r }]}>
                 <Text style={styles.logoText}>SG</Text>
               </View>
               <View>
-                <Text style={styles.eyebrow}>SmartGym</Text>
+                <Text style={[styles.eyebrow, { color: primary }]}>SmartGym</Text>
                 <Text style={styles.title}>
                   {loginMode === 'login'
                     ? 'Entrar na sua conta'
@@ -2933,7 +2979,7 @@ export default function HomeScreen() {
                 <Pressable
                   disabled={isSubmittingAuth}
                   onPress={() => void handleLogin()}
-                  style={[styles.submitButton, isSubmittingAuth && styles.disabledControl]}
+                  style={[styles.submitButton, { backgroundColor: primary, borderRadius: r }, isSubmittingAuth && styles.disabledControl]}
                 >
                   <Text style={styles.submitText}>{isSubmittingAuth ? 'Entrando...' : 'Entrar'}</Text>
                 </Pressable>
@@ -2967,7 +3013,7 @@ export default function HomeScreen() {
                 <Pressable
                   disabled={isSubmittingAuth}
                   onPress={() => void handleForgotPassword()}
-                  style={[styles.submitButton, isSubmittingAuth && styles.disabledControl]}
+                  style={[styles.submitButton, { backgroundColor: primary, borderRadius: r }, isSubmittingAuth && styles.disabledControl]}
                 >
                   <Text style={styles.submitText}>{isSubmittingAuth ? 'Enviando...' : 'Enviar email de redefinicao'}</Text>
                 </Pressable>
@@ -3089,7 +3135,7 @@ export default function HomeScreen() {
                 <Pressable
                   disabled={isSubmittingAuth || isLookingUpRegister || !registerLookup || registerLookup.hasUser}
                   onPress={() => void handleRegister()}
-                  style={[styles.submitButton, (isSubmittingAuth || isLookingUpRegister || !registerLookup || registerLookup?.hasUser) && styles.disabledControl]}
+                  style={[styles.submitButton, { backgroundColor: primary, borderRadius: r }, (isSubmittingAuth || isLookingUpRegister || !registerLookup || registerLookup?.hasUser) && styles.disabledControl]}
                 >
                   <Text style={styles.submitText}>
                     {isSubmittingAuth ? 'Criando...' : isLookingUpRegister ? 'Buscando...' : 'Criar cadastro'}
@@ -3104,7 +3150,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={styles.appShell}>
+    <View style={[styles.appShell, { backgroundColor: bg }]}>
       <View style={styles.tabContent}>{renderContent()}</View>
 
       <View style={styles.bottomNav}>
@@ -3120,14 +3166,14 @@ export default function HomeScreen() {
             }}
             style={[
               styles.bottomNavButton,
-              tab === activeTab && styles.bottomNavButtonActive,
+              tab === activeTab && [styles.bottomNavButtonActive, { backgroundColor: `${primary}22` }],
             ]}
           >
             {tab === 'EMPRESA' ? (
               <View
                 style={[
                   styles.bottomIcon,
-                  tab === activeTab && styles.bottomIconActive,
+                  tab === activeTab && [styles.bottomIconActive, { backgroundColor: primary }],
                 ]}
               >
                 <Text
@@ -3143,7 +3189,7 @@ export default function HomeScreen() {
               <View
                 style={[
                   styles.bottomIcon,
-                  tab === activeTab && styles.bottomIconActive,
+                  tab === activeTab && [styles.bottomIconActive, { backgroundColor: primary }],
                 ]}
               >
                 <Text
@@ -3159,7 +3205,7 @@ export default function HomeScreen() {
               <Text
                 style={[
                   styles.bottomNavText,
-                  tab === activeTab && styles.bottomNavTextActive,
+                  tab === activeTab && [styles.bottomNavTextActive, { color: primary }],
                 ]}
               >
                 {tab}
