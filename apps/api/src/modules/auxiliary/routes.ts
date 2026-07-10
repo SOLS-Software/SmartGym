@@ -212,6 +212,58 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     }
   });
 
+  app.get('/body-areas', async () => {
+    return prisma.areaCorporal.findMany({
+      where: { boInativo: 0 },
+      orderBy: { dsAreaCorporal: 'asc' },
+    });
+  });
+
+  app.post<{ Body: { dsAreaCorporal?: string; boInativo?: number } }>('/body-areas', async (request, reply) => {
+    try {
+      const dsAreaCorporal = request.body.dsAreaCorporal?.trim();
+      if (!dsAreaCorporal) throw new Error('Informe a area corporal.');
+      return reply.code(201).send(
+        await prisma.areaCorporal.create({
+          data: { dsAreaCorporal, boInativo: Number(request.body.boInativo ?? 0) },
+        }),
+      );
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao criar area corporal.',
+      });
+    }
+  });
+
+  app.put<{ Params: { id: string }; Body: { dsAreaCorporal?: string; boInativo?: number } }>(
+    '/body-areas/:id',
+    async (request, reply) => {
+      try {
+        const dsAreaCorporal = request.body.dsAreaCorporal?.trim();
+        if (!dsAreaCorporal) throw new Error('Informe a area corporal.');
+        return await prisma.areaCorporal.update({
+          where: { id: Number(request.params.id) },
+          data: { dsAreaCorporal, boInativo: Number(request.body.boInativo ?? 0) },
+        });
+      } catch (error) {
+        return reply.code(400).send({
+          message: error instanceof Error ? error.message : 'Erro ao atualizar area corporal.',
+        });
+      }
+    },
+  );
+
+  app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/body-areas/:id/status', async (request, reply) => {
+    try {
+      return await prisma.areaCorporal.update({
+        where: { id: Number(request.params.id) },
+        data: { boInativo: Number(request.body.boInativo ?? 0) },
+      });
+    } catch {
+      return reply.code(400).send({ message: 'Erro ao alterar status da area corporal.' });
+    }
+  });
+
   app.get('/time-units', async () => {
     return prisma.unidadeTempo.findMany({
       where: {

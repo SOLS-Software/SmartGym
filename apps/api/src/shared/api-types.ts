@@ -8,11 +8,16 @@ export type ProductPayload = {
 export type ExercisePayload = {
   idEmpresa?: number | null;
   dsExercicio?: string;
+  dsInstrucao?: string | null;
   boInativo?: number;
 };
 
 export type ExercicioEquipamentoPayload = {
   idEquipamento?: number | string | null;
+};
+
+export type ExercicioAreaCorporalPayload = {
+  idAreaCorporal?: number | string | null;
 };
 
 export type TrainingPayload = {

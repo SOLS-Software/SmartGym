@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pencil, Plus, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, GridPagination, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
-import type { Company, Equipamento, Exercise, ExerciseFile, ExercicioEquipamento } from '../../shared/registration/registrationTypes';
+import type { AreaCorporal, Company, Equipamento, Exercise, ExerciseFile, ExercicioAreaCorporal, ExercicioEquipamento } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 type ExerciseRegistrationProps = {
@@ -26,12 +26,18 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
   const [selectedEquipmentToAdd, setSelectedEquipmentToAdd] = useState('');
   const [isSavingEquipment, setIsSavingEquipment] = useState(false);
   const [equipmentFeedback, setEquipmentFeedback] = useState('');
+  const [areaOptions, setAreaOptions] = useState<AreaCorporal[]>([]);
+  const [exerciseAreas, setExerciseAreas] = useState<ExercicioAreaCorporal[]>([]);
+  const [selectedAreaToAdd, setSelectedAreaToAdd] = useState('');
+  const [isSavingArea, setIsSavingArea] = useState(false);
+  const [areaFeedback, setAreaFeedback] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
   const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [exerciseName, setExerciseName] = useState('');
+  const [exerciseInstructions, setExerciseInstructions] = useState('');
   const [isExerciseActive, setIsExerciseActive] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [fileFeedback, setFileFeedback] = useState('');
@@ -126,10 +132,33 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
     }
   }
 
+  async function loadAreaOptions() {
+    try {
+      const response = await fetch(`${apiUrl}/body-areas`);
+      if (!response.ok) await getApiError(response, 'Não foi possível carregar as áreas do corpo.');
+      const data = (await response.json()) as AreaCorporal[];
+      setAreaOptions(data.filter((area) => area.boInativo === 0));
+    } catch (error) {
+      setAreaFeedback(error instanceof Error ? error.message : 'Erro ao carregar áreas do corpo.');
+    }
+  }
+
+  async function loadExerciseAreas(exerciseId: number) {
+    try {
+      const response = await fetch(`${apiUrl}/exercises/${exerciseId}/areas`);
+      if (!response.ok) await getApiError(response, 'Não foi possível carregar as áreas do exercício.');
+      setExerciseAreas((await response.json()) as ExercicioAreaCorporal[]);
+      setAreaFeedback('');
+    } catch (error) {
+      setAreaFeedback(error instanceof Error ? error.message : 'Erro ao carregar áreas do exercício.');
+    }
+  }
+
   useEffect(() => {
     void loadExercises();
     void loadCompanies();
     void loadEquipmentOptions();
+    void loadAreaOptions();
   }, []);
 
   useEffect(() => {
@@ -147,10 +176,13 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
       setFileFeedback('');
       setExerciseEquipment([]);
       setEquipmentFeedback('');
+      setExerciseAreas([]);
+      setAreaFeedback('');
       return;
     }
     void loadExerciseFiles(selectedExerciseId);
     void loadExerciseEquipment(selectedExerciseId);
+    void loadExerciseAreas(selectedExerciseId);
   }, [selectedExerciseId]);
 
   function clearForm() {
@@ -158,6 +190,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
     setIsCreating(false);
     setSelectedCompanyId('');
     setExerciseName('');
+    setExerciseInstructions('');
     setIsExerciseActive(false);
     setFeedback('');
     setFileFeedback('');
@@ -166,6 +199,9 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
     setExerciseEquipment([]);
     setSelectedEquipmentToAdd('');
     setEquipmentFeedback('');
+    setExerciseAreas([]);
+    setSelectedAreaToAdd('');
+    setAreaFeedback('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -182,6 +218,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
     setIsCreating(false);
     setSelectedCompanyId(exercise.idEmpresa ? String(exercise.idEmpresa) : '');
     setExerciseName(exercise.dsExercicio);
+    setExerciseInstructions(exercise.dsInstrucao ?? '');
     setIsExerciseActive(exercise.boInativo === 0);
     setFeedback('');
     setFileFeedback('');
@@ -220,6 +257,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
       const payload = {
         idEmpresa: selectedCompanyId ? Number(selectedCompanyId) : null,
         dsExercicio: exerciseName,
+        dsInstrucao: exerciseInstructions.trim() || null,
         boInativo: isExerciseActive ? 0 : 1,
       };
 
@@ -367,6 +405,54 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
     }
   }
 
+  async function handleAddExerciseArea() {
+    if (!selectedExerciseId || !selectedAreaToAdd) return;
+
+    try {
+      setIsSavingArea(true);
+      setAreaFeedback('');
+
+      const response = await fetch(`${apiUrl}/exercises/${selectedExerciseId}/areas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idAreaCorporal: Number(selectedAreaToAdd) }),
+      });
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Não foi possível vincular a área.');
+      }
+
+      setSelectedAreaToAdd('');
+      await loadExerciseAreas(selectedExerciseId);
+      setAreaFeedback('Área vinculada com sucesso.');
+    } catch (error) {
+      setAreaFeedback(error instanceof Error ? error.message : 'Erro ao vincular área.');
+    } finally {
+      setIsSavingArea(false);
+    }
+  }
+
+  async function handleRemoveExerciseArea(linkId: number) {
+    if (!selectedExerciseId) return;
+
+    try {
+      const response = await fetch(`${apiUrl}/exercises/${selectedExerciseId}/areas/${linkId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Não foi possível remover a área.');
+      }
+
+      await loadExerciseAreas(selectedExerciseId);
+      setAreaFeedback('Área removida.');
+    } catch (error) {
+      setAreaFeedback(error instanceof Error ? error.message : 'Erro ao remover área.');
+    }
+  }
+
   return (
     <>
     <header className="module-page-header">
@@ -488,6 +574,19 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
                 required
                 type="text"
                 value={exerciseName}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="exerciseInstructions">Instruções</label>
+              <textarea
+                disabled={!isFormEnabled}
+                id="exerciseInstructions"
+                maxLength={2000}
+                onChange={(e) => setExerciseInstructions(e.target.value)}
+                placeholder="Como executar o exercício"
+                rows={4}
+                value={exerciseInstructions}
               />
             </div>
 
@@ -652,6 +751,67 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
                   ))}
                   {exerciseEquipment.length === 0 ? (
                     <div className="empty-row">Nenhum equipamento vinculado.</div>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
+
+            {selectedExerciseId ? (
+              <section aria-label="Áreas do corpo do exercício" className="exercise-files-section">
+                <div className="exercise-files-header">
+                  <p className="section-label">Áreas do corpo</p>
+                </div>
+
+                {areaFeedback ? <div className="form-feedback">{areaFeedback}</div> : null}
+
+                <div className="file-upload-controls">
+                  <select
+                    disabled={isSavingArea}
+                    onChange={(e) => setSelectedAreaToAdd(e.target.value)}
+                    value={selectedAreaToAdd}
+                  >
+                    <option value="">Selecione uma área</option>
+                    {areaOptions
+                      .filter((area) =>
+                        !exerciseAreas.some(
+                          (link) => link.boInativo === 0 && link.idAreaCorporal === area.id,
+                        ),
+                      )
+                      .map((area) => (
+                        <option key={area.id} value={area.id}>
+                          {area.dsAreaCorporal}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    className="secondary-button"
+                    disabled={isSavingArea || !selectedAreaToAdd}
+                    onClick={() => void handleAddExerciseArea()}
+                    type="button"
+                  >
+                    Vincular
+                  </button>
+                </div>
+
+                <div className="student-files-list">
+                  {exerciseAreas.map((link) => (
+                    <div className="student-file-row" key={link.id}>
+                      <div className="student-file-row-info">
+                        <strong>{link.areaCorporal?.dsAreaCorporal ?? `Área ${link.idAreaCorporal}`}</strong>
+                      </div>
+                      <div className="student-file-actions">
+                        <button
+                          className="danger"
+                          onClick={() => void handleRemoveExerciseArea(link.id)}
+                          type="button"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {exerciseAreas.length === 0 ? (
+                    <div className="empty-row">Nenhuma área vinculada.</div>
                   ) : null}
                 </div>
               </section>

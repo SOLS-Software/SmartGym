@@ -590,6 +590,33 @@ button.exercise-card:hover {
   font-size: 0.8rem;
 }
 
+.exercise-card-areas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.125rem;
+}
+
+.exercise-card-area-tag {
+  background: var(--color-primary-bg);
+  border-radius: 62.4375rem;
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.2rem 0.55rem;
+}
+
+.exercise-card-instruction {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  color: var(--color-muted-strong);
+  display: -webkit-box;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  margin-top: 0.25rem;
+  overflow: hidden;
+}
+
 .card-load-sentinel {
   height: 0.0625rem;
 }

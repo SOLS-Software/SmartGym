@@ -19,6 +19,7 @@ const domainItems = [
   'Tipo de Arquivo',
   'Esporte',
   'Categoria',
+  'Area Corporal',
 ];
 
 const domainConfig: DomainConfigMap = {
@@ -48,6 +49,7 @@ const domainConfig: DomainConfigMap = {
     relationEndpoint: 'sports',
     relationValueField: 'dsEsporte',
   },
+  "Area Corporal": { endpoint: 'body-areas', field: 'dsAreaCorporal', label: 'Área corporal', saveLabel: 'Salvar área' },
 };
 
 export function DomainRegistration() {

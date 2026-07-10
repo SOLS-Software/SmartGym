@@ -19,13 +19,22 @@ async function attachExerciseCoversToTrainingExercises<
     .filter((id): id is number => typeof id === 'number');
 
   if (exerciseIds.length === 0) {
-    return records.map((record) => ({ ...record, exercicio: record.exercicio ? { ...record.exercicio, coverImageUrl: null } : null }));
+    return records.map((record) => ({
+      ...record,
+      exercicio: record.exercicio ? { ...record.exercicio, coverImageUrl: null, areas: [] } : null,
+    }));
   }
 
-  const files = await prisma.exercicioArquivo.findMany({
-    where: { idExercicio: { in: exerciseIds }, boInativo: 0 },
-    orderBy: { dtCadastro: 'asc' },
-  });
+  const [files, areaLinks] = await Promise.all([
+    prisma.exercicioArquivo.findMany({
+      where: { idExercicio: { in: exerciseIds }, boInativo: 0 },
+      orderBy: { dtCadastro: 'asc' },
+    }),
+    prisma.exercicioAreaCorporal.findMany({
+      where: { idExercicio: { in: exerciseIds }, boInativo: 0 },
+      include: { areaCorporal: true },
+    }),
+  ]);
 
   const coverPathByExercise = new Map<number, string>();
   for (const file of files) {
@@ -50,12 +59,24 @@ async function attachExerciseCoversToTrainingExercises<
     }
   }
 
+  const areasByExercise = new Map<number, Array<{ id: number; dsAreaCorporal: string; boInativo: number }>>();
+  for (const link of areaLinks) {
+    if (link.idExercicio === null || !link.areaCorporal) continue;
+    const list = areasByExercise.get(link.idExercicio) ?? [];
+    list.push(link.areaCorporal);
+    areasByExercise.set(link.idExercicio, list);
+  }
+
   return records.map((record) => {
     if (!record.exercicio) return { ...record, exercicio: null };
     const path = coverPathByExercise.get(record.exercicio.id);
     return {
       ...record,
-      exercicio: { ...record.exercicio, coverImageUrl: path ? signedUrlByPath.get(path) ?? null : null },
+      exercicio: {
+        ...record.exercicio,
+        coverImageUrl: path ? signedUrlByPath.get(path) ?? null : null,
+        areas: areasByExercise.get(record.exercicio.id) ?? [],
+      },
     };
   });
 }

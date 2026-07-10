@@ -92,7 +92,8 @@
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   background: var(--color-surface);
   border: 0.0625rem solid var(--color-border-input);
   border-radius: 0.5rem;
@@ -105,12 +106,18 @@
     opacity 220ms ease;
 }
 
+.field textarea {
+  padding: 0.75rem 0.875rem;
+  resize: vertical;
+}
+
 .field input[type='hidden'] {
   display: none;
 }
 
 .field input:focus,
-.field select:focus {
+.field select:focus,
+.field textarea:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 0.1875rem rgba(31, 122, 83, 0.14);
 }
@@ -142,6 +149,7 @@
 
 .field input:disabled,
 .field select:disabled,
+.field textarea:disabled,
 .form-actions button:disabled,
 .status-toggle:disabled,
 .new-button:disabled,
@@ -154,7 +162,8 @@
 }
 
 .field input:disabled,
-.field select:disabled {
+.field select:disabled,
+.field textarea:disabled {
   background: #f0f4f1;
   color: #7a8f82;
 }

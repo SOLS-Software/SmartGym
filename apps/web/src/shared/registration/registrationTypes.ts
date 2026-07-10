@@ -30,10 +30,25 @@ export type Exercise = {
   id: number;
   idEmpresa: number | null;
   dsExercicio: string;
+  dsInstrucao: string | null;
   boInativo: number;
 };
 
-export type ExerciseWithCover = Exercise & { coverImageUrl: string | null };
+export type AreaCorporal = {
+  id: number;
+  dsAreaCorporal: string;
+  boInativo: number;
+};
+
+export type ExerciseWithCover = Exercise & { coverImageUrl: string | null; areas: AreaCorporal[] };
+
+export type ExercicioAreaCorporal = {
+  id: number;
+  idExercicio: number | null;
+  idAreaCorporal: number | null;
+  boInativo: number;
+  areaCorporal?: AreaCorporal | null;
+};
 
 export type Activity = {
   id: number;

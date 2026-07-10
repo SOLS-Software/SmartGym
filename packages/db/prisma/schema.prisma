@@ -163,16 +163,44 @@ model Exercicio {
   id          Int      @id @default(autoincrement())
   idEmpresa   Int?
   dsExercicio String   @db.VarChar(255)
+  dsInstrucao String?  @db.Text
   dtCadastro  DateTime @default(now())
   dtAlteracao DateTime @updatedAt
   boInativo   Int      @default(0)
 
-  empresa              Empresa?               @relation(fields: [idEmpresa], references: [id])
+  empresa              Empresa?                @relation(fields: [idEmpresa], references: [id])
   exercicioEquipamento ExercicioEquipamento[]
   treinoExercicios     TreinoExercicio[]
   exercicioArquivos    ExercicioArquivo[]
+  exercicioAreas       ExercicioAreaCorporal[]
 
   @@map("tb_Exercicios")
+}
+
+model AreaCorporal {
+  id             Int      @id @default(autoincrement())
+  dsAreaCorporal String   @db.VarChar(100)
+  dtCadastro     DateTime @default(now())
+  dtAlteracao    DateTime @updatedAt
+  boInativo      Int      @default(0)
+
+  exercicioAreas ExercicioAreaCorporal[]
+
+  @@map("tb_AreasCorporais")
+}
+
+model ExercicioAreaCorporal {
+  id             Int      @id @default(autoincrement())
+  idExercicio    Int?
+  idAreaCorporal Int?
+  dtCadastro     DateTime @default(now())
+  dtAlteracao    DateTime @updatedAt
+  boInativo      Int      @default(0)
+
+  exercicio    Exercicio?    @relation(fields: [idExercicio], references: [id])
+  areaCorporal AreaCorporal? @relation(fields: [idAreaCorporal], references: [id])
+
+  @@map("tb_ExercicioAreasCorporais")
 }
 
 model Produto {

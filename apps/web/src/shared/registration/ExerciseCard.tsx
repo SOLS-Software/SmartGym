@@ -24,6 +24,18 @@ export function ExerciseCard({ exercise, meta, onClick }: ExerciseCardProps) {
       <div className="exercise-card-body">
         <strong className="exercise-card-name">{exercise.dsExercicio}</strong>
         {meta ? <span className="exercise-card-meta">{meta}</span> : null}
+        {exercise.areas.length > 0 ? (
+          <div className="exercise-card-areas">
+            {exercise.areas.map((area) => (
+              <span className="exercise-card-area-tag" key={area.id}>
+                {area.dsAreaCorporal}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {exercise.dsInstrucao ? (
+          <p className="exercise-card-instruction">{exercise.dsInstrucao}</p>
+        ) : null}
       </div>
     </>
   );

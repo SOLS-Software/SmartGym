@@ -3,20 +3,35 @@ import { prisma } from '../../shared/prisma.js';
 import { normalizeExercisePayload, assertValidId } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { getExerciseFilePath } from '../../shared/files.js';
-import type { ExercicioEquipamentoPayload, ExercisePayload } from '../../shared/api-types.js';
+import type {
+  ExercicioAreaCorporalPayload,
+  ExercicioEquipamentoPayload,
+  ExercisePayload,
+} from '../../shared/api-types.js';
 
 const IMAGE_EXTENSION_PATTERN = /\.(jpg|jpeg|png|gif|webp)$/i;
 
 async function attachExerciseCovers<T extends { id: number }>(exercises: T[]) {
   if (exercises.length === 0) {
-    return exercises.map((exercise) => ({ ...exercise, coverImageUrl: null as string | null }));
+    return exercises.map((exercise) => ({
+      ...exercise,
+      coverImageUrl: null as string | null,
+      areas: [] as Array<{ id: number; dsAreaCorporal: string; boInativo: number }>,
+    }));
   }
 
   const exerciseIds = exercises.map((exercise) => exercise.id);
-  const files = await prisma.exercicioArquivo.findMany({
-    where: { idExercicio: { in: exerciseIds }, boInativo: 0 },
-    orderBy: { dtCadastro: 'asc' },
-  });
+
+  const [files, areaLinks] = await Promise.all([
+    prisma.exercicioArquivo.findMany({
+      where: { idExercicio: { in: exerciseIds }, boInativo: 0 },
+      orderBy: { dtCadastro: 'asc' },
+    }),
+    prisma.exercicioAreaCorporal.findMany({
+      where: { idExercicio: { in: exerciseIds }, boInativo: 0 },
+      include: { areaCorporal: true },
+    }),
+  ]);
 
   const coverPathByExercise = new Map<number, string>();
   for (const file of files) {
@@ -41,11 +56,20 @@ async function attachExerciseCovers<T extends { id: number }>(exercises: T[]) {
     }
   }
 
+  const areasByExercise = new Map<number, Array<{ id: number; dsAreaCorporal: string; boInativo: number }>>();
+  for (const link of areaLinks) {
+    if (link.idExercicio === null || !link.areaCorporal) continue;
+    const list = areasByExercise.get(link.idExercicio) ?? [];
+    list.push(link.areaCorporal);
+    areasByExercise.set(link.idExercicio, list);
+  }
+
   return exercises.map((exercise) => {
     const path = coverPathByExercise.get(exercise.id);
     return {
       ...exercise,
       coverImageUrl: path ? signedUrlByPath.get(path) ?? null : null,
+      areas: areasByExercise.get(exercise.id) ?? [],
     };
   });
 }
@@ -326,6 +350,85 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao remover equipamento do exercicio.',
+      });
+    }
+  });
+
+  // Exercise body areas
+
+  app.get<{
+    Params: { id: string };
+  }>('/exercises/:id/areas', async (request, reply) => {
+    try {
+      const idExercicio = Number(request.params.id);
+      assertValidId(idExercicio, 'Exercicio invalido.');
+      return prisma.exercicioAreaCorporal.findMany({
+        where: { idExercicio, boInativo: 0 },
+        include: { areaCorporal: true },
+        orderBy: { dtCadastro: 'desc' },
+      });
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao listar areas do exercicio.',
+      });
+    }
+  });
+
+  app.post<{
+    Params: { id: string };
+    Body: ExercicioAreaCorporalPayload;
+  }>('/exercises/:id/areas', async (request, reply) => {
+    try {
+      const idExercicio = Number(request.params.id);
+      const idAreaCorporal = Number(request.body.idAreaCorporal);
+      assertValidId(idExercicio, 'Exercicio invalido.');
+      assertValidId(idAreaCorporal, 'Area corporal invalida.');
+
+      const existing = await prisma.exercicioAreaCorporal.findFirst({
+        where: { idExercicio, idAreaCorporal, boInativo: 0 },
+      });
+
+      if (existing) {
+        return reply.code(409).send({ message: 'Area ja vinculada a este exercicio.' });
+      }
+
+      const link = await prisma.exercicioAreaCorporal.create({
+        data: { idExercicio, idAreaCorporal },
+        include: { areaCorporal: true },
+      });
+
+      return reply.code(201).send(link);
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao vincular area ao exercicio.',
+      });
+    }
+  });
+
+  app.delete<{
+    Params: { id: string; linkId: string };
+  }>('/exercises/:id/areas/:linkId', async (request, reply) => {
+    try {
+      const idExercicio = Number(request.params.id);
+      const linkId = Number(request.params.linkId);
+      assertValidId(idExercicio, 'Exercicio invalido.');
+      assertValidId(linkId, 'Vinculo invalido.');
+
+      const existing = await prisma.exercicioAreaCorporal.findFirst({
+        where: { id: linkId, idExercicio },
+      });
+
+      if (!existing) {
+        return reply.code(404).send({ message: 'Vinculo nao encontrado.' });
+      }
+
+      return prisma.exercicioAreaCorporal.update({
+        where: { id: linkId },
+        data: { boInativo: 1 },
+      });
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao remover area do exercicio.',
       });
     }
   });

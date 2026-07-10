@@ -182,6 +182,7 @@ export function normalizeExercisePayload(payload: ExercisePayload) {
   return {
     idEmpresa: payload.idEmpresa ?? null,
     dsExercicio,
+    dsInstrucao: payload.dsInstrucao?.trim() || null,
     boInativo: Number(payload.boInativo ?? 0),
   };
 }
