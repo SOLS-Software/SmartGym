@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { MapPin, Pencil, Plus, Save, Search } from 'lucide-react';
-import { GRID_PAGE_SIZE, GridPagination, paginateItems } from '../../shared/registration/registrationHelpers';
+import { GRID_PAGE_SIZE, GridPagination, formatCep, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import type { Company, Localidade } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
@@ -16,6 +16,11 @@ const LocationPickerMap = dynamic(
 
 const DEFAULT_LATITUDE = -14.235;
 const DEFAULT_LONGITUDE = -51.9253;
+
+const LOCALITY_TYPE_OPTIONS = [
+  { value: '1', label: 'Sala' },
+  { value: '2', label: 'Quadra' },
+];
 
 type ViaCepResponse = {
   cep?: string;
@@ -43,7 +48,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [localityName, setLocalityName] = useState('');
   const [localityDescription, setLocalityDescription] = useState('');
-  const [localityType, setLocalityType] = useState('0');
+  const [localityType, setLocalityType] = useState('1');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
   const [hasPickedLocation, setHasPickedLocation] = useState(false);
@@ -114,7 +119,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
     setSelectedCompanyId('');
     setLocalityName('');
     setLocalityDescription('');
-    setLocalityType('0');
+    setLocalityType('1');
     setLatitude('');
     setLongitude('');
     setHasPickedLocation(false);
@@ -143,7 +148,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
     setSelectedCompanyId(locality.idEmpresa ? String(locality.idEmpresa) : '');
     setLocalityName(locality.nmLocalidade);
     setLocalityDescription(locality.dsLocalidade);
-    setLocalityType(String(locality.cnLocalidadeTP ?? 0));
+    setLocalityType(String(locality.cnLocalidadeTP || 1));
     setLatitude(String(locality.latitude ?? ''));
     setLongitude(String(locality.longitude ?? ''));
     setHasPickedLocation(Boolean(locality.latitude || locality.longitude));
@@ -462,14 +467,18 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
 
             <div className="field">
               <label htmlFor="localityType">Tipo</label>
-              <input
+              <select
                 disabled={!isFormEnabled}
                 id="localityType"
                 onChange={(e) => setLocalityType(e.target.value)}
-                placeholder="0"
-                type="number"
                 value={localityType}
-              />
+              >
+                {LOCALITY_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <section aria-label="Buscar localização" className="exercise-files-section" style={{ flex: '1 1 100%' }}>
@@ -487,7 +496,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
                     id="localityCep"
                     maxLength={9}
                     onBlur={() => void handleLookupCep()}
-                    onChange={(e) => setAddressCep(e.target.value)}
+                    onChange={(e) => setAddressCep(formatCep(e.target.value))}
                     placeholder="00000-000"
                     type="text"
                     value={addressCep}

@@ -47,20 +47,23 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
   }>('/localities/geocode', async (request, reply) => {
     try {
       const { cep, logradouro, numero, bairro, cidade, estado } = request.body;
-      const addressLine = [logradouro?.trim(), numero?.trim()].filter(Boolean).join(', ');
-      const parts = [addressLine, bairro?.trim(), cidade?.trim(), estado?.trim(), cep?.trim(), 'Brasil'].filter(
-        (part) => part && part.length > 0,
-      );
+      const street = [numero?.trim(), logradouro?.trim()].filter(Boolean).join(' ');
 
-      if (parts.length <= 1) {
+      if (!street && !cep?.trim()) {
         return reply.code(400).send({ message: 'Informe ao menos o CEP ou o logradouro.' });
       }
 
       const url = new URL('https://nominatim.openstreetmap.org/search');
-      url.searchParams.set('q', parts.join(', '));
+      if (street) url.searchParams.set('street', street);
+      if (bairro?.trim()) url.searchParams.set('county', bairro.trim());
+      if (cidade?.trim()) url.searchParams.set('city', cidade.trim());
+      if (estado?.trim()) url.searchParams.set('state', estado.trim());
+      if (cep?.trim()) url.searchParams.set('postalcode', cep.trim());
+      url.searchParams.set('country', 'Brasil');
       url.searchParams.set('format', 'json');
       url.searchParams.set('limit', '1');
       url.searchParams.set('countrycodes', 'br');
+      url.searchParams.set('addressdetails', '0');
 
       const response = await fetch(url, {
         headers: { 'User-Agent': 'SmartGym/1.0 (contato@smartgym.app)' },

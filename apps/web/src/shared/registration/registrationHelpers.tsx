@@ -207,6 +207,12 @@ export function formatCpf(value: string) {
     .replace(/\.(\d{3})(\d)/, '.$1-$2');
 }
 
+export function formatCep(value: string) {
+  const digits = onlyDigits(value).slice(0, 8);
+
+  return digits.replace(/^(\d{5})(\d)/, '$1-$2');
+}
+
 export function isValidCpf(value: string) {
   const cpf = onlyDigits(value);
 
