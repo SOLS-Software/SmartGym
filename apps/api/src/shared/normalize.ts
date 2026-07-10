@@ -2,7 +2,10 @@ import { createHash } from 'node:crypto';
 import type {
   CompanyPayload,
   EmployeePayload,
+  EquipamentoManutencaoPayload,
+  EquipamentoPayload,
   ExercisePayload,
+  LocalidadePayload,
   PlanPayload,
   ProductPayload,
   RegisterPayload,
@@ -350,6 +353,63 @@ export function normalizeEmployeePayload(payload: EmployeePayload) {
     nrContato: Number(nrContato || 0),
     anEmail,
     dtAdmissao,
+    boInativo: Number(payload.boInativo ?? 0),
+  };
+}
+
+export function normalizeEquipamentoPayload(payload: EquipamentoPayload) {
+  const nmEquipamento = payload.nmEquipamento?.trim();
+  if (!nmEquipamento) {
+    throw new Error('Informe o nome do equipamento.');
+  }
+  const dtAquisicao = optionalDate(payload.dtAquisicao);
+
+  return {
+    nrEquipamento: optionalNumber(payload.nrEquipamento),
+    dsEquipamento: payload.dsEquipamento?.trim() || null,
+    nmEquipamento,
+    dtAquisicao: dtAquisicao ?? null,
+    boInativo: Number(payload.boInativo ?? 0),
+  };
+}
+
+export function normalizeEquipamentoManutencaoPayload(payload: EquipamentoManutencaoPayload) {
+  const dtExecucao = optionalDate(payload.dtExecucao);
+  const dtValidade = optionalDate(payload.dtValidade);
+
+  if (!dtExecucao) {
+    throw new Error('Informe a data de execucao da manutencao.');
+  }
+
+  return {
+    dtExecucao,
+    dtValidade: dtValidade ?? null,
+    boInativo: Number(payload.boInativo ?? 0),
+  };
+}
+
+export function normalizeLocalidadePayload(payload: LocalidadePayload) {
+  const nmLocalidade = payload.nmLocalidade?.trim();
+  const latitude = Number(payload.latitude);
+  const longitude = Number(payload.longitude);
+
+  if (!nmLocalidade) {
+    throw new Error('Informe o nome da localidade.');
+  }
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+    throw new Error('Informe uma latitude valida.');
+  }
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    throw new Error('Informe uma longitude valida.');
+  }
+
+  return {
+    idEmpresa: optionalNumber(payload.idEmpresa),
+    nmLocalidade,
+    dsLocalidade: payload.dsLocalidade?.trim() ?? '',
+    cnLocalidadeTP: Number(payload.cnLocalidadeTP ?? 0),
+    latitude,
+    longitude,
     boInativo: Number(payload.boInativo ?? 0),
   };
 }

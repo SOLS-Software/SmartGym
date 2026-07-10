@@ -19,6 +19,8 @@ import { registerLookupRoutes } from './modules/lookups/routes.js';
 import { registerAuxiliaryRoutes } from './modules/auxiliary/routes.js';
 import { registerControlidRoutes } from './modules/controlid/routes.js';
 import { registerAgendaRoutes } from './modules/agendas/routes.js';
+import { registerEquipmentRoutes } from './modules/equipment/routes.js';
+import { registerLocalityRoutes } from './modules/localities/routes.js';
 
 validateEnv();
 
@@ -101,3 +103,5 @@ await registerLookupRoutes(app);
 await registerAuxiliaryRoutes(app);
 await registerControlidRoutes(app);
 await registerAgendaRoutes(app);
+await registerEquipmentRoutes(app);
+await registerLocalityRoutes(app);

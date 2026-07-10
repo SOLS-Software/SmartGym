@@ -65,3 +65,8 @@ export function getClientFilePath(clientId: number, fileName: string) {
   const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '');
   return `clientes/${clientId}/${timestamp}-${normalizeFileName(fileName)}`;
 }
+
+export function getEquipamentoFilePath(equipmentId: number, fileName: string) {
+  const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '');
+  return `equipamentos/${equipmentId}/${timestamp}-${normalizeFileName(fileName)}`;
+}

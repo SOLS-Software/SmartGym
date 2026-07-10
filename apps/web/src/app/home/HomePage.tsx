@@ -23,6 +23,8 @@ import { ActivityScheduleAssembly } from '../../features/activities/ActivitySche
 import { StudentActivitiesView } from '../../features/activities/StudentActivitiesView';
 import { EmployeeRegistration } from '../../features/employees/EmployeeRegistration';
 import { TrainingRegistration } from '../../features/trainings/TrainingRegistration';
+import { EquipmentRegistration } from '../../features/equipment/EquipmentRegistration';
+import { LocalityRegistration } from '../../features/localities/LocalityRegistration';
 import { StudentTrainingAssembly } from '../../features/students/StudentTrainingAssembly';
 import { StudentMembershipView } from '../../features/students/StudentMembershipView';
 import { StudentCalendarView } from '../../features/students/StudentCalendarView';
@@ -49,6 +51,7 @@ import {
   Dumbbell,
   FilePlus,
   Globe,
+  MapPin,
   Moon,
   Package,
   Palette,
@@ -57,6 +60,7 @@ import {
   Tag,
   UserCheck,
   Users,
+  Wrench,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -80,6 +84,8 @@ const menuItemIcons: Record<string, LucideIcon> = {
   'Promoções': Tag,
   'Profissionais': Users,
   'Domínios': Globe,
+  'Equipamentos': Wrench,
+  'Localidades': MapPin,
 };
 
 const menuGroups = [
@@ -98,6 +104,10 @@ const menuGroups = [
   {
     title: 'ESTOQUE',
     items: ['Produtos', 'Compras'],
+  },
+  {
+    title: 'EQUIPAMENTOS',
+    items: ['Equipamentos', 'Localidades'],
   },
   {
     title: 'ALUNOS',
@@ -973,6 +983,10 @@ export default function HomePage() {
             )
           ) : activeItem === 'Profissionais' ? (
             <EmployeeRegistration />
+          ) : activeItem === 'Equipamentos' ? (
+            <EquipmentRegistration readOnly={authUserType === 'student'} />
+          ) : activeItem === 'Localidades' ? (
+            <LocalityRegistration readOnly={authUserType === 'student'} />
           ) : activeItem === 'Domínios' ? (
             <DomainRegistration />
           ) : activeItem === 'Meu Treino' ? (

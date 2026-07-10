@@ -158,6 +158,43 @@ export type TrainingMethod = {
   boInativo: number;
 };
 
+export type Equipamento = {
+  id: number;
+  nrEquipamento: number | null;
+  dsEquipamento: string | null;
+  nmEquipamento: string | null;
+  dtAquisicao: string | null;
+  boInativo: number;
+};
+
+export type EquipamentoArquivo = {
+  id: number;
+  idEquipamento: number;
+  dsArquivo?: string;
+  anCaminho: string;
+  dtCadastro: string;
+  boInativo: number;
+};
+
+export type EquipamentoManutencao = {
+  id: number;
+  idEquipamento: number | null;
+  dtExecucao: string | null;
+  dtValidade: string | null;
+  boInativo: number;
+};
+
+export type Localidade = {
+  id: number;
+  idEmpresa: number | null;
+  nmLocalidade: string;
+  dsLocalidade: string;
+  cnLocalidadeTP: number;
+  latitude: number;
+  longitude: number;
+  boInativo: number;
+};
+
 export type Role = {
   id: number;
   dsCargo: string;

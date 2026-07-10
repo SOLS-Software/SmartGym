@@ -73,6 +73,30 @@ export type PlanPayload = {
   boInativo?: number;
 };
 
+export type EquipamentoPayload = {
+  nrEquipamento?: number | string | null;
+  dsEquipamento?: string;
+  nmEquipamento?: string;
+  dtAquisicao?: string | null;
+  boInativo?: number;
+};
+
+export type EquipamentoManutencaoPayload = {
+  dtExecucao?: string | null;
+  dtValidade?: string | null;
+  boInativo?: number;
+};
+
+export type LocalidadePayload = {
+  idEmpresa?: number | string | null;
+  nmLocalidade?: string;
+  dsLocalidade?: string;
+  cnLocalidadeTP?: number | string;
+  latitude?: number | string;
+  longitude?: number | string;
+  boInativo?: number;
+};
+
 export type EmployeePayload = {
   idEmpresa?: number | string | null;
   idCargo?: number | string | null;
