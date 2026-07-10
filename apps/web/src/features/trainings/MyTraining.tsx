@@ -2,8 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { formatDateDisplay, formatDateTimeDisplay } from '../../shared/registration/registrationHelpers';
-import type { Exercise, StudentTraining, TrainingExercise, TrainingMethod } from '../../shared/registration/registrationTypes';
+import { ExerciseCard } from '../../shared/registration/ExerciseCard';
+import type { StudentTraining, TrainingExerciseWithCover } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, getApiError } from '../../shared/api/apiFetch';
+
+function formatExerciseMeta(link: TrainingExerciseWithCover) {
+    const parts: string[] = [];
+    if (link.nrSeries) parts.push(`${link.nrSeries}x${link.nrRepeticoes || 0}`);
+    if (Number(link.qtPeso) > 0) parts.push(`${link.qtPeso}${link.cnUnidadeMedida || ''}`);
+    if (link.qtDescanso) parts.push(`${link.qtDescanso}s descanso`);
+    return parts.join(' · ');
+}
 
 type MyTrainingProps = {
     studentId: number | null;
@@ -30,10 +39,8 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
     const [studentTrainings, setStudentTrainings] = useState<StudentTraining[]>([]);
     const [selectedStudentTraining, setSelectedStudentTraining] = useState<StudentTraining | null>(null);
     const [selectedSequenceId, setSelectedSequenceId] = useState('');
-    const [selectedTrainingExercises, setSelectedTrainingExercises] = useState<TrainingExercise[]>([]);
+    const [selectedTrainingExercises, setSelectedTrainingExercises] = useState<TrainingExerciseWithCover[]>([]);
     const [checkIns, setCheckIns] = useState<StudentCheckIn[]>([]);
-    const [exercises, setExercises] = useState<Exercise[]>([]);
-    const [trainingMethods, setTrainingMethods] = useState<TrainingMethod[]>([]);
     const [isLoadingTrainings, setIsLoadingTrainings] = useState(false);
     const [isLoadingExercises, setIsLoadingExercises] = useState(false);
     const [isLoadingCheckIns, setIsLoadingCheckIns] = useState(false);
@@ -59,14 +66,6 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
 
             return aOrder !== bOrder ? aOrder - bOrder : a.id - b.id;
         });
-
-    function getExerciseName(exerciseId: number | null) {
-        return exercises.find((ex) => ex.id === exerciseId)?.dsExercicio ?? '-';
-    }
-
-    function getMethodName(methodId: number | null) {
-        return trainingMethods.find((m) => m.id === methodId)?.nmMetodoTreino ?? '-';
-    }
 
     function getEmployeeName(st: StudentTraining) {
         return st.funcionario?.nmFuncionario ?? '-';
@@ -172,30 +171,20 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
 
         try {
             setIsLoadingExercises(true);
-            const [exercisesResponse, methodsResponse] = await Promise.all([
-                fetch(`/api/proxy/trainings/${trainingId}/related/exercises`, { signal }),
-                exercises.length > 0 ? Promise.resolve(null) : fetch(`/api/proxy/exercises`, { signal }),
-                trainingMethods.length > 0 ? Promise.resolve(null) : fetch(`/api/proxy/training-methods`, { signal }),
-            ]);
+            const exercisesResponse = await fetch(
+                `/api/proxy/trainings/${trainingId}/related/exercises?includeCover=true`,
+                { signal },
+            );
 
             if (!exercisesResponse.ok) {
                 await getApiError(exercisesResponse, 'Não foi possível carregar os exercícios.');
             }
 
-            const trainingExercises = ((await exercisesResponse.json()) as TrainingExercise[])
+            const trainingExercises = ((await exercisesResponse.json()) as TrainingExerciseWithCover[])
                 .filter((te) => te.boInativo === 0)
                 .sort((a, b) => a.nrOrdem !== b.nrOrdem ? a.nrOrdem - b.nrOrdem : a.id - b.id);
 
             setSelectedTrainingExercises(trainingExercises);
-
-            if (exercises.length === 0) {
-                const [exResp, mtResp] = await Promise.all([
-                    fetch('/api/proxy/exercises', { signal }),
-                    fetch('/api/proxy/training-methods', { signal }),
-                ]);
-                if (exResp.ok) setExercises((await exResp.json()) as Exercise[]);
-                if (mtResp.ok) setTrainingMethods((await mtResp.json()) as TrainingMethod[]);
-            }
         } catch (error) {
             if (error instanceof DOMException && error.name === 'AbortError') return;
             setSelectedTrainingExercises([]);
@@ -204,22 +193,9 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
         }
     }
 
-    async function loadLookups() {
-        if (exercises.length > 0 && trainingMethods.length > 0) return;
-
-        const [exResp, mtResp] = await Promise.all([
-            fetch('/api/proxy/exercises'),
-            fetch('/api/proxy/training-methods'),
-        ]);
-
-        if (exResp.ok) setExercises((await exResp.json()) as Exercise[]);
-        if (mtResp.ok) setTrainingMethods((await mtResp.json()) as TrainingMethod[]);
-    }
-
     useEffect(() => {
         void loadTrainings();
         void loadCheckIns();
-        void loadLookups();
     }, [studentId]);
 
     useEffect(() => {
@@ -375,47 +351,37 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
                     <h3>Treinos ativos</h3>
                 </div>
 
-                <div className="product-table" role="table" aria-label="Meus treinos">
-                    <div className="product-row my-training-row header" role="row">
-                        <span role="columnheader">Treino</span>
-                        <span role="columnheader">Profissional</span>
-                        <span role="columnheader">Sequência</span>
-                        <span role="columnheader">Cadastro</span>
-                        <span role="columnheader">Ultimo</span>
-                    </div>
+                {isLoadingTrainings ? (
+                    <div className="empty-row">Carregando treinos...</div>
+                ) : null}
 
-                    {isLoadingTrainings ? (
-                        <div className="empty-row">Carregando treinos...</div>
-                    ) : null}
+                {!isLoadingTrainings && activeTrainings.length === 0 ? (
+                    <div className="empty-row">Nenhum treino ativo encontrado.</div>
+                ) : null}
 
-                    {!isLoadingTrainings && activeTrainings.length === 0 ? (
-                        <div className="empty-row">Nenhum treino ativo encontrado.</div>
-                    ) : null}
-
-                    {!isLoadingTrainings
-                        ? activeTrainings.map((st) => (
+                {!isLoadingTrainings ? (
+                    <div className="exercise-card-grid">
+                        {activeTrainings.map((st) => (
                             <button
-                                className={`product-row my-training-row selectable ${st.id === selectedStudentTraining?.id ? 'selected' : ''} ${isLastCheckInTraining(st) ? 'last-check-in' : ''}`}
+                                className={`training-card ${st.id === selectedStudentTraining?.id ? 'selected' : ''}`}
                                 key={st.id}
                                 onClick={() => handleSelectTraining(st)}
-                                role="row"
                                 type="button"
                             >
-                                <span role="cell">{st.treino?.dsTreino ?? '-'}</span>
-                                <span role="cell">{getEmployeeName(st)}</span>
-                                <span role="cell">{getSequenceLabel(st)}</span>
-                                <span role="cell">{st.dtCadastro ? formatDateDisplay(st.dtCadastro) : '-'}</span>
-                                <span role="cell">
-                                    {isLastCheckInTraining(st) ? (
-                                        <span className="status-badge pending">Ultimo check-in</span>
-                                    ) : (
-                                        '-'
-                                    )}
+                                <strong className="training-card-title">{st.treino?.dsTreino ?? '-'}</strong>
+                                <span className="training-card-meta">
+                                    {getEmployeeName(st)} · Sequência {getSequenceLabel(st)}
                                 </span>
+                                <span className="training-card-meta">
+                                    Cadastro: {st.dtCadastro ? formatDateDisplay(st.dtCadastro) : '-'}
+                                </span>
+                                {isLastCheckInTraining(st) ? (
+                                    <span className="status-badge pending">Ultimo check-in</span>
+                                ) : null}
                             </button>
-                        ))
-                        : null}
-                </div>
+                        ))}
+                    </div>
+                ) : null}
             </section>
 
             {selectedStudentTraining ? (
@@ -426,37 +392,23 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
                         </h3>
                     </div>
 
-                    <div className="product-table" role="table" aria-label="Exercícios do treino">
-                        <div className="product-row training-exercise-row header" role="row">
-                            <span role="columnheader">Ordem</span>
-                            <span role="columnheader">Exercício</span>
-                            <span role="columnheader">Método</span>
-                            <span role="columnheader">Séries</span>
-                            <span role="columnheader">Repetições</span>
-                            <span role="columnheader">Descanso</span>
+                    {isLoadingExercises ? (
+                        <div className="empty-row">Carregando exercícios...</div>
+                    ) : null}
+
+                    {!isLoadingExercises && selectedTrainingExercises.length === 0 ? (
+                        <div className="empty-row">Nenhum exercício vinculado a este treino.</div>
+                    ) : null}
+
+                    {!isLoadingExercises ? (
+                        <div className="exercise-card-grid">
+                            {selectedTrainingExercises
+                                .filter((te) => te.exercicio)
+                                .map((te) => (
+                                    <ExerciseCard exercise={te.exercicio!} key={te.id} meta={formatExerciseMeta(te)} />
+                                ))}
                         </div>
-
-                        {isLoadingExercises ? (
-                            <div className="empty-row">Carregando exercícios...</div>
-                        ) : null}
-
-                        {!isLoadingExercises && selectedTrainingExercises.length === 0 ? (
-                            <div className="empty-row">Nenhum exercício vinculado a este treino.</div>
-                        ) : null}
-
-                        {!isLoadingExercises
-                            ? selectedTrainingExercises.map((te) => (
-                                <div className="product-row training-exercise-row" key={te.id} role="row">
-                                    <span role="cell">{te.nrOrdem || '-'}</span>
-                                    <span role="cell">{getExerciseName(te.idExercicio)}</span>
-                                    <span role="cell">{getMethodName(te.idMetodoTreino)}</span>
-                                    <span role="cell">{te.nrSeries}</span>
-                                    <span role="cell">{te.nrRepeticoes}</span>
-                                    <span role="cell">{te.qtDescanso}</span>
-                                </div>
-                            ))
-                            : null}
-                    </div>
+                    ) : null}
                 </section>
             ) : null}
         </div>
