@@ -130,7 +130,7 @@
 }
 
 .activity-schedule-row {
-  grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1fr) 9rem minmax(11rem, 1fr) 6rem minmax(7rem, 0.8fr) 9rem;
+  grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) minmax(10rem, 1fr) 9rem minmax(11rem, 1fr) 6rem minmax(7rem, 0.8fr) 9rem;
 }
 
 .activity-schedule-actions {
@@ -524,4 +524,108 @@
     align-items: flex-start;
     flex-direction: column;
   }
+}
+
+.exercise-card-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr));
+}
+
+.exercise-card {
+  @apply app-card;
+  animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  text-align: left;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+button.exercise-card {
+  cursor: pointer;
+}
+
+button.exercise-card:hover {
+  border-color: var(--color-primary);
+}
+
+.exercise-card-photo {
+  aspect-ratio: 4 / 3;
+  background: var(--color-surface-alt);
+  overflow: hidden;
+  width: 100%;
+}
+
+.exercise-card-photo img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.exercise-card-photo-placeholder {
+  align-items: center;
+  color: var(--color-muted-faint);
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  width: 100%;
+}
+
+.exercise-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.875rem;
+}
+
+.exercise-card-name {
+  color: var(--color-text);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.exercise-card-meta {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.card-load-sentinel {
+  height: 0.0625rem;
+}
+
+.training-card {
+  @apply app-card;
+  animation: app-surface-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 1.125rem;
+  text-align: left;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+  width: 100%;
+}
+
+.training-card:hover {
+  border-color: var(--color-primary);
+}
+
+.training-card-title {
+  color: var(--color-text);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.training-card-meta {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+.training-card-exercise-list {
+  color: var(--color-muted-strong);
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  gap: 0.2rem;
 }

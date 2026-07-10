@@ -33,6 +33,8 @@ export type Exercise = {
   boInativo: number;
 };
 
+export type ExerciseWithCover = Exercise & { coverImageUrl: string | null };
+
 export type Activity = {
   id: number;
   idEmpresa: number | null;
@@ -70,6 +72,14 @@ export type ExerciseFile = {
   anCaminho: string;
   dtCadastro: string;
   boInativo: number;
+};
+
+export type ExercicioEquipamento = {
+  id: number;
+  idExericio: number | null;
+  idEquipamento: number | null;
+  boInativo: number;
+  equipamento?: Equipamento | null;
 };
 
 export type Student = {
@@ -149,6 +159,10 @@ export type TrainingExercise = {
   qtPeso: number;
   cnUnidadeMedida: string;
   boInativo: number;
+};
+
+export type TrainingExerciseWithCover = TrainingExercise & {
+  exercicio: ExerciseWithCover | null;
 };
 
 export type TrainingMethod = {
@@ -311,6 +325,8 @@ export type AgendaSession = {
   idEsporte: number | null;
   idCategoria: number | null;
   dsCategoria: string | null;
+  idLocalidade: number | null;
+  dsLocalidade: string | null;
   dtInicial: string;
   dtFinal: string;
   qtAlunos: number | null;

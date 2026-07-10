@@ -3,19 +3,76 @@ import { prisma } from '../../shared/prisma.js';
 import { normalizeExercisePayload, assertValidId } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { getExerciseFilePath } from '../../shared/files.js';
-import type { ExercisePayload } from '../../shared/api-types.js';
+import type { ExercicioEquipamentoPayload, ExercisePayload } from '../../shared/api-types.js';
+
+const IMAGE_EXTENSION_PATTERN = /\.(jpg|jpeg|png|gif|webp)$/i;
+
+async function attachExerciseCovers<T extends { id: number }>(exercises: T[]) {
+  if (exercises.length === 0) {
+    return exercises.map((exercise) => ({ ...exercise, coverImageUrl: null as string | null }));
+  }
+
+  const exerciseIds = exercises.map((exercise) => exercise.id);
+  const files = await prisma.exercicioArquivo.findMany({
+    where: { idExercicio: { in: exerciseIds }, boInativo: 0 },
+    orderBy: { dtCadastro: 'asc' },
+  });
+
+  const coverPathByExercise = new Map<number, string>();
+  for (const file of files) {
+    if (
+      file.idExercicio !== null &&
+      !coverPathByExercise.has(file.idExercicio) &&
+      IMAGE_EXTENSION_PATTERN.test(file.anCaminho)
+    ) {
+      coverPathByExercise.set(file.idExercicio, file.anCaminho);
+    }
+  }
+
+  const paths = [...new Set(coverPathByExercise.values())];
+  const signedUrlByPath = new Map<string, string>();
+
+  if (paths.length > 0) {
+    const { bucket } = getSupabaseConfig();
+    const supabase = getSupabaseClient();
+    const { data } = await supabase.storage.from(bucket).createSignedUrls(paths, 60 * 5);
+    for (const item of data ?? []) {
+      if (item.signedUrl && item.path) signedUrlByPath.set(item.path, item.signedUrl);
+    }
+  }
+
+  return exercises.map((exercise) => {
+    const path = coverPathByExercise.get(exercise.id);
+    return {
+      ...exercise,
+      coverImageUrl: path ? signedUrlByPath.get(path) ?? null : null,
+    };
+  });
+}
 
 export async function registerExerciseRoutes(app: FastifyInstance) {
   app.get<{
-    Querystring: { search?: string };
+    Querystring: { search?: string; limit?: string; offset?: string; includeCover?: string; ids?: string };
   }>('/exercises', async (request) => {
     const search = request.query.search?.trim();
-    return prisma.exercicio.findMany({
-      where: search
-        ? { dsExercicio: { contains: search, mode: 'insensitive' } }
-        : undefined,
+    const limit = request.query.limit ? Number(request.query.limit) : undefined;
+    const offset = request.query.offset ? Number(request.query.offset) : undefined;
+    const includeCover = request.query.includeCover === 'true';
+    const ids = request.query.ids
+      ? request.query.ids.split(',').map(Number).filter(Number.isFinite)
+      : undefined;
+
+    const exercises = await prisma.exercicio.findMany({
+      where: {
+        ...(search ? { dsExercicio: { contains: search, mode: 'insensitive' } } : {}),
+        ...(ids ? { id: { in: ids } } : {}),
+      },
       orderBy: { dsExercicio: 'asc' },
+      take: limit,
+      skip: offset,
     });
+
+    return includeCover ? attachExerciseCovers(exercises) : exercises;
   });
 
   app.post<{
@@ -190,6 +247,85 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao remover arquivo do exercicio.',
+      });
+    }
+  });
+
+  // Exercise equipment
+
+  app.get<{
+    Params: { id: string };
+  }>('/exercises/:id/equipment', async (request, reply) => {
+    try {
+      const idExericio = Number(request.params.id);
+      assertValidId(idExericio, 'Exercicio invalido.');
+      return prisma.exercicioEquipamento.findMany({
+        where: { idExericio, boInativo: 0 },
+        include: { equipamento: true },
+        orderBy: { dtCadastro: 'desc' },
+      });
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao listar equipamentos do exercicio.',
+      });
+    }
+  });
+
+  app.post<{
+    Params: { id: string };
+    Body: ExercicioEquipamentoPayload;
+  }>('/exercises/:id/equipment', async (request, reply) => {
+    try {
+      const idExericio = Number(request.params.id);
+      const idEquipamento = Number(request.body.idEquipamento);
+      assertValidId(idExericio, 'Exercicio invalido.');
+      assertValidId(idEquipamento, 'Equipamento invalido.');
+
+      const existing = await prisma.exercicioEquipamento.findFirst({
+        where: { idExericio, idEquipamento, boInativo: 0 },
+      });
+
+      if (existing) {
+        return reply.code(409).send({ message: 'Equipamento ja vinculado a este exercicio.' });
+      }
+
+      const link = await prisma.exercicioEquipamento.create({
+        data: { idExericio, idEquipamento },
+        include: { equipamento: true },
+      });
+
+      return reply.code(201).send(link);
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao vincular equipamento ao exercicio.',
+      });
+    }
+  });
+
+  app.delete<{
+    Params: { id: string; linkId: string };
+  }>('/exercises/:id/equipment/:linkId', async (request, reply) => {
+    try {
+      const idExericio = Number(request.params.id);
+      const linkId = Number(request.params.linkId);
+      assertValidId(idExericio, 'Exercicio invalido.');
+      assertValidId(linkId, 'Vinculo invalido.');
+
+      const existing = await prisma.exercicioEquipamento.findFirst({
+        where: { id: linkId, idExericio },
+      });
+
+      if (!existing) {
+        return reply.code(404).send({ message: 'Vinculo nao encontrado.' });
+      }
+
+      return prisma.exercicioEquipamento.update({
+        where: { id: linkId },
+        data: { boInativo: 1 },
+      });
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao remover equipamento do exercicio.',
       });
     }
   });

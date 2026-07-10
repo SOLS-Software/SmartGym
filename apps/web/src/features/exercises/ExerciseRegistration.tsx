@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pencil, Plus, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, GridPagination, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
-import type { Company, Exercise, ExerciseFile } from '../../shared/registration/registrationTypes';
+import type { Company, Equipamento, Exercise, ExerciseFile, ExercicioEquipamento } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 type ExerciseRegistrationProps = {
@@ -21,6 +21,11 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
   const [companies, setCompanies] = useState<Company[]>([]);
   const [exerciseFiles, setExerciseFiles] = useState<ExerciseFile[]>([]);
   const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
+  const [equipmentOptions, setEquipmentOptions] = useState<Equipamento[]>([]);
+  const [exerciseEquipment, setExerciseEquipment] = useState<ExercicioEquipamento[]>([]);
+  const [selectedEquipmentToAdd, setSelectedEquipmentToAdd] = useState('');
+  const [isSavingEquipment, setIsSavingEquipment] = useState(false);
+  const [equipmentFeedback, setEquipmentFeedback] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
   const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(null);
@@ -99,9 +104,32 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
     }
   }
 
+  async function loadEquipmentOptions() {
+    try {
+      const response = await fetch(`${apiUrl}/equipments`);
+      if (!response.ok) await getApiError(response, 'Não foi possível carregar os equipamentos.');
+      const data = (await response.json()) as Equipamento[];
+      setEquipmentOptions(data.filter((equipment) => equipment.boInativo === 0));
+    } catch (error) {
+      setEquipmentFeedback(error instanceof Error ? error.message : 'Erro ao carregar equipamentos.');
+    }
+  }
+
+  async function loadExerciseEquipment(exerciseId: number) {
+    try {
+      const response = await fetch(`${apiUrl}/exercises/${exerciseId}/equipment`);
+      if (!response.ok) await getApiError(response, 'Não foi possível carregar os equipamentos do exercício.');
+      setExerciseEquipment((await response.json()) as ExercicioEquipamento[]);
+      setEquipmentFeedback('');
+    } catch (error) {
+      setEquipmentFeedback(error instanceof Error ? error.message : 'Erro ao carregar equipamentos.');
+    }
+  }
+
   useEffect(() => {
     void loadExercises();
     void loadCompanies();
+    void loadEquipmentOptions();
   }, []);
 
   useEffect(() => {
@@ -117,9 +145,12 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
       setExerciseFiles([]);
       setPreviewUrls({});
       setFileFeedback('');
+      setExerciseEquipment([]);
+      setEquipmentFeedback('');
       return;
     }
     void loadExerciseFiles(selectedExerciseId);
+    void loadExerciseEquipment(selectedExerciseId);
   }, [selectedExerciseId]);
 
   function clearForm() {
@@ -132,6 +163,9 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
     setFileFeedback('');
     setExerciseFiles([]);
     setPreviewUrls({});
+    setExerciseEquipment([]);
+    setSelectedEquipmentToAdd('');
+    setEquipmentFeedback('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -282,6 +316,54 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
       setFileFeedback('Arquivo removido.');
     } catch (error) {
       setFileFeedback(error instanceof Error ? error.message : 'Erro ao remover arquivo.');
+    }
+  }
+
+  async function handleAddExerciseEquipment() {
+    if (!selectedExerciseId || !selectedEquipmentToAdd) return;
+
+    try {
+      setIsSavingEquipment(true);
+      setEquipmentFeedback('');
+
+      const response = await fetch(`${apiUrl}/exercises/${selectedExerciseId}/equipment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idEquipamento: Number(selectedEquipmentToAdd) }),
+      });
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Não foi possível vincular o equipamento.');
+      }
+
+      setSelectedEquipmentToAdd('');
+      await loadExerciseEquipment(selectedExerciseId);
+      setEquipmentFeedback('Equipamento vinculado com sucesso.');
+    } catch (error) {
+      setEquipmentFeedback(error instanceof Error ? error.message : 'Erro ao vincular equipamento.');
+    } finally {
+      setIsSavingEquipment(false);
+    }
+  }
+
+  async function handleRemoveExerciseEquipment(linkId: number) {
+    if (!selectedExerciseId) return;
+
+    try {
+      const response = await fetch(`${apiUrl}/exercises/${selectedExerciseId}/equipment/${linkId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { message?: string };
+        throw new Error(errorBody.message ?? 'Não foi possível remover o equipamento.');
+      }
+
+      await loadExerciseEquipment(selectedExerciseId);
+      setEquipmentFeedback('Equipamento removido.');
+    } catch (error) {
+      setEquipmentFeedback(error instanceof Error ? error.message : 'Erro ao remover equipamento.');
     }
   }
 
@@ -509,6 +591,67 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
                   ))}
                   {exerciseFiles.length === 0 ? (
                     <div className="empty-row">Nenhum arquivo anexado.</div>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
+
+            {selectedExerciseId ? (
+              <section aria-label="Equipamentos do exercício" className="exercise-files-section">
+                <div className="exercise-files-header">
+                  <p className="section-label">Equipamentos</p>
+                </div>
+
+                {equipmentFeedback ? <div className="form-feedback">{equipmentFeedback}</div> : null}
+
+                <div className="file-upload-controls">
+                  <select
+                    disabled={isSavingEquipment}
+                    onChange={(e) => setSelectedEquipmentToAdd(e.target.value)}
+                    value={selectedEquipmentToAdd}
+                  >
+                    <option value="">Selecione um equipamento</option>
+                    {equipmentOptions
+                      .filter((equipment) =>
+                        !exerciseEquipment.some(
+                          (link) => link.boInativo === 0 && link.idEquipamento === equipment.id,
+                        ),
+                      )
+                      .map((equipment) => (
+                        <option key={equipment.id} value={equipment.id}>
+                          {equipment.nmEquipamento}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    className="secondary-button"
+                    disabled={isSavingEquipment || !selectedEquipmentToAdd}
+                    onClick={() => void handleAddExerciseEquipment()}
+                    type="button"
+                  >
+                    Vincular
+                  </button>
+                </div>
+
+                <div className="student-files-list">
+                  {exerciseEquipment.map((link) => (
+                    <div className="student-file-row" key={link.id}>
+                      <div className="student-file-row-info">
+                        <strong>{link.equipamento?.nmEquipamento ?? `Equipamento ${link.idEquipamento}`}</strong>
+                      </div>
+                      <div className="student-file-actions">
+                        <button
+                          className="danger"
+                          onClick={() => void handleRemoveExerciseEquipment(link.id)}
+                          type="button"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {exerciseEquipment.length === 0 ? (
+                    <div className="empty-row">Nenhum equipamento vinculado.</div>
                   ) : null}
                 </div>
               </section>

@@ -11,6 +11,10 @@ export type ExercisePayload = {
   boInativo?: number;
 };
 
+export type ExercicioEquipamentoPayload = {
+  idEquipamento?: number | string | null;
+};
+
 export type TrainingPayload = {
   idEmpresa?: number | string | null;
   idNivel?: number | string | null;
