@@ -26,7 +26,69 @@ const SELECT_COLUMNS = `
   "dtCadastro", "dtAlteracao", "boInativo"
 `;
 
+type GeocodePayload = {
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  bairro?: string;
+  cidade?: string;
+  estado?: string;
+};
+
+type NominatimResult = {
+  lat: string;
+  lon: string;
+  display_name: string;
+};
+
 export async function registerLocalityRoutes(app: FastifyInstance) {
+  app.post<{
+    Body: GeocodePayload;
+  }>('/localities/geocode', async (request, reply) => {
+    try {
+      const { cep, logradouro, numero, bairro, cidade, estado } = request.body;
+      const addressLine = [logradouro?.trim(), numero?.trim()].filter(Boolean).join(', ');
+      const parts = [addressLine, bairro?.trim(), cidade?.trim(), estado?.trim(), cep?.trim(), 'Brasil'].filter(
+        (part) => part && part.length > 0,
+      );
+
+      if (parts.length <= 1) {
+        return reply.code(400).send({ message: 'Informe ao menos o CEP ou o logradouro.' });
+      }
+
+      const url = new URL('https://nominatim.openstreetmap.org/search');
+      url.searchParams.set('q', parts.join(', '));
+      url.searchParams.set('format', 'json');
+      url.searchParams.set('limit', '1');
+      url.searchParams.set('countrycodes', 'br');
+
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'SmartGym/1.0 (contato@smartgym.app)' },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao consultar o servico de geolocalizacao.');
+      }
+
+      const results = (await response.json()) as NominatimResult[];
+      const result = results[0];
+
+      if (!result) {
+        return reply.code(404).send({ message: 'Endereco nao encontrado. Ajuste o pino manualmente no mapa.' });
+      }
+
+      return {
+        latitude: Number(result.lat),
+        longitude: Number(result.lon),
+        displayName: result.display_name,
+      };
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao buscar coordenadas.',
+      });
+    }
+  });
+
   app.get<{
     Querystring: { search?: string };
   }>('/localities', async (request) => {

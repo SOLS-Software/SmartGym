@@ -59,6 +59,14 @@
   transition: margin 260ms ease, opacity 260ms ease, padding 260ms ease, transform 260ms ease;
 }
 
+.locality-map {
+  border: 0.0625rem solid var(--color-border);
+  border-radius: 0.5rem;
+  height: 18rem;
+  margin-top: 0.75rem;
+  width: 100%;
+}
+
 .form-feedback {
   animation: app-surface-in 300ms cubic-bezier(0.22, 1, 0.36, 1);
   background: var(--color-primary-bg);
