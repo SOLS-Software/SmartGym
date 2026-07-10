@@ -55,6 +55,24 @@
   width: 2.75rem;
 }
 
+.user-avatar-button {
+  border: none;
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0;
+  transition: opacity 160ms ease;
+}
+
+.user-avatar-button:hover {
+  opacity: 0.85;
+}
+
+.user-avatar-photo {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
 .home-content {
   display: flex;
   flex-direction: column;

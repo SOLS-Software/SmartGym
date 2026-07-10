@@ -34,6 +34,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
           atividade: { select: { id: true, dsAtividade: true, idEsporte: true } },
           categoria: { select: { id: true, dsCategoria: true } },
           empresa: { select: { id: true, dsEmpresa: true } },
+          localidade: { select: { id: true, nmLocalidade: true } },
           funcionarioAtividadeAgendas: {
             where: { boInativo: 0 },
             include: { funcionario: { select: { id: true, nmFuncionario: true } } },
@@ -59,6 +60,8 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
         idEsporte: session.atividade?.idEsporte ?? null,
         idCategoria: session.idCategoria,
         dsCategoria: session.categoria?.dsCategoria ?? null,
+        idLocalidade: session.idLocalidade,
+        dsLocalidade: session.localidade?.nmLocalidade ?? null,
         dtInicial: session.dtInicial,
         dtFinal: session.dtFinal,
         qtAlunos: session.qtAlunos,

@@ -351,6 +351,7 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
                           <span>{session.profissionais.map((p) => p.nome).join(', ')}</span>
                         ) : null}
                         {session.dsEmpresa ? <span>{session.dsEmpresa}</span> : null}
+                        {session.dsLocalidade ? <span>{session.dsLocalidade}</span> : null}
                       </div>
 
                       <div className="agenda-session-actions">
@@ -514,6 +515,7 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
                 <p className="agenda-detail-meta">
                   {formatDateTime(selectedSession.dtInicial)} — {formatTime(selectedSession.dtFinal)}
                   {selectedSession.dsEmpresa ? ` · ${selectedSession.dsEmpresa}` : ''}
+                  {selectedSession.dsLocalidade ? ` · ${selectedSession.dsLocalidade}` : ''}
                 </p>
                 {selectedSession.dsCategoria ? (
                   <span className="agenda-session-category">{selectedSession.dsCategoria}</span>

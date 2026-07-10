@@ -14,8 +14,18 @@ type ActivityRegistrationProps = {
   readOnly?: boolean;
 };
 
+function getDefaultDateRange() {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), 1);
+  const end = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+  const toInputValue = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return { dateFrom: toInputValue(start), dateTo: toInputValue(end) };
+}
+
 export function ActivityRegistration({ readOnly = false }: ActivityRegistrationProps) {
   const activityNameInputRef = useRef<HTMLInputElement | null>(null);
+  const defaultDateRange = getDefaultDateRange();
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [activitiesPage, setActivitiesPage] = useState(1);
@@ -23,6 +33,8 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
   const [sports, setSports] = useState<Sport[]>([]);
   const [isLoadingActivities, setIsLoadingActivities] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateFrom, setDateFrom] = useState(defaultDateRange.dateFrom);
+  const [dateTo, setDateTo] = useState(defaultDateRange.dateTo);
   const [selectedActivityId, setSelectedActivityId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
@@ -51,7 +63,10 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
   async function loadActivities() {
     try {
       setIsLoadingActivities(true);
-      const response = await fetch(`${apiUrl}/activities?includeInactive=true`);
+      const params = new URLSearchParams({ includeInactive: 'true' });
+      if (dateFrom) params.set('dtInicio', dateFrom);
+      if (dateTo) params.set('dtFim', dateTo);
+      const response = await fetch(`${apiUrl}/activities?${params.toString()}`);
       if (!response.ok) await getApiError(response, 'Não foi possível carregar as atividades.');
       setActivities((await response.json()) as Activity[]);
       setFeedback('');
@@ -78,7 +93,8 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
   }
 
   // ── Effects ────────────────────────────────────────────────────
-  useEffect(() => { void loadActivities(); void loadLookups(); }, []);
+  useEffect(() => { void loadLookups(); }, []);
+  useEffect(() => { void loadActivities(); }, [dateFrom, dateTo]);
   useEffect(() => { setActivitiesPage(1); }, [searchTerm]);
 
   // ── Helpers ────────────────────────────────────────────────────
@@ -184,6 +200,26 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     </header>
     <div className="form-view">
       <section className="data-grid-section">
+        <div className="drawer-fields" style={{ marginBottom: '1rem' }}>
+          <div className="field field-size-sm">
+            <label htmlFor="activityDateFrom">Data de</label>
+            <input
+              id="activityDateFrom"
+              onChange={(e) => setDateFrom(e.target.value)}
+              type="date"
+              value={dateFrom}
+            />
+          </div>
+          <div className="field field-size-sm">
+            <label htmlFor="activityDateTo">Data até</label>
+            <input
+              id="activityDateTo"
+              onChange={(e) => setDateTo(e.target.value)}
+              type="date"
+              value={dateTo}
+            />
+          </div>
+        </div>
         <RegistrationGrid<Activity>
           ariaLabel="Atividades cadastradas"
           label=""

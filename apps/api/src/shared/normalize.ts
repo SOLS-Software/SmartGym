@@ -390,11 +390,15 @@ export function normalizeEquipamentoManutencaoPayload(payload: EquipamentoManute
 
 export function normalizeLocalidadePayload(payload: LocalidadePayload) {
   const nmLocalidade = payload.nmLocalidade?.trim();
+  const idEmpresa = optionalNumber(payload.idEmpresa);
   const latitude = Number(payload.latitude);
   const longitude = Number(payload.longitude);
 
   if (!nmLocalidade) {
     throw new Error('Informe o nome da localidade.');
+  }
+  if (!idEmpresa) {
+    throw new Error('Informe a empresa.');
   }
   if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
     throw new Error('Informe uma latitude valida.');
@@ -404,7 +408,7 @@ export function normalizeLocalidadePayload(payload: LocalidadePayload) {
   }
 
   return {
-    idEmpresa: optionalNumber(payload.idEmpresa),
+    idEmpresa,
     nmLocalidade,
     dsLocalidade: payload.dsLocalidade?.trim() ?? '',
     cnLocalidadeTP: Number(payload.cnLocalidadeTP ?? 0),

@@ -273,6 +273,11 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
     event.preventDefault();
 
     try {
+      if (!selectedCompanyId) {
+        setFeedback('Selecione a empresa.');
+        return;
+      }
+
       const latitudeValue = Number(latitude);
       const longitudeValue = Number(longitude);
 
@@ -441,6 +446,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
                 disabled={!isFormEnabled}
                 id="localityCompany"
                 onChange={(e) => setSelectedCompanyId(e.target.value)}
+                required
                 value={selectedCompanyId}
               >
                 <option value="">Selecione</option>

@@ -12,6 +12,7 @@ type ActivityPayload = {
 type ActivitySchedulePayload = {
   idEmpresa?: number | string | null;
   idCategoria?: number | string | null;
+  idLocalidade?: number | string | null;
   dtInicial?: string | null;
   dtFinal?: string | null;
   qtAlunos?: number | string | null;
@@ -44,6 +45,7 @@ function normalizeActivitySchedulePayload(activityId: number, payload: ActivityS
     idEmpresa: optionalNumber(payload.idEmpresa),
     idAtividade: activityId,
     idCategoria: optionalNumber(payload.idCategoria),
+    idLocalidade: optionalNumber(payload.idLocalidade),
     dtInicial: optionalDate(payload.dtInicial) ?? null,
     dtFinal: optionalDate(payload.dtFinal) ?? null,
     qtAlunos: optionalNumber(payload.qtAlunos),
@@ -82,16 +84,34 @@ async function assertScheduleBelongsToActivity(activityId: number, scheduleId: n
 
 export async function registerActivityRoutes(app: FastifyInstance) {
   app.get<{
-    Querystring: { includeDetails?: string; includeInactive?: string; search?: string };
+    Querystring: {
+      includeDetails?: string;
+      includeInactive?: string;
+      search?: string;
+      dtInicio?: string;
+      dtFim?: string;
+    };
   }>('/activities', async (request) => {
     const includeDetails = request.query.includeDetails === 'true';
     const includeInactive = request.query.includeInactive === 'true';
     const search = request.query.search?.trim();
+    const { dtInicio, dtFim } = request.query;
 
     return prisma.atividade.findMany({
       where: {
         ...(includeInactive ? {} : { boInativo: 0 }),
         ...(search ? { dsAtividade: { contains: search, mode: 'insensitive' } } : {}),
+        ...(dtInicio || dtFim
+          ? {
+              atividadeAgendas: {
+                some: {
+                  boInativo: 0,
+                  ...(dtInicio ? { dtInicial: { gte: new Date(dtInicio) } } : {}),
+                  ...(dtFim ? { dtInicial: { lte: new Date(`${dtFim}T23:59:59`) } } : {}),
+                },
+              },
+            }
+          : {}),
       },
       include: includeDetails
         ? {

@@ -11,7 +11,7 @@ import {
   paginateItems,
 } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
-import type { Activity, Company, Employee, LookupRecord, Sport } from '../../shared/registration/registrationTypes';
+import type { Activity, Company, Employee, Localidade, LookupRecord, Sport } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 type ActivitySchedule = {
@@ -19,6 +19,7 @@ type ActivitySchedule = {
   idEmpresa: number | null;
   idAtividade: number | null;
   idCategoria: number | null;
+  idLocalidade: number | null;
   dtInicial: string | null;
   dtFinal: string | null;
   qtAlunos: number | null;
@@ -62,6 +63,7 @@ export function ActivityScheduleAssembly() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [sports, setSports] = useState<Sport[]>([]);
+  const [localities, setLocalities] = useState<Localidade[]>([]);
   const [activitiesPage, setActivitiesPage] = useState(1);
   const [schedulesPage, setSchedulesPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -70,9 +72,11 @@ export function ActivityScheduleAssembly() {
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null);
   const [isCreatingSchedule, setIsCreatingSchedule] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedFilialId, setSelectedFilialId] = useState('');
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [selectedLocalityId, setSelectedLocalityId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [selectedWeekDays, setSelectedWeekDays] = useState<string[]>([]);
@@ -89,6 +93,8 @@ export function ActivityScheduleAssembly() {
   const selectedActivity = activities.find((a) => a.id === selectedActivityId) ?? null;
 
   const filteredActivities = activities.filter((activity) => {
+    if (!selectedFilialId) return false;
+    if (activity.idEmpresa !== null && activity.idEmpresa !== Number(selectedFilialId)) return false;
     const search = searchTerm.toLowerCase();
     return (
       activity.dsAtividade.toLowerCase().includes(search) ||
@@ -104,6 +110,7 @@ export function ActivityScheduleAssembly() {
     return (
       getCompanyName(schedule.idEmpresa).toLowerCase().includes(search) ||
       getCategoryName(schedule.idCategoria).toLowerCase().includes(search) ||
+      getLocalityName(schedule.idLocalidade).toLowerCase().includes(search) ||
       getScheduleEmployeeName(schedule.id).toLowerCase().includes(search) ||
       getWeekDayLabelFromSchedule(schedule).toLowerCase().includes(search) ||
       getScheduleTimeLabel(schedule).includes(search) ||
@@ -133,16 +140,18 @@ export function ActivityScheduleAssembly() {
 
   async function loadLookups() {
     try {
-      const [companiesRes, categoriesRes, employeesRes, sportsRes] = await Promise.all([
+      const [companiesRes, categoriesRes, employeesRes, sportsRes, localitiesRes] = await Promise.all([
         fetch(`${apiUrl}/companies`),
         fetch(`${apiUrl}/categories`),
         fetch(`${apiUrl}/employees`),
         fetch(`${apiUrl}/sports`),
+        fetch(`${apiUrl}/localities`),
       ]);
       setCompanies(((await companiesRes.json()) as Company[]).filter((c) => c.boInativo === 0));
       setCategories(((await categoriesRes.json()) as Category[]).filter((c) => Number(c.boInativo ?? 0) === 0));
       setEmployees(((await employeesRes.json()) as Employee[]).filter((e) => e.boInativo === 0));
       if (sportsRes.ok) setSports(((await sportsRes.json()) as Sport[]).filter((s) => s.boInativo === 0));
+      if (localitiesRes.ok) setLocalities(((await localitiesRes.json()) as Localidade[]).filter((l) => l.boInativo === 0));
     } catch (error) {
       setScheduleFeedback(error instanceof Error ? error.message : 'Erro ao carregar listas.');
     }
@@ -217,6 +226,10 @@ export function ActivityScheduleAssembly() {
 
   function getCategoryName(id: number | null) {
     return String(categories.find((c) => c.id === id)?.dsCategoria ?? '-');
+  }
+
+  function getLocalityName(id: number | null) {
+    return localities.find((l) => l.id === id)?.nmLocalidade ?? '-';
   }
 
   function getEmployeeName(id: number | null) {
@@ -310,6 +323,19 @@ export function ActivityScheduleAssembly() {
 
   // ── Handlers ───────────────────────────────────────────────────
 
+  function handleSelectFilial(filialId: string) {
+    setSelectedFilialId(filialId);
+    setSelectedActivityId(null);
+    setSelectedScheduleId(null);
+    setIsCreatingSchedule(false);
+    setIsDrawerOpen(false);
+    setSchedules([]);
+    setScheduleEmployees([]);
+    clearScheduleFields();
+    setFeedback('');
+    setScheduleFeedback('');
+  }
+
   function handleSelectActivity(activity: Activity) {
     setSelectedActivityId(activity.id);
     setSelectedScheduleId(null);
@@ -326,6 +352,7 @@ export function ActivityScheduleAssembly() {
     setSelectedScheduleId(null);
     setIsCreatingSchedule(true);
     clearScheduleFields();
+    setSelectedCompanyId(selectedFilialId);
     setScheduleFeedback('');
     setIsDrawerOpen(true);
     setTimeout(() => scheduleStartInputRef.current?.focus(), 50);
@@ -336,6 +363,7 @@ export function ActivityScheduleAssembly() {
     setIsCreatingSchedule(false);
     setSelectedCompanyId(schedule.idEmpresa ? String(schedule.idEmpresa) : '');
     setSelectedCategoryId(schedule.idCategoria ? String(schedule.idCategoria) : '');
+    setSelectedLocalityId(schedule.idLocalidade ? String(schedule.idLocalidade) : '');
     setSelectedEmployeeId(
       String(scheduleEmployees.find((r) => r.idAtividadeAgenda === schedule.id && r.boInativo === 0)?.idFuncionario ?? ''),
     );
@@ -353,6 +381,7 @@ export function ActivityScheduleAssembly() {
   function clearScheduleFields() {
     setSelectedCompanyId('');
     setSelectedCategoryId('');
+    setSelectedLocalityId('');
     setSelectedEmployeeId('');
     setStartDate('');
     setEndDate('');
@@ -414,6 +443,7 @@ export function ActivityScheduleAssembly() {
   async function handleSaveSchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedActivityId) { setScheduleFeedback('Selecione uma atividade.'); return; }
+    if (!selectedCompanyId) { setScheduleFeedback('Selecione a filial.'); return; }
     if (!startDate || !endDate) { setScheduleFeedback('Informe o período da agenda.'); return; }
     if (!startTime || !endTime) { setScheduleFeedback('Informe o horário da agenda.'); return; }
     if (isCreatingSchedule && selectedWeekDays.length === 0) { setScheduleFeedback('Selecione pelo menos um dia da semana.'); return; }
@@ -429,6 +459,7 @@ export function ActivityScheduleAssembly() {
             body: JSON.stringify({
               idEmpresa: selectedCompanyId || null,
               idCategoria: selectedCategoryId || null,
+              idLocalidade: selectedLocalityId || null,
               dtInicial: combineDateTime(date, startTime),
               dtFinal: combineDateTime(date, endTime),
               qtAlunos: studentLimit || null,
@@ -449,6 +480,7 @@ export function ActivityScheduleAssembly() {
           body: JSON.stringify({
             idEmpresa: selectedCompanyId || null,
             idCategoria: selectedCategoryId || null,
+            idLocalidade: selectedLocalityId || null,
             dtInicial: combineDateTime(startDate, startTime),
             dtFinal: combineDateTime(startDate, endTime),
             qtAlunos: studentLimit || null,
@@ -483,6 +515,19 @@ export function ActivityScheduleAssembly() {
       <div className="workout-assembly-view">
         {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
+        <div className="field field-size-md" style={{ marginBottom: '1rem' }}>
+          <label htmlFor="scheduleFilial">Filial</label>
+          <select
+            id="scheduleFilial"
+            onChange={(e) => handleSelectFilial(e.target.value)}
+            required
+            value={selectedFilialId}
+          >
+            <option value="">Selecione a filial</option>
+            {companies.map((c) => <option key={c.id} value={c.id}>{c.dsEmpresa}</option>)}
+          </select>
+        </div>
+
         <div className="schedule-assembly-layout">
           {/* Grid de atividades */}
           <section className="data-grid-section workout-students-grid">
@@ -494,6 +539,7 @@ export function ActivityScheduleAssembly() {
                 <label className="search-field">
                   <span>Pesquisar</span>
                   <input
+                    disabled={!selectedFilialId}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Buscar atividade"
                     type="search"
@@ -503,6 +549,9 @@ export function ActivityScheduleAssembly() {
               </div>
             </div>
 
+            {!selectedFilialId ? (
+              <div className="form-hint">Selecione a filial para ver as atividades disponíveis.</div>
+            ) : (
             <div className="product-table" role="table" aria-label="Atividades">
               <div className="product-row activity-schedule-activity-row header" role="row">
                 <span role="columnheader">Atividade</span>
@@ -531,8 +580,11 @@ export function ActivityScheduleAssembly() {
                 <div className="empty-row">Nenhuma atividade encontrada.</div>
               ) : null}
             </div>
+            )}
 
-            <GridPagination onChange={setActivitiesPage} page={activitiesPage} totalItems={filteredActivities.length} />
+            {selectedFilialId ? (
+              <GridPagination onChange={setActivitiesPage} page={activitiesPage} totalItems={filteredActivities.length} />
+            ) : null}
           </section>
 
           {/* Grid de agendas da atividade */}
@@ -573,6 +625,7 @@ export function ActivityScheduleAssembly() {
               <div className="product-table" role="table" aria-label="Agenda da atividade">
                 <div className="product-row activity-schedule-row header" role="row">
                   <span role="columnheader">Categoria</span>
+                  <span role="columnheader">Localidade</span>
                   <span role="columnheader">Profissional</span>
                   <span role="columnheader">Data</span>
                   <span role="columnheader">Horário</span>
@@ -590,6 +643,7 @@ export function ActivityScheduleAssembly() {
                     role="row"
                   >
                     <span role="cell">{getCategoryName(schedule.idCategoria)}</span>
+                    <span role="cell">{getLocalityName(schedule.idLocalidade)}</span>
                     <span role="cell">{getScheduleEmployeeName(schedule.id)}</span>
                     <span role="cell">{schedule.dtInicial ? formatDateDisplay(schedule.dtInicial) : '-'}</span>
                     <span role="cell">{getScheduleTimeLabel(schedule)}</span>
@@ -720,6 +774,14 @@ export function ActivityScheduleAssembly() {
             </div>
 
             <div className="field">
+              <label htmlFor="scheduleLocality">Localidade</label>
+              <select id="scheduleLocality" onChange={(e) => setSelectedLocalityId(e.target.value)} value={selectedLocalityId}>
+                <option value="">Selecione</option>
+                {localities.map((l) => <option key={l.id} value={l.id}>{l.nmLocalidade}</option>)}
+              </select>
+            </div>
+
+            <div className="field">
               <label htmlFor="scheduleStudents">Qtd. alunos</label>
               <input
                 id="scheduleStudents"
@@ -732,7 +794,7 @@ export function ActivityScheduleAssembly() {
 
             <div className="field">
               <label htmlFor="scheduleCompany">Empresa</label>
-              <select id="scheduleCompany" onChange={(e) => setSelectedCompanyId(e.target.value)} value={selectedCompanyId}>
+              <select id="scheduleCompany" onChange={(e) => setSelectedCompanyId(e.target.value)} required value={selectedCompanyId}>
                 <option value="">Selecione</option>
                 {companies.map((c) => <option key={c.id} value={c.id}>{c.dsEmpresa}</option>)}
               </select>

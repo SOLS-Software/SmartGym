@@ -2,7 +2,7 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { formatCpf, formatDateInput, isValidCpf } from '../../shared/registration/registrationHelpers';
+import { formatCpf, formatDateInput, isImageFile, isValidCpf } from '../../shared/registration/registrationHelpers';
 import type { RegisterLookupRecord } from '../../shared/registration/registrationTypes';
 import { PlanRegistration } from '../../features/plans/PlanRegistration';
 import { StudentPlansView } from '../../features/plans/StudentPlansView';
@@ -16,6 +16,8 @@ import { ProductRegistration } from '../../features/products/ProductRegistration
 import { PromotionRegistration } from '../../features/promotions/PromotionRegistration';
 import { StudentPromotionsView } from '../../features/promotions/StudentPromotionsView';
 import { ExerciseRegistration } from '../../features/exercises/ExerciseRegistration';
+import { StudentExercisesView } from '../../features/exercises/StudentExercisesView';
+import { StudentTrainingsView } from '../../features/trainings/StudentTrainingsView';
 import { ActivityRegistration } from '../../features/activities/ActivityRegistration';
 import { ScheduleRegistration } from '../../features/activities/ScheduleRegistration';
 import { AgendaView } from '../../features/activities/AgendaView';
@@ -122,6 +124,11 @@ const menuGroups = [
     items: ['Domínios'],
   },
 ];
+
+function getMenuItemLabel(item: string, userType: AuthUserType) {
+  if (item === 'Matrículas' && userType === 'student') return 'Matrícula';
+  return item;
+}
 
 const THEME_CACHE_KEY = 'smartgym_theme_cache';
 const DARK_MODE_KEY = 'smartgym_dark_mode';
@@ -245,6 +252,7 @@ export default function HomePage() {
   const [authUserType, setAuthUserType] = useState<AuthUserType>('employee');
   const [authUserEmployeeId, setAuthUserEmployeeId] = useState<number | null>(null);
   const [authUserStudentId, setAuthUserStudentId] = useState<number | null>(null);
+  const [authUserPhotoUrl, setAuthUserPhotoUrl] = useState<string | null>(null);
   const [loginMode, setLoginMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [loginCpf, setLoginCpf] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -383,6 +391,36 @@ export default function HomePage() {
       .catch(() => {})
       .finally(() => { setThemePhase((p) => p === 'fetching' ? null : p); });
   }, []);
+
+  useEffect(() => {
+    if (authUserType !== 'student' || !authUserStudentId) {
+      setAuthUserPhotoUrl(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const filesResponse = await fetch(`${apiUrl}/students/${authUserStudentId}/files`);
+        if (!filesResponse.ok) return;
+        const files = (await filesResponse.json()) as Array<{ id: number; anCaminho: string }>;
+        const photoFile = files.find((file) => isImageFile(file.anCaminho));
+        if (!photoFile) return;
+
+        const urlResponse = await fetch(`${apiUrl}/students/${authUserStudentId}/files/${photoFile.id}/url`);
+        if (!urlResponse.ok) return;
+        const data = (await urlResponse.json()) as { url: string };
+        if (!cancelled) setAuthUserPhotoUrl(data.url);
+      } catch {
+        if (!cancelled) setAuthUserPhotoUrl(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authUserType, authUserStudentId]);
 
   useEffect(() => {
     if (!pendingFacialUser) {
@@ -814,20 +852,41 @@ export default function HomePage() {
             </div>
             <div>
               <p className="eyebrow">{activeGroup}</p>
-              <strong>{activeItem.toUpperCase()}</strong>
+              <strong>{getMenuItemLabel(activeItem, authUserType).toUpperCase()}</strong>
             </div>
           </div>
 
           <div className="user-profile">
-            <div className="user-avatar" aria-hidden="true">
-              {authUserName
-                .split(' ')
-                .filter(Boolean)
-                .slice(0, 2)
-                .map((name) => name[0])
-                .join('')
-                .toUpperCase()}
-            </div>
+            {authUserType === 'student' ? (
+              <button
+                aria-label="Ir para matrícula"
+                className="user-avatar user-avatar-button"
+                onClick={() => setActiveItem('Matrículas')}
+                type="button"
+              >
+                {authUserPhotoUrl ? (
+                  <img alt="" className="user-avatar-photo" src={authUserPhotoUrl} />
+                ) : (
+                  authUserName
+                    .split(' ')
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((name) => name[0])
+                    .join('')
+                    .toUpperCase()
+                )}
+              </button>
+            ) : (
+              <div className="user-avatar" aria-hidden="true">
+                {authUserName
+                  .split(' ')
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((name) => name[0])
+                  .join('')
+                  .toUpperCase()}
+              </div>
+            )}
             <div>
               <strong>{authUserName}</strong>
               <span>{authUserRole}</span>
@@ -871,7 +930,7 @@ export default function HomePage() {
                     className={item === activeItem ? 'active' : ''}
                     key={item}
                     onClick={() => setActiveItem(item)}
-                    title={item}
+                    title={getMenuItemLabel(item, authUserType)}
                     type="button"
                   >
                     {Icon ? <Icon size={20} /> : item.slice(0, 2).toUpperCase()}
@@ -905,7 +964,7 @@ export default function HomePage() {
                         type="button"
                       >
                         {Icon && <Icon size={16} />}
-                        {item}
+                        {getMenuItemLabel(item, authUserType)}
                       </button>
                     );
                   })}
@@ -938,9 +997,9 @@ export default function HomePage() {
               studentName={authUserName}
             />
           ) : activeItem === 'Exercícios' ? (
-            <ExerciseRegistration readOnly={authUserType === 'student'} />
+            authUserType === 'student' ? <StudentExercisesView /> : <ExerciseRegistration />
           ) : activeItem === 'Treino' ? (
-            <TrainingRegistration readOnly={authUserType === 'student'} />
+            authUserType === 'student' ? <StudentTrainingsView /> : <TrainingRegistration />
           ) : activeItem === 'Montar Treino' ? (
             <StudentTrainingAssembly
               loggedEmployeeId={authUserEmployeeId}
