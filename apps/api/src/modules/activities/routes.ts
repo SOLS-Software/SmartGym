@@ -82,6 +82,14 @@ async function assertScheduleBelongsToActivity(activityId: number, scheduleId: n
   }
 }
 
+function buildDateRangeFilter(dtInicio?: string, dtFim?: string) {
+  if (!dtInicio && !dtFim) return undefined;
+  return {
+    ...(dtInicio ? { gte: new Date(dtInicio) } : {}),
+    ...(dtFim ? { lte: new Date(`${dtFim}T23:59:59`) } : {}),
+  };
+}
+
 export async function registerActivityRoutes(app: FastifyInstance) {
   app.get<{
     Querystring: {
@@ -96,18 +104,18 @@ export async function registerActivityRoutes(app: FastifyInstance) {
     const includeInactive = request.query.includeInactive === 'true';
     const search = request.query.search?.trim();
     const { dtInicio, dtFim } = request.query;
+    const dateRangeFilter = buildDateRangeFilter(dtInicio, dtFim);
 
     return prisma.atividade.findMany({
       where: {
         ...(includeInactive ? {} : { boInativo: 0 }),
         ...(search ? { dsAtividade: { contains: search, mode: 'insensitive' } } : {}),
-        ...(dtInicio || dtFim
+        ...(dateRangeFilter
           ? {
               atividadeAgendas: {
                 some: {
                   boInativo: 0,
-                  ...(dtInicio ? { dtInicial: { gte: new Date(dtInicio) } } : {}),
-                  ...(dtFim ? { dtInicial: { lte: new Date(`${dtFim}T23:59:59`) } } : {}),
+                  dtInicial: dateRangeFilter,
                 },
               },
             }
@@ -118,7 +126,10 @@ export async function registerActivityRoutes(app: FastifyInstance) {
             empresa: true,
             esporte: true,
             atividadeAgendas: {
-              where: { boInativo: 0 },
+              where: {
+                boInativo: 0,
+                ...(dateRangeFilter ? { dtInicial: dateRangeFilter } : {}),
+              },
               include: {
                 empresa: true,
                 categoria: true,

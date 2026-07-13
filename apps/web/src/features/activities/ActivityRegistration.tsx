@@ -3,7 +3,7 @@
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Save } from 'lucide-react';
-import { paginateItems } from '../../shared/registration/registrationHelpers';
+import { getDefaultActivityDateRange, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
@@ -14,18 +14,9 @@ type ActivityRegistrationProps = {
   readOnly?: boolean;
 };
 
-function getDefaultDateRange() {
-  const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth(), 1);
-  const end = new Date(today.getFullYear(), today.getMonth() + 2, 0);
-  const toInputValue = (date: Date) =>
-    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  return { dateFrom: toInputValue(start), dateTo: toInputValue(end) };
-}
-
 export function ActivityRegistration({ readOnly = false }: ActivityRegistrationProps) {
   const activityNameInputRef = useRef<HTMLInputElement | null>(null);
-  const defaultDateRange = getDefaultDateRange();
+  const defaultDateRange = getDefaultActivityDateRange();
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [activitiesPage, setActivitiesPage] = useState(1);

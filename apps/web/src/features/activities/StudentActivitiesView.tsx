@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { formatDateDisplay, getDefaultActivityDateRange } from '../../shared/registration/registrationHelpers';
+import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 type StudentActivitiesViewProps = {
@@ -39,6 +41,24 @@ type ActivityView = {
   atividadeAgendas?: ActivitySchedule[];
 };
 
+type DayActivityGroup = {
+  activityId: number;
+  activityName: string;
+  schedules: ActivitySchedule[];
+};
+
+type CalendarDay = {
+  key: string;
+  day: number | null;
+  groups: DayActivityGroup[];
+};
+
+type CalendarMonth = {
+  key: string;
+  label: string;
+  days: CalendarDay[];
+};
+
 const calendarWeekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
 
 function getText(record: NamedRecord | null | undefined, key: string, fallback = '-') {
@@ -63,31 +83,31 @@ function getDateKey(value: string | null) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function getActivityCalendarMonths(schedules: ActivitySchedule[]) {
-  const validSchedules = schedules
-    .filter((schedule) => getDateKey(schedule.dtInicial))
-    .sort((first, second) => new Date(first.dtInicial ?? '').getTime() - new Date(second.dtInicial ?? '').getTime());
+function getUnifiedCalendarMonths(activities: ActivityView[], dateFrom: string, dateTo: string): CalendarMonth[] {
+  const groupsByDate = new Map<string, Map<number, DayActivityGroup>>();
 
-  if (validSchedules.length === 0) {
-    return [];
+  for (const activity of activities) {
+    for (const schedule of activity.atividadeAgendas ?? []) {
+      const dateKey = getDateKey(schedule.dtInicial);
+      if (!dateKey) continue;
+
+      if (!groupsByDate.has(dateKey)) groupsByDate.set(dateKey, new Map());
+      const dayGroups = groupsByDate.get(dateKey)!;
+
+      if (!dayGroups.has(activity.id)) {
+        dayGroups.set(activity.id, { activityId: activity.id, activityName: activity.dsAtividade, schedules: [] });
+      }
+      dayGroups.get(activity.id)!.schedules.push(schedule);
+    }
   }
 
-  const firstSchedule = validSchedules[0]!;
-  const lastSchedule = validSchedules[validSchedules.length - 1]!;
-  const firstDate = new Date(firstSchedule.dtInicial ?? '');
-  const lastDate = new Date(lastSchedule.dtInicial ?? '');
-  const schedulesByDate = validSchedules.reduce<Record<string, ActivitySchedule[]>>((current, schedule) => {
-    const key = getDateKey(schedule.dtInicial);
-    current[key] = [...(current[key] ?? []), schedule];
-    return current;
-  }, {});
-  const months: Array<{
-    key: string;
-    label: string;
-    days: Array<{ key: string; day: number | null; schedules: ActivitySchedule[] }>;
-  }> = [];
-  const current = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
-  const lastMonth = new Date(lastDate.getFullYear(), lastDate.getMonth(), 1);
+  if (!dateFrom && !dateTo) return [];
+
+  const start = new Date(`${dateFrom || dateTo}T00:00:00`);
+  const end = new Date(`${dateTo || dateFrom}T00:00:00`);
+  const months: CalendarMonth[] = [];
+  const current = new Date(start.getFullYear(), start.getMonth(), 1);
+  const lastMonth = new Date(end.getFullYear(), end.getMonth(), 1);
 
   while (current <= lastMonth) {
     const year = current.getFullYear();
@@ -95,18 +115,21 @@ function getActivityCalendarMonths(schedules: ActivitySchedule[]) {
     const firstMonthDay = new Date(year, month, 1);
     const lastMonthDay = new Date(year, month + 1, 0);
     const leadingEmptyDays = (firstMonthDay.getDay() + 6) % 7;
-    const days: Array<{ key: string; day: number | null; schedules: ActivitySchedule[] }> = [];
+    const days: CalendarDay[] = [];
 
     for (let index = 0; index < leadingEmptyDays; index += 1) {
-      days.push({ key: `empty-${year}-${month}-${index}`, day: null, schedules: [] });
+      days.push({ key: `empty-${year}-${month}-${index}`, day: null, groups: [] });
     }
 
     for (let day = 1; day <= lastMonthDay.getDate(); day += 1) {
       const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dayGroups = groupsByDate.get(dateKey);
       days.push({
         key: dateKey,
         day,
-        schedules: schedulesByDate[dateKey] ?? [],
+        groups: dayGroups
+          ? Array.from(dayGroups.values()).sort((a, b) => a.activityName.localeCompare(b.activityName))
+          : [],
       });
     }
 
@@ -145,20 +168,28 @@ function isStudentEnrolled(schedule: ActivitySchedule, studentId: number | null)
 }
 
 export function StudentActivitiesView({ studentId, studentName }: StudentActivitiesViewProps) {
+  const defaultDateRange = getDefaultActivityDateRange();
   const [activities, setActivities] = useState<ActivityView[]>([]);
   const [selectedScheduleIds, setSelectedScheduleIds] = useState<number[]>([]);
+  const [dateFrom, setDateFrom] = useState(defaultDateRange.dateFrom);
+  const [dateTo, setDateTo] = useState(defaultDateRange.dateTo);
+  const [openDayGroup, setOpenDayGroup] = useState<{ dateKey: string; group: DayActivityGroup } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState('');
 
   useEffect(() => {
     void loadActivities();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFrom, dateTo]);
 
   async function loadActivities() {
     try {
       setIsLoading(true);
-      const response = await fetch(`${apiUrl}/activities?includeDetails=true`);
+      const params = new URLSearchParams({ includeDetails: 'true' });
+      if (dateFrom) params.set('dtInicio', dateFrom);
+      if (dateTo) params.set('dtFim', dateTo);
+      const response = await fetch(`${apiUrl}/activities?${params.toString()}`);
 
       if (!response.ok) {
         await getApiError(response, 'Nao foi possivel carregar as atividades.');
@@ -226,6 +257,9 @@ export function StudentActivitiesView({ studentId, studentName }: StudentActivit
     );
   }
 
+  const calendarMonths = getUnifiedCalendarMonths(activities, dateFrom, dateTo);
+  const hasAnySchedule = calendarMonths.some((month) => month.days.some((day) => day.groups.length > 0));
+
   return (
     <div className="form-view student-activities-view">
       <div className="form-heading student-activities-heading">
@@ -235,6 +269,27 @@ export function StudentActivitiesView({ studentId, studentName }: StudentActivit
       </div>
 
       {feedback ? <div className="form-feedback">{feedback}</div> : null}
+
+      <div className="drawer-fields" style={{ marginBottom: '1rem' }}>
+        <div className="field field-size-sm">
+          <label htmlFor="studentActivityDateFrom">Data de</label>
+          <input
+            id="studentActivityDateFrom"
+            onChange={(e) => setDateFrom(e.target.value)}
+            type="date"
+            value={dateFrom}
+          />
+        </div>
+        <div className="field field-size-sm">
+          <label htmlFor="studentActivityDateTo">Data até</label>
+          <input
+            id="studentActivityDateTo"
+            onChange={(e) => setDateTo(e.target.value)}
+            type="date"
+            value={dateTo}
+          />
+        </div>
+      </div>
 
       <section className="student-activity-enroll-toolbar">
         <div>
@@ -253,112 +308,101 @@ export function StudentActivitiesView({ studentId, studentName }: StudentActivit
 
       {isLoading ? <div className="form-hint">Carregando atividades...</div> : null}
 
-      {!isLoading && activities.length === 0 ? (
-        <div className="form-hint">Nenhuma atividade ativa encontrada.</div>
+      {!isLoading && !hasAnySchedule ? (
+        <div className="form-hint">Nenhuma atividade encontrada no periodo selecionado.</div>
       ) : null}
 
-      <section className="student-activity-list" aria-label="Atividades disponiveis">
-        {activities.map((activity) => {
-          const schedules = activity.atividadeAgendas ?? [];
-
-          return (
-            <article className="student-activity-card" key={activity.id}>
-              <div className="student-activity-card-header">
-                <div>
-                  <span className="section-label">Atividade</span>
-                  <h3>{activity.dsAtividade}</h3>
+      <div className="student-activity-calendar-list">
+        {calendarMonths.map((month) => (
+          <div className="student-activity-calendar-month" key={month.key}>
+            <h5>{month.label}</h5>
+            <div className="student-activity-calendar-weekdays" aria-hidden="true">
+              {calendarWeekDays.map((day) => (
+                <span key={day}>{day}</span>
+              ))}
+            </div>
+            <div className="student-activity-calendar-days">
+              {month.days.map((day) => (
+                <div
+                  className={`student-activity-calendar-day ${day.day ? '' : 'empty'} ${day.groups.length > 0 ? 'has-schedule' : ''}`}
+                  key={day.key}
+                >
+                  <strong>{day.day ?? ''}</strong>
+                  {day.groups.length > 0 ? (
+                    <div className="student-activity-calendar-events">
+                      {day.groups.map((group) => (
+                        <button
+                          className="student-activity-day-group-card"
+                          key={group.activityId}
+                          onClick={() => setOpenDayGroup({ dateKey: day.key, group })}
+                          type="button"
+                        >
+                          <b>{group.activityName}</b>
+                          <span>
+                            {group.schedules.length > 1
+                              ? `${group.schedules.length} horários`
+                              : formatTime(group.schedules[0]?.dtInicial ?? null)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-                <span className="status-badge active">Disponivel</span>
-              </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
 
-              <div className="student-activity-summary">
-                <div>
-                  <span>Esporte</span>
-                  <strong>{getText(activity.esporte, 'dsEsporte')}</strong>
-                </div>
-                <div>
-                  <span>Empresa</span>
-                  <strong>{getText(activity.empresa, 'dsEmpresa')}</strong>
-                </div>
-                <div>
-                  <span>Agendas</span>
-                  <strong>{schedules.length}</strong>
-                </div>
-              </div>
+      <RegistrationDrawer
+        isOpen={openDayGroup !== null}
+        onClose={() => setOpenDayGroup(null)}
+        title={openDayGroup ? openDayGroup.group.activityName : ''}
+      >
+        {openDayGroup ? (
+          <div className="student-activity-day-detail">
+            <p className="form-hint">{formatDateDisplay(openDayGroup.dateKey)}</p>
+            <div className="student-activity-schedule-list">
+              {openDayGroup.group.schedules.map((schedule) => {
+                const professionals = getProfessionals(schedule);
+                const category = getText(schedule.categoria, 'dsCategoria');
+                const availableSeats = getAvailableSeats(schedule);
+                const enrolled = isStudentEnrolled(schedule, studentId);
+                const isFull = availableSeats !== null && availableSeats <= 0;
+                const isSelected = selectedScheduleIds.includes(schedule.id);
 
-              <section className="student-activity-schedules">
-                <h4>Agenda da atividade</h4>
-                {schedules.length === 0 ? (
-                  <p>Nenhuma agenda ativa cadastrada.</p>
-                ) : (
-                  <div className="student-activity-calendar-list">
-                    {getActivityCalendarMonths(schedules).map((month) => (
-                      <div className="student-activity-calendar-month" key={month.key}>
-                        <h5>{month.label}</h5>
-                        <div className="student-activity-calendar-weekdays" aria-hidden="true">
-                          {calendarWeekDays.map((day) => (
-                            <span key={day}>{day}</span>
-                          ))}
-                        </div>
-                        <div className="student-activity-calendar-days">
-                          {month.days.map((day) => (
-                            <div
-                              className={`student-activity-calendar-day ${day.day ? '' : 'empty'} ${day.schedules.length > 0 ? 'has-schedule' : ''}`}
-                              key={day.key}
-                            >
-                              <strong>{day.day ?? ''}</strong>
-                              {day.schedules.length > 0 ? (
-                                <div className="student-activity-calendar-events">
-                                  {day.schedules.map((schedule) => {
-                                    const professionals = getProfessionals(schedule);
-                                    const category = getText(schedule.categoria, 'dsCategoria');
-                                    const availableSeats = getAvailableSeats(schedule);
-                                    const enrolled = isStudentEnrolled(schedule, studentId);
-                                    const isFull = availableSeats !== null && availableSeats <= 0;
-                                    const isSelected = selectedScheduleIds.includes(schedule.id);
-
-                                    return (
-                                      <label
-                                        className={`student-activity-calendar-event ${isSelected ? 'selected' : ''} ${enrolled ? 'enrolled' : ''}`}
-                                        key={schedule.id}
-                                      >
-                                        <input
-                                          checked={isSelected}
-                                          disabled={enrolled || isFull || isSubmitting}
-                                          onChange={() => toggleSchedule(schedule.id)}
-                                          type="checkbox"
-                                        />
-                                        <span>{formatTime(schedule.dtInicial)} ate {formatTime(schedule.dtFinal)}</span>
-                                        <b>{category}</b>
-                                        <small>
-                                          {professionals.length > 0 ? professionals.join(', ') : 'Profissional nao informado'}
-                                        </small>
-                                        <small>
-                                          {availableSeats === null
-                                            ? 'Vagas livres'
-                                            : `${availableSeats} de ${schedule.qtAlunos} vaga(s)`}
-                                          {' - '}
-                                          {getText(schedule.empresa, 'dsEmpresa')}
-                                        </small>
-                                        {enrolled ? <small>Voce ja esta inscrito</small> : null}
-                                        {!enrolled && isFull ? <small>Sem vagas</small> : null}
-                                      </label>
-                                    );
-                                  })}
-                                </div>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-            </article>
-          );
-        })}
-      </section>
+                return (
+                  <label
+                    className={`student-activity-calendar-event student-activity-day-detail-event ${isSelected ? 'selected' : ''} ${enrolled ? 'enrolled' : ''}`}
+                    key={schedule.id}
+                  >
+                    <input
+                      checked={isSelected}
+                      disabled={enrolled || isFull || isSubmitting}
+                      onChange={() => toggleSchedule(schedule.id)}
+                      type="checkbox"
+                    />
+                    <span>{formatTime(schedule.dtInicial)} ate {formatTime(schedule.dtFinal)}</span>
+                    <b>{category}</b>
+                    <small>
+                      {professionals.length > 0 ? professionals.join(', ') : 'Profissional nao informado'}
+                    </small>
+                    <small>
+                      {availableSeats === null
+                        ? 'Vagas livres'
+                        : `${availableSeats} de ${schedule.qtAlunos} vaga(s)`}
+                      {' - '}
+                      {getText(schedule.empresa, 'dsEmpresa')}
+                    </small>
+                    {enrolled ? <small>Voce ja esta inscrito</small> : null}
+                    {!enrolled && isFull ? <small>Sem vagas</small> : null}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+      </RegistrationDrawer>
     </div>
   );
 }

@@ -58,6 +58,15 @@ export function formatDateInput(value: string | null) {
   return value ? value.slice(0, 10) : '';
 }
 
+export function getDefaultActivityDateRange() {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), 1);
+  const end = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+  const toInputValue = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return { dateFrom: toInputValue(start), dateTo: toInputValue(end) };
+}
+
 export function formatDateDisplay(value: string | null) {
   const inputDate = formatDateInput(value);
 
