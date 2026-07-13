@@ -21,3 +21,19 @@ export type StudentFile = {
   dtCadastro: string;
   boInativo: number;
 };
+
+// Matrícula do aluno (GET /students/:id/related/plans) — subconjunto usado nas telas.
+export type StudentPlan = {
+  id: number;
+  idAluno: number;
+  boInativo: number;
+  dtCadastro: string | null;
+  empresa?: { id: number; dsEmpresa?: string } | null;
+  plano?: {
+    id: number;
+    dsPlano: string;
+    frequencia?: { dsFrequencia?: string } | null;
+    planoAtividades?: Array<{ id: number; atividade?: { dsAtividade?: string } | null }>;
+    planoValores?: Array<{ id: number; vlVenda?: number | string | null }>;
+  } | null;
+};

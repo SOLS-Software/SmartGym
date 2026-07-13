@@ -36,15 +36,3 @@ export type DayActivityGroup = {
   activityName: string;
   schedules: ActivitySchedule[];
 };
-
-export type CalendarDay = {
-  key: string;
-  day: number | null;
-  groups: DayActivityGroup[];
-};
-
-export type CalendarMonth = {
-  key: string;
-  label: string;
-  days: CalendarDay[];
-};

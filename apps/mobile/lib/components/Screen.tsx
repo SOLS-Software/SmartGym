@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTokens } from '../theme/tokens';
 
@@ -7,6 +7,7 @@ type ScreenProps = {
   sectionLabel?: string;
   title?: string;
   headerRight?: ReactNode;
+  onBack?: () => void;
   children: ReactNode;
   scroll?: boolean;
   contentContainerStyle?: object;
@@ -18,6 +19,7 @@ export function Screen({
   sectionLabel,
   title,
   headerRight,
+  onBack,
   children,
   scroll = true,
   contentContainerStyle,
@@ -26,6 +28,11 @@ export function Screen({
 
   const header = (title || sectionLabel) ? (
     <View style={styles.header}>
+      {onBack ? (
+        <Pressable hitSlop={10} onPress={onBack} style={styles.back}>
+          <Text style={[styles.backChevron, { color: t.brand }]}>‹</Text>
+        </Pressable>
+      ) : null}
       <View style={styles.headerText}>
         {sectionLabel ? (
           <Text style={[styles.sectionLabel, { color: t.brand }]}>{sectionLabel.toUpperCase()}</Text>
@@ -67,7 +74,9 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
   },
-  headerText: { flexShrink: 1 },
+  headerText: { flex: 1 },
+  back: { paddingRight: 12, paddingBottom: 2 },
+  backChevron: { fontSize: 30, fontWeight: '800', lineHeight: 32 },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '800',

@@ -22,6 +22,7 @@ export default function LoginScreen() {
   const { signIn } = useAuth();
   const [cpf, setCpf] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -92,15 +93,20 @@ export default function LoginScreen() {
             />
 
             <Text style={[styles.label, { color: t.textMuted }]}>Senha</Text>
-            <TextInput
-              autoCapitalize="none"
-              onChangeText={setPassword}
-              placeholder="Sua senha"
-              placeholderTextColor={t.placeholder}
-              secureTextEntry
-              style={[styles.input, { backgroundColor: t.inputBg, borderColor: t.border, borderRadius: t.radius, color: t.text }]}
-              value={password}
-            />
+            <View style={styles.passwordRow}>
+              <TextInput
+                autoCapitalize="none"
+                onChangeText={setPassword}
+                placeholder="Sua senha"
+                placeholderTextColor={t.placeholder}
+                secureTextEntry={!showPassword}
+                style={[styles.input, styles.passwordInput, { backgroundColor: t.inputBg, borderColor: t.border, borderRadius: t.radius, color: t.text }]}
+                value={password}
+              />
+              <Pressable hitSlop={8} onPress={() => setShowPassword((v) => !v)} style={styles.eyeBtn}>
+                <Text style={[styles.eyeText, { color: t.brand }]}>{showPassword ? 'Ocultar' : 'Mostrar'}</Text>
+              </Pressable>
+            </View>
 
             {feedback ? <Text style={[styles.feedback, { color: t.danger }]}>{feedback}</Text> : null}
 
@@ -135,6 +141,10 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, padding: 20, gap: 8 },
   label: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5, marginTop: 8 },
   input: { borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, minHeight: 48 },
+  passwordRow: { position: 'relative', justifyContent: 'center' },
+  passwordInput: { paddingRight: 84 },
+  eyeBtn: { position: 'absolute', right: 12, paddingVertical: 6 },
+  eyeText: { fontSize: 13, fontWeight: '700' },
   feedback: { fontSize: 13, fontWeight: '600', marginTop: 4 },
   button: {
     marginTop: 16,
