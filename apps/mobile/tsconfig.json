@@ -12,6 +12,7 @@
   },
   "include": [
     "app",
+    "lib",
     "types",
     "expo-env.d.ts",
     ".expo/types/**/*.ts"

@@ -87,7 +87,9 @@ export function useClientLoader(options: UseClientLoaderOptions = {}) {
 
   useEffect(() => {
     if (autoLoad && clientId) {
-      void loadClient(clientId);
+      // O erro já é refletido em state.error; capturamos aqui para não gerar
+      // uma unhandled promise rejection (red box em dev).
+      loadClient(clientId).catch(() => {});
     }
   }, [clientId, autoLoad]);
 

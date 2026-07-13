@@ -1,13 +1,14 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
+import { AuthProvider } from '../lib/contexts/AuthContext';
 import { ThemeProvider } from '../lib/contexts/ThemeContext';
 import type { ClientTheme } from '../lib/types/client';
 import { ClientLoadScreen } from '../lib/components/ClientLoadScreen';
 import { useCurrentClient } from '../lib/hooks/useCurrentClient';
 
 export default function RootLayout() {
-  const { clientId, isLoaded } = useCurrentClient();
+  const { clientId, isLoaded, clearClient } = useCurrentClient();
   const [clientReady, setClientReady] = useState(false);
   const [theme, setTheme] = useState<ClientTheme | null>(null);
 
@@ -25,7 +26,11 @@ export default function RootLayout() {
             setClientReady(true);
           }}
           onError={(error) => {
-            console.error('Erro ao carregar cliente:', error);
+            // Um clientId obsoleto/inválido não deve travar o app: limpa e segue
+            // para o login com o tema padrão (bootstrap de cliente é opcional).
+            console.warn('Bootstrap de cliente falhou, seguindo sem tema:', error);
+            void clearClient();
+            setClientReady(true);
           }}
         />
         <StatusBar style="dark" />
@@ -35,7 +40,9 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider theme={theme}>
-      <Stack screenOptions={{ headerShown: false }} />
+      <AuthProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </AuthProvider>
       <StatusBar style="dark" />
     </ThemeProvider>
   );
