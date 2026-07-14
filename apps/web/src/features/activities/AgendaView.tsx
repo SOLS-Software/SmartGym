@@ -54,7 +54,7 @@ function groupSessionsByDate(sessions: AgendaSession[]) {
   return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
 }
 
-export function AgendaView({ userType, studentId, studentName }: AgendaViewProps) {
+export function AgendaView({ userType, studentId }: AgendaViewProps) {
   const [sessions, setSessions] = useState<AgendaSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -253,12 +253,13 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
 
   if (userType === 'student') {
     return (
+      <>
+      <header className="module-page-header">
+        <p className="section-label">Atividade</p>
+        <h2 className="module-page-title">AGENDAS</h2>
+      </header>
       <div className="form-view agenda-view">
-        <div className="form-heading">
-          <p className="section-label">Agendas</p>
-          <h2>Olá, {studentName}</h2>
-          <p>Inscreva-se nas aulas disponíveis.</p>
-        </div>
+        <p className="form-hint">Inscreva-se nas aulas disponíveis.</p>
 
         <div className="agenda-filter-bar">
           <label className="field">
@@ -400,6 +401,7 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
           ))}
         </div>
       </div>
+      </>
     );
   }
 

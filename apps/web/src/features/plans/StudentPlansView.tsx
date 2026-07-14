@@ -50,7 +50,7 @@ function uniqueNames(names: string[]) {
   return Array.from(new Set(names.filter((name) => name && name !== '-')));
 }
 
-export function StudentPlansView({ studentId, studentName }: StudentPlansViewProps) {
+export function StudentPlansView({ studentId }: StudentPlansViewProps) {
   const [academyPlans, setAcademyPlans] = useState<AcademyPlan[]>([]);
   const [studentPlans, setStudentPlans] = useState<StudentPlanLink[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -127,12 +127,13 @@ export function StudentPlansView({ studentId, studentName }: StudentPlansViewPro
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Alunos</p>
+      <h2 className="module-page-title">PLANOS</h2>
+    </header>
     <div className="form-view student-plans-view">
-      <div className="form-heading student-plans-heading">
-        <p className="section-label">Planos da academia</p>
-        <h2>{studentName}</h2>
-        <p>Veja os planos disponiveis e identifique com destaque o plano vinculado a sua matricula.</p>
-      </div>
+      <p className="form-hint">Veja os planos disponíveis e identifique com destaque o plano vinculado à sua matrícula.</p>
 
       {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
@@ -223,5 +224,6 @@ export function StudentPlansView({ studentId, studentName }: StudentPlansViewPro
         })}
       </section>
     </div>
+    </>
   );
 }

@@ -68,7 +68,7 @@ function getDiscountLabel(promotion: PromotionView) {
   return 'Beneficio especial';
 }
 
-export function StudentPromotionsView({ studentName }: StudentPromotionsViewProps) {
+export function StudentPromotionsView(_props: StudentPromotionsViewProps) {
   const [promotions, setPromotions] = useState<PromotionView[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -96,12 +96,13 @@ export function StudentPromotionsView({ studentName }: StudentPromotionsViewProp
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Alunos</p>
+      <h2 className="module-page-title">PROMOÇÕES</h2>
+    </header>
     <div className="form-view student-promotions-view">
-      <div className="form-heading student-promotions-heading">
-        <p className="section-label">Promocoes vigentes</p>
-        <h2>{studentName}</h2>
-        <p>Confira as promocoes ativas da academia, quais planos elas atingem e seus beneficios.</p>
-      </div>
+      <p className="form-hint">Confira as promoções ativas da academia, quais planos elas atingem e seus benefícios.</p>
 
       {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
@@ -200,5 +201,6 @@ export function StudentPromotionsView({ studentName }: StudentPromotionsViewProp
         })}
       </section>
     </div>
+    </>
   );
 }

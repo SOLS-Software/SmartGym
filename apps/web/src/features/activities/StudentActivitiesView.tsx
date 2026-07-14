@@ -167,7 +167,7 @@ function isStudentEnrolled(schedule: ActivitySchedule, studentId: number | null)
   return schedule.alunoAtividadeAgendas?.some((enrollment) => enrollment.idAluno === studentId) ?? false;
 }
 
-export function StudentActivitiesView({ studentId, studentName }: StudentActivitiesViewProps) {
+export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps) {
   const defaultDateRange = getDefaultActivityDateRange();
   const [activities, setActivities] = useState<ActivityView[]>([]);
   const [selectedScheduleIds, setSelectedScheduleIds] = useState<number[]>([]);
@@ -261,12 +261,13 @@ export function StudentActivitiesView({ studentId, studentName }: StudentActivit
   const hasAnySchedule = calendarMonths.some((month) => month.days.some((day) => day.groups.length > 0));
 
   return (
-    <div className="form-view student-activities-view">
-      <div className="form-heading student-activities-heading">
-        <p className="section-label">Atividades da academia</p>
-        <h2>{studentName}</h2>
-        <p>Veja as atividades disponiveis e acompanhe a agenda de cada uma.</p>
-      </div>
+    <>
+      <header className="module-page-header">
+        <p className="section-label">Atividade</p>
+        <h2 className="module-page-title">ATIVIDADES</h2>
+      </header>
+      <div className="form-view student-activities-view">
+        <p className="form-hint">Veja as atividades disponíveis e acompanhe a agenda de cada uma.</p>
 
       {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
@@ -403,6 +404,7 @@ export function StudentActivitiesView({ studentId, studentName }: StudentActivit
           </div>
         ) : null}
       </RegistrationDrawer>
-    </div>
+      </div>
+    </>
   );
 }
