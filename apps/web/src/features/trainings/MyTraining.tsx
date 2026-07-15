@@ -200,6 +200,7 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
 
     useEffect(() => {
         if (selectedStudentTraining || activeTrainings.length === 0) return;
+        if (isLoadingTrainings || isLoadingCheckIns) return;
         const firstTraining = activeTrainings[0]!;
         setSelectedStudentTraining(firstTraining);
         setSelectedSequenceId(
@@ -208,7 +209,7 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
                 : '',
         );
         void loadExercises(firstTraining.idTreino);
-    }, [activeTrainings, selectedStudentTraining]);
+    }, [activeTrainings, selectedStudentTraining, isLoadingTrainings, isLoadingCheckIns]);
 
     function handleSelectTraining(st: StudentTraining) {
         setSelectedStudentTraining(st);
@@ -370,7 +371,7 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
                             >
                                 <strong className="training-card-title">{st.treino?.dsTreino ?? '-'}</strong>
                                 <span className="training-card-meta">
-                                    {getEmployeeName(st)} · Sequência {getSequenceLabel(st)}
+                                    {getEmployeeName(st)}
                                 </span>
                                 <span className="training-card-meta">
                                     Cadastro: {st.dtCadastro ? formatDateDisplay(st.dtCadastro) : '-'}

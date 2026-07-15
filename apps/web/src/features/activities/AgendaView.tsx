@@ -54,7 +54,7 @@ function groupSessionsByDate(sessions: AgendaSession[]) {
   return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
 }
 
-export function AgendaView({ userType, studentId, studentName }: AgendaViewProps) {
+export function AgendaView({ userType, studentId }: AgendaViewProps) {
   const [sessions, setSessions] = useState<AgendaSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -253,12 +253,13 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
 
   if (userType === 'student') {
     return (
+      <>
+      <header className="module-page-header">
+        <p className="section-label">Atividade</p>
+        <h2 className="module-page-title">AGENDAS</h2>
+      </header>
       <div className="form-view agenda-view">
-        <div className="form-heading">
-          <p className="section-label">Agendas</p>
-          <h2>Olá, {studentName}</h2>
-          <p>Inscreva-se nas aulas disponíveis.</p>
-        </div>
+        <p className="form-hint">Inscreva-se nas aulas disponíveis.</p>
 
         <div className="agenda-filter-bar">
           <label className="field">
@@ -324,9 +325,14 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
                   const isFull = session.qtAlunos !== null && session.qtInscritos >= session.qtAlunos;
                   const isWorking = submittingId === session.id;
                   const isAllowed = !planHasActivities || (session.idAtividade !== null && allowedActivityIds.has(session.idAtividade));
+                  const sessionDay = new Date(session.dtInicial);
+                  sessionDay.setHours(0, 0, 0, 0);
+                  const todayDay = new Date();
+                  todayDay.setHours(0, 0, 0, 0);
+                  const isPast = sessionDay.getTime() <= todayDay.getTime();
 
                   return (
-                    <div className={`agenda-session-card ${isEnrolled ? 'enrolled' : ''} ${isFull && !isEnrolled ? 'full' : ''}`} key={session.id}>
+                    <div className={`agenda-session-card ${isPresent ? 'present' : isEnrolled ? 'enrolled' : ''} ${isFull && !isEnrolled ? 'full' : ''}`} key={session.id}>
                       <div className="agenda-session-card-header">
                         <div>
                           <strong className="agenda-session-activity">{session.dsAtividade ?? '-'}</strong>
@@ -356,7 +362,7 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
 
                       <div className="agenda-session-actions">
                         {isPresent ? (
-                          <span className="agenda-enrolled-badge">
+                          <span className="agenda-present-badge">
                             <CheckCircle size={13} /> Presente
                           </span>
                         ) : isEnrolled ? (
@@ -364,15 +370,19 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
                             <span className="agenda-enrolled-badge">
                               <CheckCircle size={13} /> Inscrito
                             </span>
-                            <button
-                              className="ghost-button danger"
-                              disabled={isWorking}
-                              onClick={() => void handleUnenroll(session.id)}
-                              type="button"
-                            >
-                              {isWorking ? 'Cancelando...' : 'Cancelar inscrição'}
-                            </button>
+                            {!isPast && (
+                              <button
+                                className="ghost-button danger"
+                                disabled={isWorking}
+                                onClick={() => void handleUnenroll(session.id)}
+                                type="button"
+                              >
+                                {isWorking ? 'Cancelando...' : 'Cancelar inscrição'}
+                              </button>
+                            )}
                           </>
+                        ) : isPast ? (
+                          null
                         ) : isFull ? (
                           <span className="agenda-full-badge">
                             <XCircle size={13} /> Lotado
@@ -400,6 +410,7 @@ export function AgendaView({ userType, studentId, studentName }: AgendaViewProps
           ))}
         </div>
       </div>
+      </>
     );
   }
 

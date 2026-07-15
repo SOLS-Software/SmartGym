@@ -158,17 +158,16 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
   }
 
   return (
+    <>
+    <header className="module-page-header">
+      <p className="section-label">Alunos</p>
+      <h2 className="module-page-title">MATRÍCULA</h2>
+      <span className={`status-badge ${activePlan?.boInativo === 0 ? 'active' : 'inactive'}`}>
+        {activePlan?.boInativo === 0 ? 'Plano ativo' : 'Sem plano ativo'}
+      </span>
+    </header>
     <div className="form-view membership-view">
-      <div className="form-heading membership-heading">
-        <div>
-          <p className="section-label">Minha matricula</p>
-          <h2>{student?.nmAluno ?? studentName}</h2>
-          <p>Resumo da sua identificacao, plano ativo e acessos liberados.</p>
-        </div>
-        <span className={`status-badge ${activePlan?.boInativo === 0 ? 'active' : 'inactive'}`}>
-          {activePlan?.boInativo === 0 ? 'Plano ativo' : 'Sem plano ativo'}
-        </span>
-      </div>
+      <p className="form-hint">Resumo da sua identificação, plano ativo e acessos liberados.</p>
 
       {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
@@ -291,5 +290,6 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
         </div>
       </section>
     </div>
+    </>
   );
 }

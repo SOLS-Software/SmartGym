@@ -615,6 +615,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         prisma.alunoCheckIn.findMany({
           where: {
             alunoPlano: { idAluno },
+            idAtividadeAgenda: null,
             dtCadastro: { gte: startsAt, lt: endsAt },
             boInativo: 0,
           },

@@ -135,6 +135,16 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
 
       if (!session) return reply.code(404).send({ message: 'Agenda não encontrada ou inativa.' });
 
+      if (session.dtInicial) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const sessionDate = new Date(session.dtInicial);
+        sessionDate.setHours(0, 0, 0, 0);
+        if (sessionDate <= today) {
+          return reply.code(409).send({ message: 'Não é possível se inscrever em atividades com data igual ou anterior a hoje.' });
+        }
+      }
+
       if (session.alunoAtividadeAgendas.some((e) => e.idAluno === idAluno)) {
         return reply.code(409).send({ message: 'Você já está inscrito nesta agenda.' });
       }
@@ -179,10 +189,13 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       if (!session) return reply.code(404).send({ message: 'Agenda não encontrada.' });
 
       if (session.dtInicial) {
-        const oneHourBefore = new Date(session.dtInicial.getTime() - 60 * 60 * 1000);
-        if (new Date() > oneHourBefore) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const sessionDate = new Date(session.dtInicial);
+        sessionDate.setHours(0, 0, 0, 0);
+        if (sessionDate <= today) {
           return reply.code(409).send({
-            message: 'Não é possível cancelar a inscrição com menos de 1 hora de antecedência.',
+            message: 'Não é possível cancelar a inscrição em atividades com data igual ou anterior a hoje.',
           });
         }
       }
