@@ -325,9 +325,14 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
                   const isFull = session.qtAlunos !== null && session.qtInscritos >= session.qtAlunos;
                   const isWorking = submittingId === session.id;
                   const isAllowed = !planHasActivities || (session.idAtividade !== null && allowedActivityIds.has(session.idAtividade));
+                  const sessionDay = new Date(session.dtInicial);
+                  sessionDay.setHours(0, 0, 0, 0);
+                  const todayDay = new Date();
+                  todayDay.setHours(0, 0, 0, 0);
+                  const isPast = sessionDay.getTime() <= todayDay.getTime();
 
                   return (
-                    <div className={`agenda-session-card ${isEnrolled ? 'enrolled' : ''} ${isFull && !isEnrolled ? 'full' : ''}`} key={session.id}>
+                    <div className={`agenda-session-card ${isPresent ? 'present' : isEnrolled ? 'enrolled' : ''} ${isFull && !isEnrolled ? 'full' : ''}`} key={session.id}>
                       <div className="agenda-session-card-header">
                         <div>
                           <strong className="agenda-session-activity">{session.dsAtividade ?? '-'}</strong>
@@ -357,7 +362,7 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
 
                       <div className="agenda-session-actions">
                         {isPresent ? (
-                          <span className="agenda-enrolled-badge">
+                          <span className="agenda-present-badge">
                             <CheckCircle size={13} /> Presente
                           </span>
                         ) : isEnrolled ? (
@@ -365,15 +370,19 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
                             <span className="agenda-enrolled-badge">
                               <CheckCircle size={13} /> Inscrito
                             </span>
-                            <button
-                              className="ghost-button danger"
-                              disabled={isWorking}
-                              onClick={() => void handleUnenroll(session.id)}
-                              type="button"
-                            >
-                              {isWorking ? 'Cancelando...' : 'Cancelar inscrição'}
-                            </button>
+                            {!isPast && (
+                              <button
+                                className="ghost-button danger"
+                                disabled={isWorking}
+                                onClick={() => void handleUnenroll(session.id)}
+                                type="button"
+                              >
+                                {isWorking ? 'Cancelando...' : 'Cancelar inscrição'}
+                              </button>
+                            )}
                           </>
+                        ) : isPast ? (
+                          null
                         ) : isFull ? (
                           <span className="agenda-full-badge">
                             <XCircle size={13} /> Lotado

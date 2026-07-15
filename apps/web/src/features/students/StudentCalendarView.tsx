@@ -177,7 +177,8 @@ function getEventTypeLabel(type: CalendarEventType) {
 }
 
 function getEventBadgeClass(type: CalendarEventType) {
-  if (type === 'enrolled') return 'pending';
+  if (type === 'gym-check-in' || type === 'attended') return 'success';
+  if (type === 'enrolled') return 'enrolled';
   if (type === 'promotion') return 'promotion';
   return 'active';
 }
@@ -374,51 +375,9 @@ export function StudentCalendarView({
         .filter((id): id is number => id != null),
     );
 
-    // ── Atividades (todas da empresa) ──
-    if (activeFilters.has('activities')) {
-      for (const activity of companyActivities) {
-        if (filterActivity && activity.id !== Number(filterActivity)) continue;
-        if (filterSport && activity.idEsporte !== Number(filterSport)) continue;
+    const addedScheduleIds = new Set<number>();
 
-        for (const schedule of activity.atividadeAgendas ?? []) {
-          if (filterCategory && schedule.categoria?.id !== Number(filterCategory)) continue;
-
-          const date = parseEventDate(schedule.dtInicial);
-          if (!date) continue;
-          const endDate = parseEventDate(schedule.dtFinal);
-          const activityName = getText(schedule.atividade, 'dsAtividade', activity.dsAtividade);
-          const professionals = getProfessionals(schedule);
-          const enrolledCount = schedule.alunoAtividadeAgendas?.length ?? 0;
-          const isEnrolled = studentId != null && (
-            schedule.alunoAtividadeAgendas?.some((a) => a.idAluno === studentId) ||
-            studentEnrolledScheduleIds.has(schedule.id)
-          );
-
-          allEvents.push({
-            id: `company-activity-${schedule.id}`,
-            type: 'activity',
-            date,
-            title: activityName,
-            time: formatTime(date),
-            timeEnd: endDate ? formatTime(endDate) : undefined,
-            details: [],
-            sportId: activity.idEsporte,
-            activityId: activity.id,
-            categoryId: schedule.categoria?.id as number | undefined,
-            scheduleId: schedule.id,
-            categoryName: getText(schedule.categoria, 'dsCategoria', ''),
-            companyName: getText(schedule.empresa, 'dsEmpresa', ''),
-            professionals,
-            capacity: schedule.qtAlunos ?? null,
-            enrolledCount,
-            isStudentEnrolled: isEnrolled,
-            isStudentPresent: studentPresentScheduleIds.has(schedule.id),
-          });
-        }
-      }
-    }
-
-    // ── Minhas Atividades ──
+    // ── Minhas Atividades (processadas primeiro para ter prioridade na deduplicação) ──
     if (activeFilters.has('my-activities')) {
       for (const link of studentData.activitySchedules) {
         const schedule = link.atividadeAgenda;
@@ -433,6 +392,7 @@ export function StudentCalendarView({
         const activityName = getText(schedule.atividade, 'dsAtividade', 'Atividade');
         const professionals = getProfessionals(schedule);
 
+        addedScheduleIds.add(schedule.id);
         allEvents.push({
           id: `enrolled-${link.id}`,
           type: (isAttended ? 'attended' : 'enrolled') as CalendarEventType,
@@ -464,6 +424,7 @@ export function StudentCalendarView({
         const endDate = parseEventDate(schedule.dtFinal);
         const professionals = getProfessionals(schedule);
 
+        addedScheduleIds.add(schedule.id);
         allEvents.push({
           id: `attended-${presence.id}`,
           type: 'attended',
@@ -481,6 +442,61 @@ export function StudentCalendarView({
           isStudentEnrolled: true,
           isStudentPresent: true,
         });
+      }
+    }
+
+    // ── Atividades (todas da empresa, pulando as já adicionadas por Minhas Atividades) ──
+    if (activeFilters.has('activities')) {
+      for (const activity of companyActivities) {
+        if (filterActivity && activity.id !== Number(filterActivity)) continue;
+        if (filterSport && activity.idEsporte !== Number(filterSport)) continue;
+
+        for (const schedule of activity.atividadeAgendas ?? []) {
+          if (addedScheduleIds.has(schedule.id)) continue;
+          if (filterCategory && schedule.categoria?.id !== Number(filterCategory)) continue;
+
+          const date = parseEventDate(schedule.dtInicial);
+          if (!date) continue;
+
+          const isEnrolled = studentId != null && (
+            schedule.alunoAtividadeAgendas?.some((a) => a.idAluno === studentId) ||
+            studentEnrolledScheduleIds.has(schedule.id)
+          );
+          const isPresent = studentPresentScheduleIds.has(schedule.id);
+
+          // Hide past activities where the student wasn't enrolled or present
+          const scheduleDay = new Date(date);
+          scheduleDay.setHours(0, 0, 0, 0);
+          const todayMidnight = new Date();
+          todayMidnight.setHours(0, 0, 0, 0);
+          if (scheduleDay.getTime() < todayMidnight.getTime() && !isEnrolled && !isPresent) continue;
+
+          const endDate = parseEventDate(schedule.dtFinal);
+          const activityName = getText(schedule.atividade, 'dsAtividade', activity.dsAtividade);
+          const professionals = getProfessionals(schedule);
+          const enrolledCount = schedule.alunoAtividadeAgendas?.length ?? 0;
+
+          allEvents.push({
+            id: `company-activity-${schedule.id}`,
+            type: 'activity',
+            date,
+            title: activityName,
+            time: formatTime(date),
+            timeEnd: endDate ? formatTime(endDate) : undefined,
+            details: [],
+            sportId: activity.idEsporte,
+            activityId: activity.id,
+            categoryId: schedule.categoria?.id as number | undefined,
+            scheduleId: schedule.id,
+            categoryName: getText(schedule.categoria, 'dsCategoria', ''),
+            companyName: getText(schedule.empresa, 'dsEmpresa', ''),
+            professionals,
+            capacity: schedule.qtAlunos ?? null,
+            enrolledCount,
+            isStudentEnrolled: isEnrolled,
+            isStudentPresent: isPresent,
+          });
+        }
       }
     }
 
@@ -657,9 +673,14 @@ export function StudentCalendarView({
     const isFull = event.capacity !== null && event.capacity !== undefined && (event.enrolledCount ?? 0) >= event.capacity;
     const isWorking = submittingId === event.scheduleId;
     const isAllowed = !planHasActivities || (event.activityId != null && allowedActivityIds.has(event.activityId));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const eventDay = new Date(event.date);
+    eventDay.setHours(0, 0, 0, 0);
+    const isPast = eventDay.getTime() <= today.getTime();
 
     return (
-      <div className={`agenda-session-card ${isEnrolled ? 'enrolled' : ''} ${isFull && !isEnrolled ? 'full' : ''}`} key={event.id}>
+      <div className={`agenda-session-card ${isPresent ? 'present' : isEnrolled ? 'enrolled' : ''} ${isFull && !isEnrolled ? 'full' : ''}`} key={event.id}>
         <div className="agenda-session-card-header">
           <div>
             <strong className="agenda-session-activity">{event.title}</strong>
@@ -691,7 +712,7 @@ export function StudentCalendarView({
         {!isEmployee && event.scheduleId && (
           <div className="agenda-session-actions">
             {isPresent ? (
-              <span className="agenda-enrolled-badge">
+              <span className="agenda-present-badge">
                 <CheckCircle size={13} /> Presente
               </span>
             ) : isEnrolled ? (
@@ -699,15 +720,19 @@ export function StudentCalendarView({
                 <span className="agenda-enrolled-badge">
                   <CheckCircle size={13} /> Inscrito
                 </span>
-                <button
-                  className="ghost-button danger"
-                  disabled={isWorking}
-                  onClick={() => void handleUnenroll(event.scheduleId!)}
-                  type="button"
-                >
-                  {isWorking ? 'Cancelando...' : 'Cancelar inscrição'}
-                </button>
+                {!isPast && (
+                  <button
+                    className="ghost-button danger"
+                    disabled={isWorking}
+                    onClick={() => void handleUnenroll(event.scheduleId!)}
+                    type="button"
+                  >
+                    {isWorking ? 'Cancelando...' : 'Cancelar inscrição'}
+                  </button>
+                )}
               </>
+            ) : isPast ? (
+              null
             ) : isFull ? (
               <span className="agenda-full-badge">
                 <XCircle size={13} /> Lotado
@@ -734,7 +759,7 @@ export function StudentCalendarView({
 
   function renderGenericCard(event: CalendarEvent) {
     return (
-      <article className="student-calendar-event-card" key={event.id}>
+      <article className={`student-calendar-event-card ${event.type}`} key={event.id}>
         <span className={`status-badge ${getEventBadgeClass(event.type)}`}>
           {getEventTypeLabel(event.type)}
         </span>

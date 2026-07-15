@@ -272,6 +272,16 @@ button.product-row.selected,
   color: var(--color-warning);
 }
 
+.status-badge.enrolled {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-badge.success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
 .status-badge.promotion {
   background: var(--color-danger-bg, #fde8e8);
   color: var(--color-danger, #c53030);

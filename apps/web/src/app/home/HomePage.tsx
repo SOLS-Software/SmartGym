@@ -826,7 +826,7 @@ export default function HomePage() {
           .filter((group) => group.title === 'TREINO' || group.title === 'ALUNOS' || group.title === 'ATIVIDADE')
           .map((group) => ({
             ...group,
-            items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda' && item !== 'Calendário Empresa'),
+            items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda' && item !== 'Calendário Empresa' && item !== 'Treino'),
           }));
 
     const activeGroup = menuGroups.find((g) => g.items.includes(activeItem))?.title ?? '';

@@ -950,19 +950,27 @@
 }
 
 .student-calendar-day span.check-in,
-.student-calendar-day span.activity,
 .student-calendar-day span.gym-check-in,
-.student-calendar-day span.attended,
+.student-calendar-day span.attended {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.student-calendar-day span.activity,
 .student-calendar-day span.session {
-  background: var(--color-primary-bg);
-  color: var(--color-primary);
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
 }
 
 .student-calendar-day span.agenda,
-.student-calendar-day span.promotion,
-.student-calendar-day span.enrolled {
+.student-calendar-day span.promotion {
   background: var(--color-warning-bg);
   color: var(--color-warning);
+}
+
+.student-calendar-day span.enrolled {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .student-calendar-legend {
@@ -986,16 +994,20 @@
 
 .student-calendar-legend span.gym-check-in,
 .student-calendar-legend span.attended,
-.student-calendar-legend span.session,
 .student-calendar-legend button.gym-check-in {
-  background: var(--color-primary-bg);
-  color: var(--color-primary);
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.student-calendar-legend span.session {
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
 }
 
 .student-calendar-legend span.enrolled,
 .student-calendar-legend button.enrolled {
-  background: var(--color-warning-bg);
-  color: var(--color-warning);
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .student-calendar-legend button.promotion {
@@ -1089,6 +1101,12 @@
   flex-direction: column;
   gap: 0.625rem;
   padding: 0.875rem;
+}
+
+.student-calendar-event-card.gym-check-in,
+.student-calendar-event-card.attended {
+  background: #f0fdf4;
+  border-color: #15803d;
 }
 
 .student-calendar-event-card .status-badge {
@@ -1239,8 +1257,13 @@
 }
 
 .agenda-session-card.enrolled {
-  border-color: var(--color-primary);
-  background: #f6fbf8;
+  border-color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.agenda-session-card.present {
+  border-color: #15803d;
+  background: #f0fdf4;
 }
 
 .agenda-session-card.full {
@@ -1303,9 +1326,21 @@
 
 .agenda-enrolled-badge {
   align-items: center;
-  background: var(--color-primary-bg);
+  background: #dbeafe;
   border-radius: 0.375rem;
-  color: var(--color-primary);
+  color: #1d4ed8;
+  display: flex;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 0.25rem;
+  padding: 0.375rem 0.625rem;
+}
+
+.agenda-present-badge {
+  align-items: center;
+  background: #dcfce7;
+  border-radius: 0.375rem;
+  color: #15803d;
   display: flex;
   font-size: 0.82rem;
   font-weight: 800;
