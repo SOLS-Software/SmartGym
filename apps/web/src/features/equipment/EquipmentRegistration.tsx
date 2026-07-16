@@ -171,7 +171,7 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
     setEquipmentName(equipment.nmEquipamento ?? '');
     setEquipmentDescription(equipment.dsEquipamento ?? '');
     setEquipmentAcquisitionDate(formatDateInput(equipment.dtAquisicao ?? ''));
-    setIsEquipmentActive(equipment.boInativo === 0);
+    setIsEquipmentActive(equipment.boInativo === false);
     setFeedback('');
     setFileFeedback('');
     setMaintenanceFeedback('');
@@ -191,7 +191,7 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
       const response = await fetch(`${apiUrl}/equipments/${selectedEquipmentId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }),
+        body: JSON.stringify({ boInativo: nextActive ? false : true }),
       });
 
       if (!response.ok) await getApiError(response, 'Não foi possível alterar o status.');
@@ -212,7 +212,7 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
         dsEquipamento: equipmentDescription,
         nmEquipamento: equipmentName,
         dtAquisicao: toApiDate(equipmentAcquisitionDate),
-        boInativo: isEquipmentActive ? 0 : 1,
+        boInativo: isEquipmentActive ? false : true,
       };
 
       const response = await fetch(
@@ -322,7 +322,7 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
       const payload = {
         dtExecucao: toApiDate(maintenanceExecutionDate),
         dtValidade: toApiDate(maintenanceValidityDate),
-        boInativo: 0,
+        boInativo: false,
       };
 
       const response = await fetch(`${apiUrl}/equipments/${selectedEquipmentId}/maintenances`, {
@@ -430,8 +430,8 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
               <span role="cell" title={equipment.nmEquipamento ?? ''}>{equipment.nmEquipamento}</span>
               <span role="cell">{equipment.nrEquipamento ?? '-'}</span>
               <span role="cell">
-                <span className={`status-badge ${equipment.boInativo === 0 ? 'active' : 'inactive'}`}>
-                  {equipment.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                <span className={`status-badge ${equipment.boInativo === false ? 'active' : 'inactive'}`}>
+                  {equipment.boInativo === false ? 'Ativo' : 'Inativo'}
                 </span>
               </span>
               {!readOnly ? (

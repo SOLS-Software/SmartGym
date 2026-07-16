@@ -16,7 +16,7 @@ type StudentMembershipViewProps = {
 
 type NamedRecord = {
   id: number;
-  boInativo?: number;
+  boInativo?: boolean;
   [key: string]: unknown;
 };
 
@@ -26,7 +26,7 @@ type StudentPlanView = {
   nrDiaPagamento: number;
   dtAdmissao: string | null;
   dtCadastro: string;
-  boInativo: number;
+  boInativo: boolean;
   empresa?: NamedRecord | null;
   promocaoPlano?: (NamedRecord & { promocao?: NamedRecord | null }) | null;
   plano?: (NamedRecord & {
@@ -66,18 +66,18 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
   const [feedback, setFeedback] = useState('');
 
   const activePlan = useMemo(
-    () => plans.find((plan) => plan.boInativo === 0) ?? plans[0] ?? null,
+    () => plans.find((plan) => plan.boInativo === false) ?? plans[0] ?? null,
     [plans],
   );
 
   const planActivities = activePlan?.plano?.planoAtividades
-    ?.filter((item) => Number(item.boInativo ?? 0) === 0)
+    ?.filter((item) => (item.boInativo ?? false) === false)
     ?? [];
   const planProducts = activePlan?.plano?.planoProdutos
-    ?.filter((item) => Number(item.boInativo ?? 0) === 0)
+    ?.filter((item) => (item.boInativo ?? false) === false)
     ?? [];
   const planCompanies = activePlan?.plano?.planoEmpresas
-    ?.filter((item) => Number(item.boInativo ?? 0) === 0)
+    ?.filter((item) => (item.boInativo ?? false) === false)
     ?? [];
   const latestValue = activePlan?.plano?.planoValores?.[0] ?? null;
 
@@ -162,8 +162,8 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
     <header className="module-page-header">
       <p className="section-label">Alunos</p>
       <h2 className="module-page-title">MATRÍCULA</h2>
-      <span className={`status-badge ${activePlan?.boInativo === 0 ? 'active' : 'inactive'}`}>
-        {activePlan?.boInativo === 0 ? 'Plano ativo' : 'Sem plano ativo'}
+      <span className={`status-badge ${activePlan?.boInativo === false ? 'active' : 'inactive'}`}>
+        {activePlan?.boInativo === false ? 'Plano ativo' : 'Sem plano ativo'}
       </span>
     </header>
     <div className="form-view membership-view">

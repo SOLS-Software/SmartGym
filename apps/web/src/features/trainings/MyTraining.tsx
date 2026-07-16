@@ -9,7 +9,7 @@ import { apiFetch as fetch, getApiError } from '../../shared/api/apiFetch';
 function formatExerciseMeta(link: TrainingExerciseWithCover) {
     const parts: string[] = [];
     if (link.nrSeries) parts.push(`${link.nrSeries}x${link.nrRepeticoes || 0}`);
-    if (Number(link.qtPeso) > 0) parts.push(`${link.qtPeso}${link.cnUnidadeMedida || ''}`);
+    if (Number(link.qtPeso) > 0) parts.push(`${link.qtPeso}${link.unidadeMedida?.cnUnidade || ''}`);
     if (link.qtDescanso) parts.push(`${link.qtDescanso}s descanso`);
     return parts.join(' · ');
 }
@@ -52,7 +52,7 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
     const lastCheckInSequenceOrder = lastCheckIn?.alunoTreinoSequencia?.nrOrdem ?? null;
 
     const activeTrainings = studentTrainings
-        .filter((st) => st.boInativo === 0)
+        .filter((st) => st.boInativo === false)
         .sort((a, b) => {
             const aOrder = a.alunoTreinosSequencias?.[0]?.nrOrdem ?? Number.MAX_SAFE_INTEGER;
             const bOrder = b.alunoTreinosSequencias?.[0]?.nrOrdem ?? Number.MAX_SAFE_INTEGER;
@@ -181,7 +181,7 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
             }
 
             const trainingExercises = ((await exercisesResponse.json()) as TrainingExerciseWithCover[])
-                .filter((te) => te.boInativo === 0)
+                .filter((te) => te.boInativo === false)
                 .sort((a, b) => a.nrOrdem !== b.nrOrdem ? a.nrOrdem - b.nrOrdem : a.id - b.id);
 
             setSelectedTrainingExercises(trainingExercises);
@@ -232,7 +232,7 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     idAlunoTreinosSequencia: sequence.id,
-                    boInativo: 0,
+                    boInativo: false,
                 }),
             });
 

@@ -1,3 +1,4 @@
+import { toBool, optionalNumber } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 
@@ -46,7 +47,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const role = await prisma.cargo.create({
         data: {
           dsCargo,
-          boInativo: Number(request.body.boInativo ?? 0),
+          boInativo: toBool(request.body.boInativo),
         },
       });
 
@@ -78,7 +79,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         },
         data: {
           dsCargo,
-          boInativo: Number(request.body.boInativo ?? 0),
+          boInativo: toBool(request.body.boInativo),
         },
       });
     } catch (error) {
@@ -99,7 +100,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   }>('/roles/:id/status', async (request, reply) => {
     try {
       const id = Number(request.params.id);
-      const boInativo = Number(request.body.boInativo ?? 0);
+      const boInativo = toBool(request.body.boInativo);
 
       return prisma.cargo.update({
         where: {
@@ -119,7 +120,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/frequencies', async () => {
     return prisma.frequencia.findMany({
       where: {
-        boInativo: 0,
+        boInativo: false,
       },
       orderBy: {
         dsFrequencia: 'asc',
@@ -128,14 +129,21 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   });
 
   app.post<{
-    Body: { dsFrequencia?: string; boInativo?: number };
+    Body: { dsFrequencia?: string; idUnidadeTempo?: number; qtPeriodo?: number; boInativo?: boolean };
   }>('/frequencies', async (request, reply) => {
     try {
       const dsFrequencia = request.body.dsFrequencia?.trim();
       if (!dsFrequencia) throw new Error('Informe a frequencia.');
+      const idUnidadeTempo = optionalNumber(request.body.idUnidadeTempo);
+      if (!idUnidadeTempo) throw new Error('Informe a unidade de tempo da frequencia.');
       return reply.code(201).send(
         await prisma.frequencia.create({
-          data: { dsFrequencia, boInativo: Number(request.body.boInativo ?? 0) },
+          data: {
+            dsFrequencia,
+            idUnidadeTempo,
+            qtPeriodo: Number(request.body.qtPeriodo ?? 1),
+            boInativo: toBool(request.body.boInativo),
+          },
         }),
       );
     } catch (error) {
@@ -149,7 +157,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       if (!dsFrequencia) throw new Error('Informe a frequencia.');
       return await prisma.frequencia.update({
         where: { id: Number(request.params.id) },
-        data: { dsFrequencia, boInativo: Number(request.body.boInativo ?? 0) },
+        data: { dsFrequencia, boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar frequencia.' });
@@ -160,7 +168,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       return await prisma.frequencia.update({
         where: { id: Number(request.params.id) },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status da frequencia.' });
@@ -170,7 +178,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/levels', async () => {
     return prisma.nivel.findMany({
       where: {
-        boInativo: 0,
+        boInativo: false,
       },
       orderBy: {
         dsNivel: 'asc',
@@ -182,7 +190,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       const dsNivel = request.body.dsNivel?.trim();
       if (!dsNivel) throw new Error('Informe o nivel.');
-      return reply.code(201).send(await prisma.nivel.create({ data: { dsNivel, boInativo: Number(request.body.boInativo ?? 0) } }));
+      return reply.code(201).send(await prisma.nivel.create({ data: { dsNivel, boInativo: toBool(request.body.boInativo) } }));
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar nivel.' });
     }
@@ -194,7 +202,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       if (!dsNivel) throw new Error('Informe o nivel.');
       return await prisma.nivel.update({
         where: { id: Number(request.params.id) },
-        data: { dsNivel, boInativo: Number(request.body.boInativo ?? 0) },
+        data: { dsNivel, boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar nivel.' });
@@ -205,7 +213,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       return await prisma.nivel.update({
         where: { id: Number(request.params.id) },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do nivel.' });
@@ -214,7 +222,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
   app.get('/body-areas', async () => {
     return prisma.areaCorporal.findMany({
-      where: { boInativo: 0 },
+      where: { boInativo: false },
       orderBy: { dsAreaCorporal: 'asc' },
     });
   });
@@ -225,7 +233,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       if (!dsAreaCorporal) throw new Error('Informe a area corporal.');
       return reply.code(201).send(
         await prisma.areaCorporal.create({
-          data: { dsAreaCorporal, boInativo: Number(request.body.boInativo ?? 0) },
+          data: { dsAreaCorporal, boInativo: toBool(request.body.boInativo) },
         }),
       );
     } catch (error) {
@@ -243,7 +251,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         if (!dsAreaCorporal) throw new Error('Informe a area corporal.');
         return await prisma.areaCorporal.update({
           where: { id: Number(request.params.id) },
-          data: { dsAreaCorporal, boInativo: Number(request.body.boInativo ?? 0) },
+          data: { dsAreaCorporal, boInativo: toBool(request.body.boInativo) },
         });
       } catch (error) {
         return reply.code(400).send({
@@ -257,7 +265,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       return await prisma.areaCorporal.update({
         where: { id: Number(request.params.id) },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status da area corporal.' });
@@ -267,7 +275,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/time-units', async () => {
     return prisma.unidadeTempo.findMany({
       where: {
-        boInativo: 0,
+        boInativo: false,
       },
       orderBy: {
         dsUnidadeTempo: 'asc',
@@ -279,7 +287,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       const dsUnidadeTempo = request.body.dsUnidadeTempo?.trim();
       if (!dsUnidadeTempo) throw new Error('Informe a unidade de tempo.');
-      return reply.code(201).send(await prisma.unidadeTempo.create({ data: { dsUnidadeTempo, boInativo: Number(request.body.boInativo ?? 0) } }));
+      return reply.code(201).send(await prisma.unidadeTempo.create({ data: { dsUnidadeTempo, boInativo: toBool(request.body.boInativo) } }));
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar unidade de tempo.' });
     }
@@ -291,7 +299,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       if (!dsUnidadeTempo) throw new Error('Informe a unidade de tempo.');
       return await prisma.unidadeTempo.update({
         where: { id: Number(request.params.id) },
-        data: { dsUnidadeTempo, boInativo: Number(request.body.boInativo ?? 0) },
+        data: { dsUnidadeTempo, boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar unidade de tempo.' });
@@ -302,7 +310,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       return await prisma.unidadeTempo.update({
         where: { id: Number(request.params.id) },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status da unidade de tempo.' });
@@ -312,7 +320,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/payment-statuses', async () => {
     return prisma.statusPagamento.findMany({
       where: {
-        boInativo: 0,
+        boInativo: false,
       },
       orderBy: {
         dsStatusPagamento: 'asc',
@@ -324,7 +332,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       const dsStatusPagamento = request.body.dsStatusPagamento?.trim();
       if (!dsStatusPagamento) throw new Error('Informe o status de pagamento.');
-      return reply.code(201).send(await prisma.statusPagamento.create({ data: { dsStatusPagamento, boInativo: Number(request.body.boInativo ?? 0) } }));
+      return reply.code(201).send(await prisma.statusPagamento.create({ data: { dsStatusPagamento, boInativo: toBool(request.body.boInativo) } }));
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar status de pagamento.' });
     }
@@ -336,7 +344,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       if (!dsStatusPagamento) throw new Error('Informe o status de pagamento.');
       return await prisma.statusPagamento.update({
         where: { id: Number(request.params.id) },
-        data: { dsStatusPagamento, boInativo: Number(request.body.boInativo ?? 0) },
+        data: { dsStatusPagamento, boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar status de pagamento.' });
@@ -347,7 +355,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       return await prisma.statusPagamento.update({
         where: { id: Number(request.params.id) },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status de pagamento.' });
@@ -357,7 +365,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/payment-methods', async () => {
     return prisma.formaPagamento.findMany({
       where: {
-        boInativo: 0,
+        boInativo: false,
       },
       orderBy: {
         dsFormaPagamento: 'asc',
@@ -369,7 +377,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       const dsFormaPagamento = request.body.dsFormaPagamento?.trim();
       if (!dsFormaPagamento) throw new Error('Informe a forma de pagamento.');
-      return reply.code(201).send(await prisma.formaPagamento.create({ data: { dsFormaPagamento, boInativo: Number(request.body.boInativo ?? 0) } }));
+      return reply.code(201).send(await prisma.formaPagamento.create({ data: { dsFormaPagamento, boInativo: toBool(request.body.boInativo) } }));
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar forma de pagamento.' });
     }
@@ -381,7 +389,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       if (!dsFormaPagamento) throw new Error('Informe a forma de pagamento.');
       return await prisma.formaPagamento.update({
         where: { id: Number(request.params.id) },
-        data: { dsFormaPagamento, boInativo: Number(request.body.boInativo ?? 0) },
+        data: { dsFormaPagamento, boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar forma de pagamento.' });
@@ -392,7 +400,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       return await prisma.formaPagamento.update({
         where: { id: Number(request.params.id) },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status da forma de pagamento.' });
@@ -402,7 +410,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/training-methods', async () => {
     return prisma.metodoTreino.findMany({
       where: {
-        boInativo: 0,
+        boInativo: false,
       },
       orderBy: {
         nmMetodoTreino: 'asc',
@@ -416,7 +424,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const dsMetodoTreino = request.body.dsMetodoTreino?.trim() ?? '';
       if (!nmMetodoTreino) throw new Error('Informe o nome do metodo de treino.');
       return reply.code(201).send(await prisma.metodoTreino.create({
-        data: { nmMetodoTreino, dsMetodoTreino, boInativo: Number(request.body.boInativo ?? 0) },
+        data: { nmMetodoTreino, dsMetodoTreino, boInativo: toBool(request.body.boInativo) },
       }));
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar metodo de treino.' });
@@ -430,7 +438,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       if (!nmMetodoTreino) throw new Error('Informe o nome do metodo de treino.');
       return await prisma.metodoTreino.update({
         where: { id: Number(request.params.id) },
-        data: { nmMetodoTreino, dsMetodoTreino, boInativo: Number(request.body.boInativo ?? 0) },
+        data: { nmMetodoTreino, dsMetodoTreino, boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar metodo de treino.' });
@@ -441,7 +449,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       return await prisma.metodoTreino.update({
         where: { id: Number(request.params.id) },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do metodo de treino.' });
@@ -451,7 +459,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/file-types', async () => {
     return prisma.tipoArquivo.findMany({
       where: {
-        boInativo: 0,
+        boInativo: false,
       },
       orderBy: {
         dsTipo: 'asc',
@@ -463,7 +471,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       const dsTipo = request.body.dsTipo?.trim();
       if (!dsTipo) throw new Error('Informe o tipo de arquivo.');
-      return reply.code(201).send(await prisma.tipoArquivo.create({ data: { dsTipo, boInativo: Number(request.body.boInativo ?? 0) } }));
+      return reply.code(201).send(await prisma.tipoArquivo.create({ data: { dsTipo, boInativo: toBool(request.body.boInativo) } }));
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar tipo de arquivo.' });
     }
@@ -475,7 +483,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       if (!dsTipo) throw new Error('Informe o tipo de arquivo.');
       return await prisma.tipoArquivo.update({
         where: { id: Number(request.params.id) },
-        data: { dsTipo, boInativo: Number(request.body.boInativo ?? 0) },
+        data: { dsTipo, boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar tipo de arquivo.' });
@@ -486,7 +494,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       return await prisma.tipoArquivo.update({
         where: { id: Number(request.params.id) },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do tipo de arquivo.' });
@@ -514,7 +522,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
           data: {
             idEmpresa: nullableNumber(request.body.idEmpresa),
             dsEsporte,
-            boInativo: Number(request.body.boInativo ?? 0),
+            boInativo: toBool(request.body.boInativo),
           },
         }),
       );
@@ -538,7 +546,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         data: {
           idEmpresa: nullableNumber(request.body.idEmpresa),
           dsEsporte,
-          boInativo: Number(request.body.boInativo ?? 0),
+          boInativo: toBool(request.body.boInativo),
         },
       });
     } catch (error) {
@@ -552,7 +560,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       return await prisma.esporte.update({
         where: { id: Number(request.params.id) },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do esporte.' });
@@ -584,7 +592,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
             idEmpresa: nullableNumber(request.body.idEmpresa),
             idEsporte: nullableNumber(request.body.idEsporte),
             dsCategoria,
-            boInativo: Number(request.body.boInativo ?? 0),
+            boInativo: toBool(request.body.boInativo),
           },
           include: {
             esporte: true,
@@ -612,7 +620,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
           idEmpresa: nullableNumber(request.body.idEmpresa),
           idEsporte: nullableNumber(request.body.idEsporte),
           dsCategoria,
-          boInativo: Number(request.body.boInativo ?? 0),
+          boInativo: toBool(request.body.boInativo),
         },
         include: {
           esporte: true,
@@ -629,7 +637,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       return await prisma.categoria.update({
         where: { id: Number(request.params.id) },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
         include: {
           esporte: true,
         },
@@ -641,7 +649,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
   app.get('/measurement-units', async () => {
     return prisma.unidadeMedida.findMany({
-      where: { boInativo: 0 },
+      where: { boInativo: false },
       orderBy: { cnUnidade: 'asc' },
     });
   });

@@ -87,7 +87,7 @@ export function ScheduleRegistration() {
     return (
       String(company?.dsEmpresa ?? r.idEmpresa ?? '').toLowerCase().includes(search) ||
       String(category?.dsCategoria ?? r.idCategoria ?? '').toLowerCase().includes(search) ||
-      (Number(r.boInativo ?? 0) === 0 ? 'ativo' : 'inativo').includes(search)
+      ((r.boInativo ?? false) === false ? 'ativo' : 'inativo').includes(search)
     );
   });
 
@@ -98,7 +98,7 @@ export function ScheduleRegistration() {
     return (
       String(company?.dsEmpresa ?? r.idEmpresa ?? '').toLowerCase().includes(search) ||
       String(employee?.nmFuncionario ?? r.idFuncionario ?? '').toLowerCase().includes(search) ||
-      (Number(r.boInativo ?? 0) === 0 ? 'ativo' : 'inativo').includes(search)
+      ((r.boInativo ?? false) === false ? 'ativo' : 'inativo').includes(search)
     );
   });
 
@@ -109,7 +109,7 @@ export function ScheduleRegistration() {
     return (
       String(company?.dsEmpresa ?? r.idEmpresa ?? '').toLowerCase().includes(search) ||
       String(student?.nmAluno ?? r.idAluno ?? '').toLowerCase().includes(search) ||
-      (Number(r.boInativo ?? 0) === 0 ? 'ativo' : 'inativo').includes(search)
+      ((r.boInativo ?? false) === false ? 'ativo' : 'inativo').includes(search)
     );
   });
 
@@ -236,7 +236,7 @@ export function ScheduleRegistration() {
         return acc;
       }, {}),
     );
-    setIsScheduleActive(Number(record.boInativo ?? 0) === 0);
+    setIsScheduleActive((record.boInativo ?? false) === false);
     setScheduleFeedback('');
   }
 
@@ -263,7 +263,7 @@ export function ScheduleRegistration() {
       idEmpresa: record.idEmpresa ? String(record.idEmpresa) : '',
       idFuncionario: record.idFuncionario ? String(record.idFuncionario) : '',
     });
-    setIsScheduleEmployeeActive(Number(record.boInativo ?? 0) === 0);
+    setIsScheduleEmployeeActive((record.boInativo ?? false) === false);
     setScheduleEmployeeFeedback('');
     setIsDrawerOpen(true);
     setDrawerMode('scheduleEmployee');
@@ -286,7 +286,7 @@ export function ScheduleRegistration() {
       idEmpresa: record.idEmpresa ? String(record.idEmpresa) : '',
       idAluno: record.idAluno ? String(record.idAluno) : '',
     });
-    setIsScheduleStudentActive(Number(record.boInativo ?? 0) === 0);
+    setIsScheduleStudentActive((record.boInativo ?? false) === false);
     setScheduleStudentFeedback('');
     setIsDrawerOpen(true);
     setDrawerMode('scheduleStudent');
@@ -300,7 +300,7 @@ export function ScheduleRegistration() {
     try {
       const response = await fetch(
         `${apiUrl}/activities/${selectedActivityId}/related/schedules/${selectedScheduleId}/status`,
-        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }) },
+        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ boInativo: nextActive ? false : true }) },
       );
       if (!response.ok) await getApiError(response, 'Não foi possível alterar o status.');
       const updated = (await response.json()) as CompanyChildRecord;
@@ -315,13 +315,13 @@ export function ScheduleRegistration() {
     event.preventDefault();
     if (!selectedActivityId) { setScheduleFeedback('Selecione uma atividade.'); return; }
     try {
-      const payload = scheduleFields.reduce<Record<string, string | number | null>>(
+      const payload = scheduleFields.reduce<Record<string, string | number | boolean | null>>(
         (acc, field) => {
           const value = scheduleFormValues[field.key] ?? '';
           acc[field.key] = field.type === 'number' ? (value ? Number(value) : null) : value;
           return acc;
         },
-        { boInativo: isScheduleActive ? 0 : 1 },
+        { boInativo: isScheduleActive ? false : true },
       );
       const response = await fetch(
         selectedScheduleId
@@ -350,7 +350,7 @@ export function ScheduleRegistration() {
     try {
       const response = await fetch(
         `${apiUrl}/activities/${selectedActivityId}/related/schedules/${selectedScheduleId}/employees/${selectedScheduleEmployeeId}/status`,
-        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }) },
+        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ boInativo: nextActive ? false : true }) },
       );
       if (!response.ok) await getApiError(response, 'Não foi possível alterar o status.');
       const updated = (await response.json()) as CompanyChildRecord;
@@ -369,7 +369,7 @@ export function ScheduleRegistration() {
       const payload = {
         idEmpresa: scheduleEmployeeFormValues.idEmpresa ? Number(scheduleEmployeeFormValues.idEmpresa) : null,
         idFuncionario: Number(scheduleEmployeeFormValues.idFuncionario),
-        boInativo: isScheduleEmployeeActive ? 0 : 1,
+        boInativo: isScheduleEmployeeActive ? false : true,
       };
       const response = await fetch(
         selectedScheduleEmployeeId
@@ -398,7 +398,7 @@ export function ScheduleRegistration() {
     try {
       const response = await fetch(
         `${apiUrl}/activities/${selectedActivityId}/related/schedules/${selectedScheduleId}/students/${selectedScheduleStudentId}/status`,
-        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }) },
+        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ boInativo: nextActive ? false : true }) },
       );
       if (!response.ok) await getApiError(response, 'Não foi possível alterar o status.');
       const updated = (await response.json()) as CompanyChildRecord;
@@ -417,7 +417,7 @@ export function ScheduleRegistration() {
       const payload = {
         idEmpresa: scheduleStudentFormValues.idEmpresa ? Number(scheduleStudentFormValues.idEmpresa) : null,
         idAluno: Number(scheduleStudentFormValues.idAluno),
-        boInativo: isScheduleStudentActive ? 0 : 1,
+        boInativo: isScheduleStudentActive ? false : true,
       };
       const response = await fetch(
         selectedScheduleStudentId
@@ -476,7 +476,7 @@ export function ScheduleRegistration() {
               { label: 'Categoria', render: (r) => String(lookups.idCategoria?.find((i) => String(i.id) === String(r.idCategoria))?.dsCategoria ?? r.idCategoria ?? '-') },
               { label: 'Início', render: (r) => r.dtInicial ? formatDateInput(String(r.dtInicial)) : '-' },
               { label: 'Fim', render: (r) => r.dtFinal ? formatDateInput(String(r.dtFinal)) : '-' },
-              { label: 'Status', render: (r) => <span className={`status-badge ${Number(r.boInativo ?? 0) === 0 ? 'active' : 'inactive'}`}>{Number(r.boInativo ?? 0) === 0 ? 'Ativo' : 'Inativo'}</span> },
+              { label: 'Status', render: (r) => <span className={`status-badge ${(r.boInativo ?? false) === false ? 'active' : 'inactive'}`}>{(r.boInativo ?? false) === false ? 'Ativo' : 'Inativo'}</span> },
             ]}
             records={filteredSchedules}
             isLoading={isLoadingSchedules}
@@ -501,7 +501,7 @@ export function ScheduleRegistration() {
                 columns={[
                   { label: 'Empresa', render: (r) => String(lookups.idEmpresa?.find((i) => String(i.id) === String(r.idEmpresa))?.dsEmpresa ?? r.idEmpresa ?? '-') },
                   { label: 'Aluno', render: (r) => String(lookups.idAluno?.find((i) => String(i.id) === String(r.idAluno))?.nmAluno ?? r.idAluno ?? '-') },
-                  { label: 'Status', render: (r) => <span className={`status-badge ${Number(r.boInativo ?? 0) === 0 ? 'active' : 'inactive'}`}>{Number(r.boInativo ?? 0) === 0 ? 'Ativo' : 'Inativo'}</span> },
+                  { label: 'Status', render: (r) => <span className={`status-badge ${(r.boInativo ?? false) === false ? 'active' : 'inactive'}`}>{(r.boInativo ?? false) === false ? 'Ativo' : 'Inativo'}</span> },
                 ]}
                 records={filteredScheduleStudents}
                 isLoading={isLoadingScheduleStudents}
@@ -521,7 +521,7 @@ export function ScheduleRegistration() {
                 columns={[
                   { label: 'Empresa', render: (r) => String(lookups.idEmpresa?.find((i) => String(i.id) === String(r.idEmpresa))?.dsEmpresa ?? r.idEmpresa ?? '-') },
                   { label: 'Profissional', render: (r) => String(lookups.idFuncionario?.find((i) => String(i.id) === String(r.idFuncionario))?.nmFuncionario ?? r.idFuncionario ?? '-') },
-                  { label: 'Status', render: (r) => <span className={`status-badge ${Number(r.boInativo ?? 0) === 0 ? 'active' : 'inactive'}`}>{Number(r.boInativo ?? 0) === 0 ? 'Ativo' : 'Inativo'}</span> },
+                  { label: 'Status', render: (r) => <span className={`status-badge ${(r.boInativo ?? false) === false ? 'active' : 'inactive'}`}>{(r.boInativo ?? false) === false ? 'Ativo' : 'Inativo'}</span> },
                 ]}
                 records={filteredScheduleEmployees}
                 isLoading={isLoadingScheduleEmployees}

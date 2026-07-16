@@ -5,7 +5,7 @@ export async function registerLookupRoutes(app: FastifyInstance) {
   app.get('/themes', async () => {
     return prisma.tema.findMany({
       where: {
-        boInativo: 0,
+        boInativo: false,
       },
       orderBy: {
         dsTema: 'asc',
@@ -16,7 +16,7 @@ export async function registerLookupRoutes(app: FastifyInstance) {
   app.get('/promotion-plans', async () => {
     return prisma.promocaoPlano.findMany({
       where: {
-        boInativo: 0,
+        boInativo: false,
       },
       include: {
         plano: true,
@@ -29,12 +29,12 @@ export async function registerLookupRoutes(app: FastifyInstance) {
   });
 
   app.get('/points', async () => {
-    return prisma.ponto.findMany({
+    return prisma.pontuacao.findMany({
       where: {
-        boInativo: 0,
+        boInativo: false,
       },
       orderBy: {
-        dsPontos: 'asc',
+        dsPontuacao: 'asc',
       },
     });
   });
@@ -42,7 +42,7 @@ export async function registerLookupRoutes(app: FastifyInstance) {
   app.get('/student-training-sequences', async () => {
     return prisma.alunoTreinoSequencia.findMany({
       where: {
-        boInativo: 0,
+        boInativo: false,
       },
       orderBy: {
         dtCadastro: 'desc',

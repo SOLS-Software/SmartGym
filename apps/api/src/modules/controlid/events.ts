@@ -15,7 +15,7 @@ export type ControlidNormalizedEvent = {
   nrUsuarioCatraca: string | null;
   nrTipoEvento: number | null;
   dsTipoEvento: string;
-  boAcessoLiberado: number;
+  boAcessoLiberado: boolean;
   dsIdentificacao: string;
   dsCartao: string;
   dsPortal: string;
@@ -173,10 +173,10 @@ export function normalizeEvent(raw: ControlidRawEvent): ControlidNormalizedEvent
     raw.access === 'denied' ||
     asNumber(raw.granted) === 0;
 
-  let boAcessoLiberado = 0;
-  if (grantedFromFlag) boAcessoLiberado = 1;
-  else if (deniedFromFlag) boAcessoLiberado = 0;
-  else if (eventCode !== null && GRANTED_ACCESS_TYPES.has(eventCode)) boAcessoLiberado = 1;
+  let boAcessoLiberado = false;
+  if (grantedFromFlag) boAcessoLiberado = true;
+  else if (deniedFromFlag) boAcessoLiberado = false;
+  else if (eventCode !== null && GRANTED_ACCESS_TYPES.has(eventCode)) boAcessoLiberado = true;
 
   return {
     idEventoDispositivo: asBigInt(raw.id ?? raw.event_id ?? raw.log_id),

@@ -24,7 +24,7 @@ type ActivitySchedule = {
   dtFinal: string | null;
   qtAlunos: number | null;
   dtCadastro: string;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 type ScheduleEmployee = {
@@ -32,14 +32,14 @@ type ScheduleEmployee = {
   idEmpresa: number | null;
   idAtividadeAgenda: number | null;
   idFuncionario: number | null;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 type Category = LookupRecord & {
   idEmpresa?: number | null;
   idEsporte?: number | null;
   dsCategoria?: string;
-  boInativo?: number;
+  boInativo?: boolean;
 };
 
 const weekDays = [
@@ -100,13 +100,13 @@ export function ActivityScheduleAssembly() {
       activity.dsAtividade.toLowerCase().includes(search) ||
       getCompanyName(activity.idEmpresa).toLowerCase().includes(search) ||
       getSportName(activity.idEsporte).toLowerCase().includes(search) ||
-      (activity.boInativo === 0 ? 'ativo' : 'inativo').includes(search)
+      (activity.boInativo === false ? 'ativo' : 'inativo').includes(search)
     );
   });
 
   const filteredSchedules = schedules.filter((schedule) => {
     const search = scheduleSearchTerm.toLowerCase();
-    if (!showInactiveSchedules && schedule.boInativo !== 0) return false;
+    if (!showInactiveSchedules && schedule.boInativo !== false) return false;
     return (
       getCompanyName(schedule.idEmpresa).toLowerCase().includes(search) ||
       getCategoryName(schedule.idCategoria).toLowerCase().includes(search) ||
@@ -115,7 +115,7 @@ export function ActivityScheduleAssembly() {
       getWeekDayLabelFromSchedule(schedule).toLowerCase().includes(search) ||
       getScheduleTimeLabel(schedule).includes(search) ||
       String(schedule.qtAlunos ?? '').includes(search) ||
-      (schedule.boInativo === 0 ? 'ativo' : 'inativo').includes(search)
+      (schedule.boInativo === false ? 'ativo' : 'inativo').includes(search)
     );
   });
 
@@ -129,7 +129,7 @@ export function ActivityScheduleAssembly() {
       setIsLoadingActivities(true);
       const response = await fetch(`${apiUrl}/activities`);
       if (!response.ok) await getApiError(response, 'Não foi possível carregar as atividades.');
-      setActivities(((await response.json()) as Activity[]).filter((a) => a.boInativo === 0));
+      setActivities(((await response.json()) as Activity[]).filter((a) => a.boInativo === false));
       setFeedback('');
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao carregar atividades.');
@@ -147,11 +147,11 @@ export function ActivityScheduleAssembly() {
         fetch(`${apiUrl}/sports`),
         fetch(`${apiUrl}/localities`),
       ]);
-      setCompanies(((await companiesRes.json()) as Company[]).filter((c) => c.boInativo === 0));
-      setCategories(((await categoriesRes.json()) as Category[]).filter((c) => Number(c.boInativo ?? 0) === 0));
-      setEmployees(((await employeesRes.json()) as Employee[]).filter((e) => e.boInativo === 0));
-      if (sportsRes.ok) setSports(((await sportsRes.json()) as Sport[]).filter((s) => s.boInativo === 0));
-      if (localitiesRes.ok) setLocalities(((await localitiesRes.json()) as Localidade[]).filter((l) => l.boInativo === 0));
+      setCompanies(((await companiesRes.json()) as Company[]).filter((c) => c.boInativo === false));
+      setCategories(((await categoriesRes.json()) as Category[]).filter((c) => (c.boInativo ?? false) === false));
+      setEmployees(((await employeesRes.json()) as Employee[]).filter((e) => e.boInativo === false));
+      if (sportsRes.ok) setSports(((await sportsRes.json()) as Sport[]).filter((s) => s.boInativo === false));
+      if (localitiesRes.ok) setLocalities(((await localitiesRes.json()) as Localidade[]).filter((l) => l.boInativo === false));
     } catch (error) {
       setScheduleFeedback(error instanceof Error ? error.message : 'Erro ao carregar listas.');
     }
@@ -237,7 +237,7 @@ export function ActivityScheduleAssembly() {
   }
 
   function getScheduleEmployeeName(scheduleId: number) {
-    const rec = scheduleEmployees.find((r) => r.idAtividadeAgenda === scheduleId && r.boInativo === 0);
+    const rec = scheduleEmployees.find((r) => r.idAtividadeAgenda === scheduleId && r.boInativo === false);
     return getEmployeeName(rec?.idFuncionario ?? null);
   }
 
@@ -365,7 +365,7 @@ export function ActivityScheduleAssembly() {
     setSelectedCategoryId(schedule.idCategoria ? String(schedule.idCategoria) : '');
     setSelectedLocalityId(schedule.idLocalidade ? String(schedule.idLocalidade) : '');
     setSelectedEmployeeId(
-      String(scheduleEmployees.find((r) => r.idAtividadeAgenda === schedule.id && r.boInativo === 0)?.idFuncionario ?? ''),
+      String(scheduleEmployees.find((r) => r.idAtividadeAgenda === schedule.id && r.boInativo === false)?.idFuncionario ?? ''),
     );
     setStartDate(getDateInputValue(schedule.dtInicial));
     setEndDate(getDateInputValue(schedule.dtFinal));
@@ -373,7 +373,7 @@ export function ActivityScheduleAssembly() {
     setStartTime(getTimeInputValue(schedule.dtInicial));
     setEndTime(getTimeInputValue(schedule.dtFinal));
     setStudentLimit(schedule.qtAlunos ? String(schedule.qtAlunos) : '');
-    setIsScheduleActive(schedule.boInativo === 0);
+    setIsScheduleActive(schedule.boInativo === false);
     setScheduleFeedback('');
     setIsDrawerOpen(true);
   }
@@ -410,8 +410,8 @@ export function ActivityScheduleAssembly() {
 
   async function saveScheduleEmployee(scheduleId: number) {
     if (!selectedActivityId || !selectedEmployeeId) return;
-    const activeRec = scheduleEmployees.find((r) => r.idAtividadeAgenda === scheduleId && r.boInativo === 0);
-    const payload = { idEmpresa: selectedCompanyId || null, idFuncionario: selectedEmployeeId, boInativo: 0 };
+    const activeRec = scheduleEmployees.find((r) => r.idAtividadeAgenda === scheduleId && r.boInativo === false);
+    const payload = { idEmpresa: selectedCompanyId || null, idFuncionario: selectedEmployeeId, boInativo: false };
     if (activeRec) {
       const res = await fetch(`${apiUrl}/activities/${selectedActivityId}/related/schedules/${scheduleId}/employees/${activeRec.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
@@ -427,14 +427,14 @@ export function ActivityScheduleAssembly() {
 
   async function handleToggleScheduleStatus(schedule: ActivitySchedule) {
     if (!selectedActivityId) return;
-    const nextInactive = schedule.boInativo === 0 ? 1 : 0;
+    const nextInactive = schedule.boInativo === false ? true : false;
     try {
       const res = await fetch(`${apiUrl}/activities/${selectedActivityId}/related/schedules/${schedule.id}/status`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ boInativo: nextInactive }),
       });
       if (!res.ok) await getApiError(res, 'Não foi possível alterar o status.');
       await loadSchedules(selectedActivityId);
-      setScheduleFeedback(nextInactive === 1 ? 'Agenda inativada.' : 'Agenda ativada.');
+      setScheduleFeedback(nextInactive ? 'Agenda inativada.' : 'Agenda ativada.');
     } catch (error) {
       setScheduleFeedback(error instanceof Error ? error.message : 'Erro ao alterar status.');
     }
@@ -463,7 +463,7 @@ export function ActivityScheduleAssembly() {
               dtInicial: combineDateTime(date, startTime),
               dtFinal: combineDateTime(date, endTime),
               qtAlunos: studentLimit || null,
-              boInativo: isScheduleActive ? 0 : 1,
+              boInativo: isScheduleActive ? false : true,
             }),
           });
           if (!res.ok) await getApiError(res, 'Não foi possível salvar a agenda.');
@@ -484,7 +484,7 @@ export function ActivityScheduleAssembly() {
             dtInicial: combineDateTime(startDate, startTime),
             dtFinal: combineDateTime(startDate, endTime),
             qtAlunos: studentLimit || null,
-            boInativo: isScheduleActive ? 0 : 1,
+            boInativo: isScheduleActive ? false : true,
           }),
         });
         if (!res.ok) await getApiError(res, 'Não foi possível salvar a agenda.');
@@ -570,8 +570,8 @@ export function ActivityScheduleAssembly() {
                   <span role="cell">{activity.dsAtividade}</span>
                   <span role="cell">{getSportName(activity.idEsporte)}</span>
                   <span role="cell">
-                    <span className={`status-badge ${activity.boInativo === 0 ? 'active' : 'inactive'}`}>
-                      {activity.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                    <span className={`status-badge ${activity.boInativo === false ? 'active' : 'inactive'}`}>
+                      {activity.boInativo === false ? 'Ativo' : 'Inativo'}
                     </span>
                   </span>
                 </button>
@@ -649,8 +649,8 @@ export function ActivityScheduleAssembly() {
                     <span role="cell">{getScheduleTimeLabel(schedule)}</span>
                     <span role="cell">{schedule.qtAlunos ?? '-'}</span>
                     <span role="cell">
-                      <span className={`status-badge ${schedule.boInativo === 0 ? 'active' : 'inactive'}`}>
-                        {schedule.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                      <span className={`status-badge ${schedule.boInativo === false ? 'active' : 'inactive'}`}>
+                        {schedule.boInativo === false ? 'Ativo' : 'Inativo'}
                       </span>
                     </span>
                     <span role="cell" className="grid-row-actions">
@@ -663,11 +663,11 @@ export function ActivityScheduleAssembly() {
                         <Pencil size={13} />
                       </button>
                       <button
-                        className={`grid-status-toggle ${schedule.boInativo === 0 ? 'active' : ''}`}
+                        className={`grid-status-toggle ${schedule.boInativo === false ? 'active' : ''}`}
                         onClick={() => void handleToggleScheduleStatus(schedule)}
                         type="button"
                       >
-                        {schedule.boInativo === 0 ? 'Inativar' : 'Ativar'}
+                        {schedule.boInativo === false ? 'Inativar' : 'Ativar'}
                       </button>
                     </span>
                   </div>

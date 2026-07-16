@@ -21,6 +21,20 @@ export function optionalNumber(value: unknown) {
   return Number(value);
 }
 
+export function toBool(value: unknown) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+  if (typeof value === 'string') {
+    const v = value.trim().toLowerCase();
+    return v === 'true' || v === '1';
+  }
+  return false;
+}
+
 export function requiredText(value: unknown, message: string) {
   const text = typeof value === 'string' ? value.trim() : '';
   if (!text) {
@@ -153,11 +167,16 @@ export function normalizeCompanyPayload(payload: CompanyPayload) {
   if (!isValidCnpj(caCNPJ)) {
     throw new Error('Informe um CNPJ valido.');
   }
+  const idCliente = optionalNumber(payload.idCliente);
+  if (!idCliente) {
+    throw new Error('Cliente nao identificado.');
+  }
 
   return {
+    idCliente,
     dsEmpresa,
     caCNPJ,
-    boInativo: Number(payload.boInativo ?? 0),
+    boInativo: toBool(payload.boInativo),
   };
 }
 
@@ -170,7 +189,7 @@ export function normalizeProductPayload(payload: ProductPayload) {
     idEmpresa: payload.idEmpresa ?? null,
     dsProduto,
     qtEstoque: Number(payload.qtEstoque ?? 0),
-    boInativo: Number(payload.boInativo ?? 0),
+    boInativo: toBool(payload.boInativo),
   };
 }
 
@@ -183,7 +202,7 @@ export function normalizeExercisePayload(payload: ExercisePayload) {
     idEmpresa: payload.idEmpresa ?? null,
     dsExercicio,
     dsInstrucao: payload.dsInstrucao?.trim() || null,
-    boInativo: Number(payload.boInativo ?? 0),
+    boInativo: toBool(payload.boInativo),
   };
 }
 
@@ -196,7 +215,7 @@ export function normalizeTrainingPayload(payload: TrainingPayload) {
     idEmpresa: optionalNumber(payload.idEmpresa),
     idNivel: optionalNumber(payload.idNivel),
     dsTreino,
-    boInativo: Number(payload.boInativo ?? 0),
+    boInativo: toBool(payload.boInativo),
   };
 }
 
@@ -206,7 +225,11 @@ export function normalizeStudentPayload(payload: StudentPayload) {
   const nrContato = payload.nrContato?.replace(/\D/g, '') ?? null;
   const anEmail = payload.anEmail?.trim() ?? '';
   const dtNascimento = parseBirthDate(payload.dtNascimento);
+  const idCliente = optionalNumber(payload.idCliente);
 
+  if (!idCliente) {
+    throw new Error('Cliente nao identificado.');
+  }
   if (!nmAluno) {
     throw new Error('Informe o nome do aluno.');
   }
@@ -231,6 +254,7 @@ export function normalizeStudentPayload(payload: StudentPayload) {
   }
 
   return {
+    idCliente,
     nmAluno,
     caCPF,
     dtNascimento,
@@ -239,13 +263,13 @@ export function normalizeStudentPayload(payload: StudentPayload) {
     anEmail,
     anCEP: payload.anCEP?.replace(/\D/g, '') ?? '',
     anLogradouro: payload.anLogradouro?.trim() ?? '',
-    anCoplemento: payload.anCoplemento?.trim() ?? '',
+    anComplemento: payload.anComplemento?.trim() ?? '',
     anBairro: payload.anBairro?.trim() ?? '',
     nrEndereco:
-      payload.nrEndereco === null || payload.nrEndereco === ''
+      payload.nrEndereco === null || payload.nrEndereco === undefined || payload.nrEndereco === ''
         ? null
-        : Number(payload.nrEndereco ?? 0),
-    boInativo: Number(payload.boInativo ?? 0),
+        : String(payload.nrEndereco),
+    boInativo: toBool(payload.boInativo),
   };
 }
 
@@ -306,7 +330,7 @@ export function normalizePlanPayload(payload: PlanPayload) {
   return {
     dsPlano,
     idFrequencia: optionalNumber(payload.idFrequencia),
-    boInativo: Number(payload.boInativo ?? 0),
+    boInativo: toBool(payload.boInativo),
   };
 }
 
@@ -351,10 +375,10 @@ export function normalizeEmployeePayload(payload: EmployeePayload) {
     caCPF,
     dtNascimento,
     nrDDD: optionalNumber(payload.nrDDD),
-    nrContato: Number(nrContato || 0),
+    nrContato: nrContato || null,
     anEmail,
     dtAdmissao,
-    boInativo: Number(payload.boInativo ?? 0),
+    boInativo: toBool(payload.boInativo),
   };
 }
 
@@ -370,7 +394,7 @@ export function normalizeEquipamentoPayload(payload: EquipamentoPayload) {
     dsEquipamento: payload.dsEquipamento?.trim() || null,
     nmEquipamento,
     dtAquisicao: dtAquisicao ?? null,
-    boInativo: Number(payload.boInativo ?? 0),
+    boInativo: toBool(payload.boInativo),
   };
 }
 
@@ -385,7 +409,7 @@ export function normalizeEquipamentoManutencaoPayload(payload: EquipamentoManute
   return {
     dtExecucao,
     dtValidade: dtValidade ?? null,
-    boInativo: Number(payload.boInativo ?? 0),
+    boInativo: toBool(payload.boInativo),
   };
 }
 
@@ -415,7 +439,7 @@ export function normalizeLocalidadePayload(payload: LocalidadePayload) {
     cnLocalidadeTP: Number(payload.cnLocalidadeTP ?? 0),
     latitude,
     longitude,
-    boInativo: Number(payload.boInativo ?? 0),
+    boInativo: toBool(payload.boInativo),
   };
 }
 
@@ -489,9 +513,9 @@ export function normalizeRegisterEmployeePayload(payload: RegisterPayload) {
     caCPF,
     dtNascimento,
     nrDDD: String(payload.ddd ?? '').replace(/\D/g, '') || null,
-    nrContato: Number(String(payload.phone ?? '').replace(/\D/g, '') || 0),
+    nrContato: String(payload.phone ?? '').replace(/\D/g, '') || null,
     anEmail,
-    boInativo: 0,
+    boInativo: false,
   };
 }
 
@@ -505,9 +529,9 @@ export function normalizeRegisterStudentPayload(payload: RegisterPayload): Stude
     anEmail: payload.email,
     anCEP: '',
     anLogradouro: '',
-    anCoplemento: '',
+    anComplemento: '',
     anBairro: '',
     nrEndereco: null,
-    boInativo: 0,
+    boInativo: false,
   };
 }

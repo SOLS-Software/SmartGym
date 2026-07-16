@@ -1,3 +1,4 @@
+import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { assertValidId, optionalDate, optionalNumber, requiredText } from '../../shared/normalize.js';
 import { prisma } from '../../shared/prisma.js';
@@ -36,38 +37,48 @@ function normalizeActivityPayload(payload: ActivityPayload) {
     idEmpresa: optionalNumber(payload.idEmpresa),
     idEsporte: optionalNumber(payload.idEsporte),
     dsAtividade: requiredText(payload.dsAtividade, 'Informe a atividade.'),
-    boInativo: Number(payload.boInativo ?? 0),
+    boInativo: toBool(payload.boInativo),
   };
 }
 
 function normalizeActivitySchedulePayload(activityId: number, payload: ActivitySchedulePayload) {
+  const idEmpresa = optionalNumber(payload.idEmpresa);
+  if (!idEmpresa) throw new Error('Informe a empresa da agenda.');
   return {
-    idEmpresa: optionalNumber(payload.idEmpresa),
+    idEmpresa,
     idAtividade: activityId,
     idCategoria: optionalNumber(payload.idCategoria),
     idLocalidade: optionalNumber(payload.idLocalidade),
     dtInicial: optionalDate(payload.dtInicial) ?? null,
     dtFinal: optionalDate(payload.dtFinal) ?? null,
     qtAlunos: optionalNumber(payload.qtAlunos),
-    boInativo: Number(payload.boInativo ?? 0),
+    boInativo: toBool(payload.boInativo),
   };
 }
 
 function normalizeScheduleEmployeePayload(scheduleId: number, payload: ScheduleEmployeePayload) {
+  const idEmpresa = optionalNumber(payload.idEmpresa);
+  if (!idEmpresa) throw new Error('Informe a empresa.');
+  const idFuncionario = optionalNumber(payload.idFuncionario);
+  if (!idFuncionario) throw new Error('Informe o funcionario.');
   return {
-    idEmpresa: optionalNumber(payload.idEmpresa),
+    idEmpresa,
     idAtividadeAgenda: scheduleId,
-    idFuncionario: optionalNumber(payload.idFuncionario),
-    boInativo: Number(payload.boInativo ?? 0),
+    idFuncionario,
+    boInativo: toBool(payload.boInativo),
   };
 }
 
 function normalizeScheduleStudentPayload(scheduleId: number, payload: ScheduleStudentPayload) {
+  const idEmpresa = optionalNumber(payload.idEmpresa);
+  if (!idEmpresa) throw new Error('Informe a empresa.');
+  const idAluno = optionalNumber(payload.idAluno);
+  if (!idAluno) throw new Error('Informe o aluno.');
   return {
-    idEmpresa: optionalNumber(payload.idEmpresa),
+    idEmpresa,
     idAtividadeAgenda: scheduleId,
-    idAluno: optionalNumber(payload.idAluno),
-    boInativo: Number(payload.boInativo ?? 0),
+    idAluno,
+    boInativo: toBool(payload.boInativo),
   };
 }
 
@@ -108,13 +119,13 @@ export async function registerActivityRoutes(app: FastifyInstance) {
 
     return prisma.atividade.findMany({
       where: {
-        ...(includeInactive ? {} : { boInativo: 0 }),
+        ...(includeInactive ? {} : { boInativo: false }),
         ...(search ? { dsAtividade: { contains: search, mode: 'insensitive' } } : {}),
         ...(dateRangeFilter
           ? {
               atividadeAgendas: {
                 some: {
-                  boInativo: 0,
+                  boInativo: false,
                   dtInicial: dateRangeFilter,
                 },
               },
@@ -127,19 +138,19 @@ export async function registerActivityRoutes(app: FastifyInstance) {
             esporte: true,
             atividadeAgendas: {
               where: {
-                boInativo: 0,
+                boInativo: false,
                 ...(dateRangeFilter ? { dtInicial: dateRangeFilter } : {}),
               },
               include: {
                 empresa: true,
                 categoria: true,
                 funcionarioAtividadeAgendas: {
-                  where: { boInativo: 0 },
+                  where: { boInativo: false },
                   include: { funcionario: true },
                   orderBy: { dtCadastro: 'desc' },
                 },
                 alunoAtividadeAgendas: {
-                  where: { boInativo: 0 },
+                  where: { boInativo: false },
                   select: { id: true, idAluno: true },
                 },
               },
@@ -187,7 +198,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       assertValidId(id, 'Atividade invalida.');
       return prisma.atividade.update({
         where: { id },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({
@@ -277,7 +288,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       }
       return prisma.atividadeAgenda.update({
         where: { id: scheduleId },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({
@@ -383,7 +394,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
 
       return prisma.funcionarioAtividadeAgenda.update({
         where: { id: employeeScheduleId },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({
@@ -489,7 +500,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
 
       return prisma.alunoAtividadeAgenda.update({
         where: { id: studentScheduleId },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({

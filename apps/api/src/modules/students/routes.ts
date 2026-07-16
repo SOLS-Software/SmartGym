@@ -1,3 +1,4 @@
+import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import {
@@ -157,7 +158,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   }>('/students/:id/status', async (request, reply) => {
     try {
       const id = Number(request.params.id);
-      const boInativo = Number(request.body.boInativo ?? 0);
+      const boInativo = toBool(request.body.boInativo);
       return prisma.aluno.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do aluno.' });
@@ -175,7 +176,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       const idAluno = Number(request.params.id);
       assertValidId(idAluno, 'Aluno invalido.');
       return prisma.alunoArquivo.findMany({
-        where: { idAluno, boInativo: 0 },
+        where: { idAluno, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
       });
     } catch (error) {
@@ -247,7 +248,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
 
       const studentFile = await prisma.alunoArquivo.findFirst({
-        where: { id: fileId, idAluno, boInativo: 0 },
+        where: { id: fileId, idAluno, boInativo: false },
       });
 
       if (!studentFile) {
@@ -282,14 +283,14 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
 
       const existingFile = await prisma.alunoArquivo.findFirst({
-        where: { id: fileId, idAluno, boInativo: 0 },
+        where: { id: fileId, idAluno, boInativo: false },
       });
 
       if (!existingFile) {
         return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
       }
 
-      return prisma.alunoArquivo.update({ where: { id: fileId }, data: { boInativo: 1 } });
+      return prisma.alunoArquivo.update({ where: { id: fileId }, data: { boInativo: true } });
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao remover arquivo do aluno.',
@@ -308,7 +309,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       const idAluno = Number(request.params.id);
       assertValidId(idAluno, 'Aluno invalido.');
       return prisma.alunoBiometriaFacial.findMany({
-        where: { idAluno, boInativo: 0 },
+        where: { idAluno, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
       });
     } catch (error) {
@@ -339,7 +340,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
       if (data.idAlunoArquivo) {
         const studentFile = await prisma.alunoArquivo.findFirst({
-          where: { id: data.idAlunoArquivo, idAluno, boInativo: 0 },
+          where: { id: data.idAlunoArquivo, idAluno, boInativo: false },
           select: { id: true },
         });
         if (!studentFile) {
@@ -349,8 +350,8 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
       const biometric = await prisma.$transaction(async (transaction) => {
         await transaction.alunoBiometriaFacial.updateMany({
-          where: { idAluno, boInativo: 0 },
-          data: { boInativo: 1 },
+          where: { idAluno, boInativo: false },
+          data: { boInativo: true },
         });
 
         return transaction.alunoBiometriaFacial.create({
@@ -364,7 +365,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
             anEmbedding: data.anEmbedding ?? undefined,
             nrDimensoes: data.nrDimensoes,
             nrThreshold: data.nrThreshold,
-            boInativo: 0,
+            boInativo: false,
           },
         });
       });
@@ -408,7 +409,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       }
 
       const studentFile = await prisma.alunoArquivo.findFirst({
-        where: { id: idAlunoArquivo, idAluno, boInativo: 0 },
+        where: { id: idAlunoArquivo, idAluno, boInativo: false },
         select: { id: true, dsArquivo: true, anCaminho: true },
       });
 
@@ -436,8 +437,8 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
       const biometric = await prisma.$transaction(async (transaction) => {
         await transaction.alunoBiometriaFacial.updateMany({
-          where: { idAluno, boInativo: 0 },
-          data: { boInativo: 1 },
+          where: { idAluno, boInativo: false },
+          data: { boInativo: true },
         });
 
         return transaction.alunoBiometriaFacial.create({
@@ -449,7 +450,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
             dsSubject: comprefaceFace.subject || subject,
             dsExternalImageId: comprefaceFace.image_id,
             nrThreshold,
-            boInativo: 0,
+            boInativo: false,
           },
         });
       });
@@ -486,7 +487,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
       return prisma.alunoBiometriaFacial.update({
         where: { id },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({
@@ -509,27 +510,26 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       return prisma.alunoPlano.findMany({
         where: { idAluno },
         include: {
-          empresa: true,
           plano: {
             include: {
               frequencia: true,
               planoAtividades: {
-                where: { boInativo: 0 },
+                where: { boInativo: false },
                 include: { atividade: true },
                 orderBy: { id: 'asc' },
               },
               planoProdutos: {
-                where: { boInativo: 0 },
+                where: { boInativo: false },
                 include: { produto: true },
                 orderBy: { id: 'asc' },
               },
               planoEmpresas: {
-                where: { boInativo: 0 },
+                where: { boInativo: false },
                 include: { empresa: true },
                 orderBy: { id: 'asc' },
               },
               planoValores: {
-                where: { boInativo: 0 },
+                where: { boInativo: false },
                 include: { empresa: true },
                 orderBy: { dtCadastro: 'desc' },
               },
@@ -617,7 +617,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
             alunoPlano: { idAluno },
             idAtividadeAgenda: null,
             dtCadastro: { gte: startsAt, lt: endsAt },
-            boInativo: 0,
+            boInativo: false,
           },
           include: {
             alunoPlano: { include: { plano: true } },
@@ -637,9 +637,9 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         prisma.alunoAtividadeAgenda.findMany({
           where: {
             idAluno,
-            boInativo: 0,
+            boInativo: false,
             atividadeAgenda: {
-              boInativo: 0,
+              boInativo: false,
               dtInicial: { gte: startsAt, lt: endsAt },
             },
           },
@@ -651,7 +651,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
                 categoria: true,
                 empresa: true,
                 funcionarioAtividadeAgendas: {
-                  where: { boInativo: 0 },
+                  where: { boInativo: false },
                   include: { funcionario: true },
                 },
               },
@@ -663,7 +663,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
           where: {
             idAluno,
             idAtividadeAgenda: { not: null },
-            boInativo: 0,
+            boInativo: false,
             atividadeAgenda: { dtInicial: { gte: startsAt, lt: endsAt } },
           },
           include: {
@@ -673,7 +673,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
                 categoria: true,
                 empresa: true,
                 funcionarioAtividadeAgendas: {
-                  where: { boInativo: 0 },
+                  where: { boInativo: false },
                   include: { funcionario: true },
                 },
               },
@@ -711,11 +711,11 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
       const created = await prisma.$transaction(async (transaction) => {
         const schedules = await transaction.atividadeAgenda.findMany({
-          where: { id: { in: scheduleIds }, boInativo: 0 },
+          where: { id: { in: scheduleIds }, boInativo: false },
           include: {
             atividade: { select: { dsAtividade: true } },
             alunoAtividadeAgendas: {
-              where: { boInativo: 0 },
+              where: { boInativo: false },
               select: { idAluno: true },
             },
           },
@@ -768,9 +768,9 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         const existingEnrollments = await transaction.alunoAtividadeAgenda.findMany({
           where: {
             idAluno,
-            boInativo: 0,
+            boInativo: false,
             atividadeAgenda: {
-              boInativo: 0,
+              boInativo: false,
               dtInicial: { lt: selectedEnd },
               dtFinal: { gt: selectedStart },
             },
@@ -780,7 +780,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
               include: {
                 atividade: { select: { dsAtividade: true } },
                 alunoAtividadeAgendas: {
-                  where: { boInativo: 0 },
+                  where: { boInativo: false },
                   select: { idAluno: true },
                 },
               },
@@ -808,7 +808,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
                 idAluno,
                 idEmpresa: schedule.idEmpresa,
                 idAtividadeAgenda: schedule.id,
-                boInativo: 0,
+                boInativo: false,
               },
             }),
           ),
@@ -834,7 +834,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         include: {
           funcionario: true,
           treino: true,
-          alunoTreinosSequencias: { where: { boInativo: 0 }, orderBy: { nrOrdem: 'asc' } },
+          alunoTreinosSequencias: { where: { boInativo: false }, orderBy: { nrOrdem: 'asc' } },
         },
         orderBy: { dtCadastro: 'desc' },
       });
@@ -860,15 +860,16 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       }
 
       if (resource === 'plans') {
+        const idPlano = optionalNumber(request.body.idPlano);
+        if (!idPlano) throw new Error('Selecione o plano.');
         const record = await prisma.alunoPlano.create({
           data: {
             idAluno,
-            idEmpresa: optionalNumber(request.body.idEmpresa),
-            idPlano: optionalNumber(request.body.idPlano),
+            idPlano,
             idPromocaoPlano: optionalNumber(request.body.idPromocaoPlano),
             nrDiaPagamento: Number(request.body.nrDiaPagamento ?? 1),
             dtAdmissao: optionalDate(request.body.dtAdmissao) ?? new Date(),
-            boInativo: Number(request.body.boInativo ?? 0),
+            boInativo: toBool(request.body.boInativo),
           },
         });
         return reply.code(201).send(record);
@@ -890,12 +891,12 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         const nrOrdemSequencia = optionalNumber(request.body.nrOrdemSequencia);
         const record = await prisma.$transaction(async (transaction) => {
           const studentTraining = await transaction.alunoTreino.create({
-            data: { idAluno, idFuncionario, idTreino, boInativo: Number(request.body.boInativo ?? 0) },
+            data: { idAluno, idFuncionario, idTreino, boInativo: toBool(request.body.boInativo) },
           });
 
           if (nrOrdemSequencia) {
             await transaction.alunoTreinoSequencia.create({
-              data: { idAlunoTreino: studentTraining.id, nrOrdem: nrOrdemSequencia, boInativo: 0 },
+              data: { idAlunoTreino: studentTraining.id, nrOrdem: nrOrdemSequencia, boInativo: false },
             });
           }
 
@@ -904,7 +905,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
             include: {
               funcionario: true,
               treino: true,
-              alunoTreinosSequencias: { where: { boInativo: 0 }, orderBy: { nrOrdem: 'asc' } },
+              alunoTreinosSequencias: { where: { boInativo: false }, orderBy: { nrOrdem: 'asc' } },
             },
           });
         });
@@ -916,7 +917,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
       if (!idAlunoPlano && resource === 'check-ins') {
         const activePlan = await prisma.alunoPlano.findFirst({
-          where: { idAluno, boInativo: 0 },
+          where: { idAluno, boInativo: false },
           orderBy: { dtCadastro: 'desc' },
           select: { id: true },
         });
@@ -927,21 +928,28 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
       const studentPlan = await prisma.alunoPlano.findFirst({
         where: { id: idAlunoPlano, idAluno },
-        select: { id: true, idEmpresa: true },
+        select: { id: true },
       });
       if (!studentPlan) throw new Error('Plano do aluno invalido.');
 
       if (resource === 'payments') {
+        const idEmpresa = optionalNumber(request.body.idEmpresa);
+        if (!idEmpresa) throw new Error('Informe a empresa do pagamento.');
+        const idStatusPagamento = optionalNumber(request.body.idStatusPagamento);
+        if (!idStatusPagamento) throw new Error('Informe o status do pagamento.');
         const record = await prisma.pagamento.create({
           data: {
-            idEmpresa: optionalNumber(request.body.idEmpresa) ?? studentPlan.idEmpresa,
+            idEmpresa,
             idAlunoPlano,
             idProdutoMovimentacao: optionalNumber(request.body.idProdutoMovimentacao),
-            vlPagamento: Number(request.body.vlPagamento ?? 0),
-            idStatusPagamento: optionalNumber(request.body.idStatusPagamento),
+            vlPrevisto: Number(request.body.vlPrevisto ?? request.body.vlPago ?? 0),
+            vlPago: optionalNumber(request.body.vlPago),
+            idStatusPagamento,
             idFormaPagamento: optionalNumber(request.body.idFormaPagamento),
+            dtVencimento: optionalDate(request.body.dtVencimento),
+            dtCompetencia: optionalDate(request.body.dtCompetencia),
             dtPagamento: optionalDate(request.body.dtPagamento) ?? new Date(),
-            boInativo: Number(request.body.boInativo ?? 0),
+            boInativo: toBool(request.body.boInativo),
           },
         });
         return reply.code(201).send(record);
@@ -963,13 +971,17 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         }
       }
 
+      const idEmpresaCheckIn = optionalNumber(request.body.idEmpresa);
+      if (!idEmpresaCheckIn) throw new Error('Informe a empresa do check-in.');
+
       const record = await prisma.alunoCheckIn.create({
         data: {
-          idEmpresa: optionalNumber(request.body.idEmpresa) ?? studentPlan.idEmpresa,
+          idEmpresa: idEmpresaCheckIn,
+          idAluno,
           idAlunoPlano,
           idAlunoTreinosSequencia,
-          idPontos: optionalNumber(request.body.idPontos),
-          boInativo: Number(request.body.boInativo ?? 0),
+          idPontuacao: optionalNumber(request.body.idPontuacao),
+          boInativo: toBool(request.body.boInativo),
         },
         include: {
           alunoPlano: { include: { plano: true } },
@@ -1008,15 +1020,16 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         const current = await prisma.alunoPlano.findFirst({ where: { id: childId, idAluno }, select: { id: true } });
         if (!current) throw new Error('Plano do aluno invalido.');
 
+        const idPlano = optionalNumber(request.body.idPlano);
+        if (!idPlano) throw new Error('Selecione o plano.');
         return prisma.alunoPlano.update({
           where: { id: childId },
           data: {
-            idEmpresa: optionalNumber(request.body.idEmpresa),
-            idPlano: optionalNumber(request.body.idPlano),
+            idPlano,
             idPromocaoPlano: optionalNumber(request.body.idPromocaoPlano),
             nrDiaPagamento: Number(request.body.nrDiaPagamento ?? 1),
             dtAdmissao: optionalDate(request.body.dtAdmissao) ?? new Date(),
-            boInativo: Number(request.body.boInativo ?? 0),
+            boInativo: toBool(request.body.boInativo),
           },
         });
       }
@@ -1042,12 +1055,12 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         return prisma.$transaction(async (transaction) => {
           await transaction.alunoTreino.update({
             where: { id: childId },
-            data: { idFuncionario, idTreino, boInativo: Number(request.body.boInativo ?? 0) },
+            data: { idFuncionario, idTreino, boInativo: toBool(request.body.boInativo) },
           });
 
           if (nrOrdemSequencia) {
             const currentSequence = await transaction.alunoTreinoSequencia.findFirst({
-              where: { idAlunoTreino: childId, boInativo: 0 },
+              where: { idAlunoTreino: childId, boInativo: false },
               orderBy: { nrOrdem: 'asc' },
             });
 
@@ -1058,7 +1071,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
               });
             } else {
               await transaction.alunoTreinoSequencia.create({
-                data: { idAlunoTreino: childId, nrOrdem: nrOrdemSequencia, boInativo: 0 },
+                data: { idAlunoTreino: childId, nrOrdem: nrOrdemSequencia, boInativo: false },
               });
             }
           }
@@ -1068,7 +1081,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
             include: {
               funcionario: true,
               treino: true,
-              alunoTreinosSequencias: { where: { boInativo: 0 }, orderBy: { nrOrdem: 'asc' } },
+              alunoTreinosSequencias: { where: { boInativo: false }, orderBy: { nrOrdem: 'asc' } },
             },
           });
         });
@@ -1079,7 +1092,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
       const studentPlan = await prisma.alunoPlano.findFirst({
         where: { id: idAlunoPlano, idAluno },
-        select: { id: true, idEmpresa: true },
+        select: { id: true },
       });
       if (!studentPlan) throw new Error('Plano do aluno invalido.');
 
@@ -1090,17 +1103,25 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         });
         if (!current) throw new Error('Pagamento invalido.');
 
+        const idEmpresa = optionalNumber(request.body.idEmpresa);
+        if (!idEmpresa) throw new Error('Informe a empresa do pagamento.');
+        const idStatusPagamento = optionalNumber(request.body.idStatusPagamento);
+        if (!idStatusPagamento) throw new Error('Informe o status do pagamento.');
+
         return prisma.pagamento.update({
           where: { id: childId },
           data: {
-            idEmpresa: optionalNumber(request.body.idEmpresa) ?? studentPlan.idEmpresa,
+            idEmpresa,
             idAlunoPlano,
             idProdutoMovimentacao: optionalNumber(request.body.idProdutoMovimentacao),
-            vlPagamento: Number(request.body.vlPagamento ?? 0),
-            idStatusPagamento: optionalNumber(request.body.idStatusPagamento),
+            vlPrevisto: Number(request.body.vlPrevisto ?? request.body.vlPago ?? 0),
+            vlPago: optionalNumber(request.body.vlPago),
+            idStatusPagamento,
             idFormaPagamento: optionalNumber(request.body.idFormaPagamento),
+            dtVencimento: optionalDate(request.body.dtVencimento),
+            dtCompetencia: optionalDate(request.body.dtCompetencia),
             dtPagamento: optionalDate(request.body.dtPagamento) ?? new Date(),
-            boInativo: Number(request.body.boInativo ?? 0),
+            boInativo: toBool(request.body.boInativo),
           },
         });
       }
@@ -1111,14 +1132,17 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       });
       if (!current) throw new Error('Check-in invalido.');
 
+      const idEmpresaCheckIn = optionalNumber(request.body.idEmpresa);
+      if (!idEmpresaCheckIn) throw new Error('Informe a empresa do check-in.');
+
       return prisma.alunoCheckIn.update({
         where: { id: childId },
         data: {
-          idEmpresa: optionalNumber(request.body.idEmpresa) ?? studentPlan.idEmpresa,
+          idEmpresa: idEmpresaCheckIn,
           idAlunoPlano,
           idAlunoTreinosSequencia: optionalNumber(request.body.idAlunoTreinosSequencia),
-          idPontos: optionalNumber(request.body.idPontos),
-          boInativo: Number(request.body.boInativo ?? 0),
+          idPontuacao: optionalNumber(request.body.idPontuacao),
+          boInativo: toBool(request.body.boInativo),
         },
       });
     } catch (error) {
@@ -1136,7 +1160,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       const idAluno = Number(request.params.id);
       const childId = Number(request.params.childId);
       const resource = getStudentChildResourceConfig(request.params.resource);
-      const boInativo = Number(request.body.boInativo ?? 0);
+      const boInativo = toBool(request.body.boInativo);
       assertValidId(idAluno, 'Aluno invalido.');
       assertValidId(childId, 'Registro invalido.');
 
@@ -1155,7 +1179,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
           include: {
             funcionario: true,
             treino: true,
-            alunoTreinosSequencias: { where: { boInativo: 0 }, orderBy: { nrOrdem: 'asc' } },
+            alunoTreinosSequencias: { where: { boInativo: false }, orderBy: { nrOrdem: 'asc' } },
           },
         });
       }

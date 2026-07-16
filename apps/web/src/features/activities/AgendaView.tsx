@@ -5,7 +5,7 @@ import { CalendarDays, CheckCircle, Clock, Users, XCircle } from 'lucide-react';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import type { Activity, AgendaSession, Employee, EnrolledStudent, Sport } from '../../shared/registration/registrationTypes';
 
-type Category = { id: number; dsCategoria: string; boInativo: number };
+type Category = { id: number; dsCategoria: string; boInativo: boolean };
 
 type AgendaViewProps = {
   userType: 'employee' | 'student';
@@ -100,12 +100,12 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
       const response = await fetch(`${apiUrl}/students/${idAluno}/related/plans`);
       if (!response.ok) return;
       const plans = (await response.json()) as Array<{
-        plano: { planoAtividades: Array<{ idAtividade: number | null; boInativo: number }> } | null;
+        plano: { planoAtividades: Array<{ idAtividade: number | null; boInativo: boolean }> } | null;
       }>;
       const ids = new Set<number>();
       for (const alunoPlano of plans) {
         for (const pa of alunoPlano.plano?.planoAtividades ?? []) {
-          if (pa.boInativo === 0 && pa.idAtividade !== null) ids.add(pa.idAtividade);
+          if (pa.boInativo === false && pa.idAtividade !== null) ids.add(pa.idAtividade);
         }
       }
       setAllowedActivityIds(ids);
@@ -123,10 +123,10 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
         fetch(`${apiUrl}/employees`),
         fetch(`${apiUrl}/categories`),
       ]);
-      setActivities(((await activitiesRes.json()) as Activity[]).filter((a) => a.boInativo === 0));
-      setSports(((await sportsRes.json()) as Sport[]).filter((s) => s.boInativo === 0));
+      setActivities(((await activitiesRes.json()) as Activity[]).filter((a) => a.boInativo === false));
+      setSports(((await sportsRes.json()) as Sport[]).filter((s) => s.boInativo === false));
       setEmployees((await employeesRes.json()) as Employee[]);
-      setCategories(((await categoriesRes.json()) as Category[]).filter((c) => c.boInativo === 0));
+      setCategories(((await categoriesRes.json()) as Category[]).filter((c) => c.boInativo === false));
     } catch {
       // lookups não-críticos: falhar silenciosamente
     }
@@ -145,7 +145,7 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
       const response = await fetch(`${apiUrl}/agenda-sessions?${params.toString()}`);
       if (!response.ok) await getApiError(response, 'Erro ao carregar agendas.');
       const data = (await response.json()) as AgendaSession[];
-      setSessions(data.filter((s) => s.boInativo === 0));
+      setSessions(data.filter((s) => s.boInativo === false));
       setSelectedSessionId(null);
       setEnrolledStudents([]);
     } catch (error) {
@@ -233,7 +233,7 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
     }
   }
 
-  async function handleToggleStatus(sessionId: number, boInativo: number) {
+  async function handleToggleStatus(sessionId: number, boInativo: boolean) {
     try {
       setFeedback('');
       const response = await fetch(`${apiUrl}/agenda-sessions/${sessionId}/status`, {
@@ -534,7 +534,7 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
               </div>
               <button
                 className={`ghost-button ${selectedSession.boInativo ? 'success' : 'danger'}`}
-                onClick={() => void handleToggleStatus(selectedSession.id, selectedSession.boInativo ? 0 : 1)}
+                onClick={() => void handleToggleStatus(selectedSession.id, selectedSession.boInativo ? false : true)}
                 type="button"
               >
                 {selectedSession.boInativo ? 'Ativar' : 'Suspender'}

@@ -1,3 +1,4 @@
+import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId, optionalNumber } from '../../shared/normalize.js';
@@ -29,7 +30,7 @@ function normalizeCatracaPayload(payload: CatracaPayload) {
     anIp: (payload.anIp ?? '').trim(),
     anMac: (payload.anMac ?? '').trim().toUpperCase(),
     caToken: (payload.caToken ?? '').trim(),
-    boInativo: Number(payload.boInativo ?? 0),
+    boInativo: toBool(payload.boInativo),
   };
 }
 
@@ -67,7 +68,7 @@ async function findOrAutoRegisterCatraca(device: ControlidDeviceInfo, clientIp: 
       caSerial,
       anMac,
       anIp: clientIp,
-      boInativo: 1, // aguardando ativacao manual no painel
+      boInativo: true, // aguardando ativacao manual no painel
     },
   });
 }
@@ -170,7 +171,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
       const idEmpresa = optionalNumber(request.query.idEmpresa);
       return prisma.catraca.findMany({
         where: {
-          ...(includeInactive ? {} : { boInativo: 0 }),
+          ...(includeInactive ? {} : { boInativo: false }),
           ...(idEmpresa ? { idEmpresa } : {}),
         },
         orderBy: { dtCadastro: 'desc' },
@@ -214,7 +215,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
         assertValidId(id, 'Catraca invalida.');
         return prisma.catraca.update({
           where: { id },
-          data: { boInativo: Number(request.body.boInativo ?? 0) },
+          data: { boInativo: toBool(request.body.boInativo) },
         });
       } catch (error) {
         return reply.code(400).send({
@@ -236,15 +237,13 @@ export async function registerControlidRoutes(app: FastifyInstance) {
     };
   }>('/controlid/events', async (request) => {
     const idCatraca = optionalNumber(request.query.idCatraca);
-    const idAluno = optionalNumber(request.query.idAluno);
     const onlyGranted = request.query.onlyGranted === 'true';
     const limit = Math.min(Math.max(Number(request.query.limit ?? 100), 1), 500);
 
     return prisma.catracaEvento.findMany({
       where: {
         ...(idCatraca ? { idCatraca } : {}),
-        ...(idAluno ? { idAluno } : {}),
-        ...(onlyGranted ? { boAcessoLiberado: 1 } : {}),
+        ...(onlyGranted ? { boAcessoLiberado: true } : {}),
       },
       orderBy: { dtEvento: 'desc' },
       take: limit,
@@ -281,7 +280,7 @@ async function handleControlidPollRequest(
           dsModelo: '',
           caSerial: deviceId,
           anIp: clientIp,
-          boInativo: 1,
+          boInativo: true,
         },
       });
       request.log.info(
@@ -415,13 +414,14 @@ async function persistEvents(params: {
   const { events, idCatraca, anIpOrigem } = params;
   let persisted = 0;
 
-  for (const event of events) {
-    const idAluno = await resolveAlunoId(event.nrUsuarioCatraca);
+  if (idCatraca == null) {
+    return persisted;
+  }
 
+  for (const event of events) {
     await prisma.catracaEvento.create({
       data: {
         idCatraca,
-        idAluno,
         idEventoDispositivo: event.idEventoDispositivo,
         nrUsuarioCatraca: event.nrUsuarioCatraca,
         nrTipoEvento: event.nrTipoEvento,

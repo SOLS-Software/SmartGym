@@ -25,12 +25,12 @@ type ClientTheme = {
   corFundo?: string;
   fontePrincipal?: string;
   tamanhoBase?: number;
-  boModoEscuro?: number;
+  boModoEscuro?: boolean;
   logoUrl?: string | null;
   faviconUrl?: string | null;
 };
 
-type Company = { id: number; dsEmpresa: string; caCNPJ: string; boInativo: number };
+type Company = { id: number; dsEmpresa: string; caCNPJ: string; boInativo: boolean };
 
 type GestorSession = AuthenticatedUser & {
   idCliente: number;

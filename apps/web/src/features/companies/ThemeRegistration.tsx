@@ -20,7 +20,7 @@ type CustomTheme = {
   tamanhoBase: number;
   espacamentoPadrao: number;
   raioCardBorder: number;
-  boModoEscuro: number;
+  boModoEscuro: boolean;
   idArquivoLogo: number | null;
   idArquivoFavicon: number | null;
   idClienteArquivoLogo: number | null;
@@ -30,8 +30,8 @@ type CustomTheme = {
 type CorporateDomain = {
   id: number;
   urlDominio: string;
-  boSubdominio: number;
-  boAtivo: number;
+  boSubdominio: boolean;
+  boAtivo: boolean;
 };
 
 type Props = {
@@ -39,7 +39,7 @@ type Props = {
   allowedCompanyIds?: number[];
 };
 
-type Company = { id: number; dsEmpresa: string; caCNPJ: string; boInativo: number };
+type Company = { id: number; dsEmpresa: string; caCNPJ: string; boInativo: boolean };
 
 const DEFAULT_THEME: CustomTheme = {
   corPrimaria: '#1f7a53',
@@ -52,7 +52,7 @@ const DEFAULT_THEME: CustomTheme = {
   tamanhoBase: 14,
   espacamentoPadrao: 16,
   raioCardBorder: 8,
-  boModoEscuro: 0,
+  boModoEscuro: false,
   idArquivoLogo: null,
   idArquivoFavicon: null,
   idClienteArquivoLogo: null,
@@ -328,8 +328,8 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
     setSelectedDomainId(domain.id);
     setIsCreatingDomain(false);
     setDomainUrl(domain.urlDominio);
-    setDomainIsSubdomain(domain.boSubdominio === 1);
-    setDomainIsActive(domain.boAtivo === 1);
+    setDomainIsSubdomain(domain.boSubdominio === true);
+    setDomainIsActive(domain.boAtivo === true);
     setDomainFeedback('');
   }
 
@@ -351,7 +351,7 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ boAtivo: next ? 1 : 0 }),
+          body: JSON.stringify({ boAtivo: next }),
         },
       );
       if (!res.ok) await getApiError(res, 'Não foi possível alterar o status.');
@@ -368,8 +368,8 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
     try {
       const payload = {
         urlDominio: domainUrl.trim().toLowerCase(),
-        boSubdominio: domainIsSubdomain ? 1 : 0,
-        boAtivo: domainIsActive ? 1 : 0,
+        boSubdominio: domainIsSubdomain,
+        boAtivo: domainIsActive,
       };
       const baseUrl = `${apiUrl}/clients/${idCliente}/domains`;
       const res = await fetch(
@@ -495,13 +495,13 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
         <div className="field">
           <label htmlFor={`${prefix}-boModoEscuro`}>Modo Escuro</label>
           <button
-            aria-pressed={themeData.boModoEscuro === 1}
-            className={`status-toggle ${themeData.boModoEscuro === 1 ? 'active' : ''}`}
+            aria-pressed={themeData.boModoEscuro === true}
+            className={`status-toggle ${themeData.boModoEscuro === true ? 'active' : ''}`}
             id={`${prefix}-boModoEscuro`}
-            onClick={() => onChange('boModoEscuro', themeData.boModoEscuro === 1 ? 0 : 1)}
+            onClick={() => onChange('boModoEscuro', themeData.boModoEscuro === true ? false : true)}
             type="button"
           >
-            <span>{themeData.boModoEscuro === 1 ? 'Ativado' : 'Desativado'}</span>
+            <span>{themeData.boModoEscuro === true ? 'Ativado' : 'Desativado'}</span>
           </button>
         </div>
         <div className="field">
@@ -573,11 +573,11 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
           >
             <span role="cell">{domain.urlDominio}</span>
             <span role="cell">
-              {domain.boSubdominio === 1 ? 'Subdomínio' : 'Domínio próprio'}
+              {domain.boSubdominio === true ? 'Subdomínio' : 'Domínio próprio'}
             </span>
             <span role="cell">
-              <span className={`status-badge ${domain.boAtivo === 1 ? 'active' : 'inactive'}`}>
-                {domain.boAtivo === 1 ? 'Ativo' : 'Inativo'}
+              <span className={`status-badge ${domain.boAtivo === true ? 'active' : 'inactive'}`}>
+                {domain.boAtivo === true ? 'Ativo' : 'Inativo'}
               </span>
             </span>
           </button>

@@ -1,3 +1,4 @@
+import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { normalizeExercisePayload, assertValidId } from '../../shared/normalize.js';
@@ -24,11 +25,11 @@ async function attachExerciseCovers<T extends { id: number }>(exercises: T[]) {
 
   const [files, areaLinks] = await Promise.all([
     prisma.exercicioArquivo.findMany({
-      where: { idExercicio: { in: exerciseIds }, boInativo: 0 },
+      where: { idExercicio: { in: exerciseIds }, boInativo: false },
       orderBy: { dtCadastro: 'asc' },
     }),
     prisma.exercicioAreaCorporal.findMany({
-      where: { idExercicio: { in: exerciseIds }, boInativo: 0 },
+      where: { idExercicio: { in: exerciseIds }, boInativo: false },
       include: { areaCorporal: true },
     }),
   ]);
@@ -56,7 +57,7 @@ async function attachExerciseCovers<T extends { id: number }>(exercises: T[]) {
     }
   }
 
-  const areasByExercise = new Map<number, Array<{ id: number; dsAreaCorporal: string; boInativo: number }>>();
+  const areasByExercise = new Map<number, Array<{ id: number; dsAreaCorporal: string; boInativo: boolean }>>();
   for (const link of areaLinks) {
     if (link.idExercicio === null || !link.areaCorporal) continue;
     const list = areasByExercise.get(link.idExercicio) ?? [];
@@ -134,7 +135,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
   }>('/exercises/:id/status', async (request, reply) => {
     try {
       const id = Number(request.params.id);
-      const boInativo = Number(request.body.boInativo ?? 0);
+      const boInativo = toBool(request.body.boInativo);
       return prisma.exercicio.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do exercicio.' });
@@ -150,7 +151,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       const idExercicio = Number(request.params.id);
       assertValidId(idExercicio, 'Exercicio invalido.');
       return prisma.exercicioArquivo.findMany({
-        where: { idExercicio, boInativo: 0 },
+        where: { idExercicio, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
       });
     } catch (error) {
@@ -222,7 +223,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
 
       const exerciseFile = await prisma.exercicioArquivo.findFirst({
-        where: { id: fileId, idExercicio, boInativo: 0 },
+        where: { id: fileId, idExercicio, boInativo: false },
       });
 
       if (!exerciseFile) {
@@ -257,7 +258,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
 
       const existingFile = await prisma.exercicioArquivo.findFirst({
-        where: { id: fileId, idExercicio, boInativo: 0 },
+        where: { id: fileId, idExercicio, boInativo: false },
       });
 
       if (!existingFile) {
@@ -266,7 +267,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
 
       return prisma.exercicioArquivo.update({
         where: { id: fileId },
-        data: { boInativo: 1 },
+        data: { boInativo: true },
       });
     } catch (error) {
       return reply.code(400).send({
@@ -281,10 +282,10 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
     Params: { id: string };
   }>('/exercises/:id/equipment', async (request, reply) => {
     try {
-      const idExericio = Number(request.params.id);
-      assertValidId(idExericio, 'Exercicio invalido.');
+      const idExercicio = Number(request.params.id);
+      assertValidId(idExercicio, 'Exercicio invalido.');
       return prisma.exercicioEquipamento.findMany({
-        where: { idExericio, boInativo: 0 },
+        where: { idExercicio, boInativo: false },
         include: { equipamento: true },
         orderBy: { dtCadastro: 'desc' },
       });
@@ -300,13 +301,13 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
     Body: ExercicioEquipamentoPayload;
   }>('/exercises/:id/equipment', async (request, reply) => {
     try {
-      const idExericio = Number(request.params.id);
+      const idExercicio = Number(request.params.id);
       const idEquipamento = Number(request.body.idEquipamento);
-      assertValidId(idExericio, 'Exercicio invalido.');
+      assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(idEquipamento, 'Equipamento invalido.');
 
       const existing = await prisma.exercicioEquipamento.findFirst({
-        where: { idExericio, idEquipamento, boInativo: 0 },
+        where: { idExercicio, idEquipamento, boInativo: false },
       });
 
       if (existing) {
@@ -314,7 +315,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       }
 
       const link = await prisma.exercicioEquipamento.create({
-        data: { idExericio, idEquipamento },
+        data: { idExercicio, idEquipamento },
         include: { equipamento: true },
       });
 
@@ -330,13 +331,13 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
     Params: { id: string; linkId: string };
   }>('/exercises/:id/equipment/:linkId', async (request, reply) => {
     try {
-      const idExericio = Number(request.params.id);
+      const idExercicio = Number(request.params.id);
       const linkId = Number(request.params.linkId);
-      assertValidId(idExericio, 'Exercicio invalido.');
+      assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(linkId, 'Vinculo invalido.');
 
       const existing = await prisma.exercicioEquipamento.findFirst({
-        where: { id: linkId, idExericio },
+        where: { id: linkId, idExercicio },
       });
 
       if (!existing) {
@@ -345,7 +346,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
 
       return prisma.exercicioEquipamento.update({
         where: { id: linkId },
-        data: { boInativo: 1 },
+        data: { boInativo: true },
       });
     } catch (error) {
       return reply.code(400).send({
@@ -363,7 +364,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       const idExercicio = Number(request.params.id);
       assertValidId(idExercicio, 'Exercicio invalido.');
       return prisma.exercicioAreaCorporal.findMany({
-        where: { idExercicio, boInativo: 0 },
+        where: { idExercicio, boInativo: false },
         include: { areaCorporal: true },
         orderBy: { dtCadastro: 'desc' },
       });
@@ -385,7 +386,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(idAreaCorporal, 'Area corporal invalida.');
 
       const existing = await prisma.exercicioAreaCorporal.findFirst({
-        where: { idExercicio, idAreaCorporal, boInativo: 0 },
+        where: { idExercicio, idAreaCorporal, boInativo: false },
       });
 
       if (existing) {
@@ -424,7 +425,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
 
       return prisma.exercicioAreaCorporal.update({
         where: { id: linkId },
-        data: { boInativo: 1 },
+        data: { boInativo: true },
       });
     } catch (error) {
       return reply.code(400).send({

@@ -101,7 +101,7 @@ export function DomainRegistration() {
               config.relationField && typeof item.esporte === 'object' && item.esporte !== null
                 ? String((item.esporte as Record<string, unknown>).dsEsporte ?? '')
                 : '',
-            boInativo: Number(item.boInativo ?? 0),
+            boInativo: Boolean(item.boInativo),
           };
         }),
       );
@@ -129,7 +129,7 @@ export function DomainRegistration() {
         data.map((item) => ({
           id: Number(item.id),
           name: String(item[config.relationValueField ?? ''] ?? ''),
-          boInativo: Number(item.boInativo ?? 0),
+          boInativo: Boolean(item.boInativo),
         })),
       );
     } catch (error) {
@@ -191,7 +191,7 @@ export function DomainRegistration() {
     setName(record.name);
     setDescription(record.description ?? '');
     setSelectedRelationId(record.relationId ? String(record.relationId) : '');
-    setIsActive(record.boInativo === 0);
+    setIsActive(record.boInativo === false);
     setFeedback('');
     setIsDrawerOpen(true);
   }
@@ -213,7 +213,7 @@ export function DomainRegistration() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          boInativo: nextActive ? 0 : 1,
+          boInativo: nextActive ? false : true,
         }),
       });
 
@@ -238,7 +238,7 @@ export function DomainRegistration() {
                 config.relationField && typeof updated.esporte === 'object' && updated.esporte !== null
                   ? String((updated.esporte as Record<string, unknown>).dsEsporte ?? '')
                   : '',
-              boInativo: Number(updated.boInativo ?? 0),
+              boInativo: Boolean(updated.boInativo),
             }
             : record;
         }),
@@ -256,7 +256,7 @@ export function DomainRegistration() {
     try {
       const payload: Record<string, unknown> = {
         [config.field]: name,
-        boInativo: isActive ? 0 : 1,
+        boInativo: isActive ? false : true,
       };
       if (config.secondField) payload[config.secondField] = description;
       if (config.relationField) {
@@ -292,7 +292,7 @@ export function DomainRegistration() {
           config.relationField && typeof saved.esporte === 'object' && saved.esporte !== null
             ? String((saved.esporte as Record<string, unknown>).dsEsporte ?? '')
             : '',
-        boInativo: Number(saved.boInativo ?? 0),
+        boInativo: Boolean(saved.boInativo),
       };
 
       setRecords((current) => {
@@ -403,8 +403,8 @@ export function DomainRegistration() {
                     <span role="cell">{record.name}</span>
                     {config.relationField ? <span role="cell">{record.relationName}</span> : null}
                     <span role="cell">
-                      <span className={`status-badge ${record.boInativo === 0 ? 'active' : 'inactive'}`}>
-                        {record.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                      <span className={`status-badge ${record.boInativo === false ? 'active' : 'inactive'}`}>
+                        {record.boInativo === false ? 'Ativo' : 'Inativo'}
                       </span>
                     </span>
                     <span role="cell" className="grid-row-actions">

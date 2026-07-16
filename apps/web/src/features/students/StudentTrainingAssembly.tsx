@@ -60,7 +60,7 @@ export function StudentTrainingAssembly({
       student.nmAluno.toLowerCase().includes(search) ||
       student.caCPF.includes(searchTerm.replace(/\D/g, '')) ||
       student.anEmail.toLowerCase().includes(search) ||
-      (student.boInativo === 0 ? 'ativo' : 'inativo').includes(search)
+      (student.boInativo === false ? 'ativo' : 'inativo').includes(search)
     );
   });
   const filteredStudentTrainings = studentTrainings
@@ -69,9 +69,9 @@ export function StudentTrainingAssembly({
       const trainingName = studentTraining.treino?.dsTreino ?? getTrainingName(studentTraining.idTreino);
       const employeeName = studentTraining.funcionario?.nmFuncionario ?? getEmployeeName(studentTraining.idFuncionario);
       const sequenceLabel = getStudentTrainingSequenceLabel(studentTraining);
-      const status = studentTraining.boInativo === 0 ? 'ativo' : 'inativo';
+      const status = studentTraining.boInativo === false ? 'ativo' : 'inativo';
 
-      if (!showInactiveStudentTrainings && studentTraining.boInativo !== 0) {
+      if (!showInactiveStudentTrainings && studentTraining.boInativo !== false) {
         return false;
       }
 
@@ -92,7 +92,7 @@ export function StudentTrainingAssembly({
     );
   });
   const lastActiveSequence = studentTrainings.reduce((maxSequence, studentTraining) => {
-    if (studentTraining.boInativo !== 0) {
+    if (studentTraining.boInativo !== false) {
       return maxSequence;
     }
 
@@ -109,7 +109,7 @@ export function StudentTrainingAssembly({
     idTreino: Number(trainingId),
     dtCadastro: '',
     dtAlteracao: '',
-    boInativo: 0,
+    boInativo: false,
     funcionario: null,
     treino: trainings.find((training) => String(training.id) === trainingId) ?? null,
     alunoTreinosSequencias: shouldCreateSequence
@@ -118,7 +118,7 @@ export function StudentTrainingAssembly({
           id: -(index + 1),
           idAlunoTreino: -Number(trainingId),
           nrOrdem: lastActiveSequence + index + 1,
-          boInativo: 0,
+          boInativo: false,
         },
       ]
       : [],
@@ -133,7 +133,7 @@ export function StudentTrainingAssembly({
   const paginatedStudents = paginateItems(filteredStudents, studentsPage);
   const paginatedStudentTrainings = paginateItems(displayedStudentTrainings, studentTrainingsPage);
   const activeStudentTrainings = studentTrainings
-    .filter((studentTraining) => studentTraining.boInativo === 0)
+    .filter((studentTraining) => studentTraining.boInativo === false)
     .sort(compareStudentTrainingAsc);
   const sequenceDraftRecords = sequenceDraftIds
     .map((id) => studentTrainings.find((studentTraining) => studentTraining.id === id))
@@ -172,9 +172,9 @@ export function StudentTrainingAssembly({
         await getApiError(failedLookup, 'Não foi possível carregar treinos, profissionais e exercícios.');
       }
 
-      setTrainings(((await trainingsResponse.json()) as Training[]).filter((training) => training.boInativo === 0));
-      setEmployees(((await employeesResponse.json()) as Employee[]).filter((employee) => employee.boInativo === 0));
-      setExercises(((await exercisesResponse.json()) as Exercise[]).filter((exercise) => exercise.boInativo === 0));
+      setTrainings(((await trainingsResponse.json()) as Training[]).filter((training) => training.boInativo === false));
+      setEmployees(((await employeesResponse.json()) as Employee[]).filter((employee) => employee.boInativo === false));
+      setExercises(((await exercisesResponse.json()) as Exercise[]).filter((exercise) => exercise.boInativo === false));
       setTrainingMethods((await trainingMethodsResponse.json()) as TrainingMethod[]);
     } catch (error) {
       setStudentTrainingFeedback(error instanceof Error ? error.message : 'Erro ao carregar listas.');
@@ -219,7 +219,7 @@ export function StudentTrainingAssembly({
     const trainingIds = Array.from(
       new Set(
         records
-          .filter((studentTraining) => studentTraining.boInativo === 0 && studentTraining.idTreino)
+          .filter((studentTraining) => studentTraining.boInativo === false && studentTraining.idTreino)
           .map((studentTraining) => Number(studentTraining.idTreino)),
       ),
     );
@@ -241,7 +241,7 @@ export function StudentTrainingAssembly({
           }
 
           const records = ((await response.json()) as TrainingExercise[])
-            .filter((trainingExercise) => trainingExercise.boInativo === 0)
+            .filter((trainingExercise) => trainingExercise.boInativo === false)
             .sort(compareTrainingExerciseAsc);
 
           return [trainingId, records] as const;
@@ -270,7 +270,7 @@ export function StudentTrainingAssembly({
       }
 
       const records = ((await response.json()) as TrainingExercise[])
-        .filter((trainingExercise) => trainingExercise.boInativo === 0)
+        .filter((trainingExercise) => trainingExercise.boInativo === false)
         .sort(compareTrainingExerciseAsc);
 
       setGroupedTrainingExercises((current) => ({
@@ -316,12 +316,12 @@ export function StudentTrainingAssembly({
 
       setSelectedTrainingExercises(
         ((await trainingExercisesResponse.json()) as TrainingExercise[])
-          .filter((trainingExercise) => trainingExercise.boInativo === 0)
+          .filter((trainingExercise) => trainingExercise.boInativo === false)
           .sort(compareTrainingExerciseAsc),
       );
 
       if (exercisesResponse) {
-        setExercises(((await exercisesResponse.json()) as Exercise[]).filter((exercise) => exercise.boInativo === 0));
+        setExercises(((await exercisesResponse.json()) as Exercise[]).filter((exercise) => exercise.boInativo === false));
       }
 
       if (trainingMethodsResponse) {
@@ -427,7 +427,7 @@ export function StudentTrainingAssembly({
     if (studentTraining.id < 0) {
       setIsCreatingStudentTraining(true);
     }
-    setIsStudentTrainingActive(studentTraining.boInativo === 0);
+    setIsStudentTrainingActive(studentTraining.boInativo === false);
     setStudentTrainingFeedback('');
     void loadSelectedTrainingExercises(studentTraining.idTreino);
   }
@@ -609,7 +609,7 @@ export function StudentTrainingAssembly({
       return;
     }
 
-    const nextInactive = studentTraining.boInativo === 0 ? 1 : 0;
+    const nextInactive = studentTraining.boInativo === false ? true : false;
 
     try {
       const response = await fetch(
@@ -631,9 +631,9 @@ export function StudentTrainingAssembly({
       }
 
       const activeRecordsAfterToggle =
-        nextInactive === 1
+        nextInactive
           ? activeStudentTrainings.filter((record) => record.id !== studentTraining.id)
-          : [...activeStudentTrainings, { ...studentTraining, boInativo: 0 }].sort(compareStudentTrainingAsc);
+          : [...activeStudentTrainings, { ...studentTraining, boInativo: false }].sort(compareStudentTrainingAsc);
 
       if (activeRecordsAfterToggle.length > 0) {
         await persistSequenceOrder(activeRecordsAfterToggle);
@@ -643,7 +643,7 @@ export function StudentTrainingAssembly({
       setSelectedStudentTrainingId(null);
       setSelectedTrainingExercises([]);
       setStudentTrainingFeedback(
-        nextInactive === 1
+        nextInactive
           ? 'Treino inativado e sequência reorganizada.'
           : 'Treino ativado e sequência reorganizada.',
       );
@@ -683,7 +683,7 @@ export function StudentTrainingAssembly({
             idFuncionario: loggedEmployeeId,
             idTreino: Number(trainingId),
             nrOrdemSequencia: shouldCreateSequence ? lastActiveSequence + index + 1 : null,
-            boInativo: 0,
+            boInativo: false,
           }),
         })),
       );
@@ -768,8 +768,8 @@ export function StudentTrainingAssembly({
                 <span role="cell">{formatCpf(student.caCPF)}</span>
                 <span role="cell">{student.anEmail || '-'}</span>
                 <span role="cell">
-                  <span className={`status-badge ${student.boInativo === 0 ? 'active' : 'inactive'}`}>
-                    {student.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                  <span className={`status-badge ${student.boInativo === false ? 'active' : 'inactive'}`}>
+                    {student.boInativo === false ? 'Ativo' : 'Inativo'}
                   </span>
                 </span>
               </button>
@@ -906,8 +906,8 @@ export function StudentTrainingAssembly({
                       <span role="cell">{isReorderingSequence ? index + 1 : getStudentTrainingSequenceLabel(studentTraining)}</span>
                       <span role="cell">{studentTraining.dtCadastro ? formatDateDisplay(studentTraining.dtCadastro) : '-'}</span>
                       <span role="cell">
-                        <span className={`status-badge ${studentTraining.id < 0 ? 'pending' : studentTraining.boInativo === 0 ? 'active' : 'inactive'}`}>
-                          {studentTraining.id < 0 ? 'Pendente' : studentTraining.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                        <span className={`status-badge ${studentTraining.id < 0 ? 'pending' : studentTraining.boInativo === false ? 'active' : 'inactive'}`}>
+                          {studentTraining.id < 0 ? 'Pendente' : studentTraining.boInativo === false ? 'Ativo' : 'Inativo'}
                         </span>
                       </span>
                       <span role="cell">
@@ -915,14 +915,14 @@ export function StudentTrainingAssembly({
                           <span className="field-hint">Não salvo</span>
                         ) : (
                           <button
-                            className={`grid-status-toggle ${studentTraining.boInativo === 0 ? 'active' : ''}`}
+                            className={`grid-status-toggle ${studentTraining.boInativo === false ? 'active' : ''}`}
                             onClick={(event) => {
                               event.stopPropagation();
                               void handleToggleStudentTrainingStatus(studentTraining);
                             }}
                             type="button"
                           >
-                            {studentTraining.boInativo === 0 ? 'Inativar' : 'Ativar'}
+                            {studentTraining.boInativo === false ? 'Inativar' : 'Ativar'}
                           </button>
                         )}
                       </span>
@@ -979,7 +979,7 @@ export function StudentTrainingAssembly({
                           <span role="cell">{trainingExercise.nrRepeticoes}</span>
                           <span role="cell">{trainingExercise.qtDescanso} s</span>
                           <span role="cell">{trainingExercise.qtPeso || '-'}</span>
-                          <span role="cell">{trainingExercise.cnUnidadeMedida || '-'}</span>
+                          <span role="cell">{trainingExercise.unidadeMedida?.cnUnidade || '-'}</span>
                         </div>
                       ))
                       : null}
@@ -1033,7 +1033,7 @@ export function StudentTrainingAssembly({
                                 <span role="cell">{trainingExercise.nrRepeticoes}</span>
                                 <span role="cell">{trainingExercise.qtDescanso} s</span>
                                 <span role="cell">{trainingExercise.qtPeso || '-'}</span>
-                                <span role="cell">{trainingExercise.cnUnidadeMedida || '-'}</span>
+                                <span role="cell">{trainingExercise.unidadeMedida?.cnUnidade || '-'}</span>
                               </div>
                             ))}
 

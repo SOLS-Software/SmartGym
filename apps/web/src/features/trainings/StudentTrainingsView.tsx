@@ -11,7 +11,7 @@ const PAGE_SIZE = 10;
 function formatExerciseMeta(link: TrainingExerciseWithCover) {
   const parts: string[] = [];
   if (link.nrSeries) parts.push(`${link.nrSeries}x${link.nrRepeticoes || 0}`);
-  if (Number(link.qtPeso) > 0) parts.push(`${link.qtPeso}${link.cnUnidadeMedida || ''}`);
+  if (Number(link.qtPeso) > 0) parts.push(`${link.qtPeso}${link.unidadeMedida?.cnUnidade || ''}`);
   if (link.qtDescanso) parts.push(`${link.qtDescanso}s descanso`);
   return parts.join(' · ');
 }

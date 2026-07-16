@@ -1,3 +1,4 @@
+import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import {
@@ -27,11 +28,11 @@ async function attachExerciseCoversToTrainingExercises<
 
   const [files, areaLinks] = await Promise.all([
     prisma.exercicioArquivo.findMany({
-      where: { idExercicio: { in: exerciseIds }, boInativo: 0 },
+      where: { idExercicio: { in: exerciseIds }, boInativo: false },
       orderBy: { dtCadastro: 'asc' },
     }),
     prisma.exercicioAreaCorporal.findMany({
-      where: { idExercicio: { in: exerciseIds }, boInativo: 0 },
+      where: { idExercicio: { in: exerciseIds }, boInativo: false },
       include: { areaCorporal: true },
     }),
   ]);
@@ -59,7 +60,7 @@ async function attachExerciseCoversToTrainingExercises<
     }
   }
 
-  const areasByExercise = new Map<number, Array<{ id: number; dsAreaCorporal: string; boInativo: number }>>();
+  const areasByExercise = new Map<number, Array<{ id: number; dsAreaCorporal: string; boInativo: boolean }>>();
   for (const link of areaLinks) {
     if (link.idExercicio === null || !link.areaCorporal) continue;
     const list = areasByExercise.get(link.idExercicio) ?? [];
@@ -92,7 +93,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
 
     return prisma.treino.findMany({
       where: {
-        ...(includeInactive ? {} : { boInativo: 0 }),
+        ...(includeInactive ? {} : { boInativo: false }),
         ...(search ? { dsTreino: { contains: search, mode: 'insensitive' } } : {}),
       },
       orderBy: { dsTreino: 'asc' },
@@ -136,7 +137,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
   }>('/trainings/:id/status', async (request, reply) => {
     try {
       const id = Number(request.params.id);
-      const boInativo = Number(request.body.boInativo ?? 0);
+      const boInativo = toBool(request.body.boInativo);
       return prisma.treino.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do treino.' });
@@ -155,7 +156,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       const records = await prisma.treinoExercicio.findMany({
         where: { idTreino },
         orderBy: { nrOrdem: 'asc' },
-        include: { exercicio: true },
+        include: { exercicio: true, unidadeMedida: true },
       });
 
       if (request.query.includeCover !== 'true') {
@@ -187,19 +188,21 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Treino nao encontrado.' });
       }
 
+      const idExercicioNovo = optionalNumber(request.body.idExercicio);
+      if (!idExercicioNovo) throw new Error('Selecione o exercicio.');
       const record = await prisma.treinoExercicio.create({
         data: {
           idTreino,
           idEmpresa: optionalNumber(request.body.idEmpresa) ?? training.idEmpresa,
-          idExercicio: optionalNumber(request.body.idExercicio),
+          idExercicio: idExercicioNovo,
           idMetodoTreino: optionalNumber(request.body.idMetodoTreino),
           nrOrdem: Number(request.body.nrOrdem ?? 0),
           nrSeries: Number(request.body.nrSeries ?? 0),
           nrRepeticoes: Number(request.body.nrRepeticoes ?? 0),
           qtDescanso: Number(request.body.qtDescanso ?? 0),
           qtPeso: Number(request.body.qtPeso ?? 0),
-          cnUnidadeMedida: String(request.body.cnUnidadeMedida ?? ''),
-          boInativo: Number(request.body.boInativo ?? 0),
+          idUnidadeMedida: optionalNumber(request.body.idUnidadeMedida),
+          boInativo: toBool(request.body.boInativo),
         },
       });
 
@@ -235,19 +238,21 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
         select: { idEmpresa: true },
       });
 
+      const idExercicioEdit = optionalNumber(request.body.idExercicio);
+      if (!idExercicioEdit) throw new Error('Selecione o exercicio.');
       return prisma.treinoExercicio.update({
         where: { id: childId },
         data: {
           idEmpresa: optionalNumber(request.body.idEmpresa) ?? training?.idEmpresa ?? null,
-          idExercicio: optionalNumber(request.body.idExercicio),
+          idExercicio: idExercicioEdit,
           idMetodoTreino: optionalNumber(request.body.idMetodoTreino),
           nrOrdem: Number(request.body.nrOrdem ?? 0),
           nrSeries: Number(request.body.nrSeries ?? 0),
           nrRepeticoes: Number(request.body.nrRepeticoes ?? 0),
           qtDescanso: Number(request.body.qtDescanso ?? 0),
           qtPeso: Number(request.body.qtPeso ?? 0),
-          cnUnidadeMedida: String(request.body.cnUnidadeMedida ?? ''),
-          boInativo: Number(request.body.boInativo ?? 0),
+          idUnidadeMedida: optionalNumber(request.body.idUnidadeMedida),
+          boInativo: toBool(request.body.boInativo),
         },
       });
     } catch (error) {
@@ -278,7 +283,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
 
       return prisma.treinoExercicio.update({
         where: { id: childId },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({

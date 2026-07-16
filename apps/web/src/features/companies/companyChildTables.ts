@@ -99,7 +99,7 @@ export const companyChildTables: [CompanyChildTable, ...CompanyChildTable[]] = [
     title: 'Pagamentos da empresa',
     columns: [
       { key: 'idAlunoPlano', label: 'Plano do aluno', lookupLabelKey: 'plano.dsPlano' },
-      { key: 'vlPagamento', label: 'Valor', type: 'money' },
+      { key: 'vlPago', label: 'Valor', type: 'money' },
       { key: 'dtPagamento', label: 'Pagamento', type: 'date' },
       { key: 'boInativo', label: 'Status', type: 'status' },
     ],
@@ -118,7 +118,7 @@ export const companyChildTables: [CompanyChildTable, ...CompanyChildTable[]] = [
         lookupEndpoint: 'companies/{companyId}/children/product-movements',
         lookupLabelKey: 'produto.dsProduto',
       },
-      { key: 'vlPagamento', label: 'Valor', type: 'number' },
+      { key: 'vlPago', label: 'Valor', type: 'number' },
       {
         key: 'idStatusPagamento',
         label: 'Status pagamento',
@@ -183,7 +183,7 @@ export const companyChildTables: [CompanyChildTable, ...CompanyChildTable[]] = [
     title: 'Check-ins de alunos',
     columns: [
       { key: 'idAlunoPlano', label: 'Plano do aluno', lookupLabelKey: 'plano.dsPlano' },
-      { key: 'idPontos', label: 'Pontos', lookupLabelKey: 'dsPontos' },
+      { key: 'idPontuacao', label: 'Pontos', lookupLabelKey: 'dsPontuacao' },
       { key: 'dtCadastro', label: 'Cadastro', type: 'datetime' },
       { key: 'boInativo', label: 'Status', type: 'status' },
     ],
@@ -202,7 +202,7 @@ export const companyChildTables: [CompanyChildTable, ...CompanyChildTable[]] = [
         lookupEndpoint: 'student-training-sequences',
         lookupLabelKey: 'nrOrdem',
       },
-      { key: 'idPontos', label: 'Pontos', type: 'number', lookupEndpoint: 'points', lookupLabelKey: 'dsPontos' },
+      { key: 'idPontuacao', label: 'Pontos', type: 'number', lookupEndpoint: 'points', lookupLabelKey: 'dsPontuacao' },
     ],
   },
   {

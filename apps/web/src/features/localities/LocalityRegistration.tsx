@@ -94,7 +94,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
       const response = await fetch(`${apiUrl}/companies`);
       if (!response.ok) await getApiError(response, 'Não foi possível carregar as empresas.');
       const data = (await response.json()) as Company[];
-      setCompanies(data.filter((company) => company.boInativo === 0));
+      setCompanies(data.filter((company) => company.boInativo === false));
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao carregar empresas.');
     }
@@ -152,7 +152,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
     setLatitude(String(locality.latitude ?? ''));
     setLongitude(String(locality.longitude ?? ''));
     setHasPickedLocation(Boolean(locality.latitude || locality.longitude));
-    setIsLocalityActive(locality.boInativo === 0);
+    setIsLocalityActive(locality.boInativo === false);
     setFeedback('');
     setAddressCep('');
     setAddressLogradouro('');
@@ -177,7 +177,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
       const response = await fetch(`${apiUrl}/localities/${selectedLocalityId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }),
+        body: JSON.stringify({ boInativo: nextActive ? false : true }),
       });
 
       if (!response.ok) await getApiError(response, 'Não foi possível alterar o status.');
@@ -297,7 +297,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
         cnLocalidadeTP: Number(localityType || 0),
         latitude: latitudeValue,
         longitude: longitudeValue,
-        boInativo: isLocalityActive ? 0 : 1,
+        boInativo: isLocalityActive ? false : true,
       };
 
       const response = await fetch(
@@ -389,8 +389,8 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
               <span role="cell" title={locality.nmLocalidade}>{locality.nmLocalidade}</span>
               <span role="cell" title={getCompanyLabel(locality.idEmpresa)}>{getCompanyLabel(locality.idEmpresa)}</span>
               <span role="cell">
-                <span className={`status-badge ${locality.boInativo === 0 ? 'active' : 'inactive'}`}>
-                  {locality.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                <span className={`status-badge ${locality.boInativo === false ? 'active' : 'inactive'}`}>
+                  {locality.boInativo === false ? 'Ativo' : 'Inativo'}
                 </span>
               </span>
               {!readOnly ? (

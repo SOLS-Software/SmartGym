@@ -2,7 +2,7 @@ export type Company = {
   id: number;
   dsEmpresa: string;
   caCNPJ: string;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type Product = {
@@ -10,7 +10,7 @@ export type Product = {
   idEmpresa: number | null;
   dsProduto: string;
   qtEstoque: number;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type Promotion = {
@@ -23,7 +23,7 @@ export type Promotion = {
   pcDesconto: number | string | null;
   dtInicio: string | null;
   dtEncerramento: string | null;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type Exercise = {
@@ -31,13 +31,13 @@ export type Exercise = {
   idEmpresa: number | null;
   dsExercicio: string;
   dsInstrucao: string | null;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type AreaCorporal = {
   id: number;
   dsAreaCorporal: string;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type ExerciseWithCover = Exercise & { coverImageUrl: string | null; areas: AreaCorporal[] };
@@ -46,7 +46,7 @@ export type ExercicioAreaCorporal = {
   id: number;
   idExercicio: number | null;
   idAreaCorporal: number | null;
-  boInativo: number;
+  boInativo: boolean;
   areaCorporal?: AreaCorporal | null;
 };
 
@@ -55,14 +55,14 @@ export type Activity = {
   idEmpresa: number | null;
   idEsporte: number | null;
   dsAtividade: string;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type Sport = {
   id: number;
   idEmpresa: number | null;
   dsEsporte: string;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type Training = {
@@ -71,13 +71,13 @@ export type Training = {
   idAluno: number | null;
   idNivel: number | null;
   dsTreino: string;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type Level = {
   id: number;
   dsNivel: string;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type ExerciseFile = {
@@ -86,14 +86,14 @@ export type ExerciseFile = {
   dsArquivo?: string;
   anCaminho: string;
   dtCadastro: string;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type ExercicioEquipamento = {
   id: number;
   idExericio: number | null;
   idEquipamento: number | null;
-  boInativo: number;
+  boInativo: boolean;
   equipamento?: Equipamento | null;
 };
 
@@ -107,10 +107,10 @@ export type Student = {
   anEmail: string;
   anCEP: string;
   anLogradouro: string;
-  anCoplemento: string;
+  anComplemento: string;
   anBairro: string;
   nrEndereco: number | null;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type StudentFile = {
@@ -119,14 +119,14 @@ export type StudentFile = {
   dsArquivo?: string;
   anCaminho: string;
   dtCadastro: string;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type Plan = {
   id: number;
   dsPlano: string;
   idFrequencia: number | null;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type Employee = {
@@ -140,7 +140,7 @@ export type Employee = {
   nrContato: number;
   anEmail: string;
   dtAdmissao: string | null;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type StudentTraining = {
@@ -150,14 +150,14 @@ export type StudentTraining = {
   idTreino: number | null;
   dtCadastro: string;
   dtAlteracao: string;
-  boInativo: number;
+  boInativo: boolean;
   funcionario?: Employee | null;
   treino?: Training | null;
   alunoTreinosSequencias?: Array<{
     id: number;
     idAlunoTreino: number | null;
     nrOrdem: number;
-    boInativo: number;
+    boInativo: boolean;
   }>;
 };
 
@@ -172,8 +172,9 @@ export type TrainingExercise = {
   nrRepeticoes: number;
   qtDescanso: number;
   qtPeso: number;
-  cnUnidadeMedida: string;
-  boInativo: number;
+  idUnidadeMedida: number | null;
+  unidadeMedida?: { cnUnidade: string; dsUnidade: string } | null;
+  boInativo: boolean;
 };
 
 export type TrainingExerciseWithCover = TrainingExercise & {
@@ -184,7 +185,7 @@ export type TrainingMethod = {
   id: number;
   nmMetodoTreino: string;
   dsMetodoTreino: string;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type Equipamento = {
@@ -193,7 +194,7 @@ export type Equipamento = {
   dsEquipamento: string | null;
   nmEquipamento: string | null;
   dtAquisicao: string | null;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type EquipamentoArquivo = {
@@ -202,7 +203,7 @@ export type EquipamentoArquivo = {
   dsArquivo?: string;
   anCaminho: string;
   dtCadastro: string;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type EquipamentoManutencao = {
@@ -210,7 +211,7 @@ export type EquipamentoManutencao = {
   idEquipamento: number | null;
   dtExecucao: string | null;
   dtValidade: string | null;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type Localidade = {
@@ -221,25 +222,25 @@ export type Localidade = {
   cnLocalidadeTP: number;
   latitude: number;
   longitude: number;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type Role = {
   id: number;
   dsCargo: string;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type Frequency = {
   id: number;
   dsFrequencia: string;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export type DomainRecord = {
   id: number;
   name: string;
-  boInativo: number;
+  boInativo: boolean;
   description?: string;
   relationId?: number | null;
   relationName?: string;
@@ -259,7 +260,7 @@ export type RegisterLookupRecord = {
 
 export type CompanyChildRecord = {
   id: number;
-  boInativo: number;
+  boInativo: boolean;
   [key: string]: unknown;
 };
 
@@ -346,7 +347,7 @@ export type AgendaSession = {
   dtFinal: string;
   qtAlunos: number | null;
   qtInscritos: number;
-  boInativo: number;
+  boInativo: boolean;
   profissionais: Array<{ id: number; nome: string | null }>;
   alunoIds: number[];
   presentAlunoIds: number[];

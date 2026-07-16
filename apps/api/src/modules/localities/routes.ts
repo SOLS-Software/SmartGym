@@ -1,3 +1,4 @@
+import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { normalizeLocalidadePayload, assertValidId } from '../../shared/normalize.js';
@@ -179,7 +180,7 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Localidade invalida.');
-      const boInativo = Number(request.body.boInativo ?? 0);
+      const boInativo = toBool(request.body.boInativo);
 
       const rows = await prisma.$queryRawUnsafe<LocalidadeRow[]>(
         `UPDATE "tb_Localidades" SET "boInativo" = $1, "dtAlteracao" = now()

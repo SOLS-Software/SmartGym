@@ -1,3 +1,4 @@
+import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId, optionalNumber, requiredText, optionalText, getMultipartFieldValue } from '../../shared/normalize.js';
@@ -16,7 +17,7 @@ function normalizeThemeData(b: Record<string, unknown>) {
     tamanhoBase: Number(b.tamanhoBase ?? 14),
     espacamentoPadrao: Number(b.espacamentoPadrao ?? 16),
     raioCardBorder: Number(b.raioCardBorder ?? 8),
-    boModoEscuro: Number(b.boModoEscuro ?? 0),
+    boModoEscuro: toBool(b.boModoEscuro ?? false),
     idArquivoLogo: optionalNumber(b.idArquivoLogo),
     idArquivoFavicon: optionalNumber(b.idArquivoFavicon),
     idClienteArquivoLogo: optionalNumber(b.idClienteArquivoLogo),
@@ -45,7 +46,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
     try {
       const dsCliente = requiredText(request.body.dsCliente, 'Informe o nome do cliente.');
       const cliente = await prisma.cliente.create({
-        data: { dsCliente, caCNPJ: optionalText(request.body.caCNPJ) || null, boInativo: 0 },
+        data: { dsCliente, caCNPJ: optionalText(request.body.caCNPJ) || null, boInativo: false },
       });
       return reply.code(201).send(cliente);
     } catch (error) {
@@ -60,7 +61,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       const dsCliente = requiredText(request.body.dsCliente, 'Informe o nome do cliente.');
       return prisma.cliente.update({
         where: { id },
-        data: { dsCliente, caCNPJ: optionalText(request.body.caCNPJ) || null, boInativo: Number(request.body.boInativo ?? 0) },
+        data: { dsCliente, caCNPJ: optionalText(request.body.caCNPJ) || null, boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar cliente.' });
@@ -71,7 +72,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Cliente invalido.');
-      return prisma.cliente.update({ where: { id }, data: { boInativo: Number(request.body.boInativo ?? 0) } });
+      return prisma.cliente.update({ where: { id }, data: { boInativo: toBool(request.body.boInativo) } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do cliente.' });
     }
@@ -150,7 +151,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       assertValidId(id, 'Cliente invalido.');
       const urlDominio = requiredText(request.body.urlDominio, 'Informe a URL do dominio.');
       const dominio = await prisma.dominioCorporativo.create({
-        data: { idCliente: id, urlDominio: urlDominio.toLowerCase(), boSubdominio: Number(request.body.boSubdominio ?? 1), boAtivo: Number(request.body.boAtivo ?? 1) },
+        data: { idCliente: id, urlDominio: urlDominio.toLowerCase(), boSubdominio: toBool(request.body.boSubdominio ?? true), boAtivo: toBool(request.body.boAtivo ?? true) },
       });
       return reply.code(201).send(dominio);
     } catch (error) {
@@ -167,7 +168,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       const urlDominio = requiredText(request.body.urlDominio, 'Informe a URL do dominio.');
       return prisma.dominioCorporativo.update({
         where: { id: domainId },
-        data: { urlDominio: urlDominio.toLowerCase(), boSubdominio: Number(request.body.boSubdominio ?? 1), boAtivo: Number(request.body.boAtivo ?? 1) },
+        data: { urlDominio: urlDominio.toLowerCase(), boSubdominio: toBool(request.body.boSubdominio ?? true), boAtivo: toBool(request.body.boAtivo ?? true) },
       });
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar dominio.' });
@@ -180,7 +181,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       const domainId = Number(request.params.domainId);
       assertValidId(id, 'Cliente invalido.');
       assertValidId(domainId, 'Dominio invalido.');
-      return prisma.dominioCorporativo.update({ where: { id: domainId }, data: { boAtivo: Number(request.body.boAtivo ?? 1) } });
+      return prisma.dominioCorporativo.update({ where: { id: domainId }, data: { boAtivo: toBool(request.body.boAtivo ?? true) } });
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao alterar status do dominio.' });
     }
@@ -195,7 +196,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       const id = Number(request.params.id);
       assertValidId(id, 'Cliente invalido.');
       return prisma.clienteArquivo.findMany({
-        where: { idCliente: id, boInativo: 0 },
+        where: { idCliente: id, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
       });
     } catch (error) {
@@ -245,7 +246,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
 
       const record = await prisma.clienteArquivo.findFirst({
-        where: { id: fileId, idCliente: id, boInativo: 0 },
+        where: { id: fileId, idCliente: id, boInativo: false },
       });
       if (!record) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
 
@@ -268,7 +269,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
 
       const record = await prisma.clienteArquivo.findFirst({
-        where: { id: fileId, idCliente: id, boInativo: 0 },
+        where: { id: fileId, idCliente: id, boInativo: false },
       });
       if (!record) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
 
@@ -276,7 +277,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       const supabase = getSupabaseClient();
       await supabase.storage.from(bucket).remove([record.anCaminho]);
 
-      await prisma.clienteArquivo.update({ where: { id: fileId }, data: { boInativo: 1 } });
+      await prisma.clienteArquivo.update({ where: { id: fileId }, data: { boInativo: true } });
       return reply.code(204).send();
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao remover arquivo do cliente.' });

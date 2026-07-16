@@ -12,7 +12,7 @@ type Client = {
   id: number;
   dsCliente: string;
   caCNPJ: string | null;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 export function ClientRegistration() {
@@ -69,7 +69,7 @@ export function ClientRegistration() {
     setIsCreating(false);
     setClientName(client.dsCliente);
     setClientCnpj(client.caCNPJ ?? '');
-    setIsActive(client.boInativo === 0);
+    setIsActive(client.boInativo === false);
     setFeedback('');
     setIsDrawerOpen(true);
   }
@@ -87,7 +87,7 @@ export function ClientRegistration() {
       const payload = {
         dsCliente: name,
         caCNPJ: clientCnpj.replace(/\D/g, '') || null,
-        boInativo: isActive ? 0 : 1,
+        boInativo: isActive ? false : true,
       };
       const res = await fetch(
         isCreating ? `${apiUrl}/clients` : `${apiUrl}/clients/${selectedClientId}`,
@@ -127,7 +127,7 @@ export function ClientRegistration() {
       const res = await fetch(`${apiUrl}/clients/${selectedClientId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boInativo: next ? 0 : 1 }),
+        body: JSON.stringify({ boInativo: next ? false : true }),
       });
       if (!res.ok) await getApiError(res, 'Não foi possível alterar o status.');
       const updated = (await res.json()) as Client;
@@ -194,8 +194,8 @@ export function ClientRegistration() {
               >
                 <span role="cell" className="flex items-center justify-between gap-2">
                   <span>{c.dsCliente}</span>
-                  <span className={`status-badge shrink-0 ${c.boInativo === 0 ? 'active' : 'inactive'}`}>
-                    {c.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                  <span className={`status-badge shrink-0 ${c.boInativo === false ? 'active' : 'inactive'}`}>
+                    {c.boInativo === false ? 'Ativo' : 'Inativo'}
                   </span>
                 </span>
                 <span role="cell" className="grid-row-actions">

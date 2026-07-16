@@ -151,7 +151,7 @@ export function EmployeeRegistration() {
       employee.anEmail.toLowerCase().includes(search) ||
       String(role?.dsCargo ?? '').toLowerCase().includes(search) ||
       String(company?.dsEmpresa ?? '').toLowerCase().includes(search) ||
-      (employee.boInativo === 0 ? 'ativo' : 'inativo').includes(search)
+      (employee.boInativo === false ? 'ativo' : 'inativo').includes(search)
     );
   });
   const employeesTotalPages = Math.max(1, Math.ceil(filteredEmployees.length / GRID_PAGE_SIZE));
@@ -189,8 +189,8 @@ export function EmployeeRegistration() {
 
       const companiesData = (await companiesResponse.json()) as Company[];
       const rolesData = (await rolesResponse.json()) as Role[];
-      setCompanies(companiesData.filter((company) => company.boInativo === 0));
-      setRoles(rolesData.filter((role) => role.boInativo === 0));
+      setCompanies(companiesData.filter((company) => company.boInativo === false));
+      setRoles(rolesData.filter((role) => role.boInativo === false));
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao carregar listas.');
     }
@@ -359,7 +359,7 @@ export function EmployeeRegistration() {
     setEmployeePhone(formatPhone(String(employee.nrContato ?? '')));
     setEmployeeEmail(employee.anEmail);
     setEmployeeAdmissionDate(formatDateInput(employee.dtAdmissao));
-    setIsEmployeeActive(employee.boInativo === 0);
+    setIsEmployeeActive(employee.boInativo === false);
     setEmployeeErrors({});
     setTouchedEmployeeFields({});
     setFeedback('');
@@ -403,7 +403,7 @@ export function EmployeeRegistration() {
     setSelectedEmployeeRelatedRecordId(record.id);
     setIsCreatingEmployeeRelated(false);
     setEmployeeRelatedFormValues(values);
-    setIsEmployeeRelatedActive(Number(record.boInativo ?? 0) === 0);
+    setIsEmployeeRelatedActive((record.boInativo ?? false) === false);
     setEmployeeRelatedFeedback('');
   }
 
@@ -531,7 +531,7 @@ export function EmployeeRegistration() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          boInativo: nextActive ? 0 : 1,
+          boInativo: nextActive ? false : true,
         }),
       });
 
@@ -584,7 +584,7 @@ export function EmployeeRegistration() {
         nrContato: Number(phone || 0),
         anEmail: employeeEmail.trim(),
         dtAdmissao: employeeAdmissionDate || null,
-        boInativo: isEmployeeActive ? 0 : 1,
+        boInativo: isEmployeeActive ? false : true,
       };
       const response = await fetch(
         isCreating ? `${apiUrl}/employees` : `${apiUrl}/employees/${selectedEmployeeId}`,
@@ -634,7 +634,7 @@ export function EmployeeRegistration() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            boInativo: nextActive ? 0 : 1,
+            boInativo: nextActive ? false : true,
           }),
         },
       );
@@ -677,14 +677,14 @@ export function EmployeeRegistration() {
     }
 
     try {
-      const payload = employeeRelatedConfig.fields.reduce<Record<string, string | number | null>>(
+      const payload = employeeRelatedConfig.fields.reduce<Record<string, string | number | boolean | null>>(
         (current, field) => {
           const value = employeeRelatedFormValues[field.key] ?? '';
           current[field.key] = field.type === 'number' ? (value ? Number(value) : null) : value;
           return current;
         },
         {
-          boInativo: isEmployeeRelatedActive ? 0 : 1,
+          boInativo: isEmployeeRelatedActive ? false : true,
         },
       );
 
@@ -821,7 +821,7 @@ export function EmployeeRegistration() {
             columns={[
               { label: 'Funcionário', render: (e) => e.nmFuncionario },
               { label: 'Cargo', render: (e) => getRoleLabel(e.idCargo) },
-              { label: 'Status', render: (e) => <span className={`status-badge ${e.boInativo === 0 ? 'active' : 'inactive'}`}>{e.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+              { label: 'Status', render: (e) => <span className={`status-badge ${e.boInativo === false ? 'active' : 'inactive'}`}>{e.boInativo === false ? 'Ativo' : 'Inativo'}</span> },
             ]}
             records={paginatedEmployees}
             isLoading={isLoadingEmployees}

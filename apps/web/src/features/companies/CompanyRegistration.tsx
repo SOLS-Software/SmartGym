@@ -10,6 +10,7 @@ import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import type { Company, CompanyChildColumn, CompanyChildField, CompanyChildRecord, CompanyValidationErrors, CompanyValidationField, LookupRecord } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { getGestorClienteId } from '../../shared/auth/sessionUtils';
 import { companyChildTables } from './companyChildTables';
 import { formatCnpj, getSelectedRecord, isValidCnpj } from './companyUtils';
 
@@ -292,7 +293,7 @@ export function CompanyRegistration() {
     setSelectedChildRecordId(record.id);
     setIsCreatingChild(false);
     setChildFormValues(values);
-    setIsChildActive(Number(record.boInativo ?? 0) === 0);
+    setIsChildActive((record.boInativo ?? false) === false);
     setChildFeedback('');
   }
 
@@ -324,7 +325,7 @@ export function CompanyRegistration() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            boInativo: nextActive ? 0 : 1,
+            boInativo: nextActive ? false : true,
           }),
         },
       );
@@ -359,14 +360,14 @@ export function CompanyRegistration() {
     }
 
     try {
-      const payload = childTableConfig.fields.reduce<Record<string, string | number | null>>(
+      const payload = childTableConfig.fields.reduce<Record<string, string | number | boolean | null>>(
         (current, field) => {
           const value = childFormValues[field.key] ?? '';
           current[field.key] = field.type === 'number' ? (value ? Number(value) : null) : value;
           return current;
         },
         {
-          boInativo: isChildActive ? 0 : 1,
+          boInativo: isChildActive ? false : true,
         },
       );
 
@@ -553,7 +554,7 @@ export function CompanyRegistration() {
     setIsCreating(false);
     setCompanyName(company.dsEmpresa);
     setCompanyCnpj(formatCnpj(company.caCNPJ));
-    setIsCompanyActive(company.boInativo === 0);
+    setIsCompanyActive(company.boInativo === false);
     setFeedback('');
     setCompanyErrors({});
     setTouchedCompanyFields({});
@@ -580,7 +581,7 @@ export function CompanyRegistration() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          boInativo: nextActive ? 0 : 1,
+          boInativo: nextActive ? false : true,
         }),
       });
 
@@ -652,10 +653,17 @@ export function CompanyRegistration() {
         return;
       }
 
+      const idCliente = getGestorClienteId();
+      if (!idCliente) {
+        setFeedback('Sessão do gestor não identificada. Faça login novamente.');
+        return;
+      }
+
       const payload = {
+        idCliente,
         dsEmpresa: companyName.trim(),
         caCNPJ: onlyDigits(companyCnpj),
-        boInativo: isCompanyActive ? 0 : 1,
+        boInativo: isCompanyActive ? false : true,
       };
       const response = await fetch(
         selectedCompanyId
@@ -711,7 +719,7 @@ export function CompanyRegistration() {
           columns={[
             { label: 'Empresa', render: (c) => c.dsEmpresa },
             { label: 'CNPJ', render: (c) => formatCnpj(c.caCNPJ) },
-            { label: 'Status', render: (c) => <span className={`status-badge ${c.boInativo === 0 ? 'active' : 'inactive'}`}>{c.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+            { label: 'Status', render: (c) => <span className={`status-badge ${c.boInativo === false ? 'active' : 'inactive'}`}>{c.boInativo === false ? 'Ativo' : 'Inativo'}</span> },
           ]}
           records={paginatedCompanies}
           isLoading={isLoadingCompanies}
@@ -736,7 +744,7 @@ export function CompanyRegistration() {
             columns={[
               { label: 'Arquivo', render: (r) => String(r.dsArquivo ?? '-') },
               { label: 'Tipo', render: (r) => formatChildCell(r, { key: 'idTiposArquivos', label: 'Tipo', lookupLabelKey: 'dsTipo' }, childLookups['idTiposArquivos']) },
-              { label: 'Status', render: (r) => <span className={`status-badge ${r.boInativo === 0 ? 'active' : 'inactive'}`}>{r.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+              { label: 'Status', render: (r) => <span className={`status-badge ${r.boInativo === false ? 'active' : 'inactive'}`}>{r.boInativo === false ? 'Ativo' : 'Inativo'}</span> },
             ]}
             records={filteredChildRecords}
             isLoading={isLoadingChildRecords}

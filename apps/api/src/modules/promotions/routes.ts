@@ -1,3 +1,4 @@
+import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import {
   assertValidId,
@@ -33,7 +34,7 @@ const promotionChildResourceConfig = {
         qtDisponivel: Number(payload.qtDisponivel ?? 0),
         dtInicio: optionalDate(payload.dtInicio) ?? new Date(),
         dtEncerramento: optionalDate(payload.dtEncerramento) ?? null,
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -45,7 +46,7 @@ const promotionChildResourceConfig = {
         idPromocao: promotionId,
         idProduto: optionalNumber(payload.idProduto),
         qtDisponivel: optionalNumber(payload.qtDisponivel),
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -75,7 +76,7 @@ function normalizePromotionPayload(payload: CompanyChildPayload) {
     pcDesconto: Number(payload.pcDesconto ?? 0),
     dtInicio: optionalDate(payload.dtInicio) ?? new Date(),
     dtEncerramento: optionalDate(payload.dtEncerramento) ?? null,
-    boInativo: Number(payload.boInativo ?? 0),
+    boInativo: toBool(payload.boInativo),
   };
 }
 
@@ -99,7 +100,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
     return prisma.promocao.findMany({
       where: {
         ...(companyId ? { idEmpresa: companyId } : {}),
-        ...(includeInactive ? {} : { boInativo: 0 }),
+        ...(includeInactive ? {} : { boInativo: false }),
         ...(currentOnly
           ? {
               dtInicio: { lte: now },
@@ -113,12 +114,12 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
             empresa: true,
             unidadeTempo: true,
             promocaoPlanos: {
-              where: { boInativo: 0 },
+              where: { boInativo: false },
               include: { empresa: true, plano: true },
               orderBy: { dtCadastro: 'desc' },
             },
             promocaoProdutos: {
-              where: { boInativo: 0 },
+              where: { boInativo: false },
               include: { empresa: true, produto: true },
               orderBy: { dtCadastro: 'desc' },
             },
@@ -166,7 +167,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       assertValidId(id, 'Promocao invalida.');
       return prisma.promocao.update({
         where: { id },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({
@@ -350,7 +351,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
         assertValidId(fileId, 'Arquivo invalido.');
 
         const promotionFile = await prisma.promocaoArquivo.findFirst({
-          where: { id: fileId, idPromocao, boInativo: 0 },
+          where: { id: fileId, idPromocao, boInativo: false },
         });
 
         if (!promotionFile) {
@@ -397,7 +398,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
 
         return prisma.promocaoArquivo.update({
           where: { id: fileId },
-          data: { boInativo: 1 },
+          data: { boInativo: true },
         });
       } catch (error) {
         return reply.code(400).send({
@@ -459,7 +460,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       const config = getPromotionChildResourceConfig(request.params.resource);
       return config.delegate.update({
         where: { id: childId },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({

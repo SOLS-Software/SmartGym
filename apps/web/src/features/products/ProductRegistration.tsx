@@ -113,7 +113,7 @@ export function ProductRegistration() {
       }
 
       const data = (await response.json()) as Company[];
-      setCompanies(data.filter((company) => company.boInativo === 0));
+      setCompanies(data.filter((company) => company.boInativo === false));
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao carregar empresas.');
     }
@@ -268,7 +268,7 @@ export function ProductRegistration() {
     setSelectedCompanyId(product.idEmpresa ? String(product.idEmpresa) : '');
     setProductName(product.dsProduto);
     setProductStock(String(product.qtEstoque));
-    setIsProductActive(product.boInativo === 0);
+    setIsProductActive(product.boInativo === false);
     setFeedback('');
     setRelatedFeedback('');
   }
@@ -310,7 +310,7 @@ export function ProductRegistration() {
     setSelectedRelatedRecordId(record.id);
     setIsCreatingRelated(false);
     setRelatedFormValues(values);
-    setIsRelatedActive(Number(record.boInativo ?? 0) === 0);
+    setIsRelatedActive((record.boInativo ?? false) === false);
     setRelatedFeedback('');
   }
 
@@ -332,7 +332,7 @@ export function ProductRegistration() {
       const response = await fetch(`${apiUrl}/products/${selectedProductId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }),
+        body: JSON.stringify({ boInativo: nextActive ? false : true }),
       });
 
       if (!response.ok) {
@@ -357,7 +357,7 @@ export function ProductRegistration() {
         idEmpresa: selectedCompanyId ? Number(selectedCompanyId) : null,
         dsProduto: productName,
         qtEstoque: Number(productStock || 0),
-        boInativo: isProductActive ? 0 : 1,
+        boInativo: isProductActive ? false : true,
       };
       const response = await fetch(
         selectedProductId ? `${apiUrl}/products/${selectedProductId}` : `${apiUrl}/products`,
@@ -408,7 +408,7 @@ export function ProductRegistration() {
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }),
+          body: JSON.stringify({ boInativo: nextActive ? false : true }),
         },
       );
 
@@ -446,13 +446,13 @@ export function ProductRegistration() {
     }
 
     try {
-      const payload = relatedConfig.fields.reduce<Record<string, string | number | null>>(
+      const payload = relatedConfig.fields.reduce<Record<string, string | number | boolean | null>>(
         (current, field) => {
           const value = relatedFormValues[field.key] ?? '';
           current[field.key] = field.type === 'number' ? (value ? Number(value) : null) : value;
           return current;
         },
-        { boInativo: isRelatedActive ? 0 : 1 },
+        { boInativo: isRelatedActive ? false : true },
       );
 
       const response = await fetch(
@@ -584,7 +584,7 @@ export function ProductRegistration() {
             columns={[
               { label: 'Produto', render: (p) => p.dsProduto },
               { label: 'Estoque', render: (p) => p.qtEstoque },
-              { label: 'Status', render: (p) => <span className={`status-badge ${p.boInativo === 0 ? 'active' : 'inactive'}`}>{p.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+              { label: 'Status', render: (p) => <span className={`status-badge ${p.boInativo === false ? 'active' : 'inactive'}`}>{p.boInativo === false ? 'Ativo' : 'Inativo'}</span> },
             ]}
             records={paginatedProducts}
             selectedId={selectedProductId}

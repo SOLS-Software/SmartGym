@@ -1,3 +1,4 @@
+import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId } from '../../shared/normalize.js';
@@ -27,7 +28,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
           ...(dtFinal ? { dtFinal: { lte: new Date(`${dtFinal}T23:59:59`) } } : {}),
           ...(idEsporte ? { atividade: { idEsporte: Number(idEsporte) } } : {}),
           ...(idFuncionario
-            ? { funcionarioAtividadeAgendas: { some: { idFuncionario: Number(idFuncionario), boInativo: 0 } } }
+            ? { funcionarioAtividadeAgendas: { some: { idFuncionario: Number(idFuncionario), boInativo: false } } }
             : {}),
         },
         include: {
@@ -36,15 +37,15 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
           empresa: { select: { id: true, dsEmpresa: true } },
           localidade: { select: { id: true, nmLocalidade: true } },
           funcionarioAtividadeAgendas: {
-            where: { boInativo: 0 },
+            where: { boInativo: false },
             include: { funcionario: { select: { id: true, nmFuncionario: true } } },
           },
           alunoAtividadeAgendas: {
-            where: { boInativo: 0 },
+            where: { boInativo: false },
             select: { id: true, idAluno: true },
           },
           alunoCheckIns: {
-            where: { boInativo: 0 },
+            where: { boInativo: false },
             select: { idAluno: true },
           },
         },
@@ -89,11 +90,11 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
 
       const [enrollments, checkIns] = await Promise.all([
         prisma.alunoAtividadeAgenda.findMany({
-          where: { idAtividadeAgenda: idAgenda, boInativo: 0 },
+          where: { idAtividadeAgenda: idAgenda, boInativo: false },
           include: { aluno: { select: { id: true, nmAluno: true, caCPF: true } } },
         }),
         prisma.alunoCheckIn.findMany({
-          where: { idAtividadeAgenda: idAgenda, boInativo: 0 },
+          where: { idAtividadeAgenda: idAgenda, boInativo: false },
           select: { idAluno: true },
         }),
       ]);
@@ -127,9 +128,9 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       assertValidId(idAluno, 'Aluno inválido.');
 
       const session = await prisma.atividadeAgenda.findFirst({
-        where: { id: idAgenda, boInativo: 0 },
+        where: { id: idAgenda, boInativo: false },
         include: {
-          alunoAtividadeAgendas: { where: { boInativo: 0 }, select: { idAluno: true } },
+          alunoAtividadeAgendas: { where: { boInativo: false }, select: { idAluno: true } },
         },
       });
 
@@ -158,7 +159,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
           idAtividadeAgenda: idAgenda,
           idAluno,
           idEmpresa: request.body.idEmpresa ? Number(request.body.idEmpresa) : session.idEmpresa,
-          boInativo: 0,
+          boInativo: false,
         },
       });
 
@@ -201,14 +202,14 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       }
 
       const enrollment = await prisma.alunoAtividadeAgenda.findFirst({
-        where: { idAtividadeAgenda: idAgenda, idAluno, boInativo: 0 },
+        where: { idAtividadeAgenda: idAgenda, idAluno, boInativo: false },
       });
 
       if (!enrollment) return reply.code(404).send({ message: 'Inscrição não encontrada.' });
 
       await prisma.alunoAtividadeAgenda.update({
         where: { id: enrollment.id },
-        data: { boInativo: 1 },
+        data: { boInativo: true },
       });
 
       return reply.code(200).send({ message: 'Inscrição cancelada com sucesso.' });
@@ -238,13 +239,13 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       if (!session) return reply.code(404).send({ message: 'Agenda não encontrada.' });
 
       const enrollment = await prisma.alunoAtividadeAgenda.findFirst({
-        where: { idAtividadeAgenda: idAgenda, idAluno, boInativo: 0 },
+        where: { idAtividadeAgenda: idAgenda, idAluno, boInativo: false },
       });
 
       if (!enrollment) return reply.code(404).send({ message: 'Aluno não está inscrito nesta agenda.' });
 
       const existing = await prisma.alunoCheckIn.findFirst({
-        where: { idAtividadeAgenda: idAgenda, idAluno, boInativo: 0 },
+        where: { idAtividadeAgenda: idAgenda, idAluno, boInativo: false },
       });
 
       if (existing) return reply.code(409).send({ message: 'Presença já registrada para este aluno.' });
@@ -254,7 +255,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
           idAtividadeAgenda: idAgenda,
           idAluno,
           idEmpresa: request.body.idEmpresa ? Number(request.body.idEmpresa) : session.idEmpresa,
-          boInativo: 0,
+          boInativo: false,
         },
       });
 
@@ -277,7 +278,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
 
       return await prisma.atividadeAgenda.update({
         where: { id: idAgenda },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({

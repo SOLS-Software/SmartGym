@@ -42,14 +42,14 @@ export const studentRelatedTables: StudentRelatedConfig[] = [
     title: 'Pagamentos do aluno',
     columns: [
       { key: 'idAlunoPlano', label: 'Plano do aluno', lookupLabelKey: 'plano.dsPlano' },
-      { key: 'vlPagamento', label: 'Valor', type: 'money' },
+      { key: 'vlPago', label: 'Valor', type: 'money' },
       { key: 'dtPagamento', label: 'Pagamento', type: 'date' },
       { key: 'boInativo', label: 'Status', type: 'status' },
     ],
     fields: [
       { key: 'idAlunoPlano', label: 'Plano do aluno', type: 'number', lookupEndpoint: 'students/{studentId}/related/plans', lookupLabelKey: 'plano.dsPlano', required: true },
       { key: 'idProdutoMovimentacao', label: 'MovimentaÃ§Ã£o produto', type: 'number' },
-      { key: 'vlPagamento', label: 'Valor', type: 'number' },
+      { key: 'vlPago', label: 'Valor', type: 'number' },
       { key: 'idStatusPagamento', label: 'Status pagamento', type: 'number', lookupEndpoint: 'payment-statuses', lookupLabelKey: 'dsStatusPagamento' },
       { key: 'idFormaPagamento', label: 'Forma pagamento', type: 'number', lookupEndpoint: 'payment-methods', lookupLabelKey: 'dsFormaPagamento' },
       { key: 'dtPagamento', label: 'Data pagamento', type: 'date' },
@@ -62,14 +62,14 @@ export const studentRelatedTables: StudentRelatedConfig[] = [
     title: 'Check-ins do aluno',
     columns: [
       { key: 'idAlunoPlano', label: 'Plano do aluno', lookupLabelKey: 'plano.dsPlano' },
-      { key: 'idPontos', label: 'Pontos', lookupLabelKey: 'dsPontos' },
+      { key: 'idPontuacao', label: 'Pontos', lookupLabelKey: 'dsPontuacao' },
       { key: 'dtCadastro', label: 'Cadastro', type: 'datetime' },
       { key: 'boInativo', label: 'Status', type: 'status' },
     ],
     fields: [
       { key: 'idAlunoPlano', label: 'Plano do aluno', type: 'number', lookupEndpoint: 'students/{studentId}/related/plans', lookupLabelKey: 'plano.dsPlano', required: true },
       { key: 'idAlunoTreinosSequencia', label: 'Sequencia treino', type: 'number', lookupEndpoint: 'student-training-sequences', lookupLabelKey: 'nrOrdem' },
-      { key: 'idPontos', label: 'Pontos', type: 'number', lookupEndpoint: 'points', lookupLabelKey: 'dsPontos' },
+      { key: 'idPontuacao', label: 'Pontos', type: 'number', lookupEndpoint: 'points', lookupLabelKey: 'dsPontuacao' },
     ],
   },
 ];

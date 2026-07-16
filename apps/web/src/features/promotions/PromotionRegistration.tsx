@@ -138,7 +138,7 @@ export function PromotionRegistration() {
     return (
       promotion.dsPromocao.toLowerCase().includes(search) ||
       String(company?.dsEmpresa ?? '').toLowerCase().includes(search) ||
-      (promotion.boInativo === 0 ? 'ativo' : 'inativo').includes(search)
+      (promotion.boInativo === false ? 'ativo' : 'inativo').includes(search)
     );
   });
   const promotionsTotalPages = Math.max(1, Math.ceil(filteredPromotions.length / GRID_PAGE_SIZE));
@@ -156,7 +156,7 @@ export function PromotionRegistration() {
         await getApiError(failedLookup, 'Nao foi possivel carregar empresas e unidades de tempo.');
       }
 
-      setCompanies(((await companiesResponse.json()) as Company[]).filter((company) => company.boInativo === 0));
+      setCompanies(((await companiesResponse.json()) as Company[]).filter((company) => company.boInativo === false));
       setTimeUnits((await timeUnitsResponse.json()) as LookupRecord[]);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao carregar listas.');
@@ -350,7 +350,7 @@ export function PromotionRegistration() {
     setDiscountPercent(String(promotion.pcDesconto ?? 0));
     setStartDate(formatDateInput(promotion.dtInicio));
     setEndDate(formatDateInput(promotion.dtEncerramento));
-    setIsPromotionActive(promotion.boInativo === 0);
+    setIsPromotionActive(promotion.boInativo === false);
     setFeedback('');
   }
 
@@ -371,7 +371,7 @@ export function PromotionRegistration() {
     setSelectedRelatedRecordId(record.id);
     setIsCreatingRelated(false);
     setRelatedFormValues(values);
-    setIsRelatedActive(Number(record.boInativo ?? 0) === 0);
+    setIsRelatedActive((record.boInativo ?? false) === false);
     setRelatedFeedback('');
   }
 
@@ -395,7 +395,7 @@ export function PromotionRegistration() {
       const response = await fetch(`${apiUrl}/promotions/${selectedPromotionId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }),
+        body: JSON.stringify({ boInativo: nextActive ? false : true }),
       });
 
       if (!response.ok) {
@@ -423,7 +423,7 @@ export function PromotionRegistration() {
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }),
+          body: JSON.stringify({ boInativo: nextActive ? false : true }),
         },
       );
 
@@ -462,7 +462,7 @@ export function PromotionRegistration() {
         pcDesconto: Number(discountPercent || 0),
         dtInicio: startDate || null,
         dtEncerramento: endDate || null,
-        boInativo: isPromotionActive ? 0 : 1,
+        boInativo: isPromotionActive ? false : true,
       };
       const response = await fetch(
         selectedPromotionId ? `${apiUrl}/promotions/${selectedPromotionId}` : `${apiUrl}/promotions`,
@@ -503,13 +503,13 @@ export function PromotionRegistration() {
     }
 
     try {
-      const payload = relatedConfig.fields.reduce<Record<string, string | number | null>>(
+      const payload = relatedConfig.fields.reduce<Record<string, string | number | boolean | null>>(
         (current, field) => {
           const value = relatedFormValues[field.key] ?? '';
           current[field.key] = field.type === 'number' ? (value ? Number(value) : null) : value;
           return current;
         },
-        { boInativo: isRelatedActive ? 0 : 1 },
+        { boInativo: isRelatedActive ? false : true },
       );
 
       const response = await fetch(
@@ -574,7 +574,7 @@ export function PromotionRegistration() {
       await loadRelatedRecords(selectedPromotionId, relatedConfig);
       setSelectedRelatedRecordId(saved.id);
       setIsCreatingRelated(false);
-      setIsRelatedActive(Number(saved.boInativo ?? 0) === 0);
+      setIsRelatedActive((saved.boInativo ?? false) === false);
       setRelatedFormValues({
         idTiposArquivos: saved.idTiposArquivos ? String(saved.idTiposArquivos) : '',
       });
@@ -647,7 +647,7 @@ export function PromotionRegistration() {
             columns={[
               { label: 'Promoção', render: (p) => p.dsPromocao },
               { label: 'Empresa', render: (p) => getCompanyLabel(p.idEmpresa) },
-              { label: 'Status', render: (p) => <span className={`status-badge ${p.boInativo === 0 ? 'active' : 'inactive'}`}>{p.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+              { label: 'Status', render: (p) => <span className={`status-badge ${p.boInativo === false ? 'active' : 'inactive'}`}>{p.boInativo === false ? 'Ativo' : 'Inativo'}</span> },
             ]}
             records={paginatedPromotions}
             isLoading={isLoadingPromotions}

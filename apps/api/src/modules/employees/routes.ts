@@ -1,3 +1,4 @@
+import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId, getMultipartFieldValue, normalizeEmployeePayload } from '../../shared/normalize.js';
@@ -64,7 +65,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
   }>('/employees/:id/status', async (request, reply) => {
     try {
       const id = Number(request.params.id);
-      const boInativo = Number(request.body.boInativo ?? 0);
+      const boInativo = toBool(request.body.boInativo);
       return prisma.funcionario.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do funcionario.' });
@@ -183,7 +184,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       if (!current) throw new Error('Arquivo do funcionario invalido.');
       return prisma.funcionarioArquivo.update({
         where: { id: childId },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({
@@ -198,7 +199,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idFuncionario, 'Funcionario invalido.');
       assertValidId(childId, 'Arquivo invalido.');
-      const employeeFile = await prisma.funcionarioArquivo.findFirst({ where: { id: childId, idFuncionario, boInativo: 0 } });
+      const employeeFile = await prisma.funcionarioArquivo.findFirst({ where: { id: childId, idFuncionario, boInativo: false } });
       if (!employeeFile) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
@@ -220,7 +221,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       assertValidId(childId, 'Arquivo invalido.');
       const current = await prisma.funcionarioArquivo.findFirst({ where: { id: childId, idFuncionario }, select: { id: true } });
       if (!current) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
-      return prisma.funcionarioArquivo.update({ where: { id: childId }, data: { boInativo: 1 } });
+      return prisma.funcionarioArquivo.update({ where: { id: childId }, data: { boInativo: true } });
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao remover arquivo do funcionario.',
@@ -248,9 +249,9 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       const sessions = await prisma.funcionarioAtividadeAgenda.findMany({
         where: {
           idFuncionario,
-          boInativo: 0,
+          boInativo: false,
           atividadeAgenda: {
-            boInativo: 0,
+            boInativo: false,
             dtInicial: { gte: startsAt, lt: endsAt },
           },
         },
@@ -260,7 +261,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
               atividade: true,
               categoria: true,
               empresa: true,
-              alunoAtividadeAgendas: { where: { boInativo: 0 }, select: { id: true } },
+              alunoAtividadeAgendas: { where: { boInativo: false }, select: { id: true } },
             },
           },
         },

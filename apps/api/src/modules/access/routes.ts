@@ -22,7 +22,7 @@ export async function registerAccessRoutes(app: FastifyInstance) {
       }
 
       const biometric = await prisma.alunoBiometriaFacial.findFirst({
-        where: { dsProvider: 'compreface', dsSubject: subject, boInativo: 0 },
+        where: { dsProvider: 'compreface', dsSubject: subject, boInativo: false },
         select: {
           idAluno: true,
           nrThreshold: true,

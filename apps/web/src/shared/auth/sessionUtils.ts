@@ -1,5 +1,23 @@
 export const SESSION_KEY = 'smartgym_session';
 export const SESSION_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours
+export const GESTOR_SESSION_KEY = 'smartgym_gestor_session';
+
+/**
+ * Lê o idCliente da sessão do gestor guardada no localStorage
+ * (formato: btoa(JSON.stringify({ data: GestorSession, cachedAt }))).
+ * Retorna null se não houver sessão de gestor ativa.
+ */
+export function getGestorClienteId(): number | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(GESTOR_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(atob(raw)) as { data?: { idCliente?: number } };
+    return parsed?.data?.idCliente ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export type AuthUserType = 'student' | 'employee';
 

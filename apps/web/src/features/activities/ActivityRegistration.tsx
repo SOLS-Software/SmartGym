@@ -45,7 +45,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
       activity.dsAtividade.toLowerCase().includes(search) ||
       String(company?.dsEmpresa ?? '').toLowerCase().includes(search) ||
       String(sport?.dsEsporte ?? '').toLowerCase().includes(search) ||
-      (activity.boInativo === 0 ? 'ativo' : 'inativo').includes(search)
+      (activity.boInativo === false ? 'ativo' : 'inativo').includes(search)
     );
   });
   const paginatedActivities = paginateItems(filteredActivities, activitiesPage);
@@ -76,8 +76,8 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
       ]);
       const failed = [companiesResponse, sportsResponse].find((r) => !r.ok);
       if (failed) await getApiError(failed, 'Não foi possível carregar empresas e esportes.');
-      setCompanies(((await companiesResponse.json()) as Company[]).filter((c) => c.boInativo === 0));
-      setSports(((await sportsResponse.json()) as Sport[]).filter((s) => s.boInativo === 0));
+      setCompanies(((await companiesResponse.json()) as Company[]).filter((c) => c.boInativo === false));
+      setSports(((await sportsResponse.json()) as Sport[]).filter((s) => s.boInativo === false));
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao carregar listas.');
     }
@@ -119,7 +119,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     setSelectedCompanyId(activity.idEmpresa ? String(activity.idEmpresa) : '');
     setSelectedSportId(activity.idEsporte ? String(activity.idEsporte) : '');
     setActivityName(activity.dsAtividade);
-    setIsActivityActive(activity.boInativo === 0);
+    setIsActivityActive(activity.boInativo === false);
     setFeedback('');
   }
 
@@ -129,7 +129,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     setSelectedCompanyId(activity.idEmpresa ? String(activity.idEmpresa) : '');
     setSelectedSportId(activity.idEsporte ? String(activity.idEsporte) : '');
     setActivityName(activity.dsAtividade);
-    setIsActivityActive(activity.boInativo === 0);
+    setIsActivityActive(activity.boInativo === false);
     setFeedback('');
     setIsDrawerOpen(true);
   }
@@ -143,7 +143,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
       const response = await fetch(`${apiUrl}/activities/${selectedActivityId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }),
+        body: JSON.stringify({ boInativo: nextActive ? false : true }),
       });
       if (!response.ok) await getApiError(response, 'Não foi possível alterar o status.');
       const updated = (await response.json()) as Activity;
@@ -162,7 +162,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
         idEmpresa: selectedCompanyId ? Number(selectedCompanyId) : null,
         idEsporte: selectedSportId ? Number(selectedSportId) : null,
         dsAtividade: activityName.trim(),
-        boInativo: isActivityActive ? 0 : 1,
+        boInativo: isActivityActive ? false : true,
       };
       const response = await fetch(
         selectedActivityId ? `${apiUrl}/activities/${selectedActivityId}` : `${apiUrl}/activities`,
@@ -217,7 +217,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
           columns={[
             { label: 'Atividade', render: (a) => a.dsAtividade, tooltip: (a) => a.dsAtividade },
             { label: 'Esporte', render: (a) => getSportLabel(a.idEsporte), tooltip: (a) => getSportLabel(a.idEsporte) },
-            { label: 'Status', render: (a) => <span className={`status-badge ${a.boInativo === 0 ? 'active' : 'inactive'}`}>{a.boInativo === 0 ? 'Ativo' : 'Inativo'}</span> },
+            { label: 'Status', render: (a) => <span className={`status-badge ${a.boInativo === false ? 'active' : 'inactive'}`}>{a.boInativo === false ? 'Ativo' : 'Inativo'}</span> },
           ]}
           records={paginatedActivities}
           isLoading={isLoadingActivities}

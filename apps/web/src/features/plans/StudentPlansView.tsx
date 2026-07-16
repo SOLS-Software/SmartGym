@@ -11,7 +11,7 @@ type StudentPlansViewProps = {
 
 type NamedRecord = {
   id: number;
-  boInativo?: number;
+  boInativo?: boolean;
   [key: string]: unknown;
 };
 
@@ -30,7 +30,7 @@ type StudentPlanLink = {
   idPlano: number | null;
   nrDiaPagamento: number;
   dtAdmissao: string | null;
-  boInativo: number;
+  boInativo: boolean;
 };
 
 function getText(record: NamedRecord | null | undefined, key: string, fallback = '-') {
@@ -59,7 +59,7 @@ export function StudentPlansView({ studentId }: StudentPlansViewProps) {
   const studentPlanByPlanId = useMemo(() => {
     const links = new Map<number, StudentPlanLink>();
     for (const plan of studentPlans) {
-      if (plan.idPlano && plan.boInativo === 0) {
+      if (plan.idPlano && plan.boInativo === false) {
         links.set(plan.idPlano, plan);
       }
     }

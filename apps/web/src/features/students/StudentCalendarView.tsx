@@ -579,12 +579,12 @@ export function StudentCalendarView({
       const response = await fetch(`${apiUrl}/students/${idAluno}/related/plans`);
       if (!response.ok) return;
       const plans = (await response.json()) as Array<{
-        plano: { planoAtividades: Array<{ idAtividade: number | null; boInativo: number }> } | null;
+        plano: { planoAtividades: Array<{ idAtividade: number | null; boInativo: boolean }> } | null;
       }>;
       const ids = new Set<number>();
       for (const alunoPlano of plans) {
         for (const pa of alunoPlano.plano?.planoAtividades ?? []) {
-          if (pa.boInativo === 0 && pa.idAtividade !== null) ids.add(pa.idAtividade);
+          if (pa.boInativo === false && pa.idAtividade !== null) ids.add(pa.idAtividade);
         }
       }
       setAllowedActivityIds(ids);

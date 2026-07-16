@@ -10,12 +10,6 @@ import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer
 import type { Company, CompanyChildField, CompanyChildRecord, CompanyChildTable, Level, LookupRecord, Training } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
-const MEASUREMENT_UNITS = [
-  { value: 'KG', label: 'KG – Quilograma' },
-  { value: 'G', label: 'G – Grama' },
-  { value: 'LBS', label: 'LBS – Libra' },
-  { value: 'OZ', label: 'OZ – Onça' },
-];
 
 const trainingRelatedConfig: CompanyChildTable = {
   key: 'exercises',
@@ -28,7 +22,7 @@ const trainingRelatedConfig: CompanyChildTable = {
     { key: 'nrSeries', label: 'Séries' },
     { key: 'nrRepeticoes', label: 'Repetições' },
     { key: 'qtPeso', label: 'Peso' },
-    { key: 'cnUnidadeMedida', label: 'Unidade' },
+    { key: 'idUnidadeMedida', label: 'Unidade', lookupLabelKey: 'cnUnidade' },
     { key: 'boInativo', label: 'Status', type: 'status' },
   ],
   fields: [
@@ -40,7 +34,7 @@ const trainingRelatedConfig: CompanyChildTable = {
     { key: 'nrRepeticoes', label: 'Repetições', type: 'number', size: 'sm' },
     { key: 'qtDescanso', label: 'Descanso (s)', type: 'number', size: 'sm' },
     { key: 'qtPeso', label: 'Peso', type: 'number', size: 'sm' },
-    { key: 'cnUnidadeMedida', label: 'Unidade', type: 'text', selectOptions: MEASUREMENT_UNITS, size: 'sm' },
+    { key: 'idUnidadeMedida', label: 'Unidade', type: 'number', lookupEndpoint: 'measurement-units', lookupLabelKey: 'cnUnidade', size: 'sm' },
   ],
 };
 
@@ -107,7 +101,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
       training.dsTreino.toLowerCase().includes(search) ||
       String(company?.dsEmpresa ?? '').toLowerCase().includes(search) ||
       String(level?.dsNivel ?? '').toLowerCase().includes(search) ||
-      (training.boInativo === 0 ? 'ativo' : 'inativo').includes(search)
+      (training.boInativo === false ? 'ativo' : 'inativo').includes(search)
     );
   });
 
@@ -146,8 +140,8 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
 
       const companiesData = (await companiesResponse.json()) as Company[];
       const levelsData = (await levelsResponse.json()) as Level[];
-      setCompanies(companiesData.filter((company) => company.boInativo === 0));
-      setLevels(levelsData.filter((level) => level.boInativo === 0));
+      setCompanies(companiesData.filter((company) => company.boInativo === false));
+      setLevels(levelsData.filter((level) => level.boInativo === false));
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao carregar listas.');
     }
@@ -268,7 +262,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     setSelectedCompanyId(training.idEmpresa ? String(training.idEmpresa) : '');
     setSelectedLevelId(training.idNivel ? String(training.idNivel) : '');
     setTrainingName(training.dsTreino);
-    setIsTrainingActive(training.boInativo === 0);
+    setIsTrainingActive(training.boInativo === false);
     setFeedback('');
     setTrainingRelatedFeedback('');
   }
@@ -279,7 +273,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     setSelectedCompanyId(training.idEmpresa ? String(training.idEmpresa) : '');
     setSelectedLevelId(training.idNivel ? String(training.idNivel) : '');
     setTrainingName(training.dsTreino);
-    setIsTrainingActive(training.boInativo === 0);
+    setIsTrainingActive(training.boInativo === false);
     setFeedback('');
     setIsDrawerOpen(true);
     setDrawerMode('training');
@@ -318,7 +312,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     setSelectedTrainingRelatedRecordId(record.id);
     setIsCreatingTrainingRelated(false);
     setTrainingRelatedFormValues(values);
-    setIsTrainingRelatedActive(Number(record.boInativo ?? 0) === 0);
+    setIsTrainingRelatedActive((record.boInativo ?? false) === false);
     setTrainingRelatedFeedback('');
     setIsDrawerOpen(true);
     setDrawerMode('exercise');
@@ -342,7 +336,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
       const response = await fetch(`${apiUrl}/trainings/${selectedTrainingId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }),
+        body: JSON.stringify({ boInativo: nextActive ? false : true }),
       });
 
       if (!response.ok) {
@@ -372,7 +366,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
         idEmpresa: selectedCompanyId ? Number(selectedCompanyId) : null,
         idNivel: selectedLevelId ? Number(selectedLevelId) : null,
         dsTreino: trainingName.trim(),
-        boInativo: isTrainingActive ? 0 : 1,
+        boInativo: isTrainingActive ? false : true,
       };
       const response = await fetch(
         isCreating ? `${apiUrl}/trainings` : `${apiUrl}/trainings/${selectedTrainingId}`,
@@ -410,7 +404,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }),
+          body: JSON.stringify({ boInativo: nextActive ? false : true }),
         },
       );
 
@@ -447,13 +441,13 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     }
 
     try {
-      const payload = trainingRelatedConfig.fields.reduce<Record<string, string | number | null>>(
+      const payload = trainingRelatedConfig.fields.reduce<Record<string, string | number | boolean | null>>(
         (current, field) => {
           const value = trainingRelatedFormValues[field.key] ?? '';
           current[field.key] = field.type === 'number' ? (value ? Number(value) : null) : value;
           return current;
         },
-        { boInativo: isTrainingRelatedActive ? 0 : 1 },
+        { boInativo: isTrainingRelatedActive ? false : true },
       );
 
       const response = await fetch(
@@ -501,8 +495,8 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
               {
                 label: 'Status',
                 render: (t) => (
-                  <span className={`status-badge ${t.boInativo === 0 ? 'active' : 'inactive'}`}>
-                    {t.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                  <span className={`status-badge ${t.boInativo === false ? 'active' : 'inactive'}`}>
+                    {t.boInativo === false ? 'Ativo' : 'Inativo'}
                   </span>
                 ),
               },

@@ -1,3 +1,4 @@
+import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import {
@@ -51,7 +52,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
         pcDesconto: Number(payload.pcDesconto ?? 0),
         dtInicio: optionalDate(payload.dtInicio) ?? new Date(),
         dtEncerramento: optionalDate(payload.dtEncerramento) ?? null,
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -65,7 +66,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
         idPromocao: optionalNumber(payload.idPromocao),
         idProduto: optionalNumber(payload.idProduto),
         qtDisponivel: optionalNumber(payload.qtDisponivel),
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -84,14 +85,18 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
         anCaminho: optionalText(payload.anCaminho),
         cnChaveAcesso: optionalNumber(payload.cnChaveAcesso),
         cnDistribuidor: optionalNumber(payload.cnDistribuidor),
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
   'student-plans': {
     delegate: asCrudDelegate(prisma.alunoPlano),
     orderBy: { dtCadastro: 'desc' },
-    companyField: 'idEmpresa',
+    companyField: null,
+    getWhere(companyId: number) {
+      // AlunoPlano nao tem mais idEmpresa: escopa via PlanoEmpresa (acesso multi-empresa)
+      return { plano: { planoEmpresas: { some: { idEmpresa: companyId } } } };
+    },
     include: {
       aluno: true,
       plano: true,
@@ -101,15 +106,18 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
         },
       },
     },
-    normalize(companyId: number, payload: CompanyChildPayload) {
+    normalize(_companyId: number, payload: CompanyChildPayload) {
+      const idAluno = optionalNumber(payload.idAluno);
+      if (!idAluno) throw new Error('Selecione o aluno.');
+      const idPlano = optionalNumber(payload.idPlano);
+      if (!idPlano) throw new Error('Selecione o plano.');
       return {
-        idEmpresa: companyId,
-        idAluno: optionalNumber(payload.idAluno),
-        idPlano: optionalNumber(payload.idPlano),
+        idAluno,
+        idPlano,
         idPromocaoPlano: optionalNumber(payload.idPromocaoPlano),
         nrDiaPagamento: Number(payload.nrDiaPagamento ?? 1),
         dtAdmissao: optionalDate(payload.dtAdmissao) ?? new Date(),
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -118,15 +126,20 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     orderBy: { dtPagamento: 'desc' },
     companyField: 'idEmpresa',
     normalize(companyId: number, payload: CompanyChildPayload) {
+      const idStatusPagamento = optionalNumber(payload.idStatusPagamento);
+      if (!idStatusPagamento) throw new Error('Informe o status do pagamento.');
       return {
         idEmpresa: companyId,
         idAlunoPlano: optionalNumber(payload.idAlunoPlano),
         idProdutoMovimentacao: optionalNumber(payload.idProdutoMovimentacao),
-        vlPagamento: Number(payload.vlPagamento ?? 0),
-        idStatusPagamento: optionalNumber(payload.idStatusPagamento),
+        vlPrevisto: Number(payload.vlPrevisto ?? payload.vlPago ?? 0),
+        vlPago: optionalNumber(payload.vlPago),
+        idStatusPagamento,
         idFormaPagamento: optionalNumber(payload.idFormaPagamento),
+        dtVencimento: optionalDate(payload.dtVencimento),
+        dtCompetencia: optionalDate(payload.dtCompetencia),
         dtPagamento: optionalDate(payload.dtPagamento) ?? new Date(),
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -146,7 +159,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
         qtMovimentada: Number(payload.qtMovimentada ?? 0),
         vlUnitario: Number(payload.vlUnitario ?? 0),
         qtDisponivel: Number(payload.qtDisponivel ?? 0),
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -162,7 +175,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
         anCaminho: optionalText(payload.anCaminho),
         cnChaveAcesso: optionalNumber(payload.cnChaveAcesso),
         cnDistribuidor: optionalNumber(payload.cnDistribuidor),
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -175,8 +188,8 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
         idEmpresa: companyId,
         idAlunoPlano: optionalNumber(payload.idAlunoPlano),
         idAlunoTreinosSequencia: optionalNumber(payload.idAlunoTreinosSequencia),
-        idPontos: optionalNumber(payload.idPontos),
-        boInativo: Number(payload.boInativo ?? 0),
+        idPontuacao: optionalNumber(payload.idPontuacao),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -187,7 +200,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     normalize(_companyId: number, payload: CompanyChildPayload) {
       return {
         dsTema: requiredText(payload.dsTema, 'Informe o tema.'),
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -258,7 +271,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   }>('/companies/:id/status', async (request, reply) => {
     try {
       const id = Number(request.params.id);
-      const boInativo = Number(request.body.boInativo ?? 0);
+      const boInativo = toBool(request.body.boInativo);
       return prisma.empresa.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status da empresa.' });
@@ -274,7 +287,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       const idEmpresa = Number(request.params.id);
       assertValidId(idEmpresa, 'Empresa invalida.');
       return prisma.empresaArquivo.findMany({
-        where: { idEmpresa, boInativo: 0 },
+        where: { idEmpresa, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
       });
     } catch (error) {
@@ -344,7 +357,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
 
       const existingFile = await prisma.empresaArquivo.findFirst({
-        where: { id: fileId, idEmpresa, boInativo: 0 },
+        where: { id: fileId, idEmpresa, boInativo: false },
       });
 
       if (!existingFile) {
@@ -394,7 +407,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
 
       const companyFile = await prisma.empresaArquivo.findFirst({
-        where: { id: fileId, idEmpresa, boInativo: 0 },
+        where: { id: fileId, idEmpresa, boInativo: false },
       });
 
       if (!companyFile) {
@@ -429,14 +442,14 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
 
       const existingFile = await prisma.empresaArquivo.findFirst({
-        where: { id: fileId, idEmpresa, boInativo: 0 },
+        where: { id: fileId, idEmpresa, boInativo: false },
       });
 
       if (!existingFile) {
         return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
       }
 
-      return prisma.empresaArquivo.update({ where: { id: fileId }, data: { boInativo: 1 } });
+      return prisma.empresaArquivo.update({ where: { id: fileId }, data: { boInativo: true } });
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao remover arquivo da empresa.',
@@ -555,7 +568,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(companyId, 'Empresa invalida.');
       assertValidId(fileId, 'Arquivo invalido.');
       const promotionFile = await prisma.promocaoArquivo.findFirst({
-        where: { id: fileId, promocao: { idEmpresa: companyId }, boInativo: 0 },
+        where: { id: fileId, promocao: { idEmpresa: companyId }, boInativo: false },
       });
       if (!promotionFile) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
       const { bucket } = getSupabaseConfig();
@@ -583,7 +596,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         select: { id: true },
       });
       if (!current) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
-      return prisma.promocaoArquivo.update({ where: { id: fileId }, data: { boInativo: 1 } });
+      return prisma.promocaoArquivo.update({ where: { id: fileId }, data: { boInativo: true } });
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao remover arquivo de promocao.',
@@ -633,7 +646,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         tamanhoBase: Number(b.tamanhoBase ?? 14),
         espacamentoPadrao: Number(b.espacamentoPadrao ?? 16),
         raioCardBorder: Number(b.raioCardBorder ?? 8),
-        boModoEscuro: Number(b.boModoEscuro ?? 0),
+        boModoEscuro: toBool(b.boModoEscuro ?? false),
         idArquivoLogo: optionalNumber(b.idArquivoLogo),
         idArquivoFavicon: optionalNumber(b.idArquivoFavicon),
       };
@@ -683,7 +696,15 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       const companyId = Number(request.params.companyId);
       assertValidId(companyId, 'Empresa invalida.');
       const config = getChildResourceConfig(request.params.resource);
-      const data = config.normalize(companyId, request.body);
+      const data = config.normalize(companyId, request.body) as Record<string, unknown>;
+      if (request.params.resource === 'student-check-ins' && !data.idAluno && data.idAlunoPlano) {
+        const plan = await prisma.alunoPlano.findUnique({
+          where: { id: Number(data.idAlunoPlano) },
+          select: { idAluno: true },
+        });
+        if (!plan) throw new Error('Plano do aluno invalido.');
+        data.idAluno = plan.idAluno;
+      }
       return reply.code(201).send(await config.delegate.create({ data }));
     } catch (error) {
       return reply.code(400).send({
@@ -723,7 +744,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       const config = getChildResourceConfig(request.params.resource);
       return await config.delegate.update({
         where: { id: childId },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({

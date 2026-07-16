@@ -1,3 +1,4 @@
+import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import {
@@ -32,7 +33,7 @@ const planChildResourceConfig = {
         idPlano: planId,
         idEmpresa: optionalNumber(payload.idEmpresa),
         vlVenda: Number(payload.vlVenda ?? 0),
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -43,7 +44,7 @@ const planChildResourceConfig = {
         idPlano: planId,
         idEmpresa: optionalNumber(payload.idEmpresa),
         idProduto: optionalNumber(payload.idProduto),
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -53,7 +54,7 @@ const planChildResourceConfig = {
       return {
         idPlano: planId,
         idEmpresa: optionalNumber(payload.idEmpresa),
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -64,7 +65,7 @@ const planChildResourceConfig = {
         idPlano: planId,
         idEmpresa: optionalNumber(payload.idEmpresa),
         idAtividade: optionalNumber(payload.idAtividade),
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -78,7 +79,7 @@ const planChildResourceConfig = {
         qtDisponivel: Number(payload.qtDisponivel ?? 0),
         dtInicio: optionalDate(payload.dtInicio) ?? new Date(),
         dtEncerramento: optionalDate(payload.dtEncerramento) ?? null,
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -90,7 +91,7 @@ const planChildResourceConfig = {
         idPromocao: optionalNumber(payload.idPromocao),
         idProduto: optionalNumber(payload.idProduto),
         qtDisponivel: optionalNumber(payload.qtDisponivel),
-        boInativo: Number(payload.boInativo ?? 0),
+        boInativo: toBool(payload.boInativo),
       };
     },
   },
@@ -147,34 +148,34 @@ export async function registerPlanRoutes(app: FastifyInstance) {
 
     return prisma.plano.findMany({
       where: {
-        ...(includeInactive ? {} : { boInativo: 0 }),
+        ...(includeInactive ? {} : { boInativo: false }),
         ...(search ? { dsPlano: { contains: search, mode: 'insensitive' } } : {}),
       },
       include: includeDetails
         ? {
             frequencia: true,
             planoAtividades: {
-              where: { boInativo: 0 },
+              where: { boInativo: false },
               include: { atividade: true },
               orderBy: { id: 'asc' },
             },
             planoProdutos: {
-              where: { boInativo: 0 },
+              where: { boInativo: false },
               include: { produto: true },
               orderBy: { id: 'asc' },
             },
             planoEmpresas: {
-              where: { boInativo: 0 },
+              where: { boInativo: false },
               include: { empresa: true },
               orderBy: { id: 'asc' },
             },
             planoValores: {
-              where: { boInativo: 0 },
+              where: { boInativo: false },
               include: { empresa: true },
               orderBy: { dtCadastro: 'desc' },
             },
             promocaoPlanos: {
-              where: { boInativo: 0 },
+              where: { boInativo: false },
               include: { promocao: true },
               orderBy: { dtCadastro: 'desc' },
             },
@@ -219,7 +220,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
   }>('/plans/:id/status', async (request, reply) => {
     try {
       const id = Number(request.params.id);
-      const boInativo = Number(request.body.boInativo ?? 0);
+      const boInativo = toBool(request.body.boInativo);
       return prisma.plano.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do plano.' });
@@ -464,7 +465,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
         const promotionFile = await prisma.promocaoArquivo.findFirst({
           where: {
             id: fileId,
-            boInativo: 0,
+            boInativo: false,
             promocao: { promocaoPlanos: { some: { idPlano } } },
           },
         });
@@ -513,7 +514,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
 
         return prisma.promocaoArquivo.update({
           where: { id: fileId },
-          data: { boInativo: 1 },
+          data: { boInativo: true },
         });
       } catch (error) {
         return reply.code(400).send({
@@ -584,7 +585,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       const config = getPlanChildResourceConfig(request.params.resource);
       return config.delegate.update({
         where: { id: childId },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({

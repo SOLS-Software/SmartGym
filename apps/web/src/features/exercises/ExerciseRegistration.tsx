@@ -72,7 +72,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
       const response = await fetch(`${apiUrl}/companies`);
       if (!response.ok) await getApiError(response, 'Não foi possível carregar as empresas.');
       const data = (await response.json()) as Company[];
-      setCompanies(data.filter((company) => company.boInativo === 0));
+      setCompanies(data.filter((company) => company.boInativo === false));
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao carregar empresas.');
     }
@@ -115,7 +115,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
       const response = await fetch(`${apiUrl}/equipments`);
       if (!response.ok) await getApiError(response, 'Não foi possível carregar os equipamentos.');
       const data = (await response.json()) as Equipamento[];
-      setEquipmentOptions(data.filter((equipment) => equipment.boInativo === 0));
+      setEquipmentOptions(data.filter((equipment) => equipment.boInativo === false));
     } catch (error) {
       setEquipmentFeedback(error instanceof Error ? error.message : 'Erro ao carregar equipamentos.');
     }
@@ -137,7 +137,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
       const response = await fetch(`${apiUrl}/body-areas`);
       if (!response.ok) await getApiError(response, 'Não foi possível carregar as áreas do corpo.');
       const data = (await response.json()) as AreaCorporal[];
-      setAreaOptions(data.filter((area) => area.boInativo === 0));
+      setAreaOptions(data.filter((area) => area.boInativo === false));
     } catch (error) {
       setAreaFeedback(error instanceof Error ? error.message : 'Erro ao carregar áreas do corpo.');
     }
@@ -219,7 +219,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
     setSelectedCompanyId(exercise.idEmpresa ? String(exercise.idEmpresa) : '');
     setExerciseName(exercise.dsExercicio);
     setExerciseInstructions(exercise.dsInstrucao ?? '');
-    setIsExerciseActive(exercise.boInativo === 0);
+    setIsExerciseActive(exercise.boInativo === false);
     setFeedback('');
     setFileFeedback('');
     setIsDrawerOpen(true);
@@ -238,7 +238,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
       const response = await fetch(`${apiUrl}/exercises/${selectedExerciseId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boInativo: nextActive ? 0 : 1 }),
+        body: JSON.stringify({ boInativo: nextActive ? false : true }),
       });
 
       if (!response.ok) await getApiError(response, 'Não foi possível alterar o status.');
@@ -258,7 +258,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
         idEmpresa: selectedCompanyId ? Number(selectedCompanyId) : null,
         dsExercicio: exerciseName,
         dsInstrucao: exerciseInstructions.trim() || null,
-        boInativo: isExerciseActive ? 0 : 1,
+        boInativo: isExerciseActive ? false : true,
       };
 
       const response = await fetch(
@@ -509,8 +509,8 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
                 <span role="cell" title={exercise.dsExercicio}>{exercise.dsExercicio}</span>
                 <span role="cell" title={getCompanyLabel(exercise.idEmpresa)}>{getCompanyLabel(exercise.idEmpresa)}</span>
                 <span role="cell">
-                  <span className={`status-badge ${exercise.boInativo === 0 ? 'active' : 'inactive'}`}>
-                    {exercise.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                  <span className={`status-badge ${exercise.boInativo === false ? 'active' : 'inactive'}`}>
+                    {exercise.boInativo === false ? 'Ativo' : 'Inativo'}
                   </span>
                 </span>
               </button>
@@ -527,8 +527,8 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
                 <span role="cell" title={exercise.dsExercicio}>{exercise.dsExercicio}</span>
                 <span role="cell" title={getCompanyLabel(exercise.idEmpresa)}>{getCompanyLabel(exercise.idEmpresa)}</span>
                 <span role="cell">
-                  <span className={`status-badge ${exercise.boInativo === 0 ? 'active' : 'inactive'}`}>
-                    {exercise.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                  <span className={`status-badge ${exercise.boInativo === false ? 'active' : 'inactive'}`}>
+                    {exercise.boInativo === false ? 'Ativo' : 'Inativo'}
                   </span>
                 </span>
                 <span role="cell" className="grid-row-actions">
@@ -713,7 +713,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
                     {equipmentOptions
                       .filter((equipment) =>
                         !exerciseEquipment.some(
-                          (link) => link.boInativo === 0 && link.idEquipamento === equipment.id,
+                          (link) => link.boInativo === false && link.idEquipamento === equipment.id,
                         ),
                       )
                       .map((equipment) => (
@@ -774,7 +774,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
                     {areaOptions
                       .filter((area) =>
                         !exerciseAreas.some(
-                          (link) => link.boInativo === 0 && link.idAreaCorporal === area.id,
+                          (link) => link.boInativo === false && link.idAreaCorporal === area.id,
                         ),
                       )
                       .map((area) => (

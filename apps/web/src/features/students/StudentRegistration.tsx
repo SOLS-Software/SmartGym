@@ -10,6 +10,7 @@ import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import type { CompanyChildRecord, LookupRecord, Student, StudentFile, StudentValidationErrors, StudentValidationField } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { getGestorClienteId } from '../../shared/auth/sessionUtils';
 import { studentRelatedTables } from './studentRelatedTables';
 import { formatPhone, isValidBirthDate, isValidEmail, toApiDate } from './studentValidation';
 
@@ -372,12 +373,12 @@ export function StudentRegistration() {
     setStudentEmail(student.anEmail);
     setStudentCep(student.anCEP);
     setStudentAddress(student.anLogradouro);
-    setStudentComplement(student.anCoplemento);
+    setStudentComplement(student.anComplemento);
     setStudentDistrict(student.anBairro);
     setStudentAddressNumber(
       student.nrEndereco === null ? '' : String(student.nrEndereco),
     );
-    setIsStudentActive(student.boInativo === 0);
+    setIsStudentActive(student.boInativo === false);
     setFeedback('');
     setFileFeedback('');
     setStudentErrors({});
@@ -455,7 +456,7 @@ export function StudentRegistration() {
     setSelectedStudentRelatedRecordId(record.id);
     setIsCreatingStudentRelated(false);
     setStudentRelatedFormValues(values);
-    setIsStudentRelatedActive(Number(record.boInativo ?? 0) === 0);
+    setIsStudentRelatedActive((record.boInativo ?? false) === false);
     setStudentRelatedFeedback('');
   }
 
@@ -546,7 +547,7 @@ export function StudentRegistration() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          boInativo: nextActive ? 0 : 1,
+          boInativo: nextActive ? false : true,
         }),
       });
 
@@ -589,7 +590,14 @@ export function StudentRegistration() {
         return;
       }
 
+      const idCliente = getGestorClienteId();
+      if (!idCliente) {
+        setFeedback('Sessão do gestor não identificada. Faça login novamente.');
+        return;
+      }
+
       const payload = {
+        idCliente,
         nmAluno: studentName,
         caCPF: onlyDigits(studentCpf),
         dtNascimento: apiBirthDate,
@@ -598,10 +606,10 @@ export function StudentRegistration() {
         anEmail: trimmedEmail,
         anCEP: studentCep,
         anLogradouro: studentAddress,
-        anCoplemento: studentComplement,
+        anComplemento: studentComplement,
         anBairro: studentDistrict,
-        nrEndereco: studentAddressNumber ? Number(studentAddressNumber) : null,
-        boInativo: isStudentActive ? 0 : 1,
+        nrEndereco: studentAddressNumber || null,
+        boInativo: isStudentActive ? false : true,
       };
       const response = await fetch(
         selectedStudentId
@@ -662,7 +670,7 @@ export function StudentRegistration() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            boInativo: nextActive ? 0 : 1,
+            boInativo: nextActive ? false : true,
           }),
         },
       );
@@ -705,14 +713,14 @@ export function StudentRegistration() {
     }
 
     try {
-      const payload = studentRelatedConfig.fields.reduce<Record<string, string | number | null>>(
+      const payload = studentRelatedConfig.fields.reduce<Record<string, string | number | boolean | null>>(
         (current, field) => {
           const value = studentRelatedFormValues[field.key] ?? '';
           current[field.key] = field.type === 'number' ? (value ? Number(value) : null) : value;
           return current;
         },
         {
-          boInativo: isStudentRelatedActive ? 0 : 1,
+          boInativo: isStudentRelatedActive ? false : true,
         },
       );
 
@@ -953,8 +961,8 @@ export function StudentRegistration() {
               { label: 'CPF', render: (s) => formatCpf(s.caCPF) },
               {
                 label: 'Status', render: (s) => (
-                  <span className={`status-badge ${s.boInativo === 0 ? 'active' : 'inactive'}`}>
-                    {s.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                  <span className={`status-badge ${s.boInativo === false ? 'active' : 'inactive'}`}>
+                    {s.boInativo === false ? 'Ativo' : 'Inativo'}
                   </span>
                 ),
               },
@@ -1052,8 +1060,8 @@ export function StudentRegistration() {
               <RegistrationField htmlFor="anBairro" label="Bairro" size="md">
                 <input id="anBairro" maxLength={100} onChange={(event) => setStudentDistrict(event.target.value)} placeholder="Bairro" type="text" value={studentDistrict} />
               </RegistrationField>
-              <RegistrationField htmlFor="anCoplemento" label="Complemento" size="md">
-                <input id="anCoplemento" maxLength={100} onChange={(event) => setStudentComplement(event.target.value)} placeholder="Apt, bloco..." type="text" value={studentComplement} />
+              <RegistrationField htmlFor="anComplemento" label="Complemento" size="md">
+                <input id="anComplemento" maxLength={100} onChange={(event) => setStudentComplement(event.target.value)} placeholder="Apt, bloco..." type="text" value={studentComplement} />
               </RegistrationField>
               <RegistrationField htmlFor="anCEP" label="CEP" size="sm">
                 <input id="anCEP" maxLength={8} onChange={(event) => setStudentCep(event.target.value)} placeholder="Somente numeros" type="text" value={studentCep} />

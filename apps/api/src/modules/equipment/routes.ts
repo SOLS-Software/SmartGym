@@ -1,3 +1,4 @@
+import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import {
@@ -62,7 +63,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
   }>('/equipments/:id/status', async (request, reply) => {
     try {
       const id = Number(request.params.id);
-      const boInativo = Number(request.body.boInativo ?? 0);
+      const boInativo = toBool(request.body.boInativo);
       return prisma.equipamento.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do equipamento.' });
@@ -78,7 +79,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       const idEquipamento = Number(request.params.id);
       assertValidId(idEquipamento, 'Equipamento invalido.');
       return prisma.equipamentoArquivo.findMany({
-        where: { idEquipamento, boInativo: 0 },
+        where: { idEquipamento, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
       });
     } catch (error) {
@@ -150,7 +151,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
 
       const equipmentFile = await prisma.equipamentoArquivo.findFirst({
-        where: { id: fileId, idEquipamento, boInativo: 0 },
+        where: { id: fileId, idEquipamento, boInativo: false },
       });
 
       if (!equipmentFile) {
@@ -185,7 +186,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
 
       const existingFile = await prisma.equipamentoArquivo.findFirst({
-        where: { id: fileId, idEquipamento, boInativo: 0 },
+        where: { id: fileId, idEquipamento, boInativo: false },
       });
 
       if (!existingFile) {
@@ -194,7 +195,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
 
       return prisma.equipamentoArquivo.update({
         where: { id: fileId },
-        data: { boInativo: 1 },
+        data: { boInativo: true },
       });
     } catch (error) {
       return reply.code(400).send({
@@ -212,7 +213,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       const idEquipamento = Number(request.params.id);
       assertValidId(idEquipamento, 'Equipamento invalido.');
       return prisma.equipamentoManutencao.findMany({
-        where: { idEquipamento, boInativo: 0 },
+        where: { idEquipamento, boInativo: false },
         orderBy: { dtExecucao: 'desc' },
       });
     } catch (error) {
@@ -274,7 +275,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
   }>('/equipments/:id/maintenances/:maintenanceId/status', async (request, reply) => {
     try {
       const maintenanceId = Number(request.params.maintenanceId);
-      const boInativo = Number(request.body.boInativo ?? 0);
+      const boInativo = toBool(request.body.boInativo);
       return prisma.equipamentoManutencao.update({
         where: { id: maintenanceId },
         data: { boInativo },
@@ -303,7 +304,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
 
       return prisma.equipamentoManutencao.update({
         where: { id: maintenanceId },
-        data: { boInativo: 1 },
+        data: { boInativo: true },
       });
     } catch (error) {
       return reply.code(400).send({

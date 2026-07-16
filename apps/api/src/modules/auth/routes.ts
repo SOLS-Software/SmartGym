@@ -28,10 +28,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
       const user = await prisma.usuario.findFirst({
         where: {
-          boInativo: 0,
+          boInativo: false,
           OR: [
-            { aluno: { caCPF: cpf, boInativo: 0 } },
-            { funcionario: { caCPF: cpf, boInativo: 0 } },
+            { aluno: { caCPF: cpf, boInativo: false } },
+            { funcionario: { caCPF: cpf, boInativo: false } },
           ],
         },
         include: { aluno: true, funcionario: true },
@@ -42,7 +42,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       }
 
       const currentPassword = await prisma.senha.findFirst({
-        where: { idUsuario: user.id, boInativo: 0 },
+        where: { idUsuario: user.id, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
       });
 
@@ -77,10 +77,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       const cpf = normalizeRegisterCpf(request.body.cpf);
       const user = await prisma.usuario.findFirst({
         where: {
-          boInativo: 0,
+          boInativo: false,
           OR: [
-            { aluno: { caCPF: cpf, boInativo: 0 } },
-            { funcionario: { caCPF: cpf, boInativo: 0 } },
+            { aluno: { caCPF: cpf, boInativo: false } },
+            { funcionario: { caCPF: cpf, boInativo: false } },
           ],
         },
         include: { aluno: true, funcionario: true },
@@ -139,9 +139,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
       if (type === 'student') {
         const student = await prisma.aluno.findFirst({
-          where: { caCPF: cpf, boInativo: 0 },
+          where: { caCPF: cpf, boInativo: false },
           include: {
-            usuarios: { where: { boInativo: 0 }, select: { id: true } },
+            usuarios: { where: { boInativo: false }, select: { id: true } },
           },
         });
 
@@ -163,9 +163,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       }
 
       const employee = await prisma.funcionario.findFirst({
-        where: { caCPF: cpf, boInativo: 0 },
+        where: { caCPF: cpf, boInativo: false },
         include: {
-          usuarios: { where: { boInativo: 0 }, select: { id: true } },
+          usuarios: { where: { boInativo: false }, select: { id: true } },
         },
       });
 
@@ -207,8 +207,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       const createdUser = await prisma.$transaction(async (transaction) => {
         if (type === 'student') {
           const student = await transaction.aluno.findFirst({
-            where: { caCPF: cpf, boInativo: 0 },
-            include: { usuarios: { where: { boInativo: 0 }, select: { id: true } } },
+            where: { caCPF: cpf, boInativo: false },
+            include: { usuarios: { where: { boInativo: false }, select: { id: true } } },
           });
 
           if (!student) {
@@ -219,18 +219,18 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           }
 
           const user = await transaction.usuario.create({
-            data: { idAluno: student.id, dsLogin, boInativo: 0 },
+            data: { idAluno: student.id, dsLogin, boInativo: false },
           });
           await transaction.senha.create({
-            data: { idUsuario: user.id, dsSenha: hashPassword(password), cnTipoHash: 1, boTrocaObrigatoria: 0 },
+            data: { idUsuario: user.id, dsSenha: hashPassword(password), cnTipoHash: 1, boTrocaObrigatoria: false },
           });
 
           return { id: user.id, type, name: student.nmAluno, login: user.dsLogin };
         }
 
         const employee = await transaction.funcionario.findFirst({
-          where: { caCPF: cpf, boInativo: 0 },
-          include: { usuarios: { where: { boInativo: 0 }, select: { id: true } } },
+          where: { caCPF: cpf, boInativo: false },
+          include: { usuarios: { where: { boInativo: false }, select: { id: true } } },
         });
 
         if (!employee) {
@@ -241,10 +241,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         }
 
         const user = await transaction.usuario.create({
-          data: { idFuncionario: employee.id, dsLogin, boInativo: 0 },
+          data: { idFuncionario: employee.id, dsLogin, boInativo: false },
         });
         await transaction.senha.create({
-          data: { idUsuario: user.id, dsSenha: hashPassword(password), cnTipoHash: 1, boTrocaObrigatoria: 0 },
+          data: { idUsuario: user.id, dsSenha: hashPassword(password), cnTipoHash: 1, boTrocaObrigatoria: false },
         });
 
         return { id: user.id, type, name: employee.nmFuncionario, login: user.dsLogin };
@@ -266,7 +266,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       if (!url) return reply.code(204).send();
 
       const dominio = await prisma.dominioCorporativo.findFirst({
-        where: { urlDominio: url, boAtivo: 1 },
+        where: { urlDominio: url, boAtivo: true },
         include: {
           cliente: {
             include: {
@@ -354,8 +354,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
       const user = await prisma.usuario.findFirst({
         where: {
-          boInativo: 0,
-          funcionario: { caCPF: cpf, boInativo: 0 },
+          boInativo: false,
+          funcionario: { caCPF: cpf, boInativo: false },
         },
         include: { funcionario: { include: { empresa: true } } },
       });
@@ -369,7 +369,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       }
 
       const currentPassword = await prisma.senha.findFirst({
-        where: { idUsuario: user.id, boInativo: 0 },
+        where: { idUsuario: user.id, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
       });
 
@@ -383,7 +383,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       }
 
       const empresas = await prisma.empresa.findMany({
-        where: { idCliente, boInativo: 0 },
+        where: { idCliente, boInativo: false },
         orderBy: { dsEmpresa: 'asc' },
       });
 
@@ -412,7 +412,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       }
 
       const user = await prisma.usuario.findFirst({
-        where: { id, boInativo: 0 },
+        where: { id, boInativo: false },
         include: { aluno: true, funcionario: true },
       });
 
@@ -420,8 +420,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         return reply.code(401).send({ message: 'Usuario inativo ou nao encontrado.' });
       }
 
-      const isStudentActive = user.idAluno ? user.aluno?.boInativo === 0 : true;
-      const isEmployeeActive = user.idFuncionario ? user.funcionario?.boInativo === 0 : true;
+      const isStudentActive = user.idAluno ? user.aluno?.boInativo === false : true;
+      const isEmployeeActive = user.idFuncionario ? user.funcionario?.boInativo === false : true;
 
       if (!isStudentActive || !isEmployeeActive) {
         return reply.code(401).send({ message: 'Usuario sem acesso ao sistema.' });

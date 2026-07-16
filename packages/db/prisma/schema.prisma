@@ -6,7 +6,7 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
-  extensions = [postgis, vector]
+  extensions = [postgis]
 }
 
 model Empresa {
@@ -858,19 +858,19 @@ model EquipamentoArquivo {
 }
 
 model AlunoBiometriaFacial {
-  id                Int                    @id @default(autoincrement())
+  id                Int      @id @default(autoincrement())
   idAluno           Int
   idAlunoArquivo    Int?
-  dsModelo          String                 @db.VarChar(100)
-  dsProvider        String                 @db.VarChar(100)
-  dsSubject         String?                @db.VarChar(100)
-  dsExternalImageId String?                @db.VarChar(100)
-  anEmbedding       Unsupported("vector")?
+  dsModelo          String   @db.VarChar(100)
+  dsProvider        String   @db.VarChar(100)
+  dsSubject         String?  @db.VarChar(100)
+  dsExternalImageId String?  @db.VarChar(100)
+  anEmbedding       Json?
   nrDimensoes       Int?
-  nrThreshold       Decimal                @db.Decimal(5, 4)
-  dtCadastro        DateTime               @default(now())
-  dtAlteracao       DateTime               @updatedAt
-  boInativo         Boolean                @default(false)
+  nrThreshold       Decimal  @db.Decimal(5, 4)
+  dtCadastro        DateTime @default(now())
+  dtAlteracao       DateTime @updatedAt
+  boInativo         Boolean  @default(false)
 
   aluno        Aluno         @relation(fields: [idAluno], references: [id])
   alunoArquivo AlunoArquivo? @relation(fields: [idAlunoArquivo], references: [id])
@@ -1193,7 +1193,7 @@ model Cliente {
 
 model Catraca {
   id                 Int       @id @default(autoincrement())
-  idEmpresa          Int
+  idEmpresa          Int?
   dsCatraca          String    @default("") @db.VarChar(100)
   dsFabricante       String    @default("controlid") @db.VarChar(50)
   dsModelo           String    @default("") @db.VarChar(50)
@@ -1208,7 +1208,7 @@ model Catraca {
   idUsuarioAlteracao Int?
   boInativo          Boolean   @default(false)
 
-  empresa Empresa         @relation(fields: [idEmpresa], references: [id])
+  empresa Empresa?        @relation(fields: [idEmpresa], references: [id])
   eventos CatracaEvento[]
 
   @@index([caSerial])

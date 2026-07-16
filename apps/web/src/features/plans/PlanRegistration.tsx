@@ -187,7 +187,7 @@ export function PlanRegistration() {
       plan.dsPlano.toLowerCase().includes(search) ||
       String(plan.idFrequencia ?? '').includes(searchTerm) ||
       String(frequency?.dsFrequencia ?? '').toLowerCase().includes(search) ||
-      (plan.boInativo === 0 ? 'ativo' : 'inativo').includes(search)
+      (plan.boInativo === false ? 'ativo' : 'inativo').includes(search)
     );
   });
   const plansTotalPages = Math.max(1, Math.ceil(filteredPlans.length / GRID_PAGE_SIZE));
@@ -370,7 +370,7 @@ export function PlanRegistration() {
     setIsCreating(false);
     setPlanName(plan.dsPlano);
     setPlanFrequencyId(plan.idFrequencia ? String(plan.idFrequencia) : '');
-    setIsPlanActive(plan.boInativo === 0);
+    setIsPlanActive(plan.boInativo === false);
     setFeedback('');
   }
 
@@ -422,7 +422,7 @@ export function PlanRegistration() {
     setSelectedPlanRelatedRecordId(record.id);
     setIsCreatingPlanRelated(false);
     setPlanRelatedFormValues(values);
-    setIsPlanRelatedActive(Number(record.boInativo ?? 0) === 0);
+    setIsPlanRelatedActive((record.boInativo ?? false) === false);
     setPlanRelatedFeedback('');
   }
 
@@ -447,7 +447,7 @@ export function PlanRegistration() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          boInativo: nextActive ? 0 : 1,
+          boInativo: nextActive ? false : true,
         }),
       });
 
@@ -476,7 +476,7 @@ export function PlanRegistration() {
       const payload = {
         dsPlano: planName.trim(),
         idFrequencia: planFrequencyId ? Number(planFrequencyId) : null,
-        boInativo: isPlanActive ? 0 : 1,
+        boInativo: isPlanActive ? false : true,
       };
       const response = await fetch(
         isCreating ? `${apiUrl}/plans` : `${apiUrl}/plans/${selectedPlanId}`,
@@ -526,7 +526,7 @@ export function PlanRegistration() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            boInativo: nextActive ? 0 : 1,
+            boInativo: nextActive ? false : true,
           }),
         },
       );
@@ -591,7 +591,7 @@ export function PlanRegistration() {
       await loadPlanRelatedRecords(selectedPlanId, planRelatedConfig);
       setSelectedPlanRelatedRecordId(saved.id);
       setIsCreatingPlanRelated(false);
-      setIsPlanRelatedActive(Number(saved.boInativo ?? 0) === 0);
+      setIsPlanRelatedActive((saved.boInativo ?? false) === false);
       setPlanRelatedFormValues({
         idPromocao: saved.idPromocao ? String(saved.idPromocao) : '',
         idTiposArquivos: saved.idTiposArquivos ? String(saved.idTiposArquivos) : '',
@@ -667,14 +667,14 @@ export function PlanRegistration() {
     }
 
     try {
-      const payload = planRelatedConfig.fields.reduce<Record<string, string | number | null>>(
+      const payload = planRelatedConfig.fields.reduce<Record<string, string | number | boolean | null>>(
         (current, field) => {
           const value = planRelatedFormValues[field.key] ?? '';
           current[field.key] = field.type === 'number' ? (value ? Number(value) : null) : value;
           return current;
         },
         {
-          boInativo: isPlanRelatedActive ? 0 : 1,
+          boInativo: isPlanRelatedActive ? false : true,
         },
       );
 
@@ -727,8 +727,8 @@ export function PlanRegistration() {
             { label: 'Frequência', render: (plan) => getFrequencyLabel(plan.idFrequencia) },
             {
               label: 'Status', render: (plan) => (
-                <span className={`status-badge ${plan.boInativo === 0 ? 'active' : 'inactive'}`}>
-                  {plan.boInativo === 0 ? 'Ativo' : 'Inativo'}
+                <span className={`status-badge ${plan.boInativo === false ? 'active' : 'inactive'}`}>
+                  {plan.boInativo === false ? 'Ativo' : 'Inativo'}
                 </span>
               ),
             },

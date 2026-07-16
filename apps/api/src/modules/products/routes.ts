@@ -1,3 +1,4 @@
+import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId, getMultipartFieldValue, normalizeProductPayload } from '../../shared/normalize.js';
@@ -22,7 +23,7 @@ async function assertIdentificationFileType(idTiposArquivos: number | null) {
     select: { dsTipo: true, boInativo: true },
   });
 
-  if (!fileType || fileType.boInativo !== 0 || !normalizeText(fileType.dsTipo).includes('identificacao')) {
+  if (!fileType || fileType.boInativo || !normalizeText(fileType.dsTipo).includes('identificacao')) {
     throw new Error('Para produto, o tipo de arquivo deve ser identificacao.');
   }
 }
@@ -75,7 +76,7 @@ export async function registerProductRoutes(app: FastifyInstance) {
   }>('/products/:id/status', async (request, reply) => {
     try {
       const id = Number(request.params.id);
-      const boInativo = Number(request.body.boInativo ?? 0);
+      const boInativo = toBool(request.body.boInativo);
       return prisma.produto.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do produto.' });
@@ -197,7 +198,7 @@ export async function registerProductRoutes(app: FastifyInstance) {
       if (!current) throw new Error('Arquivo do produto invalido.');
       return prisma.produtoArquivo.update({
         where: { id: childId },
-        data: { boInativo: Number(request.body.boInativo ?? 0) },
+        data: { boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
       return reply.code(400).send({
@@ -212,7 +213,7 @@ export async function registerProductRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idProduto, 'Produto invalido.');
       assertValidId(childId, 'Arquivo invalido.');
-      const productFile = await prisma.produtoArquivo.findFirst({ where: { id: childId, idProduto, boInativo: 0 } });
+      const productFile = await prisma.produtoArquivo.findFirst({ where: { id: childId, idProduto, boInativo: false } });
       if (!productFile) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
@@ -234,7 +235,7 @@ export async function registerProductRoutes(app: FastifyInstance) {
       assertValidId(childId, 'Arquivo invalido.');
       const current = await prisma.produtoArquivo.findFirst({ where: { id: childId, idProduto }, select: { id: true } });
       if (!current) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
-      return prisma.produtoArquivo.update({ where: { id: childId }, data: { boInativo: 1 } });
+      return prisma.produtoArquivo.update({ where: { id: childId }, data: { boInativo: true } });
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao remover arquivo do produto.',

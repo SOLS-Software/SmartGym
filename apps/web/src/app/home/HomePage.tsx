@@ -143,7 +143,7 @@ type CompanyTheme = {
   corFundo: string;
   fontePrincipal: string;
   tamanhoBase: number;
-  boModoEscuro: number;
+  boModoEscuro: boolean;
   logoUrl: string | null;
   faviconUrl: string | null;
 };
@@ -891,7 +891,7 @@ export default function HomePage() {
               <strong>{authUserName}</strong>
               <span>{authUserRole}</span>
             </div>
-            {companyTheme?.boModoEscuro === 1 && (
+            {companyTheme?.boModoEscuro === true && (
               <button
                 aria-label={isDarkMode ? 'Modo claro' : 'Modo escuro'}
                 aria-pressed={isDarkMode}

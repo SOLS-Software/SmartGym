@@ -2,14 +2,14 @@ export type ProductPayload = {
   idEmpresa?: number | null;
   dsProduto?: string;
   qtEstoque?: number;
-  boInativo?: number;
+  boInativo?: boolean;
 };
 
 export type ExercisePayload = {
   idEmpresa?: number | null;
   dsExercicio?: string;
   dsInstrucao?: string | null;
-  boInativo?: number;
+  boInativo?: boolean;
 };
 
 export type ExercicioEquipamentoPayload = {
@@ -24,16 +24,18 @@ export type TrainingPayload = {
   idEmpresa?: number | string | null;
   idNivel?: number | string | null;
   dsTreino?: string;
-  boInativo?: number;
+  boInativo?: boolean;
 };
 
 export type CompanyPayload = {
+  idCliente?: number | string | null;
   dsEmpresa?: string;
   caCNPJ?: string;
-  boInativo?: number;
+  boInativo?: boolean;
 };
 
 export type StudentPayload = {
+  idCliente?: number | string | null;
   nmAluno?: string;
   caCPF?: string;
   dtNascimento?: string | null;
@@ -42,10 +44,10 @@ export type StudentPayload = {
   anEmail?: string;
   anCEP?: string;
   anLogradouro?: string;
-  anCoplemento?: string;
+  anComplemento?: string;
   anBairro?: string;
   nrEndereco?: number | string | null;
-  boInativo?: number;
+  boInativo?: boolean;
 };
 
 export type StudentFacialBiometricPayload = {
@@ -79,7 +81,7 @@ export type FacialRecognitionResult = {
 export type PlanPayload = {
   dsPlano?: string;
   idFrequencia?: number | string | null;
-  boInativo?: number;
+  boInativo?: boolean;
 };
 
 export type EquipamentoPayload = {
@@ -87,13 +89,13 @@ export type EquipamentoPayload = {
   dsEquipamento?: string;
   nmEquipamento?: string;
   dtAquisicao?: string | null;
-  boInativo?: number;
+  boInativo?: boolean;
 };
 
 export type EquipamentoManutencaoPayload = {
   dtExecucao?: string | null;
   dtValidade?: string | null;
-  boInativo?: number;
+  boInativo?: boolean;
 };
 
 export type LocalidadePayload = {
@@ -103,7 +105,7 @@ export type LocalidadePayload = {
   cnLocalidadeTP?: number | string;
   latitude?: number | string;
   longitude?: number | string;
-  boInativo?: number;
+  boInativo?: boolean;
 };
 
 export type EmployeePayload = {
@@ -116,7 +118,7 @@ export type EmployeePayload = {
   nrContato?: string | number | null;
   anEmail?: string;
   dtAdmissao?: string | null;
-  boInativo?: number;
+  boInativo?: boolean;
 };
 
 export type RegisterPayload = {
