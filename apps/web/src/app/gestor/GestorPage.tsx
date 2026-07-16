@@ -83,12 +83,9 @@ export default function GestorPage() {
       .then(async (res) => {
         if (res.status === 204 || !res.ok) return;
         const data = await res.json() as ClientTheme;
-        setThemePhase('applying');
-        requestAnimationFrame(() => {
-          setClientTheme(data);
-          applyTheme(data);
-          setThemePhase(null);
-        });
+        setClientTheme(data);
+        applyTheme(data);
+        setThemePhase(null);
       })
       .catch(() => {})
       .finally(() => { setThemePhase((p) => p === 'fetching' ? null : p); });

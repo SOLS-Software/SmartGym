@@ -10,7 +10,7 @@ import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import type { CompanyChildRecord, LookupRecord, Student, StudentFile, StudentValidationErrors, StudentValidationField } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
-import { getGestorClienteId } from '../../shared/auth/sessionUtils';
+import { getSessionClienteId } from '../../shared/auth/sessionUtils';
 import { studentRelatedTables } from './studentRelatedTables';
 import { formatPhone, isValidBirthDate, isValidEmail, toApiDate } from './studentValidation';
 
@@ -590,9 +590,9 @@ export function StudentRegistration() {
         return;
       }
 
-      const idCliente = getGestorClienteId();
+      const idCliente = await getSessionClienteId();
       if (!idCliente) {
-        setFeedback('Sessão do gestor não identificada. Faça login novamente.');
+        setFeedback('Sessão não identificada. Faça login novamente.');
         return;
       }
 

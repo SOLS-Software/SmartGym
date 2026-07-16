@@ -32,6 +32,7 @@ export const studentRelatedTables: StudentRelatedConfig[] = [
       { key: 'idPlano', label: 'Plano', type: 'number', lookupEndpoint: 'plans', lookupLabelKey: 'dsPlano', required: true },
       { key: 'idPromocaoPlano', label: 'Promocao do plano', type: 'number', lookupEndpoint: 'promotion-plans', lookupLabelKey: 'id' },
       { key: 'nrDiaPagamento', label: 'Dia pagamento', type: 'number' },
+      { key: 'qtParcelas', label: 'Parcelas', type: 'number' },
       { key: 'dtAdmissao', label: 'Admissao', type: 'date' },
     ],
   },
@@ -42,9 +43,10 @@ export const studentRelatedTables: StudentRelatedConfig[] = [
     title: 'Pagamentos do aluno',
     columns: [
       { key: 'idAlunoPlano', label: 'Plano do aluno', lookupLabelKey: 'plano.dsPlano' },
-      { key: 'vlPago', label: 'Valor', type: 'money' },
-      { key: 'dtPagamento', label: 'Pagamento', type: 'date' },
-      { key: 'boInativo', label: 'Status', type: 'status' },
+      { key: 'vlPrevisto', label: 'Valor', type: 'money' },
+      { key: 'dtVencimento', label: 'Vencimento', type: 'date' },
+      { key: 'dtPagamento', label: 'Pago em', type: 'date' },
+      { key: 'idStatusPagamento', label: 'Status', lookupLabelKey: 'dsStatusPagamento' },
     ],
     fields: [
       { key: 'idAlunoPlano', label: 'Plano do aluno', type: 'number', lookupEndpoint: 'students/{studentId}/related/plans', lookupLabelKey: 'plano.dsPlano', required: true },

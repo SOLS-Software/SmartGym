@@ -15,6 +15,11 @@ import {
   addComprefaceSubjectExample,
 } from '../../shared/compreface.js';
 import { getStudentFilePath } from '../../shared/files.js';
+import {
+  generateInitialPayments,
+  generateNextRecurringPayment,
+  isRecurringFrequency,
+} from '../../shared/payments.js';
 import type {
   CompanyChildPayload,
   StudentFacialBiometricEnrollPayload,
@@ -554,7 +559,12 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       assertValidId(idAluno, 'Aluno invalido.');
       return prisma.pagamento.findMany({
         where: { alunoPlano: { idAluno } },
-        orderBy: { dtPagamento: 'desc' },
+        include: {
+          statusPagamento: { select: { id: true, dsStatusPagamento: true } },
+          formaPagamento: { select: { id: true, dsFormaPagamento: true } },
+          alunoPlano: { select: { id: true, plano: { select: { id: true, dsPlano: true } } } },
+        },
+        orderBy: [{ dtVencimento: 'asc' }, { dtCadastro: 'asc' }],
       });
     } catch (error) {
       return reply.code(400).send({
@@ -862,16 +872,70 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       if (resource === 'plans') {
         const idPlano = optionalNumber(request.body.idPlano);
         if (!idPlano) throw new Error('Selecione o plano.');
-        const record = await prisma.alunoPlano.create({
-          data: {
-            idAluno,
-            idPlano,
-            idPromocaoPlano: optionalNumber(request.body.idPromocaoPlano),
-            nrDiaPagamento: Number(request.body.nrDiaPagamento ?? 1),
-            dtAdmissao: optionalDate(request.body.dtAdmissao) ?? new Date(),
-            boInativo: toBool(request.body.boInativo),
+
+        const plano = await prisma.plano.findUnique({
+          where: { id: idPlano },
+          include: {
+            frequencia: true,
+            planoValores: { where: { boInativo: false }, orderBy: { dtCadastro: 'desc' } },
           },
         });
+        if (!plano) throw new Error('Plano invalido.');
+
+        const nrDiaPagamento = Number(request.body.nrDiaPagamento ?? 1);
+        const admissao = optionalDate(request.body.dtAdmissao) ?? new Date();
+        const requestedEmpresa = optionalNumber(request.body.idEmpresa);
+        const idEmpresa =
+          requestedEmpresa ??
+          plano.planoValores.find((value) => value.idEmpresa)?.idEmpresa ??
+          null;
+        if (!idEmpresa) throw new Error('Informe a empresa para gerar os pagamentos.');
+
+        const empresaValue =
+          plano.planoValores.find((value) => value.idEmpresa === idEmpresa) ??
+          plano.planoValores[0] ??
+          null;
+        const vlParcela = Number(empresaValue?.vlVenda ?? 0);
+
+        const recurring = isRecurringFrequency(plano.frequencia);
+        const qtParcelas = recurring ? 1 : Math.max(1, optionalNumber(request.body.qtParcelas) ?? 1);
+
+        const idPromocaoPlano = optionalNumber(request.body.idPromocaoPlano);
+        const promocaoPlano = idPromocaoPlano
+          ? await prisma.promocaoPlano.findUnique({
+              where: { id: idPromocaoPlano },
+              include: { promocao: true },
+            })
+          : null;
+
+        const record = await prisma.$transaction(async (transaction) => {
+          const created = await transaction.alunoPlano.create({
+            data: {
+              idAluno,
+              idPlano,
+              idPromocaoPlano,
+              nrDiaPagamento,
+              qtParcelas,
+              dtAdmissao: admissao,
+              boInativo: toBool(request.body.boInativo),
+            },
+          });
+
+          await generateInitialPayments({
+            db: transaction,
+            idAlunoPlano: created.id,
+            idEmpresa,
+            nrDiaPagamento,
+            qtParcelas,
+            vlParcela,
+            admissao,
+            freq: plano.frequencia,
+            promo: promocaoPlano?.promocao ?? null,
+          });
+
+          return created;
+        });
+
         return reply.code(201).send(record);
       }
 
@@ -1108,22 +1172,38 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         const idStatusPagamento = optionalNumber(request.body.idStatusPagamento);
         if (!idStatusPagamento) throw new Error('Informe o status do pagamento.');
 
-        return prisma.pagamento.update({
-          where: { id: childId },
-          data: {
-            idEmpresa,
-            idAlunoPlano,
-            idProdutoMovimentacao: optionalNumber(request.body.idProdutoMovimentacao),
-            vlPrevisto: Number(request.body.vlPrevisto ?? request.body.vlPago ?? 0),
-            vlPago: optionalNumber(request.body.vlPago),
-            idStatusPagamento,
-            idFormaPagamento: optionalNumber(request.body.idFormaPagamento),
-            dtVencimento: optionalDate(request.body.dtVencimento),
-            dtCompetencia: optionalDate(request.body.dtCompetencia),
-            dtPagamento: optionalDate(request.body.dtPagamento) ?? new Date(),
-            boInativo: toBool(request.body.boInativo),
-          },
+        const status = await prisma.statusPagamento.findUnique({
+          where: { id: idStatusPagamento },
+          select: { dsStatusPagamento: true },
         });
+        const isPaid = status?.dsStatusPagamento?.toLowerCase() === 'pago';
+
+        const updated = await prisma.$transaction(async (transaction) => {
+          const payment = await transaction.pagamento.update({
+            where: { id: childId },
+            data: {
+              idEmpresa,
+              idAlunoPlano,
+              idProdutoMovimentacao: optionalNumber(request.body.idProdutoMovimentacao),
+              vlPrevisto: Number(request.body.vlPrevisto ?? request.body.vlPago ?? 0),
+              vlPago: optionalNumber(request.body.vlPago),
+              idStatusPagamento,
+              idFormaPagamento: optionalNumber(request.body.idFormaPagamento),
+              dtVencimento: optionalDate(request.body.dtVencimento),
+              dtCompetencia: optionalDate(request.body.dtCompetencia),
+              dtPagamento: optionalDate(request.body.dtPagamento) ?? new Date(),
+              boInativo: toBool(request.body.boInativo),
+            },
+          });
+
+          if (isPaid) {
+            await generateNextRecurringPayment(transaction, payment.id);
+          }
+
+          return payment;
+        });
+
+        return updated;
       }
 
       const current = await prisma.alunoCheckIn.findFirst({

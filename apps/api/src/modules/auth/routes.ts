@@ -34,7 +34,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
             { funcionario: { caCPF: cpf, boInativo: false } },
           ],
         },
-        include: { aluno: true, funcionario: true },
+        include: {
+          aluno: true,
+          funcionario: { include: { empresa: { select: { idCliente: true } } } },
+        },
       });
 
       if (!user) {
@@ -59,6 +62,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         id: user.id,
         idAluno: user.idAluno,
         idFuncionario: user.idFuncionario,
+        idCliente: user.funcionario?.empresa?.idCliente ?? null,
         login: user.dsLogin,
         name: user.aluno?.nmAluno ?? user.funcionario?.nmFuncionario ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',
@@ -413,7 +417,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
       const user = await prisma.usuario.findFirst({
         where: { id, boInativo: false },
-        include: { aluno: true, funcionario: true },
+        include: {
+          aluno: true,
+          funcionario: { include: { empresa: { select: { idCliente: true } } } },
+        },
       });
 
       if (!user) {
@@ -431,6 +438,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         id: user.id,
         idAluno: user.idAluno,
         idFuncionario: user.idFuncionario,
+        idCliente: user.funcionario?.empresa?.idCliente ?? null,
         name: user.aluno?.nmAluno ?? user.funcionario?.nmFuncionario ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',
       };

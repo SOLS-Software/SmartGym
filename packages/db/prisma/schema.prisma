@@ -618,6 +618,7 @@ model AlunoPlano {
   idPlano            Int
   idPromocaoPlano    Int?
   nrDiaPagamento     Int       @default(1)
+  qtParcelas         Int       @default(1)
   dtAdmissao         DateTime? @default(now())
   dtVencimento       DateTime?
   dtEncerramento     DateTime?

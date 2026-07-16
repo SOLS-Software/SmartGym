@@ -381,12 +381,9 @@ export default function HomePage() {
       .then(async (res) => {
         if (res.status === 204 || !res.ok) return;
         const theme = await res.json() as CompanyTheme;
-        setThemePhase('applying');
-        requestAnimationFrame(() => {
-          setCompanyTheme(theme);
-          applyCompanyTheme(theme);
-          setThemePhase(null);
-        });
+        setCompanyTheme(theme);
+        applyCompanyTheme(theme);
+        setThemePhase(null);
       })
       .catch(() => {})
       .finally(() => { setThemePhase((p) => p === 'fetching' ? null : p); });

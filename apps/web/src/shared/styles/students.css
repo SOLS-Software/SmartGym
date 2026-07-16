@@ -390,6 +390,52 @@
   margin: 0;
 }
 
+/* Membership payments */
+.membership-payments-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: 1.5rem;
+}
+
+.membership-payments-table {
+  display: flex;
+  flex-direction: column;
+  overflow-x: auto;
+}
+
+.membership-payments-row {
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(8rem, 2fr) minmax(6rem, 1fr) minmax(6rem, 1fr) minmax(6rem, 1fr) minmax(6rem, 1fr);
+  min-width: 34rem;
+  padding: 0.7rem 0.25rem;
+}
+
+.membership-payments-row:last-child {
+  border-bottom: none;
+}
+
+.membership-payments-row span {
+  color: var(--color-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.membership-payments-head span {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 /* Student Plans */
 .student-plans-view {
   display: flex;

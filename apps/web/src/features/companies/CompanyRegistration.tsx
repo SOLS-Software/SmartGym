@@ -10,7 +10,7 @@ import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import type { Company, CompanyChildColumn, CompanyChildField, CompanyChildRecord, CompanyValidationErrors, CompanyValidationField, LookupRecord } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
-import { getGestorClienteId } from '../../shared/auth/sessionUtils';
+import { getSessionClienteId } from '../../shared/auth/sessionUtils';
 import { companyChildTables } from './companyChildTables';
 import { formatCnpj, getSelectedRecord, isValidCnpj } from './companyUtils';
 
@@ -653,9 +653,9 @@ export function CompanyRegistration() {
         return;
       }
 
-      const idCliente = getGestorClienteId();
+      const idCliente = await getSessionClienteId();
       if (!idCliente) {
-        setFeedback('Sessão do gestor não identificada. Faça login novamente.');
+        setFeedback('Sessão não identificada. Faça login novamente.');
         return;
       }
 

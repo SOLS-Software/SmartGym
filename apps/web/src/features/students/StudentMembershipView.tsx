@@ -39,6 +39,22 @@ type StudentPlanView = {
   }) | null;
 };
 
+type StudentPaymentView = {
+  id: number;
+  vlPrevisto: number | string | null;
+  vlPago: number | string | null;
+  dtVencimento: string | null;
+  dtPagamento: string | null;
+  boInativo: boolean;
+  statusPagamento?: { id: number; dsStatusPagamento: string } | null;
+  formaPagamento?: { id: number; dsFormaPagamento: string } | null;
+  alunoPlano?: { id: number; plano?: { id: number; dsPlano: string } | null } | null;
+};
+
+function isPaidStatus(payment: StudentPaymentView) {
+  return payment.statusPagamento?.dsStatusPagamento?.toLowerCase() === 'pago';
+}
+
 function formatPhone(ddd: number | null | undefined, phone: string | null | undefined) {
   if (!phone) return '-';
   return ddd ? `(${ddd}) ${phone}` : phone;
@@ -60,6 +76,7 @@ function getText(record: NamedRecord | null | undefined, key: string, fallback =
 export function StudentMembershipView({ studentId, studentName }: StudentMembershipViewProps) {
   const [student, setStudent] = useState<Student | null>(null);
   const [plans, setPlans] = useState<StudentPlanView[]>([]);
+  const [payments, setPayments] = useState<StudentPaymentView[]>([]);
   const [files, setFiles] = useState<StudentFile[]>([]);
   const [identificationUrl, setIdentificationUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -80,11 +97,13 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
     ?.filter((item) => (item.boInativo ?? false) === false)
     ?? [];
   const latestValue = activePlan?.plano?.planoValores?.[0] ?? null;
+  const pendingPaymentsCount = payments.filter((payment) => !isPaidStatus(payment)).length;
 
   useEffect(() => {
     if (!studentId) {
       setStudent(null);
       setPlans([]);
+      setPayments([]);
       setFiles([]);
       setIdentificationUrl('');
       return;
@@ -98,9 +117,10 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
 
     try {
       setIsLoading(true);
-      const [studentResponse, plansResponse, filesResponse] = await Promise.all([
+      const [studentResponse, plansResponse, paymentsResponse, filesResponse] = await Promise.all([
         fetch(`${apiUrl}/students/${studentId}`),
         fetch(`${apiUrl}/students/${studentId}/related/plans`),
+        fetch(`${apiUrl}/students/${studentId}/related/payments`),
         fetch(`${apiUrl}/students/${studentId}/files`),
       ]);
 
@@ -110,16 +130,21 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
       if (!plansResponse.ok) {
         await getApiError(plansResponse, 'Nao foi possivel carregar seu plano.');
       }
+      if (!paymentsResponse.ok) {
+        await getApiError(paymentsResponse, 'Nao foi possivel carregar seus pagamentos.');
+      }
       if (!filesResponse.ok) {
         await getApiError(filesResponse, 'Nao foi possivel carregar sua foto.');
       }
 
       const nextStudent = (await studentResponse.json()) as Student;
       const nextPlans = (await plansResponse.json()) as StudentPlanView[];
+      const nextPayments = (await paymentsResponse.json()) as StudentPaymentView[];
       const nextFiles = (await filesResponse.json()) as StudentFile[];
 
       setStudent(nextStudent);
       setPlans(nextPlans);
+      setPayments(nextPayments.filter((payment) => payment.boInativo === false));
       setFiles(nextFiles);
       setFeedback('');
 
@@ -288,6 +313,47 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
             </section>
           </div>
         </div>
+      </section>
+
+      <section className="membership-payments-panel">
+        <div className="membership-plan-header">
+          <div>
+            <p className="section-label">Pagamentos</p>
+            <h3>Histórico e próximas cobranças</h3>
+          </div>
+          {pendingPaymentsCount > 0 ? (
+            <span className="status-badge pending">{pendingPaymentsCount} pendente(s)</span>
+          ) : (
+            <span className="status-badge success">Em dia</span>
+          )}
+        </div>
+
+        {payments.length === 0 ? (
+          <p className="form-hint">{isLoading ? 'Carregando pagamentos...' : 'Nenhum pagamento registrado.'}</p>
+        ) : (
+          <div className="membership-payments-table" role="table">
+            <div className="membership-payments-row membership-payments-head" role="row">
+              <span role="columnheader">Plano</span>
+              <span role="columnheader">Vencimento</span>
+              <span role="columnheader">Valor</span>
+              <span role="columnheader">Pago em</span>
+              <span role="columnheader">Status</span>
+            </div>
+            {payments.map((payment) => (
+              <div className="membership-payments-row" key={payment.id} role="row">
+                <span role="cell">{payment.alunoPlano?.plano?.dsPlano ?? '-'}</span>
+                <span role="cell">{payment.dtVencimento ? formatDateDisplay(payment.dtVencimento) : '-'}</span>
+                <span role="cell">{formatMoney(payment.vlPago ?? payment.vlPrevisto)}</span>
+                <span role="cell">{payment.dtPagamento ? formatDateDisplay(payment.dtPagamento) : '-'}</span>
+                <span role="cell">
+                  <span className={`status-badge ${isPaidStatus(payment) ? 'success' : 'pending'}`}>
+                    {payment.statusPagamento?.dsStatusPagamento ?? '-'}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
     </>

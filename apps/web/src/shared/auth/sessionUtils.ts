@@ -25,6 +25,7 @@ export type AuthenticatedUser = {
   id: number;
   idAluno: number | null;
   idFuncionario: number | null;
+  idCliente?: number | null;
   name: string;
   type: AuthUserType;
 };
@@ -68,6 +69,27 @@ export async function decryptSession(stored: string): Promise<StoredSession> {
   const ciphertext = combined.slice(12);
   const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
   return JSON.parse(new TextDecoder().decode(decrypted)) as StoredSession;
+}
+
+/**
+ * Resolve o idCliente da sessão ativa: prioriza a sessão de gestor (login
+ * multi-tenant) e, na ausência dela, lê o idCliente da sessão normal do
+ * funcionário (derivado da empresa dele no login). Retorna null se nenhuma
+ * sessão tiver cliente identificado.
+ */
+export async function getSessionClienteId(): Promise<number | null> {
+  const gestorClienteId = getGestorClienteId();
+  if (gestorClienteId) return gestorClienteId;
+
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(SESSION_KEY);
+    if (!stored) return null;
+    const session = await decryptSession(stored);
+    return session.user.idCliente ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function readJsonResponse<T>(response: Response, fallbackMessage: string) {
