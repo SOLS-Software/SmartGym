@@ -295,6 +295,7 @@ export type CompanyChildTable = {
   key: string;
   endpoint: string;
   label: string;
+  labelSingular?: string;
   title: string;
   columns: CompanyChildColumn[];
   fields: CompanyChildField[];
@@ -304,6 +305,7 @@ export type StudentRelatedTable = {
   key: string;
   endpoint: string;
   label: string;
+  labelSingular?: string;
   title: string;
   columns: CompanyChildColumn[];
 };

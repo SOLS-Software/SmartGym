@@ -190,11 +190,24 @@ export async function registerPlanRoutes(app: FastifyInstance) {
   }>('/plans', async (request, reply) => {
     try {
       const data = normalizePlanPayload(request.body);
+      const existing = await prisma.plano.findFirst({
+        where: { dsPlano: { equals: data.dsPlano, mode: 'insensitive' } },
+        select: { id: true },
+      });
+      if (existing) {
+        return reply.code(400).send({ message: 'Já existe um plano com este nome.' });
+      }
       const plan = await prisma.plano.create({ data });
       return reply.code(201).send(plan);
     } catch (error) {
+      const isPrismaUnique =
+        error instanceof Error &&
+        'code' in error &&
+        (error as { code: string }).code === 'P2002';
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar plano.',
+        message: isPrismaUnique
+          ? 'Já existe um plano com este nome.'
+          : 'Erro ao criar plano.',
       });
     }
   });
@@ -206,10 +219,23 @@ export async function registerPlanRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       const data = normalizePlanPayload(request.body);
+      const existing = await prisma.plano.findFirst({
+        where: { dsPlano: { equals: data.dsPlano, mode: 'insensitive' }, id: { not: id } },
+        select: { id: true },
+      });
+      if (existing) {
+        return reply.code(400).send({ message: 'Já existe um plano com este nome.' });
+      }
       return prisma.plano.update({ where: { id }, data });
     } catch (error) {
+      const isPrismaUnique =
+        error instanceof Error &&
+        'code' in error &&
+        (error as { code: string }).code === 'P2002';
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar plano.',
+        message: isPrismaUnique
+          ? 'Já existe um plano com este nome.'
+          : 'Erro ao atualizar plano.',
       });
     }
   });

@@ -88,10 +88,18 @@ export function addFrequency(date: Date, freq: FrequenciaLike | null | undefined
  * `nrDiaPagamento`. The day is clamped to the last day of the target month.
  */
 export function computeDueDate(base: Date, nrDiaPagamento: number, monthOffset: number): Date {
-  const year = base.getFullYear();
-  const month = base.getMonth() + monthOffset;
+  const clampedDay = Math.min(Math.max(nrDiaPagamento, 1), 31);
+  let year = base.getFullYear();
+  let month = base.getMonth() + monthOffset;
+
+  // When the payment day has already passed in the base month, push to next month
+  // so the first installment is never before the admission date.
+  if (monthOffset === 0 && clampedDay < base.getDate()) {
+    month += 1;
+  }
+
   const lastDay = new Date(year, month + 1, 0).getDate();
-  const day = Math.min(Math.max(nrDiaPagamento, 1), lastDay);
+  const day = Math.min(clampedDay, lastDay);
   return new Date(year, month, day);
 }
 
