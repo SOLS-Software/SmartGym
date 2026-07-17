@@ -151,13 +151,23 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     }
   });
 
-  app.put<{ Params: { id: string }; Body: { dsFrequencia?: string; boInativo?: number } }>('/frequencies/:id', async (request, reply) => {
+  app.put<{
+    Params: { id: string };
+    Body: { dsFrequencia?: string; idUnidadeTempo?: number; qtPeriodo?: number; boInativo?: number };
+  }>('/frequencies/:id', async (request, reply) => {
     try {
       const dsFrequencia = request.body.dsFrequencia?.trim();
       if (!dsFrequencia) throw new Error('Informe a frequencia.');
+      const idUnidadeTempo = optionalNumber(request.body.idUnidadeTempo);
+      if (!idUnidadeTempo) throw new Error('Informe a unidade de tempo da frequencia.');
       return await prisma.frequencia.update({
         where: { id: Number(request.params.id) },
-        data: { dsFrequencia, boInativo: toBool(request.body.boInativo) },
+        data: {
+          dsFrequencia,
+          idUnidadeTempo,
+          qtPeriodo: Number(request.body.qtPeriodo ?? 1),
+          boInativo: toBool(request.body.boInativo),
+        },
       });
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar frequencia.' });
@@ -172,6 +182,49 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status da frequencia.' });
+    }
+  });
+
+  app.get('/check-in-types', async () => {
+    return prisma.tipoCheckIn.findMany({
+      where: { boInativo: false },
+      orderBy: { dsTipoCheckIn: 'asc' },
+    });
+  });
+
+  app.post<{ Body: { dsTipoCheckIn?: string; boInativo?: number } }>('/check-in-types', async (request, reply) => {
+    try {
+      const dsTipoCheckIn = request.body.dsTipoCheckIn?.trim();
+      if (!dsTipoCheckIn) throw new Error('Informe o tipo de check-in.');
+      return reply.code(201).send(
+        await prisma.tipoCheckIn.create({ data: { dsTipoCheckIn, boInativo: toBool(request.body.boInativo) } }),
+      );
+    } catch (error) {
+      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar tipo de check-in.' });
+    }
+  });
+
+  app.put<{ Params: { id: string }; Body: { dsTipoCheckIn?: string; boInativo?: number } }>('/check-in-types/:id', async (request, reply) => {
+    try {
+      const dsTipoCheckIn = request.body.dsTipoCheckIn?.trim();
+      if (!dsTipoCheckIn) throw new Error('Informe o tipo de check-in.');
+      return await prisma.tipoCheckIn.update({
+        where: { id: Number(request.params.id) },
+        data: { dsTipoCheckIn, boInativo: toBool(request.body.boInativo) },
+      });
+    } catch (error) {
+      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar tipo de check-in.' });
+    }
+  });
+
+  app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/check-in-types/:id/status', async (request, reply) => {
+    try {
+      return await prisma.tipoCheckIn.update({
+        where: { id: Number(request.params.id) },
+        data: { boInativo: toBool(request.body.boInativo) },
+      });
+    } catch {
+      return reply.code(400).send({ message: 'Erro ao alterar status do tipo de check-in.' });
     }
   });
 

@@ -9,6 +9,7 @@ import {
   normalizeRegisterPassword,
 } from '../../shared/normalize.js';
 import { getSupabaseClient, getSupabaseConfig, getClientSupabaseConfig } from '../../shared/supabase.js';
+import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 import type {
   ForgotPasswordPayload,
   LoginPayload,
@@ -66,6 +67,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         login: user.dsLogin,
         name: user.aluno?.nmAluno ?? user.funcionario?.nmFuncionario ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',
+        // Informational only — login itself is not blocked by plan/payment
+        // status; the frontend decides how to react (banner, restrict screens).
+        studentAccess: user.idAluno ? await getStudentAccessStatus(prisma, user.idAluno) : null,
       };
     } catch (error) {
       return reply.code(401).send({
@@ -441,6 +445,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         idCliente: user.funcionario?.empresa?.idCliente ?? null,
         name: user.aluno?.nmAluno ?? user.funcionario?.nmFuncionario ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',
+        studentAccess: user.idAluno ? await getStudentAccessStatus(prisma, user.idAluno) : null,
       };
     } catch (error) {
       return reply.code(500).send({

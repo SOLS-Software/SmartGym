@@ -129,6 +129,32 @@ export function formatChildCell(
     );
   }
 
+  // Charge status: shows the payment status name, but flags overdue pending
+  // charges (dtVencimento < today AND status "Pendente") as "Inadimplente".
+  if (column.type === 'payment-status') {
+    const option = lookupOptions.find((lookupOption) => String(lookupOption.id) === String(value));
+    const statusName = option ? getLookupDescription(option, column.lookupLabelKey) : String(value ?? '');
+    const isPending = statusName.trim().toLowerCase() === 'pendente';
+    const dueValue = record.dtVencimento;
+    let isOverdue = false;
+    if (isPending && dueValue) {
+      const due = formatDateInput(String(dueValue));
+      const today = new Date();
+      const todayInput = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      isOverdue = Boolean(due) && due < todayInput;
+    }
+
+    if (isOverdue) {
+      return <span className="status-badge inactive">Inadimplente</span>;
+    }
+
+    if (value === null || value === undefined || value === '') {
+      return '-';
+    }
+
+    return <span className={`status-badge ${isPending ? '' : 'active'}`}>{statusName || '-'}</span>;
+  }
+
   if (value === null || value === undefined || value === '') {
     return '-';
   }

@@ -3,11 +3,12 @@
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { BadgeCheck, CreditCard, File, FileImage, Package, Palette, Receipt, Save, Tag } from 'lucide-react';
-import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { GRID_PAGE_SIZE, formatCep, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
+import { AddressLocationPicker, emptyAddressLocation, type AddressLocationValue } from '../../shared/registration/AddressLocationPicker';
 import type { Company, CompanyChildColumn, CompanyChildField, CompanyChildRecord, CompanyValidationErrors, CompanyValidationField, LookupRecord } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { getSessionClienteId } from '../../shared/auth/sessionUtils';
@@ -38,6 +39,9 @@ export function CompanyRegistration() {
   const [isCreating, setIsCreating] = useState(false);
   const [companyName, setCompanyName] = useState('');
   const [companyCnpj, setCompanyCnpj] = useState('');
+  const [companyDdd, setCompanyDdd] = useState('');
+  const [companyContato, setCompanyContato] = useState('');
+  const [companyAddress, setCompanyAddress] = useState<AddressLocationValue>(emptyAddressLocation);
   const [isCompanyActive, setIsCompanyActive] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [companyErrors, setCompanyErrors] = useState<CompanyValidationErrors>({});
@@ -525,6 +529,9 @@ export function CompanyRegistration() {
     setIsCreating(false);
     setCompanyName('');
     setCompanyCnpj('');
+    setCompanyDdd('');
+    setCompanyContato('');
+    setCompanyAddress(emptyAddressLocation);
     setIsCompanyActive(false);
     setCompanyErrors({});
     setTouchedCompanyFields({});
@@ -535,6 +542,9 @@ export function CompanyRegistration() {
     setIsCreating(true);
     setCompanyName('');
     setCompanyCnpj('');
+    setCompanyDdd('');
+    setCompanyContato('');
+    setCompanyAddress(emptyAddressLocation);
     setIsCompanyActive(true);
     setFeedback('');
     setCompanyErrors({});
@@ -554,6 +564,19 @@ export function CompanyRegistration() {
     setIsCreating(false);
     setCompanyName(company.dsEmpresa);
     setCompanyCnpj(formatCnpj(company.caCNPJ));
+    setCompanyDdd(company.nrDDD != null ? String(company.nrDDD) : '');
+    setCompanyContato(company.nrContato ?? '');
+    setCompanyAddress({
+      cep: company.anCEP ? formatCep(company.anCEP) : '',
+      logradouro: company.anLogradouro ?? '',
+      numero: company.nrEndereco ?? '',
+      bairro: company.anBairro ?? '',
+      cidade: company.anCidade ?? '',
+      estado: company.anUF ?? '',
+      latitude: company.latitude != null ? String(company.latitude) : '',
+      longitude: company.longitude != null ? String(company.longitude) : '',
+      hasPickedLocation: company.latitude != null && company.longitude != null,
+    });
     setIsCompanyActive(company.boInativo === false);
     setFeedback('');
     setCompanyErrors({});
@@ -659,10 +682,21 @@ export function CompanyRegistration() {
         return;
       }
 
+      const hasGeo = companyAddress.hasPickedLocation && companyAddress.latitude && companyAddress.longitude;
       const payload = {
         idCliente,
         dsEmpresa: companyName.trim(),
         caCNPJ: onlyDigits(companyCnpj),
+        anCEP: onlyDigits(companyAddress.cep),
+        anLogradouro: companyAddress.logradouro.trim(),
+        nrEndereco: companyAddress.numero.trim(),
+        anBairro: companyAddress.bairro.trim(),
+        anCidade: companyAddress.cidade.trim(),
+        anUF: companyAddress.estado.trim().toUpperCase(),
+        nrDDD: companyDdd ? onlyDigits(companyDdd) : null,
+        nrContato: onlyDigits(companyContato),
+        latitude: hasGeo ? Number(companyAddress.latitude) : null,
+        longitude: hasGeo ? Number(companyAddress.longitude) : null,
         boInativo: isCompanyActive ? false : true,
       };
       const response = await fetch(
@@ -817,6 +851,33 @@ export function CompanyRegistration() {
                 value={companyCnpj}
               />
             </RegistrationField>
+            <RegistrationField htmlFor="empresaDdd" label="DDD" size="xs">
+              <input
+                id="empresaDdd"
+                inputMode="numeric"
+                maxLength={2}
+                onChange={(event) => setCompanyDdd(onlyDigits(event.target.value).slice(0, 2))}
+                placeholder="11"
+                type="text"
+                value={companyDdd}
+              />
+            </RegistrationField>
+            <RegistrationField htmlFor="empresaContato" label="Contato" size="sm">
+              <input
+                id="empresaContato"
+                inputMode="numeric"
+                maxLength={11}
+                onChange={(event) => setCompanyContato(onlyDigits(event.target.value).slice(0, 11))}
+                placeholder="999999999"
+                type="text"
+                value={companyContato}
+              />
+            </RegistrationField>
+            <AddressLocationPicker
+              geocodeEndpoint="localities/geocode"
+              onChange={setCompanyAddress}
+              value={companyAddress}
+            />
             <RegistrationField htmlFor="empresaStatus" label="Status" size="sm">
               <button
                 aria-pressed={isCompanyActive}

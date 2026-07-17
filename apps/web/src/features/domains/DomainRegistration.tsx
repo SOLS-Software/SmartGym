@@ -3,8 +3,22 @@
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { Pencil, Plus, Save } from 'lucide-react';
-import { GRID_PAGE_SIZE, GridPagination, paginateItems } from '../../shared/registration/registrationHelpers';
-import type { DomainConfigMap, DomainRecord } from '../../shared/registration/registrationTypes';
+import {
+  GRID_PAGE_SIZE,
+  GridPagination,
+  formatChildCell,
+  formatDateInput,
+  getLookupLabel,
+  paginateItems,
+} from '../../shared/registration/registrationHelpers';
+import type {
+  CompanyChildColumn,
+  CompanyChildField,
+  DomainConfig,
+  DomainConfigMap,
+  DomainRecord,
+  LookupRecord,
+} from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 
@@ -20,11 +34,28 @@ const domainItems = [
   'Esporte',
   'Categoria',
   'Area Corporal',
+  'Tipo de Check-In',
 ];
 
 const domainConfig: DomainConfigMap = {
   Cargo: { endpoint: 'roles', field: 'dsCargo', label: 'Cargo', saveLabel: 'Salvar cargo' },
-  Frequencia: { endpoint: 'frequencies', field: 'dsFrequencia', label: 'Frequência', saveLabel: 'Salvar frequência' },
+  Frequencia: {
+    endpoint: 'frequencies',
+    field: 'dsFrequencia',
+    label: 'Frequência',
+    saveLabel: 'Salvar frequência',
+    fields: [
+      { key: 'qtPeriodo', label: 'Período', type: 'number', required: true },
+      {
+        key: 'idUnidadeTempo',
+        label: 'Unidade de tempo',
+        type: 'number',
+        required: true,
+        lookupEndpoint: 'time-units',
+        lookupLabelKey: 'dsUnidadeTempo',
+      },
+    ],
+  },
   Nivel: { endpoint: 'levels', field: 'dsNivel', label: 'Nível', saveLabel: 'Salvar nível' },
   "Unidade de Tempo": { endpoint: 'time-units', field: 'dsUnidadeTempo', label: 'Unidade de tempo', saveLabel: 'Salvar unidade' },
   "Status de Pagamento": { endpoint: 'payment-statuses', field: 'dsStatusPagamento', label: 'Status de pagamento', saveLabel: 'Salvar status' },
@@ -34,8 +65,7 @@ const domainConfig: DomainConfigMap = {
     field: 'nmMetodoTreino',
     label: 'Método de treino',
     saveLabel: 'Salvar método',
-    secondField: 'dsMetodoTreino',
-    secondFieldLabel: 'Descrição',
+    fields: [{ key: 'dsMetodoTreino', label: 'Descrição', type: 'text' }],
   },
   "Tipo de Arquivo": { endpoint: 'file-types', field: 'dsTipo', label: 'Tipo de arquivo', saveLabel: 'Salvar tipo' },
   Esporte: { endpoint: 'sports', field: 'dsEsporte', label: 'Esporte', saveLabel: 'Salvar esporte' },
@@ -44,13 +74,38 @@ const domainConfig: DomainConfigMap = {
     field: 'dsCategoria',
     label: 'Categoria',
     saveLabel: 'Salvar categoria',
-    relationField: 'idEsporte',
-    relationLabel: 'Esporte',
-    relationEndpoint: 'sports',
-    relationValueField: 'dsEsporte',
+    fields: [
+      {
+        key: 'idEsporte',
+        label: 'Esporte',
+        type: 'number',
+        lookupEndpoint: 'sports',
+        lookupLabelKey: 'dsEsporte',
+      },
+    ],
   },
   "Area Corporal": { endpoint: 'body-areas', field: 'dsAreaCorporal', label: 'Área corporal', saveLabel: 'Salvar área' },
+  "Tipo de Check-In": { endpoint: 'check-in-types', field: 'dsTipoCheckIn', label: 'Tipo de check-in', saveLabel: 'Salvar tipo' },
 };
+
+/** Column shown in the grid for an extra field (name column is handled apart). */
+function fieldToColumn(field: CompanyChildField): CompanyChildColumn {
+  return {
+    key: field.key,
+    label: field.label,
+    type: field.type === 'date' ? 'date' : undefined,
+    lookupLabelKey: field.lookupLabelKey,
+  };
+}
+
+function mapDomainRecord(item: Record<string, unknown>, config: DomainConfig): DomainRecord {
+  return {
+    id: Number(item.id),
+    name: String(item[config.field] ?? ''),
+    boInativo: Boolean(item.boInativo),
+    values: item,
+  };
+}
 
 export function DomainRegistration() {
   const [selectedDomain, setSelectedDomain] = useState(domainItems[0]);
@@ -58,20 +113,22 @@ export function DomainRegistration() {
   const [recordsPage, setRecordsPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
-  const [relationOptions, setRelationOptions] = useState<DomainRecord[]>([]);
-  const [selectedRelationId, setSelectedRelationId] = useState('');
+  const [lookups, setLookups] = useState<Record<string, LookupRecord[]>>({});
   const [isCreating, setIsCreating] = useState(false);
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [isActive, setIsActive] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const config = domainConfig[selectedDomain as keyof typeof domainConfig];
+  const extraFields = config?.fields ?? [];
+  const extraColumns = extraFields.map(fieldToColumn);
   const filteredRecords = records.filter((record) =>
     record.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
   const recordsTotalPages = Math.max(1, Math.ceil(filteredRecords.length / GRID_PAGE_SIZE));
   const paginatedRecords = paginateItems(filteredRecords, recordsPage);
+  const gridTemplateColumns = `1fr ${extraColumns.map(() => '1fr').join(' ')} auto 2.75rem`.replace('  ', ' ');
 
   async function loadRecords() {
     if (!config) {
@@ -86,62 +143,45 @@ export function DomainRegistration() {
       }
 
       const data = (await response.json()) as Array<Record<string, unknown>>;
-      setRecords(
-        data.map((item) => {
-          const secondField = config.secondField;
-          const description =
-            secondField && item[secondField] ? String(item[secondField]) : '';
-
-          return {
-            id: Number(item.id),
-            name: String(item[config.field] ?? ''),
-            description,
-            relationId: config.relationField ? Number(item[config.relationField] ?? 0) || null : null,
-            relationName:
-              config.relationField && typeof item.esporte === 'object' && item.esporte !== null
-                ? String((item.esporte as Record<string, unknown>).dsEsporte ?? '')
-                : '',
-            boInativo: Boolean(item.boInativo),
-          };
-        }),
-      );
+      setRecords(data.map((item) => mapDomainRecord(item, config)));
       setFeedback('');
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao carregar domínio.');
     }
   }
 
-  async function loadRelationOptions() {
-    if (!config?.relationEndpoint || !config.relationValueField) {
-      setRelationOptions([]);
+  async function loadLookups() {
+    const lookupFields = extraFields.filter((field) => field.lookupEndpoint);
+
+    if (lookupFields.length === 0) {
+      setLookups({});
       return;
     }
 
     try {
-      const response = await fetch(`${apiUrl}/${config.relationEndpoint}`);
-
-      if (!response.ok) {
-        await getApiError(response, 'Nao foi possivel carregar as opcoes.');
-      }
-
-      const data = (await response.json()) as Array<Record<string, unknown>>;
-      setRelationOptions(
-        data.map((item) => ({
-          id: Number(item.id),
-          name: String(item[config.relationValueField ?? ''] ?? ''),
-          boInativo: Boolean(item.boInativo),
-        })),
+      const nextLookups: Record<string, LookupRecord[]> = {};
+      await Promise.all(
+        lookupFields.map(async (field) => {
+          if (!field.lookupEndpoint) return;
+          const response = await fetch(`${apiUrl}/${field.lookupEndpoint}`);
+          if (!response.ok) {
+            await getApiError(response, `Não foi possível carregar ${field.label}.`);
+          }
+          nextLookups[field.key] = (await response.json()) as LookupRecord[];
+        }),
       );
+      setLookups(nextLookups);
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : 'Erro ao carregar opcoes.');
+      setFeedback(error instanceof Error ? error.message : 'Erro ao carregar opções.');
     }
   }
 
   useEffect(() => {
     if (config) {
       void loadRecords();
-      void loadRelationOptions();
+      void loadLookups();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDomain]);
 
   useEffect(() => {
@@ -158,8 +198,7 @@ export function DomainRegistration() {
     setSelectedRecordId(null);
     setIsCreating(false);
     setName('');
-    setDescription('');
-    setSelectedRelationId('');
+    setFieldValues({});
     setIsActive(false);
     setIsDrawerOpen(false);
   }
@@ -178,19 +217,24 @@ export function DomainRegistration() {
     setSelectedRecordId(null);
     setIsCreating(true);
     setName('');
-    setDescription('');
-    setSelectedRelationId('');
+    setFieldValues({});
     setIsActive(true);
     setFeedback('');
     setIsDrawerOpen(true);
   }
 
   function handleSelect(record: DomainRecord) {
+    const values = extraFields.reduce<Record<string, string>>((current, field) => {
+      const value = record.values[field.key];
+      current[field.key] =
+        field.type === 'date' ? formatDateInput(String(value ?? '')) : String(value ?? '');
+      return current;
+    }, {});
+
     setSelectedRecordId(record.id);
     setIsCreating(false);
     setName(record.name);
-    setDescription(record.description ?? '');
-    setSelectedRelationId(record.relationId ? String(record.relationId) : '');
+    setFieldValues(values);
     setIsActive(record.boInativo === false);
     setFeedback('');
     setIsDrawerOpen(true);
@@ -222,26 +266,9 @@ export function DomainRegistration() {
       }
 
       const updated = (await response.json()) as Record<string, unknown>;
+      const mapped = mapDomainRecord(updated, config);
       setRecords((current) =>
-        current.map((record) => {
-          const secondField = config.secondField;
-          const updatedDescription =
-            secondField && updated[secondField] ? String(updated[secondField]) : '';
-
-          return record.id === Number(updated.id)
-            ? {
-              id: Number(updated.id),
-              name: String(updated[config.field] ?? ''),
-              description: updatedDescription,
-              relationId: config.relationField ? Number(updated[config.relationField] ?? 0) || null : null,
-              relationName:
-                config.relationField && typeof updated.esporte === 'object' && updated.esporte !== null
-                  ? String((updated.esporte as Record<string, unknown>).dsEsporte ?? '')
-                  : '',
-              boInativo: Boolean(updated.boInativo),
-            }
-            : record;
-        }),
+        current.map((record) => (record.id === mapped.id ? mapped : record)),
       );
     } catch (error) {
       setIsActive(!nextActive);
@@ -258,9 +285,9 @@ export function DomainRegistration() {
         [config.field]: name,
         boInativo: isActive ? false : true,
       };
-      if (config.secondField) payload[config.secondField] = description;
-      if (config.relationField) {
-        payload[config.relationField] = selectedRelationId ? Number(selectedRelationId) : null;
+      for (const field of extraFields) {
+        const value = fieldValues[field.key] ?? '';
+        payload[field.key] = field.type === 'number' ? (value ? Number(value) : null) : value;
       }
 
       const response = await fetch(
@@ -282,27 +309,14 @@ export function DomainRegistration() {
       }
 
       const saved = (await response.json()) as Record<string, unknown>;
-      const secondField = config.secondField;
-      const mapped: DomainRecord = {
-        id: Number(saved.id),
-        name: String(saved[config.field] ?? ''),
-        description: secondField && saved[secondField] ? String(saved[secondField]) : '',
-        relationId: config.relationField ? Number(saved[config.relationField] ?? 0) || null : null,
-        relationName:
-          config.relationField && typeof saved.esporte === 'object' && saved.esporte !== null
-            ? String((saved.esporte as Record<string, unknown>).dsEsporte ?? '')
-            : '',
-        boInativo: Boolean(saved.boInativo),
-      };
+      const mapped = mapDomainRecord(saved, config);
 
       setRecords((current) => {
         if (selectedRecordId) {
           return current.map((record) => (record.id === mapped.id ? mapped : record));
         }
 
-        return [...current, mapped].sort((a, b) =>
-          a.name.localeCompare(b.name),
-        );
+        return [...current, mapped].sort((a, b) => a.name.localeCompare(b.name));
       });
       setSelectedRecordId(mapped.id);
       setIsCreating(false);
@@ -375,19 +389,21 @@ export function DomainRegistration() {
 
               <div className="product-table domain-records-table" key={`domain-records-${selectedDomain}-${searchTerm}-${recordsPage}`} role="table" aria-label="Itens cadastrados">
                 <div
-                  className={`product-row domain-records-row ${config.relationField ? 'with-relation' : ''} header`}
+                  className={`product-row domain-records-row ${extraColumns.length ? 'with-relation' : ''} header`}
                   role="row"
-                  style={{ gridTemplateColumns: config.relationField ? `1fr 1fr auto 2.75rem` : `1fr auto 2.75rem` }}
+                  style={{ gridTemplateColumns }}
                 >
                   <span role="columnheader">{config.label}</span>
-                  {config.relationField ? <span role="columnheader">{config.relationLabel}</span> : null}
+                  {extraColumns.map((column) => (
+                    <span key={column.key} role="columnheader">{column.label}</span>
+                  ))}
                   <span role="columnheader">Status</span>
                   <span role="columnheader"></span>
                 </div>
 
                 {paginatedRecords.map((record) => (
                   <div
-                    className={`product-row domain-records-row ${config.relationField ? 'with-relation' : ''} selectable ${record.id === selectedRecordId ? 'selected' : ''}`}
+                    className={`product-row domain-records-row ${extraColumns.length ? 'with-relation' : ''} selectable ${record.id === selectedRecordId ? 'selected' : ''}`}
                     key={record.id}
                     onClick={() => handleEditRecord(record)}
                     onKeyDown={(e) => {
@@ -397,11 +413,19 @@ export function DomainRegistration() {
                       }
                     }}
                     role="row"
-                    style={{ gridTemplateColumns: config.relationField ? `1fr 1fr auto 2.75rem` : `1fr auto 2.75rem` }}
+                    style={{ gridTemplateColumns }}
                     tabIndex={0}
                   >
                     <span role="cell">{record.name}</span>
-                    {config.relationField ? <span role="cell">{record.relationName}</span> : null}
+                    {extraColumns.map((column) => (
+                      <span key={column.key} role="cell">
+                        {formatChildCell(
+                          { id: record.id, boInativo: record.boInativo, ...record.values },
+                          column,
+                          lookups[column.key] ?? [],
+                        )}
+                      </span>
+                    ))}
                     <span role="cell">
                       <span className={`status-badge ${record.boInativo === false ? 'active' : 'inactive'}`}>
                         {record.boInativo === false ? 'Ativo' : 'Inativo'}
@@ -445,36 +469,40 @@ export function DomainRegistration() {
                   value={name}
                 />
               </div>
-              {config?.secondField ? (
-                <div className="field field-size-full">
-                  <label htmlFor="domainDescription">{config.secondFieldLabel}</label>
-                  <input
-                    id="domainDescription"
-                    maxLength={255}
-                    onChange={(event) => setDescription(event.target.value)}
-                    placeholder="Digite aqui"
-                    type="text"
-                    value={description}
-                  />
+              {extraFields.map((field) => (
+                <div className="field field-size-full" key={field.key}>
+                  <label htmlFor={`domainField-${field.key}`}>{field.label}</label>
+                  {field.lookupEndpoint ? (
+                    <select
+                      id={`domainField-${field.key}`}
+                      onChange={(event) =>
+                        setFieldValues((current) => ({ ...current, [field.key]: event.target.value }))
+                      }
+                      required={field.required}
+                      value={fieldValues[field.key] ?? ''}
+                    >
+                      <option value="">Selecione</option>
+                      {(lookups[field.key] ?? []).map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {getLookupLabel(option, field)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      id={`domainField-${field.key}`}
+                      maxLength={field.type === 'text' ? 255 : undefined}
+                      onChange={(event) =>
+                        setFieldValues((current) => ({ ...current, [field.key]: event.target.value }))
+                      }
+                      placeholder="Digite aqui"
+                      required={field.required}
+                      type={field.type}
+                      value={fieldValues[field.key] ?? ''}
+                    />
+                  )}
                 </div>
-              ) : null}
-              {config?.relationField ? (
-                <div className="field field-size-full">
-                  <label htmlFor="domainRelation">{config.relationLabel}</label>
-                  <select
-                    id="domainRelation"
-                    onChange={(event) => setSelectedRelationId(event.target.value)}
-                    value={selectedRelationId}
-                  >
-                    <option value="">Selecione</option>
-                    {relationOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
+              ))}
               <div className="field field-size-sm">
                 <label htmlFor="domainStatus">Status</label>
                 <button

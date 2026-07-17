@@ -27,6 +27,7 @@ import { EmployeeRegistration } from '../../features/employees/EmployeeRegistrat
 import { TrainingRegistration } from '../../features/trainings/TrainingRegistration';
 import { EquipmentRegistration } from '../../features/equipment/EquipmentRegistration';
 import { LocalityRegistration } from '../../features/localities/LocalityRegistration';
+import { PointsRegistration } from '../../features/points/PointsRegistration';
 import { StudentTrainingAssembly } from '../../features/students/StudentTrainingAssembly';
 import { StudentMembershipView } from '../../features/students/StudentMembershipView';
 import { StudentCalendarView } from '../../features/students/StudentCalendarView';
@@ -58,6 +59,7 @@ import {
   Package,
   Palette,
   ShoppingCart,
+  Star,
   Sun,
   Tag,
   UserCheck,
@@ -88,6 +90,7 @@ const menuItemIcons: Record<string, LucideIcon> = {
   'Domínios': Globe,
   'Equipamentos': Wrench,
   'Localidades': MapPin,
+  'Pontuações': Star,
 };
 
 const menuGroups = [
@@ -113,7 +116,7 @@ const menuGroups = [
   },
   {
     title: 'ALUNOS',
-    items: ['Matrículas', 'Planos', 'Promoções'],
+    items: ['Matrículas', 'Planos', 'Promoções', 'Pontuações'],
   },
   {
     title: 'RH',
@@ -1045,6 +1048,8 @@ export default function HomePage() {
             <LocalityRegistration readOnly={authUserType === 'student'} />
           ) : activeItem === 'Domínios' ? (
             <DomainRegistration />
+          ) : activeItem === 'Pontuações' ? (
+            <PointsRegistration />
           ) : activeItem === 'Meu Treino' ? (
             <MyTraining
               studentId={authUserStudentId}

@@ -20,6 +20,7 @@ import {
   generateNextRecurringPayment,
   isRecurringFrequency,
 } from '../../shared/payments.js';
+import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 import type {
   CompanyChildPayload,
   StudentFacialBiometricEnrollPayload,
@@ -1038,6 +1039,11 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       const idEmpresaCheckIn = optionalNumber(request.body.idEmpresa);
       if (!idEmpresaCheckIn) throw new Error('Informe a empresa do check-in.');
 
+      const access = await getStudentAccessStatus(prisma, idAluno);
+      if (!access.canAccess) {
+        throw new Error(access.reason ?? 'Aluno sem acesso liberado para check-in.');
+      }
+
       const record = await prisma.alunoCheckIn.create({
         data: {
           idEmpresa: idEmpresaCheckIn,
@@ -1045,6 +1051,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
           idAlunoPlano,
           idAlunoTreinosSequencia,
           idPontuacao: optionalNumber(request.body.idPontuacao),
+          idTipoCheckIn: optionalNumber(request.body.idTipoCheckIn),
           boInativo: toBool(request.body.boInativo),
         },
         include: {
@@ -1086,6 +1093,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
         const idPlano = optionalNumber(request.body.idPlano);
         if (!idPlano) throw new Error('Selecione o plano.');
+        const boInativoPlano = toBool(request.body.boInativo);
         return prisma.alunoPlano.update({
           where: { id: childId },
           data: {
@@ -1093,7 +1101,9 @@ export async function registerStudentRoutes(app: FastifyInstance) {
             idPromocaoPlano: optionalNumber(request.body.idPromocaoPlano),
             nrDiaPagamento: Number(request.body.nrDiaPagamento ?? 1),
             dtAdmissao: optionalDate(request.body.dtAdmissao) ?? new Date(),
-            boInativo: toBool(request.body.boInativo),
+            boInativo: boInativoPlano,
+            // Cancelling records the cancellation date; reactivating clears it.
+            dtEncerramento: boInativoPlano ? new Date() : null,
           },
         });
       }
@@ -1222,6 +1232,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
           idAlunoPlano,
           idAlunoTreinosSequencia: optionalNumber(request.body.idAlunoTreinosSequencia),
           idPontuacao: optionalNumber(request.body.idPontuacao),
+          idTipoCheckIn: optionalNumber(request.body.idTipoCheckIn),
           boInativo: toBool(request.body.boInativo),
         },
       });
@@ -1247,7 +1258,12 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       if (resource === 'plans') {
         const current = await prisma.alunoPlano.findFirst({ where: { id: childId, idAluno }, select: { id: true } });
         if (!current) throw new Error('Plano do aluno invalido.');
-        return prisma.alunoPlano.update({ where: { id: childId }, data: { boInativo } });
+        // Cancelling a plan records the cancellation date in dtEncerramento;
+        // reactivating clears it.
+        return prisma.alunoPlano.update({
+          where: { id: childId },
+          data: { boInativo, dtEncerramento: boInativo ? new Date() : null },
+        });
       }
 
       if (resource === 'trainings') {

@@ -2,6 +2,16 @@ export type Company = {
   id: number;
   dsEmpresa: string;
   caCNPJ: string;
+  anCEP?: string | null;
+  anLogradouro?: string | null;
+  nrEndereco?: string | null;
+  anBairro?: string | null;
+  anCidade?: string | null;
+  anUF?: string | null;
+  nrDDD?: number | null;
+  nrContato?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   boInativo: boolean;
 };
 
@@ -241,9 +251,8 @@ export type DomainRecord = {
   id: number;
   name: string;
   boInativo: boolean;
-  description?: string;
-  relationId?: number | null;
-  relationName?: string;
+  /** Raw API item, used to render/edit extra fields declared in DomainConfig.fields. */
+  values: Record<string, unknown>;
 };
 
 export type RegisterLookupRecord = {
@@ -278,7 +287,7 @@ export type CompanyChildField = {
 export type CompanyChildColumn = {
   key: string;
   label: string;
-  type?: 'date' | 'datetime' | 'money' | 'status';
+  type?: 'date' | 'datetime' | 'money' | 'status' | 'payment-status';
   lookupLabelKey?: string;
 };
 
@@ -313,15 +322,12 @@ export type GridPaginationProps = {
 
 export type DomainConfig = {
   endpoint: string;
+  /** Name column / primary text field, always rendered first. */
   field: string;
   label: string;
   saveLabel: string;
-  secondField?: string;
-  secondFieldLabel?: string;
-  relationField?: string;
-  relationLabel?: string;
-  relationEndpoint?: string;
-  relationValueField?: string;
+  /** Extra fields (numeric, date, lookup) beyond the primary name field. */
+  fields?: CompanyChildField[];
 };
 
 export type DomainConfigMap = Record<string, DomainConfig>;

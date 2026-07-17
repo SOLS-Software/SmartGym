@@ -4,8 +4,11 @@
 // "Mensal") are treated as recurring: one pending payment is created and, once
 // paid, the next one is generated — the plan never expires. Longer cycles
 // (Trimestral, Anual, ...) are fixed-term: all installments are created up front
-// (qtParcelas of them), the AlunoPlano gets a dtEncerramento, and renewal is
-// manual once everything is settled.
+// (qtParcelas of them), and renewal is manual once everything is settled.
+//
+// Every plan records dtVencimento = admission + one full cycle (its vigencia).
+// dtEncerramento is distinct: it stays null until the plan is actually
+// cancelled, at which point the cancellation date is stored there.
 
 import type { Prisma, PrismaClient } from '@prisma/client';
 
@@ -22,7 +25,7 @@ type FrequenciaLike = {
   idUnidadeTempo: number;
 };
 
-type PrismaLike = PrismaClient | Prisma.TransactionClient;
+export type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
 /** Cycle length expressed in whole months (0 when shorter than a month). */
 export function getCycleMonths(freq: FrequenciaLike | null | undefined): number {
@@ -95,22 +98,23 @@ export function computeDueDate(base: Date, nrDiaPagamento: number, monthOffset: 
 const STATUS_PENDENTE_FALLBACK = 1;
 const STATUS_PAGO_FALLBACK = 2;
 
-/** Resolves the id of the "Pendente" payment status, falling back to id 1. */
-async function getPendingStatusId(db: PrismaLike): Promise<number> {
+/** Resolves a payment status id by name (case-insensitive), or null if not seeded. */
+export async function getStatusIdByName(db: PrismaLike, name: string): Promise<number | null> {
   const status = await db.statusPagamento.findFirst({
-    where: { dsStatusPagamento: { equals: 'Pendente', mode: 'insensitive' } },
+    where: { dsStatusPagamento: { equals: name, mode: 'insensitive' } },
     select: { id: true },
   });
-  return status?.id ?? STATUS_PENDENTE_FALLBACK;
+  return status?.id ?? null;
+}
+
+/** Resolves the id of the "Pendente" payment status, falling back to id 1. */
+async function getPendingStatusId(db: PrismaLike): Promise<number> {
+  return (await getStatusIdByName(db, 'Pendente')) ?? STATUS_PENDENTE_FALLBACK;
 }
 
 /** Resolves the id of the "Pago" payment status, falling back to id 2. */
 async function getPaidStatusId(db: PrismaLike): Promise<number> {
-  const status = await db.statusPagamento.findFirst({
-    where: { dsStatusPagamento: { equals: 'Pago', mode: 'insensitive' } },
-    select: { id: true },
-  });
-  return status?.id ?? STATUS_PAGO_FALLBACK;
+  return (await getStatusIdByName(db, 'Pago')) ?? STATUS_PAGO_FALLBACK;
 }
 
 // Promotion attached to the plan enrollment (via PromocaoPlano -> Promocao).
@@ -195,14 +199,14 @@ export async function generateInitialPayments(args: GenerateArgs): Promise<numbe
 
   await db.pagamento.createMany({ data });
 
-  if (!recurring) {
-    // Fixed-term plan expires one full cycle after admission.
-    const dtEncerramento = addFrequency(admissao, freq);
-    await db.alunoPlano.update({
-      where: { id: idAlunoPlano },
-      data: { dtEncerramento },
-    });
-  }
+  // The plan's current cycle ends one full frequency after admission. This is
+  // the vigencia (dtVencimento), recorded for both recurring and fixed-term
+  // plans; dtEncerramento stays null until the plan is actually cancelled.
+  const dtVencimento = addFrequency(admissao, freq);
+  await db.alunoPlano.update({
+    where: { id: idAlunoPlano },
+    data: { dtVencimento },
+  });
 
   return installments;
 }

@@ -2,34 +2,21 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
-import { MapPin, Pencil, Plus, Save, Search } from 'lucide-react';
-import { GRID_PAGE_SIZE, GridPagination, formatCep, paginateItems } from '../../shared/registration/registrationHelpers';
+import { Pencil, Plus, Save } from 'lucide-react';
+import { GRID_PAGE_SIZE, GridPagination, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
+import {
+  AddressLocationPicker,
+  emptyAddressLocation,
+  type AddressLocationValue,
+} from '../../shared/registration/AddressLocationPicker';
 import type { Company, Localidade } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
-
-const LocationPickerMap = dynamic(
-  () => import('./LocationPickerMap').then((mod) => mod.LocationPickerMap),
-  { ssr: false },
-);
-
-const DEFAULT_LATITUDE = -14.235;
-const DEFAULT_LONGITUDE = -51.9253;
 
 const LOCALITY_TYPE_OPTIONS = [
   { value: '1', label: 'Sala' },
   { value: '2', label: 'Quadra' },
 ];
-
-type ViaCepResponse = {
-  cep?: string;
-  logradouro?: string;
-  bairro?: string;
-  localidade?: string;
-  uf?: string;
-  erro?: boolean;
-};
 
 type LocalityRegistrationProps = {
   readOnly?: boolean;
@@ -49,21 +36,9 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
   const [localityName, setLocalityName] = useState('');
   const [localityDescription, setLocalityDescription] = useState('');
   const [localityType, setLocalityType] = useState('1');
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
-  const [hasPickedLocation, setHasPickedLocation] = useState(false);
+  const [addressValue, setAddressValue] = useState<AddressLocationValue>(emptyAddressLocation);
   const [isLocalityActive, setIsLocalityActive] = useState(false);
   const [feedback, setFeedback] = useState('');
-
-  const [addressCep, setAddressCep] = useState('');
-  const [addressLogradouro, setAddressLogradouro] = useState('');
-  const [addressNumero, setAddressNumero] = useState('');
-  const [addressBairro, setAddressBairro] = useState('');
-  const [addressCidade, setAddressCidade] = useState('');
-  const [addressEstado, setAddressEstado] = useState('');
-  const [isLookingUpCep, setIsLookingUpCep] = useState(false);
-  const [isGeocoding, setIsGeocoding] = useState(false);
-  const [addressFeedback, setAddressFeedback] = useState('');
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -120,18 +95,9 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
     setLocalityName('');
     setLocalityDescription('');
     setLocalityType('1');
-    setLatitude('');
-    setLongitude('');
-    setHasPickedLocation(false);
+    setAddressValue(emptyAddressLocation);
     setIsLocalityActive(false);
     setFeedback('');
-    setAddressCep('');
-    setAddressLogradouro('');
-    setAddressNumero('');
-    setAddressBairro('');
-    setAddressCidade('');
-    setAddressEstado('');
-    setAddressFeedback('');
   }
 
   function handleNewLocality() {
@@ -149,18 +115,14 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
     setLocalityName(locality.nmLocalidade);
     setLocalityDescription(locality.dsLocalidade);
     setLocalityType(String(locality.cnLocalidadeTP || 1));
-    setLatitude(String(locality.latitude ?? ''));
-    setLongitude(String(locality.longitude ?? ''));
-    setHasPickedLocation(Boolean(locality.latitude || locality.longitude));
+    setAddressValue({
+      ...emptyAddressLocation,
+      latitude: String(locality.latitude ?? ''),
+      longitude: String(locality.longitude ?? ''),
+      hasPickedLocation: Boolean(locality.latitude || locality.longitude),
+    });
     setIsLocalityActive(locality.boInativo === false);
     setFeedback('');
-    setAddressCep('');
-    setAddressLogradouro('');
-    setAddressNumero('');
-    setAddressBairro('');
-    setAddressCidade('');
-    setAddressEstado('');
-    setAddressFeedback('');
     setIsDrawerOpen(true);
   }
 
@@ -189,86 +151,6 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
     }
   }
 
-  async function handleLookupCep() {
-    const digits = addressCep.replace(/\D/g, '');
-
-    if (digits.length !== 8) {
-      setAddressFeedback('Informe um CEP válido.');
-      return;
-    }
-
-    try {
-      setIsLookingUpCep(true);
-      setAddressFeedback('');
-
-      const response = await window.fetch(`https://viacep.com.br/ws/${digits}/json/`);
-      if (!response.ok) {
-        throw new Error('Não foi possível consultar o CEP.');
-      }
-
-      const data = (await response.json()) as ViaCepResponse;
-      if (data.erro) {
-        throw new Error('CEP não encontrado.');
-      }
-
-      setAddressLogradouro(data.logradouro ?? '');
-      setAddressBairro(data.bairro ?? '');
-      setAddressCidade(data.localidade ?? '');
-      setAddressEstado(data.uf ?? '');
-      setAddressFeedback('Endereço preenchido a partir do CEP.');
-    } catch (error) {
-      setAddressFeedback(error instanceof Error ? error.message : 'Erro ao consultar o CEP.');
-    } finally {
-      setIsLookingUpCep(false);
-    }
-  }
-
-  async function handleGeocodeAddress() {
-    if (!addressCep && !addressLogradouro) {
-      setAddressFeedback('Informe o CEP ou o logradouro para buscar as coordenadas.');
-      return;
-    }
-
-    try {
-      setIsGeocoding(true);
-      setAddressFeedback('');
-
-      const response = await fetch(`${apiUrl}/localities/geocode`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cep: addressCep,
-          logradouro: addressLogradouro,
-          numero: addressNumero,
-          bairro: addressBairro,
-          cidade: addressCidade,
-          estado: addressEstado,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'Não foi possível localizar o endereço.');
-      }
-
-      const data = (await response.json()) as { latitude: number; longitude: number };
-      setLatitude(String(data.latitude));
-      setLongitude(String(data.longitude));
-      setHasPickedLocation(true);
-      setAddressFeedback('Coordenadas encontradas. Confirme o ponto no mapa.');
-    } catch (error) {
-      setAddressFeedback(error instanceof Error ? error.message : 'Erro ao buscar coordenadas.');
-    } finally {
-      setIsGeocoding(false);
-    }
-  }
-
-  function handleMapPositionChange(nextLatitude: number, nextLongitude: number) {
-    setLatitude(String(nextLatitude));
-    setLongitude(String(nextLongitude));
-    setHasPickedLocation(true);
-  }
-
   async function handleSaveLocality(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -278,10 +160,10 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
         return;
       }
 
-      const latitudeValue = Number(latitude);
-      const longitudeValue = Number(longitude);
+      const latitudeValue = Number(addressValue.latitude);
+      const longitudeValue = Number(addressValue.longitude);
 
-      if (!hasPickedLocation || !Number.isFinite(latitudeValue) || latitudeValue < -90 || latitudeValue > 90) {
+      if (!addressValue.hasPickedLocation || !Number.isFinite(latitudeValue) || latitudeValue < -90 || latitudeValue > 90) {
         setFeedback('Busque o endereço ou ajuste o pino no mapa para definir a localização.');
         return;
       }
@@ -487,117 +369,11 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
               </select>
             </div>
 
-            <section aria-label="Buscar localização" className="exercise-files-section" style={{ flex: '1 1 100%' }}>
-              <div className="exercise-files-header">
-                <p className="section-label">Localização</p>
-              </div>
-
-              {addressFeedback ? <div className="form-feedback">{addressFeedback}</div> : null}
-
-              <div className="drawer-fields">
-                <div className="field field-size-sm">
-                  <label htmlFor="localityCep">CEP</label>
-                  <input
-                    disabled={!isFormEnabled}
-                    id="localityCep"
-                    maxLength={9}
-                    onBlur={() => void handleLookupCep()}
-                    onChange={(e) => setAddressCep(formatCep(e.target.value))}
-                    placeholder="00000-000"
-                    type="text"
-                    value={addressCep}
-                  />
-                </div>
-                <div className="field field-size-md">
-                  <label htmlFor="localityLogradouro">Logradouro</label>
-                  <input
-                    disabled={!isFormEnabled}
-                    id="localityLogradouro"
-                    onChange={(e) => setAddressLogradouro(e.target.value)}
-                    placeholder="Rua, avenida..."
-                    type="text"
-                    value={addressLogradouro}
-                  />
-                </div>
-                <div className="field field-size-xs">
-                  <label htmlFor="localityNumero">Número</label>
-                  <input
-                    disabled={!isFormEnabled}
-                    id="localityNumero"
-                    onChange={(e) => setAddressNumero(e.target.value)}
-                    placeholder="0"
-                    type="text"
-                    value={addressNumero}
-                  />
-                </div>
-                <div className="field field-size-sm">
-                  <label htmlFor="localityBairro">Bairro</label>
-                  <input
-                    disabled={!isFormEnabled}
-                    id="localityBairro"
-                    onChange={(e) => setAddressBairro(e.target.value)}
-                    placeholder="Bairro"
-                    type="text"
-                    value={addressBairro}
-                  />
-                </div>
-                <div className="field field-size-sm">
-                  <label htmlFor="localityCidade">Cidade</label>
-                  <input
-                    disabled={!isFormEnabled}
-                    id="localityCidade"
-                    onChange={(e) => setAddressCidade(e.target.value)}
-                    placeholder="Cidade"
-                    type="text"
-                    value={addressCidade}
-                  />
-                </div>
-                <div className="field field-size-xs">
-                  <label htmlFor="localityEstado">UF</label>
-                  <input
-                    disabled={!isFormEnabled}
-                    id="localityEstado"
-                    maxLength={2}
-                    onChange={(e) => setAddressEstado(e.target.value.toUpperCase())}
-                    placeholder="SP"
-                    type="text"
-                    value={addressEstado}
-                  />
-                </div>
-                <div className="form-actions" style={{ flex: '1 1 100%' }}>
-                  <button
-                    className="secondary-button"
-                    disabled={!isFormEnabled || isLookingUpCep}
-                    onClick={() => void handleLookupCep()}
-                    type="button"
-                  >
-                    <Search size={16} />
-                    {isLookingUpCep ? 'Buscando CEP...' : 'Buscar CEP'}
-                  </button>
-                  <button
-                    disabled={!isFormEnabled || isGeocoding}
-                    onClick={() => void handleGeocodeAddress()}
-                    type="button"
-                  >
-                    <MapPin size={16} />
-                    {isGeocoding ? 'Localizando...' : 'Buscar coordenadas'}
-                  </button>
-                </div>
-              </div>
-
-              <p className="form-hint">
-                {hasPickedLocation
-                  ? 'Arraste o pino no mapa para ajustar a posição exata, se necessário.'
-                  : 'Busque as coordenadas para visualizar e confirmar o local no mapa.'}
-              </p>
-
-              <LocationPickerMap
-                latitude={hasPickedLocation ? Number(latitude) : DEFAULT_LATITUDE}
-                longitude={hasPickedLocation ? Number(longitude) : DEFAULT_LONGITUDE}
-                onChange={handleMapPositionChange}
-                zoom={hasPickedLocation ? 16 : 4}
-              />
-            </section>
+            <AddressLocationPicker
+              disabled={!isFormEnabled}
+              onChange={setAddressValue}
+              value={addressValue}
+            />
 
             <div className="field">
               <label htmlFor="localityStatus">Status</label>

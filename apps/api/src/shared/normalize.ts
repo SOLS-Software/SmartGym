@@ -172,10 +172,29 @@ export function normalizeCompanyPayload(payload: CompanyPayload) {
     throw new Error('Cliente nao identificado.');
   }
 
+  const optionalDigits = (value: string | undefined, maxLength: number) => {
+    const digits = value?.replace(/\D/g, '') ?? '';
+    return digits ? digits.slice(0, maxLength) : null;
+  };
+  const optionalTrimmed = (value: string | undefined, maxLength: number) => {
+    const text = value?.trim() ?? '';
+    return text ? text.slice(0, maxLength) : null;
+  };
+
+  const anUF = payload.anUF?.trim().toUpperCase().slice(0, 2) || null;
+
   return {
     idCliente,
     dsEmpresa,
     caCNPJ,
+    anCEP: optionalDigits(payload.anCEP, 8),
+    anLogradouro: optionalTrimmed(payload.anLogradouro, 150),
+    nrEndereco: optionalTrimmed(payload.nrEndereco, 10),
+    anBairro: optionalTrimmed(payload.anBairro, 100),
+    anCidade: optionalTrimmed(payload.anCidade, 100),
+    anUF,
+    nrDDD: optionalNumber(payload.nrDDD),
+    nrContato: optionalDigits(payload.nrContato, 11),
     boInativo: toBool(payload.boInativo),
   };
 }

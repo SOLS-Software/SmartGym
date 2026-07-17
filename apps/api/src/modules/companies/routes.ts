@@ -11,6 +11,7 @@ import {
   getMultipartFieldValue,
 } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
+import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 import { getCompanyFilePath, getPromotionFilePath } from '../../shared/files.js';
 import type { CompanyChildPayload, CompanyChildResource, CompanyPayload } from '../../shared/api-types.js';
 
@@ -189,6 +190,20 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
         idAlunoPlano: optionalNumber(payload.idAlunoPlano),
         idAlunoTreinosSequencia: optionalNumber(payload.idAlunoTreinosSequencia),
         idPontuacao: optionalNumber(payload.idPontuacao),
+        idTipoCheckIn: optionalNumber(payload.idTipoCheckIn),
+        boInativo: toBool(payload.boInativo),
+      };
+    },
+  },
+  points: {
+    delegate: asCrudDelegate(prisma.pontuacao),
+    orderBy: { dsPontuacao: 'asc' },
+    companyField: 'idEmpresa',
+    normalize(companyId: number, payload: CompanyChildPayload) {
+      return {
+        idEmpresa: companyId,
+        dsPontuacao: requiredText(payload.dsPontuacao, 'Informe a descricao da pontuacao.'),
+        qtPontos: Number(payload.qtPontos ?? 0),
         boInativo: toBool(payload.boInativo),
       };
     },
@@ -215,6 +230,37 @@ function getChildResourceConfig(resource: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Company geo (PostGIS): geoEmpresa is an Unsupported geometry column, so it is
+// read/written with raw SQL (same pattern as Localidade). Address scalars go
+// through Prisma; only the point needs raw access.
+// ---------------------------------------------------------------------------
+
+// geoEmpresa is decomposed into latitude/longitude so the client can edit it.
+const COMPANY_SELECT_COLUMNS = `
+  id, "idCliente", "idTema", "dsEmpresa", "caCNPJ",
+  "anCEP", "anLogradouro", "nrEndereco", "anBairro", "anCidade", "anUF",
+  "nrDDD", "nrContato",
+  ST_Y("geoEmpresa") as latitude, ST_X("geoEmpresa") as longitude,
+  "dtCadastro", "dtAlteracao", "idUsuarioCadastro", "idUsuarioAlteracao", "boInativo"
+`;
+
+/** Parses latitude/longitude from a company payload, validating ranges when present. */
+function parseCompanyGeo(payload: CompanyPayload) {
+  const latitude = optionalNumber(payload.latitude);
+  const longitude = optionalNumber(payload.longitude);
+  if (latitude === null && longitude === null) {
+    return { hasGeo: false as const, latitude: null, longitude: null };
+  }
+  if (latitude === null || !Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+    throw new Error('Informe uma latitude valida.');
+  }
+  if (longitude === null || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    throw new Error('Informe uma longitude valida.');
+  }
+  return { hasGeo: true as const, latitude, longitude };
+}
+
+// ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
 
@@ -223,17 +269,29 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     Querystring: { search?: string };
   }>('/companies', async (request) => {
     const search = request.query.search?.trim();
-    return prisma.empresa.findMany({
-      where: search
-        ? {
-            OR: [
-              { dsEmpresa: { contains: search, mode: 'insensitive' } },
-              { caCNPJ: { contains: search.replace(/\D/g, '') } },
-            ],
-          }
-        : undefined,
-      orderBy: { dsEmpresa: 'asc' },
-    });
+    if (search) {
+      const digits = search.replace(/\D/g, '');
+      // Only match on CNPJ when the term actually has digits, otherwise a plain
+      // text search would widen to every row via LIKE '%%'.
+      if (digits) {
+        return prisma.$queryRawUnsafe(
+          `SELECT ${COMPANY_SELECT_COLUMNS} FROM "tb_Empresas"
+           WHERE "dsEmpresa" ILIKE $1 OR "caCNPJ" LIKE $2
+           ORDER BY "dsEmpresa" ASC`,
+          `%${search}%`,
+          `%${digits}%`,
+        );
+      }
+      return prisma.$queryRawUnsafe(
+        `SELECT ${COMPANY_SELECT_COLUMNS} FROM "tb_Empresas"
+         WHERE "dsEmpresa" ILIKE $1
+         ORDER BY "dsEmpresa" ASC`,
+        `%${search}%`,
+      );
+    }
+    return prisma.$queryRawUnsafe(
+      `SELECT ${COMPANY_SELECT_COLUMNS} FROM "tb_Empresas" ORDER BY "dsEmpresa" ASC`,
+    );
   });
 
   app.post<{
@@ -241,8 +299,20 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   }>('/companies', async (request, reply) => {
     try {
       const data = normalizeCompanyPayload(request.body);
-      const company = await prisma.empresa.create({ data });
-      return reply.code(201).send(company);
+      const geo = parseCompanyGeo(request.body);
+      const company = await prisma.$transaction(async (tx) => {
+        const created = await tx.empresa.create({ data });
+        if (geo.hasGeo) {
+          await tx.$executeRawUnsafe(
+            `UPDATE "tb_Empresas" SET "geoEmpresa" = ST_SetSRID(ST_MakePoint($1, $2), 4326) WHERE id = $3`,
+            geo.longitude,
+            geo.latitude,
+            created.id,
+          );
+        }
+        return created;
+      });
+      return reply.code(201).send({ ...company, latitude: geo.latitude, longitude: geo.longitude });
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao criar empresa.',
@@ -257,7 +327,20 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       const data = normalizeCompanyPayload(request.body);
-      return prisma.empresa.update({ where: { id }, data });
+      const geo = parseCompanyGeo(request.body);
+      const company = await prisma.$transaction(async (tx) => {
+        const updated = await tx.empresa.update({ where: { id }, data });
+        if (geo.hasGeo) {
+          await tx.$executeRawUnsafe(
+            `UPDATE "tb_Empresas" SET "geoEmpresa" = ST_SetSRID(ST_MakePoint($1, $2), 4326) WHERE id = $3`,
+            geo.longitude,
+            geo.latitude,
+            id,
+          );
+        }
+        return updated;
+      });
+      return { ...company, latitude: geo.latitude, longitude: geo.longitude };
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao atualizar empresa.',
@@ -697,13 +780,19 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(companyId, 'Empresa invalida.');
       const config = getChildResourceConfig(request.params.resource);
       const data = config.normalize(companyId, request.body) as Record<string, unknown>;
-      if (request.params.resource === 'student-check-ins' && !data.idAluno && data.idAlunoPlano) {
-        const plan = await prisma.alunoPlano.findUnique({
-          where: { id: Number(data.idAlunoPlano) },
-          select: { idAluno: true },
-        });
-        if (!plan) throw new Error('Plano do aluno invalido.');
-        data.idAluno = plan.idAluno;
+      if (request.params.resource === 'student-check-ins') {
+        if (!data.idAluno && data.idAlunoPlano) {
+          const plan = await prisma.alunoPlano.findUnique({
+            where: { id: Number(data.idAlunoPlano) },
+            select: { idAluno: true },
+          });
+          if (!plan) throw new Error('Plano do aluno invalido.');
+          data.idAluno = plan.idAluno;
+        }
+        const access = await getStudentAccessStatus(prisma, Number(data.idAluno));
+        if (!access.canAccess) {
+          throw new Error(access.reason ?? 'Aluno sem acesso liberado para check-in.');
+        }
       }
       return reply.code(201).send(await config.delegate.create({ data }));
     } catch (error) {

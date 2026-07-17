@@ -31,6 +31,16 @@ export type CompanyPayload = {
   idCliente?: number | string | null;
   dsEmpresa?: string;
   caCNPJ?: string;
+  anCEP?: string;
+  anLogradouro?: string;
+  nrEndereco?: string;
+  anBairro?: string;
+  anCidade?: string;
+  anUF?: string;
+  nrDDD?: number | string | null;
+  nrContato?: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
   boInativo?: boolean;
 };
 
@@ -163,6 +173,7 @@ export type CompanyChildResource =
   | 'product-movements'
   | 'company-files'
   | 'student-check-ins'
+  | 'points'
   | 'themes';
 
 export type StudentChildResource = 'plans' | 'payments' | 'check-ins' | 'trainings';
