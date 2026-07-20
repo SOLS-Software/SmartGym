@@ -341,7 +341,11 @@ export default function HomePage() {
               setAuthUserType(user.type);
               setAuthUserEmployeeId(user.idFuncionario);
               setAuthUserStudentId(user.idAluno);
-              setActiveItem(savedActiveItem);
+              setActiveItem(
+                user.type === 'employee' && savedActiveItem === 'Meu Treino'
+                  ? 'Matrículas'
+                  : savedActiveItem,
+              );
               setIsLoggedIn(true);
             }
           }
@@ -534,7 +538,12 @@ export default function HomePage() {
   }
 
   function completeLogin(user: AuthenticatedUser) {
-    const nextActiveItem = user.type === 'student' ? 'Meu Treino' : activeItem;
+    const nextActiveItem =
+      user.type === 'student'
+        ? 'Meu Treino'
+        : activeItem === 'Meu Treino'
+          ? 'Matrículas'
+          : activeItem;
     stopFacialCamera();
     setPendingFacialUser(null);
     setAuthFeedback('');
@@ -821,7 +830,10 @@ export default function HomePage() {
   if (isLoggedIn) {
     const visibleMenuGroups =
       authUserType === 'employee'
-        ? menuGroups
+        ? menuGroups.map((group) => ({
+            ...group,
+            items: group.items.filter((item) => item !== 'Meu Treino'),
+          }))
         : menuGroups
           .filter((group) => group.title === 'TREINO' || group.title === 'ALUNOS' || group.title === 'ATIVIDADE')
           .map((group) => ({

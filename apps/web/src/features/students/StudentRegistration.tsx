@@ -92,11 +92,13 @@ export function StudentRegistration() {
       : false,
   );
   const filteredStudents = students.filter((student) => {
+    if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
+    const digits = searchTerm.replace(/\D/g, '');
 
     return (
       student.nmAluno.toLowerCase().includes(search) ||
-      student.caCPF.includes(searchTerm.replace(/\D/g, '')) ||
+      (digits.length > 0 && student.caCPF.includes(digits)) ||
       student.anEmail.toLowerCase().includes(search)
     );
   });
@@ -746,7 +748,7 @@ export function StudentRegistration() {
       await loadStudentRelatedRecords(selectedStudentId, studentRelatedConfig);
       setSelectedStudentRelatedRecordId(savedRecord.id);
       setIsCreatingStudentRelated(false);
-      setStudentRelatedFeedback(`${studentRelatedConfig.label} salvo com sucesso.`);
+      setStudentRelatedFeedback(`${studentRelatedConfig.labelSingular ?? studentRelatedConfig.label} salvo com sucesso.`);
       setIsDrawerOpen(false);
     } catch (error) {
       setStudentRelatedFeedback(
@@ -1043,7 +1045,7 @@ export function StudentRegistration() {
               </RegistrationField>
               {/* DDD */}
               <RegistrationField htmlFor="nrDDD" label="DDD" size="xs">
-                <input id="nrDDD" maxLength={2} onChange={(event) => setStudentDdd(event.target.value)} placeholder="11" type="text" value={studentDdd} />
+                <input id="nrDDD" maxLength={2} onChange={(event) => setStudentDdd(onlyDigits(event.target.value))} placeholder="11" type="text" value={studentDdd} />
               </RegistrationField>
               {/* Telefone */}
               <RegistrationField htmlFor="nrContato" label="Telefone" size="sm">
@@ -1064,7 +1066,7 @@ export function StudentRegistration() {
                 <input id="anComplemento" maxLength={100} onChange={(event) => setStudentComplement(event.target.value)} placeholder="Apt, bloco..." type="text" value={studentComplement} />
               </RegistrationField>
               <RegistrationField htmlFor="anCEP" label="CEP" size="sm">
-                <input id="anCEP" maxLength={8} onChange={(event) => setStudentCep(event.target.value)} placeholder="Somente numeros" type="text" value={studentCep} />
+                <input id="anCEP" maxLength={8} onChange={(event) => setStudentCep(onlyDigits(event.target.value))} placeholder="Somente numeros" type="text" value={studentCep} />
               </RegistrationField>
               <RegistrationField htmlFor="nrEndereco" label="Número" size="xs">
                 <input id="nrEndereco" onChange={(event) => setStudentAddressNumber(event.target.value)} placeholder="0" type="number" value={studentAddressNumber} />
@@ -1134,7 +1136,7 @@ export function StudentRegistration() {
                       {(studentRelatedLookups[field.key] ?? []).map((option) => (<option key={option.id} value={option.id}>{getLookupLabel(option, field)}</option>))}
                     </select>
                   ) : (
-                    <input disabled={!isStudentRelatedFormEnabled} id={`studentRelated-${field.key}`} onChange={(event) => setStudentRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} type={field.type} value={studentRelatedFormValues[field.key] ?? ''} />
+                    <input disabled={!isStudentRelatedFormEnabled} id={`studentRelated-${field.key}`} max={field.key === 'nrDiaPagamento' ? 31 : undefined} min={field.key === 'nrDiaPagamento' ? 1 : undefined} onChange={(event) => setStudentRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} type={field.type} value={studentRelatedFormValues[field.key] ?? ''} />
                   )}
                 </RegistrationField>
               ))}
@@ -1145,7 +1147,7 @@ export function StudentRegistration() {
               </RegistrationField>
               <div className="form-actions" style={{ flex: '1 1 100%' }}>
                 <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-                <button disabled={!isStudentRelatedFormEnabled} type="submit"><Save size={16} />Salvar {studentRelatedConfig.label}</button>
+                <button disabled={!isStudentRelatedFormEnabled} type="submit"><Save size={16} />Salvar {studentRelatedConfig.labelSingular ?? studentRelatedConfig.label}</button>
               </div>
             </form>
           ) : null}

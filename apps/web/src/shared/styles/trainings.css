@@ -638,6 +638,11 @@ button.exercise-card:hover {
   border-color: var(--color-primary);
 }
 
+.training-card.selected {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.125rem var(--color-primary);
+}
+
 .training-card-title {
   color: var(--color-text);
   font-size: 1.05rem;

@@ -117,8 +117,14 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       const student = await prisma.aluno.create({ data });
       return reply.code(201).send(student);
     } catch (error) {
+      const isPrismaUnique =
+        error instanceof Error &&
+        'code' in error &&
+        (error as { code: string }).code === 'P2002';
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar aluno.',
+        message: isPrismaUnique
+          ? 'CPF já cadastrado para este cliente.'
+          : 'Erro ao criar aluno.',
       });
     }
   });
@@ -1173,11 +1179,11 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       if (resource === 'payments') {
         const current = await prisma.pagamento.findFirst({
           where: { id: childId, alunoPlano: { idAluno } },
-          select: { id: true },
+          select: { id: true, idEmpresa: true },
         });
         if (!current) throw new Error('Pagamento invalido.');
 
-        const idEmpresa = optionalNumber(request.body.idEmpresa);
+        const idEmpresa = optionalNumber(request.body.idEmpresa) ?? current.idEmpresa;
         if (!idEmpresa) throw new Error('Informe a empresa do pagamento.');
         const idStatusPagamento = optionalNumber(request.body.idStatusPagamento);
         if (!idStatusPagamento) throw new Error('Informe o status do pagamento.');

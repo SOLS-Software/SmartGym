@@ -18,6 +18,7 @@ const planRelatedTables: CompanyChildTable[] = [
     key: 'values',
     endpoint: 'values',
     label: 'Valores',
+    labelSingular: 'Valor',
     title: 'Valores do plano',
     columns: [
       { key: 'idEmpresa', label: 'Empresa', lookupLabelKey: 'dsEmpresa' },
@@ -33,6 +34,7 @@ const planRelatedTables: CompanyChildTable[] = [
     key: 'products',
     endpoint: 'products',
     label: 'Produtos',
+    labelSingular: 'Produto',
     title: 'Produtos do plano',
     columns: [
       { key: 'idEmpresa', label: 'Empresa', lookupLabelKey: 'dsEmpresa' },
@@ -48,6 +50,7 @@ const planRelatedTables: CompanyChildTable[] = [
     key: 'companies',
     endpoint: 'companies',
     label: 'Empresas',
+    labelSingular: 'Empresa',
     title: 'Empresas do plano',
     columns: [
       { key: 'idEmpresa', label: 'Empresa', lookupLabelKey: 'dsEmpresa' },
@@ -61,6 +64,7 @@ const planRelatedTables: CompanyChildTable[] = [
     key: 'activities',
     endpoint: 'activities',
     label: 'Atividades',
+    labelSingular: 'Atividade',
     title: 'Atividades do plano',
     columns: [
       { key: 'idEmpresa', label: 'Empresa', lookupLabelKey: 'dsEmpresa' },
@@ -76,6 +80,7 @@ const planRelatedTables: CompanyChildTable[] = [
     key: 'promotionPlans',
     endpoint: 'promotion-plans',
     label: 'Promoções',
+    labelSingular: 'Promoção',
     title: 'Promoções do plano',
     columns: [
       { key: 'idEmpresa', label: 'Empresa', lookupLabelKey: 'dsEmpresa' },
@@ -97,6 +102,7 @@ const planRelatedTables: CompanyChildTable[] = [
     key: 'promotionProducts',
     endpoint: 'promotion-products',
     label: 'Produtos Promoção',
+    labelSingular: 'Produto Promoção',
     title: 'Produtos de promoção do plano',
     columns: [
       { key: 'idEmpresa', label: 'Empresa', lookupLabelKey: 'dsEmpresa' },
@@ -116,6 +122,7 @@ const planRelatedTables: CompanyChildTable[] = [
     key: 'promotionFiles',
     endpoint: 'promotion-files',
     label: 'Arquivos Promoção',
+    labelSingular: 'Arquivo Promoção',
     title: 'Arquivos de promoção do plano',
     columns: [
       { key: 'idPromocao', label: 'Promoção', lookupLabelKey: 'dsPromocao' },
@@ -185,7 +192,6 @@ export function PlanRegistration() {
 
     return (
       plan.dsPlano.toLowerCase().includes(search) ||
-      String(plan.idFrequencia ?? '').includes(searchTerm) ||
       String(frequency?.dsFrequencia ?? '').toLowerCase().includes(search) ||
       (plan.boInativo === false ? 'ativo' : 'inativo').includes(search)
     );
@@ -700,7 +706,7 @@ export function PlanRegistration() {
       await loadPlanRelatedRecords(selectedPlanId, planRelatedConfig);
       setSelectedPlanRelatedRecordId(saved.id);
       setIsCreatingPlanRelated(false);
-      setPlanRelatedFeedback(`${planRelatedConfig.label} salvo com sucesso.`);
+      setPlanRelatedFeedback(`${planRelatedConfig.labelSingular ?? planRelatedConfig.label} salvo com sucesso.`);
       setIsDrawerOpen(false);
     } catch (error) {
       setPlanRelatedFeedback(error instanceof Error ? error.message : 'Erro ao salvar registro relacionado.');
@@ -868,7 +874,7 @@ export function PlanRegistration() {
             )}
             <div className="form-actions" style={{ flex: '1 1 100%' }}>
               <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-              {!isPlanRelatedFileTable ? (<button disabled={!isPlanRelatedFormEnabled} type="submit"><Save size={16} />Salvar {planRelatedConfig?.label}</button>) : null}
+              {!isPlanRelatedFileTable ? (<button disabled={!isPlanRelatedFormEnabled} type="submit"><Save size={16} />Salvar {planRelatedConfig?.labelSingular ?? planRelatedConfig?.label}</button>) : null}
             </div>
           </form>
         )}
