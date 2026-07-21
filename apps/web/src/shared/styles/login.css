@@ -321,6 +321,38 @@
   background: rgba(255, 255, 255, 0.65);
 }
 
+/* ── Dark mode ── */
+html.dark .login-panel {
+  box-shadow: 0 1.5rem 4.375rem rgba(0, 0, 0, 0.3);
+}
+
+html.dark .login-mode-toggle,
+html.dark .account-type-toggle {
+  background: #142018;
+}
+
+html.dark .login-mode-toggle button.active,
+html.dark .account-type-toggle button.active {
+  box-shadow: 0 0.25rem 0.875rem rgba(0, 0, 0, 0.2);
+}
+
+html.dark .login-feedback {
+  background: rgba(31, 122, 83, 0.15);
+  border-color: rgba(31, 122, 83, 0.3);
+}
+
+html.dark .login-form .secondary-login-button {
+  background: rgba(31, 122, 83, 0.22);
+}
+
+html.dark .login-form .secondary-login-button:hover {
+  background: rgba(31, 122, 83, 0.3);
+}
+
+html.dark .login-form .account-type-toggle button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 @media (max-width: 30rem) {
   .login-panel {
     padding: 1.5rem;

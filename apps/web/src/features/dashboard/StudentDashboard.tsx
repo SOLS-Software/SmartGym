@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Calendar, CreditCard, Dumbbell, Flame, Trophy, Zap } from 'lucide-react';
+import { AlertTriangle, Calendar, CreditCard, Dumbbell, Flame, Info, Trophy, XCircle, Zap } from 'lucide-react';
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 
 type StudentDashboardProps = {
@@ -21,11 +21,18 @@ type CheckIn = {
   dtCadastro: string;
 };
 
+type Notification = {
+  type: 'danger' | 'warning' | 'info';
+  title: string;
+  message: string;
+};
+
 type DashboardData = {
   activePlan: string | null;
   totalCheckIns: number;
   streak: number;
   monthCheckIns: number;
+  notifications: Notification[];
 };
 
 function calculateStreak(checkIns: CheckIn[]): number {
@@ -80,13 +87,15 @@ export function StudentDashboard({ studentId, studentName, onNavigate }: Student
   async function loadData(id: number) {
     try {
       setIsLoading(true);
-      const [plansRes, checkInsRes] = await Promise.all([
+      const [plansRes, checkInsRes, notifRes] = await Promise.all([
         fetch(`${apiUrl}/students/${id}/children/plans`),
         fetch(`${apiUrl}/students/${id}/children/check-ins`),
+        fetch(`${apiUrl}/students/${id}/notifications`),
       ]);
 
       const plans = plansRes.ok ? ((await plansRes.json()) as StudentPlan[]) : [];
       const checkIns = checkInsRes.ok ? ((await checkInsRes.json()) as CheckIn[]) : [];
+      const notifications = notifRes.ok ? ((await notifRes.json()) as Notification[]) : [];
 
       const activePlan = plans.find((p) => p.boInativo === false);
       const now = new Date();
@@ -98,9 +107,10 @@ export function StudentDashboard({ studentId, studentName, onNavigate }: Student
         totalCheckIns: checkIns.length,
         streak: calculateStreak(checkIns),
         monthCheckIns,
+        notifications,
       });
     } catch {
-      setData({ activePlan: null, totalCheckIns: 0, streak: 0, monthCheckIns: 0 });
+      setData({ activePlan: null, totalCheckIns: 0, streak: 0, monthCheckIns: 0, notifications: [] });
     } finally {
       setIsLoading(false);
     }
@@ -120,6 +130,22 @@ export function StudentDashboard({ studentId, studentName, onNavigate }: Student
       </header>
 
       <div className="dashboard-content">
+        {!isLoading && data?.notifications && data.notifications.length > 0 ? (
+          <div className="dashboard-notifications">
+            {data.notifications.map((n, i) => (
+              <div key={i} className={`dashboard-notification ${n.type}`}>
+                <div className="dashboard-notification-icon">
+                  {n.type === 'danger' ? <XCircle size={18} /> : n.type === 'warning' ? <AlertTriangle size={18} /> : <Info size={18} />}
+                </div>
+                <div className="dashboard-notification-body">
+                  <strong>{n.title}</strong>
+                  <span>{n.message}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
         <section className="dashboard-stats" aria-label="Seus números">
           <div className="dashboard-stat-card">
             <div className="dashboard-stat-icon" style={{ background: 'var(--color-primary-bg)', color: 'var(--color-primary)' }}>
@@ -134,7 +160,7 @@ export function StudentDashboard({ studentId, studentName, onNavigate }: Student
           </div>
 
           <div className="dashboard-stat-card">
-            <div className="dashboard-stat-icon" style={{ background: '#fef3c7', color: '#d97706' }}>
+            <div className="dashboard-stat-icon icon-amber">
               <Flame size={20} />
             </div>
             <div className="dashboard-stat-info">
@@ -148,7 +174,7 @@ export function StudentDashboard({ studentId, studentName, onNavigate }: Student
           </div>
 
           <div className="dashboard-stat-card">
-            <div className="dashboard-stat-icon" style={{ background: '#dbeafe', color: '#2563eb' }}>
+            <div className="dashboard-stat-icon icon-blue">
               <Calendar size={20} />
             </div>
             <div className="dashboard-stat-info">
@@ -160,7 +186,7 @@ export function StudentDashboard({ studentId, studentName, onNavigate }: Student
           </div>
 
           <div className="dashboard-stat-card">
-            <div className="dashboard-stat-icon" style={{ background: '#fce7f3', color: '#db2777' }}>
+            <div className="dashboard-stat-icon icon-pink">
               <Trophy size={20} />
             </div>
             <div className="dashboard-stat-info">

@@ -63,6 +63,7 @@ import {
   Globe,
   LayoutDashboard,
   MapPin,
+  Menu,
   Moon,
   Package,
   Palette,
@@ -183,27 +184,39 @@ function lightenColor(hex: string): string {
   }).join('')}`;
 }
 
+function hexToRgb(hex: string) {
+  const h = hex.replace('#', '');
+  return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) };
+}
+
 function applyCompanyTheme(theme: CompanyTheme) {
   const root = document.documentElement;
-  root.style.setProperty('--color-primary', theme.corPrimaria);
-  root.style.setProperty('--color-text', theme.corTexto);
-  root.style.setProperty('--color-bg', theme.corFundo);
+  const dark = root.classList.contains('dark');
 
-  const hex = theme.corPrimaria.replace('#', '');
-  const r = parseInt(hex.slice(0, 2), 16);
-  const g = parseInt(hex.slice(2, 4), 16);
-  const b = parseInt(hex.slice(4, 6), 16);
+  root.style.setProperty('--color-primary', theme.corPrimaria);
+
+  if (dark) {
+    root.style.removeProperty('--color-text');
+    root.style.removeProperty('--color-bg');
+  } else {
+    root.style.setProperty('--color-text', theme.corTexto);
+    root.style.setProperty('--color-bg', theme.corFundo);
+  }
+
+  const { r, g, b } = hexToRgb(theme.corPrimaria);
   const darken = (c: number) => Math.max(0, Math.round(c * 0.82)).toString(16).padStart(2, '0');
   root.style.setProperty('--color-primary-dark', `#${darken(r)}${darken(g)}${darken(b)}`);
-  root.style.setProperty('--color-primary-bg', lightenColor(theme.corPrimaria));
+  root.style.setProperty('--color-primary-bg', dark ? `rgba(${r}, ${g}, ${b}, 0.22)` : lightenColor(theme.corPrimaria));
 
   if (theme.corSecundaria) {
     root.style.setProperty('--color-secondary', theme.corSecundaria);
-    root.style.setProperty('--color-secondary-bg', lightenColor(theme.corSecundaria));
+    const s = hexToRgb(theme.corSecundaria);
+    root.style.setProperty('--color-secondary-bg', dark ? `rgba(${s.r}, ${s.g}, ${s.b}, 0.22)` : lightenColor(theme.corSecundaria));
   }
   if (theme.corAcentuacao) {
     root.style.setProperty('--color-accent', theme.corAcentuacao);
-    root.style.setProperty('--color-accent-bg', lightenColor(theme.corAcentuacao));
+    const a = hexToRgb(theme.corAcentuacao);
+    root.style.setProperty('--color-accent-bg', dark ? `rgba(${a.r}, ${a.g}, ${a.b}, 0.22)` : lightenColor(theme.corAcentuacao));
   }
 
   if (theme.fontePrincipal) {
@@ -263,7 +276,9 @@ export default function HomePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isSessionLoading, setIsSessionLoading] = useState(true);
   const [activeItem, setActiveItem] = useState('Painel');
-  const [isMenuOpen, setIsMenuOpen] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth > 760 : true,
+  );
   const [authUserName, setAuthUserName] = useState('Joao Silva');
   const [authUserRole, setAuthUserRole] = useState('Administrador');
   const [authUserType, setAuthUserType] = useState<AuthUserType>('employee');
@@ -660,6 +675,7 @@ export default function HomePage() {
       document.documentElement.classList.remove('dark');
       localStorage.removeItem(DARK_MODE_KEY);
     }
+    if (companyTheme) applyCompanyTheme(companyTheme);
   }
 
   function handleLogout() {
@@ -1133,6 +1149,43 @@ export default function HomePage() {
             </div>
           )}
         </section>
+        <nav className="mobile-bottom-nav" aria-label="Navegação rápida">
+          {(authUserType === 'student'
+            ? [
+                { key: 'Painel', icon: LayoutDashboard, label: 'Painel' },
+                { key: 'Meu Treino', icon: UserCheck, label: 'Treino' },
+                { key: 'Calendário', icon: Calendar, label: 'Calendário' },
+                { key: 'Matrículas', icon: BadgeCheck, label: 'Matrícula' },
+              ]
+            : [
+                { key: 'Painel', icon: LayoutDashboard, label: 'Painel' },
+                { key: 'Matrículas', icon: BadgeCheck, label: 'Alunos' },
+                { key: 'Montar Treino', icon: FilePlus, label: 'Treino' },
+                { key: 'Atividades', icon: Activity, label: 'Atividades' },
+              ]
+          ).map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                className={`mobile-bottom-nav-item${activeItem === tab.key ? ' active' : ''}`}
+                key={tab.key}
+                onClick={() => setActiveItem(tab.key)}
+                type="button"
+              >
+                <Icon size={20} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+          <button
+            className="mobile-bottom-nav-item"
+            onClick={() => setIsMenuOpen(true)}
+            type="button"
+          >
+            <Menu size={20} />
+            <span>Menu</span>
+          </button>
+        </nav>
         <GlobalSearch
           items={visibleMenuGroups.flatMap((group) =>
             group.items.map((item) => ({

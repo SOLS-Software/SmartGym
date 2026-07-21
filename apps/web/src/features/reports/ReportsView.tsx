@@ -365,7 +365,7 @@ export function ReportsView() {
             </div>
           </div>
           <div className="reports-kpi">
-            <div className="reports-kpi-icon" style={{ background: '#fee2e2', color: '#dc2626' }}>
+            <div className="reports-kpi-icon icon-danger">
               <Users size={20} />
             </div>
             <div>
@@ -374,7 +374,7 @@ export function ReportsView() {
             </div>
           </div>
           <div className="reports-kpi">
-            <div className="reports-kpi-icon" style={{ background: '#dbeafe', color: '#2563eb' }}>
+            <div className="reports-kpi-icon icon-blue">
               <TrendingUp size={20} />
             </div>
             <div>
@@ -383,7 +383,7 @@ export function ReportsView() {
             </div>
           </div>
           <div className="reports-kpi">
-            <div className="reports-kpi-icon" style={{ background: '#fef3c7', color: '#d97706' }}>
+            <div className="reports-kpi-icon icon-amber">
               <BarChart3 size={20} />
             </div>
             <div>

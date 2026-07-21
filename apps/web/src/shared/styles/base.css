@@ -46,6 +46,10 @@ html.dark {
   --color-border: #253c2c;
   --color-border-subtle: #1e3025;
   --color-border-input: #253c2c;
+  --color-danger-bg: rgba(220, 38, 38, 0.15);
+  --color-danger-dark: #f87171;
+  --color-warning: #fb923c;
+  --color-warning-bg: rgba(154, 52, 18, 0.15);
   color-scheme: dark;
 }
 

@@ -582,6 +582,118 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
   app.get<{
     Params: { id: string };
+  }>('/students/:id/notifications', async (request, reply) => {
+    try {
+      const idAluno = Number(request.params.id);
+      assertValidId(idAluno, 'Aluno invalido.');
+
+      const notifications: { type: 'danger' | 'warning' | 'info'; title: string; message: string }[] = [];
+
+      const access = await getStudentAccessStatus(prisma, idAluno);
+
+      if (access.paymentOverdue) {
+        notifications.push({
+          type: 'danger',
+          title: 'Pagamento em atraso',
+          message: 'Você possui um pagamento vencido. Regularize para manter seu acesso.',
+        });
+      }
+
+      if (access.paymentCancelled) {
+        notifications.push({
+          type: 'danger',
+          title: 'Pagamento cancelado',
+          message: 'O pagamento do seu plano foi cancelado. Entre em contato com a academia.',
+        });
+      }
+
+      if (!access.hasPlan) {
+        notifications.push({
+          type: 'warning',
+          title: 'Sem plano ativo',
+          message: 'Você ainda não possui um plano. Consulte os planos disponíveis.',
+        });
+      } else if (!access.planActive) {
+        notifications.push({
+          type: 'warning',
+          title: 'Plano encerrado',
+          message: 'Seu plano expirou. Renove para continuar treinando.',
+        });
+      }
+
+      if (access.hasPlan && access.idAlunoPlano) {
+        const now = new Date();
+        const inSevenDays = new Date(now);
+        inSevenDays.setDate(inSevenDays.getDate() + 7);
+
+        const { getStatusIdByName } = await import('../../shared/payments.js');
+        const idPendente = await getStatusIdByName(prisma, 'Pendente');
+
+        if (idPendente !== null) {
+          const upcoming = await prisma.pagamento.findFirst({
+            where: {
+              idAlunoPlano: access.idAlunoPlano,
+              boInativo: false,
+              idStatusPagamento: idPendente,
+              dtVencimento: { gte: now, lte: inSevenDays },
+            },
+            orderBy: { dtVencimento: 'asc' },
+          });
+
+          if (upcoming?.dtVencimento) {
+            const diffDays = Math.ceil(
+              (upcoming.dtVencimento.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+            );
+            notifications.push({
+              type: 'warning',
+              title: 'Pagamento próximo',
+              message:
+                diffDays <= 1
+                  ? 'Seu pagamento vence amanhã.'
+                  : `Seu próximo pagamento vence em ${diffDays} dias.`,
+            });
+          }
+        }
+      }
+
+      const lastCheckIn = await prisma.alunoCheckIn.findFirst({
+        where: { alunoPlano: { idAluno, boInativo: false } },
+        orderBy: { dtCadastro: 'desc' },
+        select: { dtCadastro: true },
+      });
+
+      if (lastCheckIn) {
+        const daysSince = Math.floor(
+          (Date.now() - new Date(lastCheckIn.dtCadastro).getTime()) / (1000 * 60 * 60 * 24),
+        );
+        if (daysSince >= 7) {
+          notifications.push({
+            type: 'info',
+            title: 'Sentimos sua falta!',
+            message:
+              daysSince >= 14
+                ? `Faz ${daysSince} dias desde seu último treino. Que tal voltar hoje?`
+                : `Faz ${daysSince} dias desde seu último treino. Bora manter o ritmo!`,
+          });
+        }
+      } else if (access.hasPlan) {
+        notifications.push({
+          type: 'info',
+          title: 'Primeiro treino',
+          message: 'Você ainda não fez nenhum check-in. Comece hoje!',
+        });
+      }
+
+      return notifications;
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao buscar notificações.',
+      });
+    }
+  });
+
+  app.get<{
+    Params: { id: string };
   }>('/students/:id/related/check-ins', async (request, reply) => {
     try {
       const idAluno = Number(request.params.id);
