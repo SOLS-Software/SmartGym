@@ -287,11 +287,69 @@ button.product-row.selected,
   color: var(--color-danger, #c53030);
 }
 
+.grid-header-sortable {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: color 150ms ease;
+}
+
+.grid-header-sortable:hover {
+  color: var(--color-text);
+}
+
+.grid-sort-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
 .empty-row {
   animation: app-surface-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
   color: var(--color-muted);
   padding: 1.125rem 1rem;
   transition: padding 260ms ease, opacity 260ms ease, transform 260ms ease;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+}
+
+.empty-state-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  background: var(--color-surface-alt);
+  color: var(--color-muted);
+  margin-bottom: 0.5rem;
+}
+
+.empty-state-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.empty-state-description {
+  font-size: 0.825rem;
+  color: var(--color-muted);
+  margin: 0;
+  max-width: 28ch;
+}
+
+.empty-state .new-button {
+  margin-top: 0.75rem;
+  font-size: 0.825rem;
+  min-height: 2.25rem;
+  padding: 0 0.875rem;
 }
 
 .grid-pagination {

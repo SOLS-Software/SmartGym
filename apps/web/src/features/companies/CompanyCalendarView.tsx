@@ -264,7 +264,7 @@ export function CompanyCalendarView({ userName }: CompanyCalendarViewProps) {
     const monthNumber = Number(month.slice(5, 7));
     const firstDay = new Date(year, monthNumber - 1, 1);
     const daysInMonth = new Date(year, monthNumber, 0).getDate();
-    const leadingBlankDays = firstDay.getDay();
+    const leadingBlankDays = (firstDay.getDay() + 6) % 7;
 
     return [
       ...Array.from({ length: leadingBlankDays }, () => null),
@@ -362,7 +362,7 @@ export function CompanyCalendarView({ userName }: CompanyCalendarViewProps) {
 
       <section className="student-calendar-layout">
         <div className="student-calendar-grid" role="grid" aria-label="Calendario mensal da empresa">
-          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'].map((day) => (
+          {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((day) => (
             <div className="student-calendar-weekday" key={day}>
               {day}
             </div>

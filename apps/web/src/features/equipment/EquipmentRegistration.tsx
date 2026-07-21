@@ -7,6 +7,7 @@ import { GRID_PAGE_SIZE, GridPagination, formatDateInput, isImageFile, paginateI
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import type { Equipamento, EquipamentoArquivo, EquipamentoManutencao } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useToast } from '../../shared/components/Toast';
 
 type EquipmentRegistrationProps = {
   readOnly?: boolean;
@@ -17,6 +18,7 @@ function toApiDate(value: string) {
 }
 
 export function EquipmentRegistration({ readOnly = false }: EquipmentRegistrationProps) {
+  const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const equipmentNameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -236,7 +238,7 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
       });
       setSelectedEquipmentId(saved.id);
       setIsCreating(false);
-      setFeedback('Equipamento salvo com sucesso.');
+      showToast('Equipamento salvo com sucesso.');
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar.');
     }

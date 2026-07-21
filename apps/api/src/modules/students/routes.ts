@@ -1042,7 +1042,22 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         }
       }
 
-      const idEmpresaCheckIn = optionalNumber(request.body.idEmpresa);
+      let idEmpresaCheckIn = optionalNumber(request.body.idEmpresa);
+
+      if (!idEmpresaCheckIn) {
+        const student = await prisma.aluno.findUnique({
+          where: { id: idAluno },
+          select: { idCliente: true },
+        });
+        if (student) {
+          const empresa = await prisma.empresa.findFirst({
+            where: { idCliente: student.idCliente },
+            select: { id: true },
+          });
+          idEmpresaCheckIn = empresa?.id ?? null;
+        }
+      }
+
       if (!idEmpresaCheckIn) throw new Error('Informe a empresa do check-in.');
 
       const access = await getStudentAccessStatus(prisma, idAluno);

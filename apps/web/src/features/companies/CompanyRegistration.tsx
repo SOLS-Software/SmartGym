@@ -8,6 +8,7 @@ import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
+import { useToast } from '../../shared/components/Toast';
 import { AddressLocationPicker, emptyAddressLocation, type AddressLocationValue } from '../../shared/registration/AddressLocationPicker';
 import type { Company, CompanyChildColumn, CompanyChildField, CompanyChildRecord, CompanyValidationErrors, CompanyValidationField, LookupRecord } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
@@ -29,6 +30,7 @@ const companyTabIcons = {
 
 
 export function CompanyRegistration() {
+  const { showToast } = useToast();
   const companyFileInputRef = useRef<HTMLInputElement>(null);
   const companyNameInputRef = useRef<HTMLInputElement | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -731,7 +733,7 @@ export function CompanyRegistration() {
       });
       setSelectedCompanyId(savedCompany.id);
       setIsCreating(false);
-      setFeedback('Empresa salva com sucesso.');
+      showToast('Empresa salva com sucesso.');
       setIsDrawerOpen(false);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar.');
@@ -751,9 +753,9 @@ export function CompanyRegistration() {
           label="Empresas"
           gridTemplateColumns="minmax(0, 1fr) 12rem 6.875rem"
           columns={[
-            { label: 'Empresa', render: (c) => c.dsEmpresa },
+            { label: 'Empresa', render: (c) => c.dsEmpresa, sortValue: (c) => c.dsEmpresa },
             { label: 'CNPJ', render: (c) => formatCnpj(c.caCNPJ) },
-            { label: 'Status', render: (c) => <span className={`status-badge ${c.boInativo === false ? 'active' : 'inactive'}`}>{c.boInativo === false ? 'Ativo' : 'Inativo'}</span> },
+            { label: 'Status', render: (c) => <span className={`status-badge ${c.boInativo === false ? 'active' : 'inactive'}`}>{c.boInativo === false ? 'Ativo' : 'Inativo'}</span>, sortValue: (c) => (c.boInativo === false ? 0 : 1) },
           ]}
           records={paginatedCompanies}
           isLoading={isLoadingCompanies}

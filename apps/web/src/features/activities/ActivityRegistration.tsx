@@ -8,6 +8,7 @@ import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Activity, Company, Sport } from '../../shared/registration/registrationTypes';
+import { useToast } from '../../shared/components/Toast';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 type ActivityRegistrationProps = {
@@ -15,6 +16,7 @@ type ActivityRegistrationProps = {
 };
 
 export function ActivityRegistration({ readOnly = false }: ActivityRegistrationProps) {
+  const { showToast } = useToast();
   const activityNameInputRef = useRef<HTMLInputElement | null>(null);
   const defaultDateRange = getDefaultActivityDateRange();
 
@@ -176,7 +178,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
       await loadActivities();
       setSelectedActivityId(saved.id);
       setIsCreating(false);
-      setFeedback('Atividade salva com sucesso.');
+      showToast('Atividade salva com sucesso.');
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar atividade.');
     }
@@ -215,9 +217,9 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
           ariaLabel="Atividades cadastradas"
           label=""
           columns={[
-            { label: 'Atividade', render: (a) => a.dsAtividade, tooltip: (a) => a.dsAtividade },
+            { label: 'Atividade', render: (a) => a.dsAtividade, tooltip: (a) => a.dsAtividade, sortValue: (a) => a.dsAtividade },
             { label: 'Esporte', render: (a) => getSportLabel(a.idEsporte), tooltip: (a) => getSportLabel(a.idEsporte) },
-            { label: 'Status', render: (a) => <span className={`status-badge ${a.boInativo === false ? 'active' : 'inactive'}`}>{a.boInativo === false ? 'Ativo' : 'Inativo'}</span> },
+            { label: 'Status', render: (a) => <span className={`status-badge ${a.boInativo === false ? 'active' : 'inactive'}`}>{a.boInativo === false ? 'Ativo' : 'Inativo'}</span>, sortValue: (a) => (a.boInativo === false ? 0 : 1) },
           ]}
           records={paginatedActivities}
           isLoading={isLoadingActivities}

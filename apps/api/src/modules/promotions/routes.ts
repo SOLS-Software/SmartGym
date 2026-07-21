@@ -67,13 +67,19 @@ function getPromotionChildResourceConfig(resource: string) {
 }
 
 function normalizePromotionPayload(payload: CompanyChildPayload) {
+  const qtPeriodo = Number(payload.qtPeriodo ?? 0);
+  if (qtPeriodo < 0) throw new Error('Periodo nao pode ser negativo.');
+  const vlDesconto = Number(payload.vlDesconto ?? 0);
+  if (vlDesconto < 0) throw new Error('Valor de desconto nao pode ser negativo.');
+  const pcDesconto = Number(payload.pcDesconto ?? 0);
+  if (pcDesconto < 0 || pcDesconto > 100) throw new Error('Percentual de desconto deve estar entre 0 e 100.');
   return {
     idEmpresa: optionalNumber(payload.idEmpresa),
     dsPromocao: requiredText(payload.dsPromocao, 'Informe a promocao.'),
-    qtPeriodo: Number(payload.qtPeriodo ?? 0),
+    qtPeriodo,
     idUnidadeTempo: optionalNumber(payload.idUnidadeTempo),
-    vlDesconto: Number(payload.vlDesconto ?? 0),
-    pcDesconto: Number(payload.pcDesconto ?? 0),
+    vlDesconto,
+    pcDesconto,
     dtInicio: optionalDate(payload.dtInicio) ?? new Date(),
     dtEncerramento: optionalDate(payload.dtEncerramento) ?? null,
     boInativo: toBool(payload.boInativo),
@@ -136,8 +142,9 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       const data = normalizePromotionPayload(request.body);
       return reply.code(201).send(await prisma.promocao.create({ data }));
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar promocao.',
+        message: isValidation ? error.message : 'Erro ao criar promocao.',
       });
     }
   });
@@ -152,8 +159,9 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       const data = normalizePromotionPayload(request.body);
       return prisma.promocao.update({ where: { id }, data });
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar promocao.',
+        message: isValidation ? error.message : 'Erro ao atualizar promocao.',
       });
     }
   });

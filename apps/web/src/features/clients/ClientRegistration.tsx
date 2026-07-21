@@ -7,6 +7,7 @@ import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetc
 import { GridPagination, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { formatCnpj } from '../companies/companyUtils';
+import { useToast } from '../../shared/components/Toast';
 
 type Client = {
   id: number;
@@ -16,6 +17,7 @@ type Client = {
 };
 
 export function ClientRegistration() {
+  const { showToast } = useToast();
   const [clients, setClients] = useState<Client[]>([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -111,7 +113,7 @@ export function ClientRegistration() {
             .sort((a, b) => a.dsCliente.localeCompare(b.dsCliente)),
         );
       }
-      setFeedback('Cliente salvo com sucesso.');
+      showToast('Cliente salvo com sucesso.');
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar cliente.');
     } finally {

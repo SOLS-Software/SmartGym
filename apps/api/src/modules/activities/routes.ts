@@ -165,10 +165,18 @@ export async function registerActivityRoutes(app: FastifyInstance) {
   app.post<{ Body: ActivityPayload }>('/activities', async (request, reply) => {
     try {
       const data = normalizeActivityPayload(request.body);
+      const existing = await prisma.atividade.findFirst({
+        where: { dsAtividade: { equals: data.dsAtividade, mode: 'insensitive' } },
+        select: { id: true },
+      });
+      if (existing) {
+        return reply.code(400).send({ message: 'Já existe uma atividade com este nome.' });
+      }
       return reply.code(201).send(await prisma.atividade.create({ data }));
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar atividade.',
+        message: isValidation ? error.message : 'Erro ao criar atividade.',
       });
     }
   });
@@ -181,10 +189,18 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       const id = Number(request.params.id);
       assertValidId(id, 'Atividade invalida.');
       const data = normalizeActivityPayload(request.body);
+      const existing = await prisma.atividade.findFirst({
+        where: { dsAtividade: { equals: data.dsAtividade, mode: 'insensitive' }, id: { not: id } },
+        select: { id: true },
+      });
+      if (existing) {
+        return reply.code(400).send({ message: 'Já existe uma atividade com este nome.' });
+      }
       return prisma.atividade.update({ where: { id }, data });
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar atividade.',
+        message: isValidation ? error.message : 'Erro ao atualizar atividade.',
       });
     }
   });
@@ -237,8 +253,9 @@ export async function registerActivityRoutes(app: FastifyInstance) {
         data: normalizeActivitySchedulePayload(idAtividade, request.body),
       }));
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar agenda da atividade.',
+        message: isValidation ? error.message : 'Erro ao criar agenda da atividade.',
       });
     }
   });
@@ -264,8 +281,9 @@ export async function registerActivityRoutes(app: FastifyInstance) {
         data: normalizeActivitySchedulePayload(idAtividade, request.body),
       });
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar agenda da atividade.',
+        message: isValidation ? error.message : 'Erro ao atualizar agenda da atividade.',
       });
     }
   });
@@ -333,8 +351,9 @@ export async function registerActivityRoutes(app: FastifyInstance) {
         data: normalizeScheduleEmployeePayload(scheduleId, request.body),
       }));
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao adicionar funcionario na agenda.',
+        message: isValidation ? error.message : 'Erro ao adicionar funcionario na agenda.',
       });
     }
   });
@@ -365,8 +384,9 @@ export async function registerActivityRoutes(app: FastifyInstance) {
         data: normalizeScheduleEmployeePayload(scheduleId, request.body),
       });
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar funcionario da agenda.',
+        message: isValidation ? error.message : 'Erro ao atualizar funcionario da agenda.',
       });
     }
   });
@@ -439,8 +459,9 @@ export async function registerActivityRoutes(app: FastifyInstance) {
         data: normalizeScheduleStudentPayload(scheduleId, request.body),
       }));
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao adicionar aluno na agenda.',
+        message: isValidation ? error.message : 'Erro ao adicionar aluno na agenda.',
       });
     }
   });
@@ -471,8 +492,9 @@ export async function registerActivityRoutes(app: FastifyInstance) {
         data: normalizeScheduleStudentPayload(scheduleId, request.body),
       });
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar aluno da agenda.',
+        message: isValidation ? error.message : 'Erro ao atualizar aluno da agenda.',
       });
     }
   });

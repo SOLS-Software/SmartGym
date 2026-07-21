@@ -8,6 +8,7 @@ import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
+import { useToast } from '../../shared/components/Toast';
 import type { CompanyChildRecord, CompanyChildTable, Frequency, LookupRecord, Plan } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
@@ -138,6 +139,7 @@ const planRelatedTables: CompanyChildTable[] = [
 ];
 
 export function PlanRegistration() {
+  const { showToast } = useToast();
   const planFileInputRef = useRef<HTMLInputElement | null>(null);
   const planNameInputRef = useRef<HTMLInputElement | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -504,7 +506,7 @@ export function PlanRegistration() {
       await loadPlans();
       setSelectedPlanId(savedPlan.id);
       setIsCreating(false);
-      setFeedback('Plano salvo com sucesso.');
+      showToast('Plano salvo com sucesso.');
       setIsDrawerOpen(false);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar plano.');
@@ -729,7 +731,7 @@ export function PlanRegistration() {
         <RegistrationGrid<Plan>
           ariaLabel="Planos cadastrados"
           columns={[
-            { label: 'Plano', render: (plan) => plan.dsPlano },
+            { label: 'Plano', render: (plan) => plan.dsPlano, sortValue: (plan) => plan.dsPlano },
             { label: 'Frequência', render: (plan) => getFrequencyLabel(plan.idFrequencia) },
             {
               label: 'Status', render: (plan) => (
@@ -737,6 +739,7 @@ export function PlanRegistration() {
                   {plan.boInativo === false ? 'Ativo' : 'Inativo'}
                 </span>
               ),
+              sortValue: (plan) => (plan.boInativo === false ? 0 : 1),
             },
           ]}
           isLoading={isLoadingPlans}

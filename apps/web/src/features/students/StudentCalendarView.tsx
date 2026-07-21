@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle, Clock, Users, XCircle } from 'lucide-react';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useToast } from '../../shared/components/Toast';
 
 type StudentCalendarViewProps = {
   studentId?: number | null;
@@ -222,6 +223,7 @@ export function StudentCalendarView({
   studentId,
   employeeId,
 }: StudentCalendarViewProps) {
+  const { showToast } = useToast();
   const isEmployee = !!employeeId;
   const userId = isEmployee ? employeeId : studentId;
 
@@ -312,7 +314,7 @@ export function StudentCalendarView({
       const m = current.getMonth();
       const firstDay = new Date(year, m, 1);
       const daysInMonth = new Date(year, m + 1, 0).getDate();
-      const leadingBlankDays = firstDay.getDay();
+      const leadingBlankDays = (firstDay.getDay() + 6) % 7;
 
       months.push({
         key: `${year}-${String(m + 1).padStart(2, '0')}`,
@@ -634,7 +636,7 @@ export function StudentCalendarView({
         body: JSON.stringify({ idAluno: studentId }),
       });
       if (!response.ok) await getApiError(response, 'Erro ao realizar inscrição.');
-      setFeedback('Inscrição realizada com sucesso.');
+      showToast('Inscrição realizada com sucesso.');
       await loadCalendar();
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao realizar inscrição.');
@@ -654,7 +656,7 @@ export function StudentCalendarView({
         body: JSON.stringify({ idAluno: studentId }),
       });
       if (!response.ok) await getApiError(response, 'Erro ao cancelar inscrição.');
-      setFeedback('Inscrição cancelada com sucesso.');
+      showToast('Inscrição cancelada com sucesso.');
       await loadCalendar();
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao cancelar inscrição.');
@@ -677,7 +679,7 @@ export function StudentCalendarView({
     today.setHours(0, 0, 0, 0);
     const eventDay = new Date(event.date);
     eventDay.setHours(0, 0, 0, 0);
-    const isPast = eventDay.getTime() <= today.getTime();
+    const isPast = eventDay.getTime() < today.getTime();
 
     return (
       <div className={`agenda-session-card ${isPresent ? 'present' : isEnrolled ? 'enrolled' : ''} ${isFull && !isEnrolled ? 'full' : ''}`} key={event.id}>
@@ -909,7 +911,7 @@ export function StudentCalendarView({
                 <h4 className="student-calendar-month-label">{calMonth.label}</h4>
               )}
               <div className="student-calendar-grid" role="grid" aria-label={`Calendário ${calMonth.label}`}>
-                {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
+                {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((day) => (
                   <div className="student-calendar-weekday" key={`${calMonth.key}-${day}`}>
                     {day}
                   </div>

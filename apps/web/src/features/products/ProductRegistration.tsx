@@ -8,6 +8,7 @@ import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Company, CompanyChildRecord, CompanyChildTable, LookupRecord, Product } from '../../shared/registration/registrationTypes';
+import { useToast } from '../../shared/components/Toast';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 const productRelatedTables: CompanyChildTable[] = [
@@ -43,6 +44,7 @@ function getProductFileTypeOptions(options: LookupRecord[]) {
 }
 
 export function ProductRegistration() {
+  const { showToast } = useToast();
   const productFileInputRef = useRef<HTMLInputElement>(null);
   const productNameInputRef = useRef<HTMLInputElement | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -383,7 +385,7 @@ export function ProductRegistration() {
       });
       setSelectedProductId(savedProduct.id);
       setIsCreating(false);
-      setFeedback('Produto salvo com sucesso.');
+      showToast('Produto salvo com sucesso.');
       setIsDrawerOpen(false);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar.');
@@ -582,9 +584,9 @@ export function ProductRegistration() {
             ariaLabel="Produtos cadastrados"
             label="Produtos"
             columns={[
-              { label: 'Produto', render: (p) => p.dsProduto },
+              { label: 'Produto', render: (p) => p.dsProduto, sortValue: (p) => p.dsProduto },
               { label: 'Estoque', render: (p) => p.qtEstoque },
-              { label: 'Status', render: (p) => <span className={`status-badge ${p.boInativo === false ? 'active' : 'inactive'}`}>{p.boInativo === false ? 'Ativo' : 'Inativo'}</span> },
+              { label: 'Status', render: (p) => <span className={`status-badge ${p.boInativo === false ? 'active' : 'inactive'}`}>{p.boInativo === false ? 'Ativo' : 'Inativo'}</span>, sortValue: (p) => (p.boInativo === false ? 0 : 1) },
             ]}
             records={paginatedProducts}
             selectedId={selectedProductId}

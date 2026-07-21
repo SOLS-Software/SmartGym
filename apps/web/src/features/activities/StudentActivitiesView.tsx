@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { formatDateDisplay, getDefaultActivityDateRange } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useToast } from '../../shared/components/Toast';
 
 type StudentActivitiesViewProps = {
   studentId: number | null;
@@ -168,6 +169,7 @@ function isStudentEnrolled(schedule: ActivitySchedule, studentId: number | null)
 }
 
 export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps) {
+  const { showToast } = useToast();
   const defaultDateRange = getDefaultActivityDateRange();
   const [activities, setActivities] = useState<ActivityView[]>([]);
   const [selectedScheduleIds, setSelectedScheduleIds] = useState<number[]>([]);
@@ -236,7 +238,7 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
         await getApiError(response, 'Nao foi possivel realizar a inscricao.');
       }
 
-      setFeedback('Inscricao realizada com sucesso.');
+      showToast('Inscrição realizada com sucesso.');
       await loadActivities();
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao realizar inscricao.');

@@ -472,7 +472,7 @@ export function ScheduleRegistration() {
             ariaLabel="Agendas"
             label="Agendas"
             columns={[
-              { label: 'Empresa', render: (r) => String(lookups.idEmpresa?.find((i) => String(i.id) === String(r.idEmpresa))?.dsEmpresa ?? r.idEmpresa ?? '-') },
+              { label: 'Empresa', render: (r) => String(lookups.idEmpresa?.find((i) => String(i.id) === String(r.idEmpresa))?.dsEmpresa ?? r.idEmpresa ?? '-'), sortValue: (r) => String(lookups.idEmpresa?.find((i) => String(i.id) === String(r.idEmpresa))?.dsEmpresa ?? r.idEmpresa ?? '-') },
               { label: 'Categoria', render: (r) => String(lookups.idCategoria?.find((i) => String(i.id) === String(r.idCategoria))?.dsCategoria ?? r.idCategoria ?? '-') },
               { label: 'Início', render: (r) => r.dtInicial ? formatDateInput(String(r.dtInicial)) : '-' },
               { label: 'Fim', render: (r) => r.dtFinal ? formatDateInput(String(r.dtFinal)) : '-' },
@@ -569,7 +569,7 @@ export function ScheduleRegistration() {
                     ))}
                   </select>
                 ) : (
-                  <input disabled={!isScheduleFormEnabled} id={`sched-${field.key}`} onChange={(e) => setScheduleFormValues((c) => ({ ...c, [field.key]: e.target.value }))} required={field.required} type={field.type} value={scheduleFormValues[field.key] ?? ''} />
+                  <input disabled={!isScheduleFormEnabled} id={`sched-${field.key}`} min={field.type === 'number' ? 0 : undefined} onChange={(e) => setScheduleFormValues((c) => ({ ...c, [field.key]: e.target.value }))} required={field.required} type={field.type} value={scheduleFormValues[field.key] ?? ''} />
                 )}
               </RegistrationField>
             ))}

@@ -107,11 +107,19 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
   }>('/trainings', async (request, reply) => {
     try {
       const data = normalizeTrainingPayload(request.body);
+      const existing = await prisma.treino.findFirst({
+        where: { dsTreino: { equals: data.dsTreino, mode: 'insensitive' } },
+        select: { id: true },
+      });
+      if (existing) {
+        return reply.code(400).send({ message: 'Já existe um treino com este nome.' });
+      }
       const training = await prisma.treino.create({ data });
       return reply.code(201).send(training);
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar treino.',
+        message: isValidation ? error.message : 'Erro ao criar treino.',
       });
     }
   });
@@ -122,11 +130,20 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
   }>('/trainings/:id', async (request, reply) => {
     try {
       const id = Number(request.params.id);
+      assertValidId(id, 'Treino invalido.');
       const data = normalizeTrainingPayload(request.body);
+      const existing = await prisma.treino.findFirst({
+        where: { dsTreino: { equals: data.dsTreino, mode: 'insensitive' }, id: { not: id } },
+        select: { id: true },
+      });
+      if (existing) {
+        return reply.code(400).send({ message: 'Já existe um treino com este nome.' });
+      }
       return prisma.treino.update({ where: { id }, data });
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar treino.',
+        message: isValidation ? error.message : 'Erro ao atualizar treino.',
       });
     }
   });
@@ -208,8 +225,9 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
 
       return reply.code(201).send(record);
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar exercicio do treino.',
+        message: isValidation ? error.message : 'Erro ao criar exercicio do treino.',
       });
     }
   });
@@ -256,8 +274,9 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
         },
       });
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar exercicio do treino.',
+        message: isValidation ? error.message : 'Erro ao atualizar exercicio do treino.',
       });
     }
   });

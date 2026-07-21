@@ -108,8 +108,9 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       const exercise = await prisma.exercicio.create({ data });
       return reply.code(201).send(exercise);
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar exercicio.',
+        message: isValidation ? error.message : 'Erro ao criar exercicio.',
       });
     }
   });
@@ -120,11 +121,13 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
   }>('/exercises/:id', async (request, reply) => {
     try {
       const id = Number(request.params.id);
+      assertValidId(id, 'Exercicio invalido.');
       const data = normalizeExercisePayload(request.body);
       return prisma.exercicio.update({ where: { id }, data });
     } catch (error) {
+      const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar exercicio.',
+        message: isValidation ? error.message : 'Erro ao atualizar exercicio.',
       });
     }
   });

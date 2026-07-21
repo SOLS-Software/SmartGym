@@ -7,12 +7,14 @@ import { GRID_PAGE_SIZE, GridPagination, isImageFile, paginateItems } from '../.
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import type { AreaCorporal, Company, Equipamento, Exercise, ExerciseFile, ExercicioAreaCorporal, ExercicioEquipamento } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useToast } from '../../shared/components/Toast';
 
 type ExerciseRegistrationProps = {
   readOnly?: boolean;
 };
 
 export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationProps) {
+  const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exerciseNameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -282,7 +284,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
       });
       setSelectedExerciseId(saved.id);
       setIsCreating(false);
-      setFeedback('Exercício salvo com sucesso.');
+      showToast('Exercício salvo com sucesso.');
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar.');
     }
