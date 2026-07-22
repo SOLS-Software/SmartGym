@@ -5,6 +5,7 @@ import type {
   EquipamentoManutencaoPayload,
   EquipamentoPayload,
   ExercisePayload,
+  FornecedorPayload,
   LocalidadePayload,
   PlanPayload,
   ProductPayload,
@@ -208,6 +209,44 @@ export function normalizeProductPayload(payload: ProductPayload) {
     idEmpresa: payload.idEmpresa ?? null,
     dsProduto,
     qtEstoque: Number(payload.qtEstoque ?? 0),
+    boInativo: toBool(payload.boInativo),
+  };
+}
+
+export function normalizeFornecedorPayload(payload: FornecedorPayload) {
+  const dsFornecedor = payload.dsFornecedor?.trim();
+  if (!dsFornecedor) {
+    throw new Error('Informe o nome do fornecedor.');
+  }
+
+  const optionalDigits = (value: string | undefined, maxLength: number) => {
+    const digits = value?.replace(/\D/g, '') ?? '';
+    return digits ? digits.slice(0, maxLength) : null;
+  };
+  const optionalTrimmed = (value: string | undefined, maxLength: number) => {
+    const text = value?.trim() ?? '';
+    return text ? text.slice(0, maxLength) : null;
+  };
+
+  const caCNPJ = optionalDigits(payload.caCNPJ, 14);
+  if (caCNPJ && !isValidCnpj(caCNPJ)) {
+    throw new Error('Informe um CNPJ valido.');
+  }
+  const anUF = payload.anUF?.trim().toUpperCase().slice(0, 2) || null;
+
+  return {
+    idEmpresa: optionalNumber(payload.idEmpresa),
+    dsFornecedor,
+    caCNPJ,
+    anCEP: optionalDigits(payload.anCEP, 8),
+    anLogradouro: optionalTrimmed(payload.anLogradouro, 150),
+    nrEndereco: optionalTrimmed(payload.nrEndereco, 10),
+    anBairro: optionalTrimmed(payload.anBairro, 100),
+    anCidade: optionalTrimmed(payload.anCidade, 100),
+    anUF,
+    nrDDD: optionalNumber(payload.nrDDD),
+    nrContato: optionalDigits(payload.nrContato, 11),
+    dsEmail: optionalTrimmed(payload.dsEmail, 255),
     boInativo: toBool(payload.boInativo),
   };
 }

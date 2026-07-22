@@ -27,6 +27,22 @@ export type TrainingPayload = {
   boInativo?: boolean;
 };
 
+export type FornecedorPayload = {
+  idEmpresa?: number | string | null;
+  dsFornecedor?: string;
+  caCNPJ?: string;
+  anCEP?: string;
+  anLogradouro?: string;
+  nrEndereco?: string;
+  anBairro?: string;
+  anCidade?: string;
+  anUF?: string;
+  nrDDD?: number | string | null;
+  nrContato?: string;
+  dsEmail?: string;
+  boInativo?: boolean;
+};
+
 export type CompanyPayload = {
   idCliente?: number | string | null;
   dsEmpresa?: string;
@@ -171,6 +187,7 @@ export type CompanyChildResource =
   | 'student-plans'
   | 'payments'
   | 'product-movements'
+  | 'purchases'
   | 'company-files'
   | 'student-check-ins'
   | 'points'

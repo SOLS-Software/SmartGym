@@ -49,6 +49,7 @@ model Empresa {
   treinoExercicios            TreinoExercicio[]
   alunosPontuacoes            AlunoPontuacao[]
   produtoMovimentacoes        ProdutoMovimentacao[]
+  fornecedores                Fornecedor[]
   empresaArquivos             EmpresaArquivo[]
   alunoCheckIns               AlunoCheckIn[]
   funcionarios                Funcionario[]
@@ -762,6 +763,7 @@ model ProdutoMovimentacao {
   idEmpresa          Int
   idProduto          Int
   idAluno            Int?
+  idFornecedor       Int?
   qtMovimentada      Int      @default(0)
   vlUnitario         Decimal? @default(0) @db.Decimal(12, 4)
   qtDisponivel       Int      @default(0)
@@ -774,12 +776,41 @@ model ProdutoMovimentacao {
   empresa    Empresa     @relation(fields: [idEmpresa], references: [id])
   produto    Produto     @relation(fields: [idProduto], references: [id])
   aluno      Aluno?      @relation(fields: [idAluno], references: [id])
+  fornecedor Fornecedor? @relation(fields: [idFornecedor], references: [id])
   pagamentos Pagamento[]
 
   @@index([idEmpresa])
   @@index([idProduto])
   @@index([idAluno])
+  @@index([idFornecedor])
   @@map("tb_ProdutoMovimentacoes")
+}
+
+model Fornecedor {
+  id                 Int      @id @default(autoincrement())
+  idEmpresa          Int?
+  dsFornecedor       String   @db.VarChar(255)
+  caCNPJ             String?  @db.VarChar(14)
+  anCEP              String?  @db.VarChar(8)
+  anLogradouro       String?  @db.VarChar(150)
+  nrEndereco         String?  @db.VarChar(10)
+  anBairro           String?  @db.VarChar(100)
+  anCidade           String?  @db.VarChar(100)
+  anUF               String?  @db.VarChar(2)
+  nrDDD              Int?
+  nrContato          String?  @db.VarChar(11)
+  dsEmail            String?  @db.VarChar(255)
+  dtCadastro         DateTime @default(now())
+  dtAlteracao        DateTime @updatedAt
+  idUsuarioCadastro  Int?
+  idUsuarioAlteracao Int?
+  boInativo          Boolean  @default(false)
+
+  empresa              Empresa?              @relation(fields: [idEmpresa], references: [id])
+  produtoMovimentacoes ProdutoMovimentacao[]
+
+  @@index([idEmpresa])
+  @@map("tb_Fornecedores")
 }
 
 model EmpresaArquivo {

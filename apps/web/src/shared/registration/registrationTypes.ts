@@ -23,6 +23,23 @@ export type Product = {
   boInativo: boolean;
 };
 
+export type Supplier = {
+  id: number;
+  idEmpresa: number | null;
+  dsFornecedor: string;
+  caCNPJ?: string | null;
+  anCEP?: string | null;
+  anLogradouro?: string | null;
+  nrEndereco?: string | null;
+  anBairro?: string | null;
+  anCidade?: string | null;
+  anUF?: string | null;
+  nrDDD?: number | null;
+  nrContato?: string | null;
+  dsEmail?: string | null;
+  boInativo: boolean;
+};
+
 export type Promotion = {
   id: number;
   idEmpresa: number | null;

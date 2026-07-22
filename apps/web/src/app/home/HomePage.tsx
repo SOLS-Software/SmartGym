@@ -13,6 +13,8 @@ import { ClientRegistration } from '../../features/clients/ClientRegistration';
 import { StudentRegistration } from '../../features/students/StudentRegistration';
 import { DomainRegistration } from '../../features/domains/DomainRegistration';
 import { ProductRegistration } from '../../features/products/ProductRegistration';
+import { SupplierRegistration } from '../../features/suppliers/SupplierRegistration';
+import { PurchaseRegistration } from '../../features/purchases/PurchaseRegistration';
 import { PromotionRegistration } from '../../features/promotions/PromotionRegistration';
 import { StudentPromotionsView } from '../../features/promotions/StudentPromotionsView';
 import { ExerciseRegistration } from '../../features/exercises/ExerciseRegistration';
@@ -71,6 +73,7 @@ import {
   Star,
   Sun,
   Tag,
+  Truck,
   UserCheck,
   Users,
   Wrench,
@@ -92,6 +95,7 @@ const menuItemIcons: Record<string, LucideIcon> = {
   'Calendário': Calendar,
   'Calendário Empresa': CalendarRange,
   'Produtos': Package,
+  'Fornecedores': Truck,
   'Compras': ShoppingCart,
   'Matrículas': BadgeCheck,
   'Planos': CreditCard,
@@ -123,7 +127,7 @@ const menuGroups = [
   },
   {
     title: 'ESTOQUE',
-    items: ['Produtos', 'Compras'],
+    items: ['Produtos', 'Fornecedores', 'Compras'],
   },
   {
     title: 'EQUIPAMENTOS',
@@ -1074,13 +1078,10 @@ export default function HomePage() {
             <ActivityScheduleAssembly />
           ) : activeItem === 'Produtos' ? (
             <ProductRegistration />
+          ) : activeItem === 'Fornecedores' ? (
+            <SupplierRegistration />
           ) : activeItem === 'Compras' ? (
-            <div>
-              <header className="module-page-header">
-                <p className="section-label">Estoque</p>
-                <h2 className="module-page-title">COMPRAS</h2>
-              </header>
-            </div>
+            <PurchaseRegistration />
           ) : activeItem === 'Matrículas' ? (
             authUserType === 'student' ? (
               <StudentMembershipView

@@ -164,6 +164,36 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
       };
     },
   },
+  purchases: {
+    delegate: asCrudDelegate(prisma.produtoMovimentacao),
+    orderBy: { dtCadastro: 'desc' },
+    companyField: 'idEmpresa',
+    include: {
+      produto: true,
+      fornecedor: true,
+    },
+    getWhere(companyId: number) {
+      return { idEmpresa: companyId, idFornecedor: { not: null } };
+    },
+    normalize(companyId: number, payload: CompanyChildPayload) {
+      const idProduto = optionalNumber(payload.idProduto);
+      if (!idProduto) throw new Error('Selecione o produto.');
+      const idFornecedor = optionalNumber(payload.idFornecedor);
+      if (!idFornecedor) throw new Error('Selecione o fornecedor.');
+      const qtMovimentada = Number(payload.qtMovimentada ?? 0);
+      if (qtMovimentada <= 0) throw new Error('Informe uma quantidade valida.');
+      return {
+        idEmpresa: companyId,
+        idProduto,
+        idFornecedor,
+        idAluno: null,
+        qtMovimentada,
+        vlUnitario: Number(payload.vlUnitario ?? 0),
+        qtDisponivel: 0,
+        boInativo: toBool(payload.boInativo),
+      };
+    },
+  },
   'company-files': {
     delegate: asCrudDelegate(prisma.empresaArquivo),
     orderBy: { dtCadastro: 'desc' },
@@ -794,6 +824,21 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
           throw new Error(access.reason ?? 'Aluno sem acesso liberado para check-in.');
         }
       }
+      if (request.params.resource === 'purchases') {
+        const created = await prisma.$transaction(async (tx) => {
+          const movement = await tx.produtoMovimentacao.create({ data: data as never });
+          const product = await tx.produto.update({
+            where: { id: Number(data.idProduto) },
+            data: { qtEstoque: { increment: Number(data.qtMovimentada) } },
+          });
+          return tx.produtoMovimentacao.update({
+            where: { id: movement.id },
+            data: { qtDisponivel: product.qtEstoque },
+            include: config.include,
+          });
+        });
+        return reply.code(201).send(created);
+      }
       return reply.code(201).send(await config.delegate.create({ data }));
     } catch (error) {
       return reply.code(400).send({
@@ -812,7 +857,34 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(companyId, 'Empresa invalida.');
       assertValidId(childId, 'Registro invalido.');
       const config = getChildResourceConfig(request.params.resource);
-      const data = config.normalize(companyId, request.body);
+      const data = config.normalize(companyId, request.body) as Record<string, unknown>;
+      if (request.params.resource === 'purchases') {
+        const existing = await prisma.produtoMovimentacao.findUnique({ where: { id: childId } });
+        if (!existing) throw new Error('Compra nao encontrada.');
+        const updated = await prisma.$transaction(async (tx) => {
+          if (existing.boInativo === false) {
+            await tx.produto.update({
+              where: { id: existing.idProduto },
+              data: { qtEstoque: { decrement: existing.qtMovimentada } },
+            });
+          }
+          let product = null;
+          if (data.boInativo === false) {
+            product = await tx.produto.update({
+              where: { id: Number(data.idProduto) },
+              data: { qtEstoque: { increment: Number(data.qtMovimentada) } },
+            });
+          } else {
+            product = await tx.produto.findUnique({ where: { id: Number(data.idProduto) } });
+          }
+          return tx.produtoMovimentacao.update({
+            where: { id: childId },
+            data: { ...data, qtDisponivel: product?.qtEstoque ?? 0 },
+            include: config.include,
+          });
+        });
+        return updated;
+      }
       return await config.delegate.update({ where: { id: childId }, data });
     } catch (error) {
       return reply.code(400).send({
@@ -831,9 +903,28 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(companyId, 'Empresa invalida.');
       assertValidId(childId, 'Registro invalido.');
       const config = getChildResourceConfig(request.params.resource);
+      const nextInativo = toBool(request.body.boInativo);
+      if (request.params.resource === 'purchases') {
+        const existing = await prisma.produtoMovimentacao.findUnique({ where: { id: childId } });
+        if (!existing) throw new Error('Compra nao encontrada.');
+        return await prisma.$transaction(async (tx) => {
+          if (existing.boInativo !== nextInativo) {
+            const delta = nextInativo ? -existing.qtMovimentada : existing.qtMovimentada;
+            await tx.produto.update({
+              where: { id: existing.idProduto },
+              data: { qtEstoque: { increment: delta } },
+            });
+          }
+          return tx.produtoMovimentacao.update({
+            where: { id: childId },
+            data: { boInativo: nextInativo },
+            include: config.include,
+          });
+        });
+      }
       return await config.delegate.update({
         where: { id: childId },
-        data: { boInativo: toBool(request.body.boInativo) },
+        data: { boInativo: nextInativo },
       });
     } catch (error) {
       return reply.code(400).send({
