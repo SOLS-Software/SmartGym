@@ -335,7 +335,7 @@ export function DomainRegistration() {
     <div className="form-view company-view">
 
       {config ? (
-        <section className="domain-workspace" style={{ gridTemplateColumns: 'minmax(18.75rem, 1.25fr) minmax(26.25rem, 1.45fr)' }}>
+        <section className="domain-workspace domain-workspace-two-col">
           <div className="domain-panel">
             <section className="data-grid-section">
               <div className="grid-toolbar">

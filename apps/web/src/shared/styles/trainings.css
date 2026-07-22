@@ -149,6 +149,20 @@
   gap: 0.5rem;
 }
 
+.schedule-back-button {
+  align-items: center;
+  background: var(--color-surface-alt);
+  border: 0;
+  border-radius: 0.375rem;
+  color: var(--color-text);
+  cursor: pointer;
+  display: none;
+  height: 2rem;
+  justify-content: center;
+  padding: 0;
+  width: 2rem;
+}
+
 .schedule-agenda-header .section-label {
   margin: 0;
 }
@@ -542,6 +556,38 @@ html.dark .training-option-list button.selected {
   .exercise-card-grid {
     grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
     gap: 0.625rem;
+  }
+
+  .schedule-assembly-layout.has-selection .workout-students-grid {
+    display: none;
+  }
+
+  .schedule-back-button {
+    display: flex;
+  }
+
+  .activity-schedule-activity-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .activity-schedule-activity-row span:nth-child(3),
+  .activity-schedule-activity-row span:nth-child(4) {
+    display: none;
+  }
+
+  .activity-schedule-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  }
+
+  .activity-schedule-row span:nth-child(2),
+  .activity-schedule-row span:nth-child(3),
+  .activity-schedule-row span:nth-child(6),
+  .activity-schedule-row span:nth-child(7) {
+    display: none;
+  }
+
+  .activity-schedule-actions {
+    grid-template-columns: minmax(0, 1fr) max-content max-content;
   }
 }
 

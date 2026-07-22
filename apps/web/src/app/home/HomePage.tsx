@@ -188,6 +188,16 @@ function lightenColor(hex: string): string {
   }).join('')}`;
 }
 
+function lightenForDark(hex: string): string {
+  const { r, g, b } = hexToRgb(hex);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  if (luminance > 0.45) return hex;
+  const target = 0.65;
+  const factor = Math.min((target - luminance) / (1 - luminance), 0.85);
+  const lift = (c: number) => Math.round(c + (255 - c) * factor).toString(16).padStart(2, '0');
+  return `#${lift(r)}${lift(g)}${lift(b)}`;
+}
+
 function hexToRgb(hex: string) {
   const h = hex.replace('#', '');
   return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) };
@@ -197,7 +207,8 @@ function applyCompanyTheme(theme: CompanyTheme) {
   const root = document.documentElement;
   const dark = root.classList.contains('dark');
 
-  root.style.setProperty('--color-primary', theme.corPrimaria);
+  const primaryColor = dark ? lightenForDark(theme.corPrimaria) : theme.corPrimaria;
+  root.style.setProperty('--color-primary', primaryColor);
 
   if (dark) {
     root.style.removeProperty('--color-text');
@@ -209,16 +220,16 @@ function applyCompanyTheme(theme: CompanyTheme) {
 
   const { r, g, b } = hexToRgb(theme.corPrimaria);
   const darken = (c: number) => Math.max(0, Math.round(c * 0.82)).toString(16).padStart(2, '0');
-  root.style.setProperty('--color-primary-dark', `#${darken(r)}${darken(g)}${darken(b)}`);
+  root.style.setProperty('--color-primary-dark', dark ? lightenForDark(`#${darken(r)}${darken(g)}${darken(b)}`) : `#${darken(r)}${darken(g)}${darken(b)}`);
   root.style.setProperty('--color-primary-bg', dark ? `rgba(${r}, ${g}, ${b}, 0.22)` : lightenColor(theme.corPrimaria));
 
   if (theme.corSecundaria) {
-    root.style.setProperty('--color-secondary', theme.corSecundaria);
+    root.style.setProperty('--color-secondary', dark ? lightenForDark(theme.corSecundaria) : theme.corSecundaria);
     const s = hexToRgb(theme.corSecundaria);
     root.style.setProperty('--color-secondary-bg', dark ? `rgba(${s.r}, ${s.g}, ${s.b}, 0.22)` : lightenColor(theme.corSecundaria));
   }
   if (theme.corAcentuacao) {
-    root.style.setProperty('--color-accent', theme.corAcentuacao);
+    root.style.setProperty('--color-accent', dark ? lightenForDark(theme.corAcentuacao) : theme.corAcentuacao);
     const a = hexToRgb(theme.corAcentuacao);
     root.style.setProperty('--color-accent-bg', dark ? `rgba(${a.r}, ${a.g}, ${a.b}, 0.22)` : lightenColor(theme.corAcentuacao));
   }
@@ -1075,7 +1086,7 @@ export default function HomePage() {
               loggedEmployeeName={authUserName}
             />
           ) : activeItem === 'Montagem de Agenda' ? (
-            <ActivityScheduleAssembly />
+            <ActivityScheduleAssembly loggedEmployeeId={authUserEmployeeId} />
           ) : activeItem === 'Produtos' ? (
             <ProductRegistration />
           ) : activeItem === 'Fornecedores' ? (

@@ -108,7 +108,19 @@ export function StudentExercisesView() {
           <div className="empty-row">Nenhum exercício encontrado.</div>
         ) : null}
 
-        {isLoading ? <div className="empty-row">Carregando...</div> : null}
+        {isLoading && exercises.length === 0
+          ? Array.from({ length: 6 }, (_, i) => (
+              <div className="exercise-card skeleton-card" key={`sk-${i}`}>
+                <div className="exercise-card-photo">
+                  <div className="skeleton-bar" style={{ width: '100%', height: '100%', borderRadius: 0 }} />
+                </div>
+                <div className="exercise-card-body">
+                  <div className="skeleton-bar" style={{ width: `${60 + (i * 13) % 30}%`, height: '0.875rem' }} />
+                  <div className="skeleton-bar" style={{ width: `${40 + (i * 7) % 25}%`, height: '0.625rem', marginTop: '0.25rem' }} />
+                </div>
+              </div>
+            ))
+          : null}
 
         <div className="card-load-sentinel" ref={sentinelRef} />
       </div>

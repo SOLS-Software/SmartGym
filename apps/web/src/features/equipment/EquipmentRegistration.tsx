@@ -465,10 +465,10 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
           title={isCreating ? 'Novo Equipamento' : 'Editar Equipamento'}
           onClose={handleCloseDrawer}
         >
-          <form className="drawer-form" onSubmit={handleSaveEquipment}>
-            {feedback ? <div className="form-feedback">{feedback}</div> : null}
+          <form className="drawer-fields" onSubmit={handleSaveEquipment}>
+            {feedback ? <div className="form-feedback field-size-full">{feedback}</div> : null}
 
-            <div className="field">
+            <div className="field field-size-full">
               <label htmlFor="equipmentName">Nome do equipamento</label>
               <input
                 disabled={!isFormEnabled}
@@ -483,7 +483,7 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
               />
             </div>
 
-            <div className="field">
+            <div className="field field-size-sm">
               <label htmlFor="equipmentNumber">Número / patrimônio</label>
               <input
                 disabled={!isFormEnabled}
@@ -495,7 +495,7 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
               />
             </div>
 
-            <div className="field">
+            <div className="field field-size-lg">
               <label htmlFor="equipmentDescription">Descrição</label>
               <input
                 disabled={!isFormEnabled}
@@ -508,7 +508,7 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
               />
             </div>
 
-            <div className="field">
+            <div className="field field-size-sm">
               <label htmlFor="equipmentAcquisitionDate">Data de aquisição</label>
               <input
                 disabled={!isFormEnabled}
@@ -520,7 +520,7 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
               />
             </div>
 
-            <div className="field">
+            <div className="field field-size-sm">
               <label htmlFor="equipmentStatus">Status</label>
               <button
                 aria-pressed={isEquipmentActive}
@@ -534,7 +534,7 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
               </button>
             </div>
 
-            <div className="form-actions">
+            <div className="form-actions field-size-full">
               <button
                 className="secondary-button"
                 onClick={() => { clearForm(); handleCloseDrawer(); }}
@@ -549,7 +549,7 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
             </div>
 
             {selectedEquipmentId ? (
-              <section aria-label="Arquivos do equipamento" className="exercise-files-section">
+              <section aria-label="Arquivos do equipamento" className="exercise-files-section field-size-full">
                 <div className="exercise-files-header">
                   <p className="section-label">Arquivos</p>
                 </div>
@@ -609,7 +609,7 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
             ) : null}
 
             {selectedEquipmentId ? (
-              <section aria-label="Manutenções do equipamento" className="exercise-files-section">
+              <section aria-label="Manutenções do equipamento" className="exercise-files-section field-size-full">
                 <div className="exercise-files-header">
                   <p className="section-label">Manutenções</p>
                 </div>

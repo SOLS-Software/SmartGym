@@ -161,9 +161,18 @@ export function RegistrationGrid<T extends { id: number }>({
           {onEdit ? <span role="columnheader" /> : null}
         </div>
 
-        {isLoading ? (
-          <div className="empty-row">Carregando {label.toLowerCase()}...</div>
-        ) : null}
+        {isLoading
+          ? Array.from({ length: 5 }, (_, i) => (
+              <div className="skeleton-row" key={`sk-${i}`} role="row" style={gridStyle}>
+                {columns.map((_, ci) => (
+                  <span key={ci} role="cell">
+                    <div className="skeleton-bar" style={{ width: `${55 + ((ci * 17 + i * 11) % 35)}%` }} />
+                  </span>
+                ))}
+                {onEdit ? <span role="cell" /> : null}
+              </div>
+            ))
+          : null}
 
         {!isLoading
           ? sortedRecords.map((record) =>

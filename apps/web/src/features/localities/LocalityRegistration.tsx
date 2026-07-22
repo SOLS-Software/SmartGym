@@ -306,10 +306,10 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
           title={isCreating ? 'Nova Localidade' : 'Editar Localidade'}
           onClose={handleCloseDrawer}
         >
-          <form className="drawer-form" onSubmit={handleSaveLocality}>
-            {feedback ? <div className="form-feedback">{feedback}</div> : null}
+          <form className="drawer-fields" onSubmit={handleSaveLocality}>
+            {feedback ? <div className="form-feedback field-size-full">{feedback}</div> : null}
 
-            <div className="field">
+            <div className="field field-size-full">
               <label htmlFor="localityName">Nome da localidade</label>
               <input
                 disabled={!isFormEnabled}
@@ -324,7 +324,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
               />
             </div>
 
-            <div className="field">
+            <div className="field field-size-md">
               <label htmlFor="localityCompany">Empresa</label>
               <select
                 disabled={!isFormEnabled}
@@ -342,20 +342,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
               </select>
             </div>
 
-            <div className="field">
-              <label htmlFor="localityDescription">Descrição</label>
-              <input
-                disabled={!isFormEnabled}
-                id="localityDescription"
-                maxLength={255}
-                onChange={(e) => setLocalityDescription(e.target.value)}
-                placeholder="Detalhes da localidade"
-                type="text"
-                value={localityDescription}
-              />
-            </div>
-
-            <div className="field">
+            <div className="field field-size-md">
               <label htmlFor="localityType">Tipo</label>
               <select
                 disabled={!isFormEnabled}
@@ -371,13 +358,26 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
               </select>
             </div>
 
+            <div className="field field-size-full">
+              <label htmlFor="localityDescription">Descrição</label>
+              <input
+                disabled={!isFormEnabled}
+                id="localityDescription"
+                maxLength={255}
+                onChange={(e) => setLocalityDescription(e.target.value)}
+                placeholder="Detalhes da localidade"
+                type="text"
+                value={localityDescription}
+              />
+            </div>
+
             <AddressLocationPicker
               disabled={!isFormEnabled}
               onChange={setAddressValue}
               value={addressValue}
             />
 
-            <div className="field">
+            <div className="field field-size-sm">
               <label htmlFor="localityStatus">Status</label>
               <button
                 aria-pressed={isLocalityActive}
@@ -391,7 +391,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
               </button>
             </div>
 
-            <div className="form-actions">
+            <div className="form-actions field-size-full">
               <button
                 className="secondary-button"
                 onClick={() => { clearForm(); handleCloseDrawer(); }}

@@ -2,7 +2,7 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Clock, Pencil, Plus, Save, Users } from 'lucide-react';
+import { ArrowLeft, Clock, Pencil, Plus, Save, Users } from 'lucide-react';
 import {
   GRID_PAGE_SIZE,
   GridPagination,
@@ -54,7 +54,11 @@ const weekDays = [
 
 const calendarWeekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
 
-export function ActivityScheduleAssembly() {
+type ActivityScheduleAssemblyProps = {
+  loggedEmployeeId?: number | null;
+};
+
+export function ActivityScheduleAssembly({ loggedEmployeeId }: ActivityScheduleAssemblyProps) {
   const scheduleStartInputRef = useRef<HTMLInputElement | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [schedules, setSchedules] = useState<ActivitySchedule[]>([]);
@@ -149,9 +153,15 @@ export function ActivityScheduleAssembly() {
       ]);
       setCompanies(((await companiesRes.json()) as Company[]).filter((c) => c.boInativo === false));
       setCategories(((await categoriesRes.json()) as Category[]).filter((c) => (c.boInativo ?? false) === false));
-      setEmployees(((await employeesRes.json()) as Employee[]).filter((e) => e.boInativo === false));
+      const allEmployees = ((await employeesRes.json()) as Employee[]).filter((e) => e.boInativo === false);
+      setEmployees(allEmployees);
       if (sportsRes.ok) setSports(((await sportsRes.json()) as Sport[]).filter((s) => s.boInativo === false));
       if (localitiesRes.ok) setLocalities(((await localitiesRes.json()) as Localidade[]).filter((l) => l.boInativo === false));
+
+      if (loggedEmployeeId && !selectedFilialId) {
+        const logged = allEmployees.find((e) => e.id === loggedEmployeeId);
+        if (logged?.idEmpresa) setSelectedFilialId(String(logged.idEmpresa));
+      }
     } catch (error) {
       setScheduleFeedback(error instanceof Error ? error.message : 'Erro ao carregar listas.');
     }
@@ -528,7 +538,7 @@ export function ActivityScheduleAssembly() {
           </select>
         </div>
 
-        <div className="schedule-assembly-layout">
+        <div className={`schedule-assembly-layout${selectedActivityId ? ' has-selection' : ''}`}>
           {/* Grid de atividades */}
           <section className="data-grid-section workout-students-grid">
             <div className="grid-toolbar">
@@ -592,6 +602,13 @@ export function ActivityScheduleAssembly() {
             <section className="data-grid-section">
               <div className="grid-toolbar schedule-agenda-toolbar">
                 <div className="schedule-agenda-header">
+                  <button
+                    className="schedule-back-button"
+                    onClick={() => { setSelectedActivityId(null); setSchedules([]); setScheduleEmployees([]); }}
+                    type="button"
+                  >
+                    <ArrowLeft size={16} />
+                  </button>
                   <p className="section-label">Agenda</p>
                   <strong>{selectedActivity.dsAtividade}</strong>
                 </div>
