@@ -434,6 +434,12 @@ model Usuario {
   boInativo          Boolean   @default(false)
   // Operacao interna (SOLS): habilita acoes cross-tenant, ex. criar clientes.
   boSuperAdmin       Boolean   @default(false)
+  // Versao de sessao para revogacao de JWT: cada token carrega o valor vigente
+  // no momento da emissao (claim `tv`). Logout e redefinicao de senha
+  // incrementam esta coluna, invalidando TODOS os tokens ja emitidos (o plugin
+  // de auth compara a cada request). Sem isto, um JWT valido sobreviveria ao
+  // logout / troca de senha ate expirar por tempo.
+  nrTokenVersion     Int       @default(0)
 
   funcionario       Funcionario?       @relation(fields: [idFuncionario], references: [id])
   aluno             Aluno?             @relation(fields: [idAluno], references: [id])
