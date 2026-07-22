@@ -18,7 +18,7 @@
     "@supabase/supabase-js": "^2.105.1",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.1",
-    "nodemailer": "^8.0.7"
+    "nodemailer": "^9.0.1"
   },
   "devDependencies": {
     "@smartgym/config": "workspace:*",
