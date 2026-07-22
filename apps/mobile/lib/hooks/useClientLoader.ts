@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { authFetch as fetch } from '../api/client';
 import type { Client, ClientTheme, ClientLoaderState } from '../types/client';
 
 interface UseClientLoaderOptions {

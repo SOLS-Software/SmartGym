@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { apiUrl, getApiError } from '../../lib/api/client';
+import { apiUrl, getApiError, authFetch as fetch } from '../../lib/api/client';
 import { ExerciseCard } from '../../lib/components/ExerciseCard';
 import { Screen } from '../../lib/components/Screen';
 import { useInfiniteList } from '../../lib/hooks/useInfiniteList';

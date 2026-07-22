@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { apiUrl, getApiError } from '../../lib/api/client';
+import { apiUrl, getApiError, authFetch as fetch } from '../../lib/api/client';
 import { Screen } from '../../lib/components/Screen';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { useTokens } from '../../lib/theme/tokens';

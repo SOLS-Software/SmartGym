@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { apiUrl, getApiError } from '../../lib/api/client';
+import { apiUrl, getApiError, authFetch as fetch } from '../../lib/api/client';
 import { ExerciseCard } from '../../lib/components/ExerciseCard';
 import { Screen } from '../../lib/components/Screen';
 import { useAuth } from '../../lib/contexts/AuthContext';

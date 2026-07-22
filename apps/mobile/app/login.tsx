@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { apiUrl } from '../lib/api/client';
+import { apiUrl, setAuthToken } from '../lib/api/client';
 import { useAuth } from '../lib/contexts/AuthContext';
 import { useTokens } from '../lib/theme/tokens';
 import type { AuthenticatedUser } from '../lib/types/auth';
@@ -44,7 +44,8 @@ export default function LoginScreen() {
       const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ login: digits, password }),
+        // client: 'mobile' => a API emite token de longa duração p/ o app.
+        body: JSON.stringify({ login: digits, password, client: 'mobile' }),
       });
 
       if (!response.ok) {
@@ -52,13 +53,17 @@ export default function LoginScreen() {
         throw new Error(errorBody.message ?? 'Não foi possível entrar.');
       }
 
-      const user = (await response.json()) as AuthenticatedUser;
+      // O token vai para o SecureStore; o perfil (sem credencial) para a sessão.
+      const { token, ...user } = (await response.json()) as AuthenticatedUser & {
+        token?: string;
+      };
 
       if (user.type !== 'student' || !user.idAluno) {
         setFeedback('Este acesso é exclusivo para alunos.');
         return;
       }
 
+      await setAuthToken(token ?? null);
       await signIn(user);
       router.replace('/meu-treino');
     } catch (error) {

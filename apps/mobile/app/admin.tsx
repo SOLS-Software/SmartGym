@@ -19,6 +19,8 @@ import {
 } from 'react-native';
 import { useCurrentClient } from '../lib/hooks/useCurrentClient';
 import { useTheme } from '../lib/contexts/ThemeContext';
+// Alias: todas as chamadas fetch deste módulo passam a enviar o JWT da sessão.
+import { authFetch as fetch, setAuthToken } from '../lib/api/client';
 
 function getApiUrl() {
   const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
@@ -2202,6 +2204,7 @@ export default function HomeScreen() {
         body: JSON.stringify({
           login: loginCpf.replace(/\D/g, ''),
           password: loginPassword,
+          client: 'mobile',
         }),
       });
 
@@ -2210,7 +2213,13 @@ export default function HomeScreen() {
         throw new Error(errorBody.message ?? 'Não foi possível entrar.');
       }
 
-      const user = (await response.json()) as { name: string; type: 'student' | 'employee'; clientId?: number };
+      const { token, ...user } = (await response.json()) as {
+        name: string;
+        type: 'student' | 'employee';
+        clientId?: number;
+        token?: string;
+      };
+      await setAuthToken(token ?? null);
       setAuthUserName(user.name);
       setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
 
@@ -2309,7 +2318,7 @@ export default function HomeScreen() {
       const loginResponse = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ login: payload.cpf, password: payload.password }),
+        body: JSON.stringify({ login: payload.cpf, password: payload.password, client: 'mobile' }),
       });
 
       if (!loginResponse.ok) {
@@ -2317,7 +2326,12 @@ export default function HomeScreen() {
         throw new Error(errorBody.message ?? 'Cadastro criado, mas não foi possível entrar automaticamente.');
       }
 
-      const user = (await loginResponse.json()) as { name: string; type: 'student' | 'employee' };
+      const { token, ...user } = (await loginResponse.json()) as {
+        name: string;
+        type: 'student' | 'employee';
+        token?: string;
+      };
+      await setAuthToken(token ?? null);
       setRegisterCpf('');
       setRegisterLookup(null);
       setRegisterLookupFeedback('');
