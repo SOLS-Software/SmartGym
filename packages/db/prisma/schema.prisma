@@ -329,7 +329,10 @@ model Categoria {
 model Aluno {
   id                 Int       @id @default(autoincrement())
   nmAluno            String    @default("") @db.VarChar(255)
-  caCPF              String    @default("") @db.VarChar(11)
+  // PII: valor criptografado (AES-256-GCM, prefixo enc:v1:). Lookups usam caCPFHash.
+  caCPF              String    @default("") @db.VarChar(160)
+  // HMAC-SHA256 do CPF normalizado — busca exata e unicidade sem expor o valor.
+  caCPFHash          String?   @db.VarChar(64)
   dtNascimento       DateTime? @db.Date
   nrDDD              Int       @default(0)
   nrContato          String?   @db.VarChar(9)
@@ -359,10 +362,10 @@ model Aluno {
   alunobiometriafacial  AlunoBiometriaFacial[]
   cliente               Cliente                @relation(fields: [idCliente], references: [id])
 
-  @@unique([idCliente, caCPF])
+  @@unique([idCliente, caCPFHash])
   // Login/register-lookup/forgot-password buscam por CPF sem idCliente — o
   // unique composto (idCliente lider) nao cobre esse acesso.
-  @@index([caCPF])
+  @@index([caCPFHash])
   @@map("tb_Alunos")
 }
 
@@ -371,7 +374,9 @@ model Funcionario {
   idEmpresa          Int?
   idCargo            Int?
   nmFuncionario      String    @default("") @db.VarChar(255)
-  caCPF              String    @default("") @db.VarChar(11)
+  // PII: valor criptografado (AES-256-GCM, prefixo enc:v1:). Lookups usam caCPFHash.
+  caCPF              String    @default("") @db.VarChar(160)
+  caCPFHash          String?   @db.VarChar(64)
   dtNascimento       DateTime? @db.Date
   nrDDD              Int?
   nrContato          String?   @db.VarChar(9)
@@ -391,9 +396,9 @@ model Funcionario {
   funcionarioArquivos         FuncionarioArquivo[]
   funcionarioAtividadeAgendas FuncionarioAtividadeAgenda[]
 
-  @@unique([idEmpresa, caCPF])
+  @@unique([idEmpresa, caCPFHash])
   // Mesmo racional do Aluno: lookups de auth por CPF sem idEmpresa.
-  @@index([caCPF])
+  @@index([caCPFHash])
   @@map("tb_Funcionarios")
 }
 
@@ -427,10 +432,13 @@ model Usuario {
   idUsuarioCadastro  Int?
   idUsuarioAlteracao Int?
   boInativo          Boolean   @default(false)
+  // Operacao interna (SOLS): habilita acoes cross-tenant, ex. criar clientes.
+  boSuperAdmin       Boolean   @default(false)
 
-  funcionario Funcionario? @relation(fields: [idFuncionario], references: [id])
-  aluno       Aluno?       @relation(fields: [idAluno], references: [id])
-  senhas      Senha[]
+  funcionario       Funcionario?       @relation(fields: [idFuncionario], references: [id])
+  aluno             Aluno?             @relation(fields: [idAluno], references: [id])
+  senhas            Senha[]
+  recuperacoesSenha RecuperacaoSenha[]
 
   @@index([idFuncionario])
   @@index([idAluno])
@@ -454,6 +462,23 @@ model Senha {
 
   @@index([idUsuario])
   @@map("tb_Senhas")
+}
+
+// Tokens de redefinicao de senha: single-use, com expiracao. Armazena apenas
+// o SHA-256 do token — o valor real so trafega no link enviado por email.
+model RecuperacaoSenha {
+  id           Int       @id @default(autoincrement())
+  idUsuario    Int
+  dsTokenHash  String    @db.VarChar(64)
+  dtExpiracao  DateTime
+  dtUtilizacao DateTime?
+  dtCadastro   DateTime  @default(now())
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id])
+
+  @@index([dsTokenHash])
+  @@index([idUsuario])
+  @@map("tb_RecuperacoesSenha")
 }
 
 model Promocao {
