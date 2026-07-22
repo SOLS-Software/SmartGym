@@ -1,5 +1,27 @@
 import { extname } from 'node:path';
 
+// Allowlist de MIME types aceitos nos uploads (imagens e PDF). SVG fica de
+// fora de proposito: pode carregar script embutido (stored XSS).
+const ALLOWED_UPLOAD_MIMETYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/bmp',
+  'image/gif',
+  'image/x-icon',
+  'image/vnd.microsoft.icon',
+  'application/pdf',
+]);
+
+// Valida o MIME type declarado do upload. Lanca erro no padrao dos handlers
+// (capturado pelos try/catch das rotas e devolvido como 400).
+export function assertAllowedUploadType(file: { mimetype?: string } | null | undefined) {
+  const mimetype = (file?.mimetype ?? '').toLowerCase();
+  if (!ALLOWED_UPLOAD_MIMETYPES.has(mimetype)) {
+    throw new Error('Tipo de arquivo nao permitido. Envie imagens ou PDF.');
+  }
+}
+
 export function getImageContentType(fileName: string) {
   const extension = extname(fileName).toLowerCase();
 

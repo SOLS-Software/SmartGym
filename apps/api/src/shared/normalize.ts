@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import type {
   CompanyPayload,
   EmployeePayload,
@@ -519,10 +518,6 @@ export function normalizeRegisterPassword(password: string | undefined) {
     throw new Error('A senha deve conter pelo menos 3 letras.');
   }
   return value;
-}
-
-export function hashPassword(password: string) {
-  return createHash('sha256').update(password).digest('hex');
 }
 
 export function normalizeRegisterLogin(email: string | undefined) {

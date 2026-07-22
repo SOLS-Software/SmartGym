@@ -161,6 +161,8 @@ export type RegisterPayload = {
 export type LoginPayload = {
   login?: string;
   password?: string;
+  // Origem do login: define a validade do token (mobile recebe token longo).
+  client?: 'web' | 'mobile';
 };
 
 export type ForgotPasswordPayload = {

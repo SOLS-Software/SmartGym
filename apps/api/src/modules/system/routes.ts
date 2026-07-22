@@ -1,5 +1,4 @@
 import type { FastifyInstance } from 'fastify';
-import { prisma } from '../../shared/prisma.js';
 
 export async function registerSystemRoutes(app: FastifyInstance) {
   app.get('/health', async () => {
@@ -7,13 +6,5 @@ export async function registerSystemRoutes(app: FastifyInstance) {
       status: 'ok',
       service: 'smartgym-api',
     };
-  });
-
-  app.get('/members', async () => {
-    return prisma.aluno.findMany({
-      orderBy: {
-        dtCadastro: 'desc',
-      },
-    });
   });
 }

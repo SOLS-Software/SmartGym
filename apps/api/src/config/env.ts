@@ -7,6 +7,7 @@ const REQUIRED_ENV_VARS = [
   'API_PORT',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
+  'JWT_SECRET',
 ] as const;
 
 export function validateEnv() {

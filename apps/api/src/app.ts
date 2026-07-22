@@ -1,7 +1,10 @@
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
-import Fastify from 'fastify';
+import rateLimit from '@fastify/rate-limit';
+import Fastify, { type FastifyError } from 'fastify';
 import { validateEnv } from './config/env.js';
+import { registerAuthPlugin } from './plugins/auth.js';
 import { registerSystemRoutes } from './modules/system/routes.js';
 import { registerAuthRoutes } from './modules/auth/routes.js';
 import { registerStudentRoutes } from './modules/students/routes.js';
@@ -76,8 +79,26 @@ app.addContentTypeParser(
   },
 );
 
+// CORS: em producao, somente origens da allowlist CORS_ORIGINS (separadas por
+// virgula). O web fala com a API via proxy server-side (sem CORS), o app mobile
+// e as catracas nao enviam Origin — a lista cobre apenas browsers diretos.
+const corsOrigins = (process.env.CORS_ORIGINS ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 await app.register(cors, {
-  origin: true,
+  origin: process.env.NODE_ENV === 'production' ? corsOrigins : true,
+});
+
+// Headers de seguranca (CSP, HSTS, X-Frame-Options, nosniff, etc.).
+await app.register(helmet);
+
+// Rate limit global por IP; os endpoints de auth tem limites mais restritos
+// via config.rateLimit na propria rota.
+await app.register(rateLimit, {
+  max: 300,
+  timeWindow: '1 minute',
 });
 
 await app.register(multipart, {
@@ -85,6 +106,20 @@ await app.register(multipart, {
     fileSize: 10 * 1024 * 1024,
     files: 1,
   },
+});
+
+// Autenticacao JWT global: toda rota exige token, exceto a allowlist do plugin.
+await registerAuthPlugin(app);
+
+// Erros nao tratados pelos handlers: loga o detalhe no servidor e responde
+// mensagem generica — nunca vazar stack trace ou erro interno (ex.: Prisma).
+app.setErrorHandler((error: FastifyError, request, reply) => {
+  const statusCode = error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;
+  if (statusCode >= 500) {
+    request.log.error(error);
+    return reply.code(statusCode).send({ message: 'Erro interno do servidor.' });
+  }
+  return reply.code(statusCode).send({ message: error.message });
 });
 
 await registerSystemRoutes(app);

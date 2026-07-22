@@ -3,11 +3,12 @@ import nodemailer from 'nodemailer';
 import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 import { prisma } from '../../shared/prisma.js';
 import {
-  hashPassword,
   normalizeRegisterCpf,
   normalizeRegisterLogin,
   normalizeRegisterPassword,
 } from '../../shared/normalize.js';
+import { HASH_TYPE_BCRYPT, hashPassword, verifyPassword } from '../../shared/passwords.js';
+import { TOKEN_EXPIRY_MOBILE, TOKEN_EXPIRY_WEB } from '../../plugins/auth.js';
 import { getSupabaseClient, getSupabaseConfig, getClientSupabaseConfig } from '../../shared/supabase.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 import type {
@@ -20,9 +21,14 @@ import type {
 } from '../../shared/api-types.js';
 
 export async function registerAuthRoutes(app: FastifyInstance) {
+  // Limites restritos de rate limit para endpoints de autenticacao (anti brute
+  // force / enumeracao). O limite global de 300/min continua valendo no resto.
+  const authRateLimit = { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } };
+  const lookupRateLimit = { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } };
+
   app.post<{
     Body: LoginPayload;
-  }>('/auth/login', async (request, reply) => {
+  }>('/auth/login', authRateLimit, async (request, reply) => {
     try {
       const cpf = normalizeRegisterCpf(request.body.login);
       const password = request.body.password ?? '';
@@ -50,20 +56,40 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         orderBy: { dtCadastro: 'desc' },
       });
 
-      const isPasswordValid =
-        currentPassword?.cnTipoHash === 1
-          ? currentPassword.dsSenha === hashPassword(password)
-          : currentPassword?.dsSenha === password;
+      const { valid, needsRehash } = await verifyPassword(password, currentPassword);
 
-      if (!isPasswordValid) {
+      if (!valid) {
         throw new Error('Usuario ou senha invalidos.');
       }
 
+      // Rehash progressivo: registros legados (SHA-256 ou texto puro) sao
+      // regravados com bcrypt no proprio login, sem acao do usuario.
+      if (needsRehash && currentPassword) {
+        await prisma.senha.update({
+          where: { id: currentPassword.id },
+          data: { dsSenha: await hashPassword(password), cnTipoHash: HASH_TYPE_BCRYPT },
+        });
+      }
+
+      // Tenant do usuario: funcionario via empresa; aluno direto em Aluno.idCliente.
+      const idCliente = user.funcionario?.empresa?.idCliente ?? user.aluno?.idCliente ?? null;
+      const token = app.jwt.sign(
+        {
+          sub: user.id,
+          role: user.idAluno ? 'student' : 'employee',
+          idAluno: user.idAluno,
+          idFuncionario: user.idFuncionario,
+          idCliente,
+        },
+        { expiresIn: request.body.client === 'mobile' ? TOKEN_EXPIRY_MOBILE : TOKEN_EXPIRY_WEB },
+      );
+
       return {
+        token,
         id: user.id,
         idAluno: user.idAluno,
         idFuncionario: user.idFuncionario,
-        idCliente: user.funcionario?.empresa?.idCliente ?? null,
+        idCliente,
         login: user.dsLogin,
         name: user.aluno?.nmAluno ?? user.funcionario?.nmFuncionario ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',
@@ -72,15 +98,23 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         studentAccess: user.idAluno ? await getStudentAccessStatus(prisma, user.idAluno) : null,
       };
     } catch (error) {
-      return reply.code(401).send({
-        message: error instanceof Error ? error.message : 'Erro ao entrar.',
-      });
+      // Mensagem generica sempre: nao vazar detalhes internos (ex.: erro de
+      // banco) nem diferenciar usuario inexistente de senha errada.
+      request.log.warn(error);
+      return reply.code(401).send({ message: 'Usuario ou senha invalidos.' });
     }
   });
 
   app.post<{
     Body: ForgotPasswordPayload;
-  }>('/auth/forgot-password', async (request, reply) => {
+  }>('/auth/forgot-password', authRateLimit, async (request, reply) => {
+    // Resposta generica em todos os cenarios (CPF inexistente, sem email ou
+    // falha de envio): impede enumeracao de CPFs cadastrados.
+    const genericResponse = {
+      email: '',
+      message: 'Se o CPF estiver cadastrado, voce recebera um email com instrucoes.',
+    };
+
     try {
       const cpf = normalizeRegisterCpf(request.body.cpf);
       const user = await prisma.usuario.findFirst({
@@ -94,16 +128,12 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         include: { aluno: true, funcionario: true },
       });
 
-      if (!user) {
-        return reply.code(404).send({
-          message: 'CPF nao encontrado para redefinicao de senha.',
-        });
-      }
-
-      const email = user.dsLogin || user.aluno?.anEmail || user.funcionario?.anEmail || '';
+      const email = user
+        ? user.dsLogin || user.aluno?.anEmail || user.funcionario?.anEmail || ''
+        : '';
 
       if (!email) {
-        return reply.code(400).send({ message: 'Usuario sem email cadastrado.' });
+        return reply.send(genericResponse);
       }
 
       const transporter = nodemailer.createTransport({
@@ -113,30 +143,24 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
       } as SMTPTransport.Options);
 
-      return await transporter
-        .sendMail({
-          from: process.env.SMTP_FROM,
-          to: email,
-          subject: 'Redefinicao de senha - SmartGym',
-          text: 'Este e um email de teste para a funcionalidade de redefinicao de senha. Nenhuma acao foi tomada em sua conta.',
-          html: `<p>Este e um email de teste para a funcionalidade de redefinicao de senha. Nenhuma acao foi tomada em sua conta.</p><p>Se voce solicitou uma redefinicao de senha, por favor ignore este email ou entre em contato com o suporte.</p>`,
-        })
-        .then((pResult) => ({
-          email,
-          message: `Email de teste enviado para ${email}.`,
-          testEmailSent: true,
-          emailResult: pResult.messageId,
-        }));
-    } catch (error) {
-      return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao enviar email de redefinicao.',
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to: email,
+        subject: 'Redefinicao de senha - SmartGym',
+        text: 'Este e um email de teste para a funcionalidade de redefinicao de senha. Nenhuma acao foi tomada em sua conta.',
+        html: `<p>Este e um email de teste para a funcionalidade de redefinicao de senha. Nenhuma acao foi tomada em sua conta.</p><p>Se voce solicitou uma redefinicao de senha, por favor ignore este email ou entre em contato com o suporte.</p>`,
       });
+
+      return reply.send(genericResponse);
+    } catch (error) {
+      request.log.error(error);
+      return reply.send(genericResponse);
     }
   });
 
   app.get<{
     Querystring: RegisterLookupQuery;
-  }>('/auth/register-lookup', async (request, reply) => {
+  }>('/auth/register-lookup', lookupRateLimit, async (request, reply) => {
     try {
       const type = request.query.type;
       const cpf = normalizeRegisterCpf(request.query.cpf);
@@ -201,7 +225,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
   app.post<{
     Body: RegisterPayload;
-  }>('/auth/register', async (request, reply) => {
+  }>('/auth/register', authRateLimit, async (request, reply) => {
     try {
       const type = request.body.type;
       const cpf = normalizeRegisterCpf(request.body.cpf);
@@ -230,7 +254,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
             data: { idAluno: student.id, dsLogin, boInativo: false },
           });
           await transaction.senha.create({
-            data: { idUsuario: user.id, dsSenha: hashPassword(password), cnTipoHash: 1, boTrocaObrigatoria: false },
+            data: { idUsuario: user.id, dsSenha: await hashPassword(password), cnTipoHash: HASH_TYPE_BCRYPT, boTrocaObrigatoria: false },
           });
 
           return { id: user.id, type, name: student.nmAluno, login: user.dsLogin };
@@ -252,7 +276,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           data: { idFuncionario: employee.id, dsLogin, boInativo: false },
         });
         await transaction.senha.create({
-          data: { idUsuario: user.id, dsSenha: hashPassword(password), cnTipoHash: 1, boTrocaObrigatoria: false },
+          data: { idUsuario: user.id, dsSenha: await hashPassword(password), cnTipoHash: HASH_TYPE_BCRYPT, boTrocaObrigatoria: false },
         });
 
         return { id: user.id, type, name: employee.nmFuncionario, login: user.dsLogin };
@@ -350,7 +374,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
   app.post<{
     Body: LoginPayload & { idCliente?: number };
-  }>('/auth/gestor-login', async (request, reply) => {
+  }>('/auth/gestor-login', authRateLimit, async (request, reply) => {
     try {
       const cpf = normalizeRegisterCpf(request.body.login);
       const password = request.body.password ?? '';
@@ -381,13 +405,17 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         orderBy: { dtCadastro: 'desc' },
       });
 
-      const isValid =
-        currentPassword?.cnTipoHash === 1
-          ? currentPassword.dsSenha === hashPassword(password)
-          : currentPassword?.dsSenha === password;
+      const { valid, needsRehash } = await verifyPassword(password, currentPassword);
 
-      if (!isValid) {
+      if (!valid) {
         return reply.code(401).send({ message: 'Usuario ou senha invalidos.' });
+      }
+
+      if (needsRehash && currentPassword) {
+        await prisma.senha.update({
+          where: { id: currentPassword.id },
+          data: { dsSenha: await hashPassword(password), cnTipoHash: HASH_TYPE_BCRYPT },
+        });
       }
 
       const empresas = await prisma.empresa.findMany({
@@ -395,7 +423,19 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         orderBy: { dsEmpresa: 'asc' },
       });
 
+      const token = app.jwt.sign(
+        {
+          sub: user.id,
+          role: 'gestor',
+          idAluno: null,
+          idFuncionario: user.idFuncionario,
+          idCliente,
+        },
+        { expiresIn: TOKEN_EXPIRY_WEB },
+      );
+
       return {
+        token,
         id: user.id,
         idFuncionario: user.idFuncionario,
         name: user.funcionario.nmFuncionario,
@@ -404,9 +444,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         empresas,
       };
     } catch (error) {
-      return reply.code(401).send({
-        message: error instanceof Error ? error.message : 'Erro ao entrar.',
-      });
+      request.log.warn(error);
+      return reply.code(401).send({ message: 'Usuario ou senha invalidos.' });
     }
   });
 
@@ -414,10 +453,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     Querystring: VerifySessionQuery;
   }>('/auth/verify', async (request, reply) => {
     try {
-      const id = Number(request.query.id);
-      if (!id || isNaN(id)) {
-        return reply.code(400).send({ message: 'ID de usuario invalido.' });
-      }
+      // A identidade vem exclusivamente do JWT — o parametro ?id= legado e
+      // ignorado para impedir enumeracao de usuarios (IDOR).
+      const id = request.user.sub;
 
       const user = await prisma.usuario.findFirst({
         where: { id, boInativo: false },
@@ -442,15 +480,15 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         id: user.id,
         idAluno: user.idAluno,
         idFuncionario: user.idFuncionario,
-        idCliente: user.funcionario?.empresa?.idCliente ?? null,
+        idCliente: user.funcionario?.empresa?.idCliente ?? user.aluno?.idCliente ?? null,
         name: user.aluno?.nmAluno ?? user.funcionario?.nmFuncionario ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',
         studentAccess: user.idAluno ? await getStudentAccessStatus(prisma, user.idAluno) : null,
       };
     } catch (error) {
-      return reply.code(500).send({
-        message: error instanceof Error ? error.message : 'Erro ao verificar sessao.',
-      });
+      // Nunca ecoar o erro interno (ex.: falha de conexao com o banco).
+      request.log.error(error);
+      return reply.code(500).send({ message: 'Erro ao verificar sessao.' });
     }
   });
 }
