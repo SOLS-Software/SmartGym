@@ -360,6 +360,9 @@ model Aluno {
   cliente               Cliente                @relation(fields: [idCliente], references: [id])
 
   @@unique([idCliente, caCPF])
+  // Login/register-lookup/forgot-password buscam por CPF sem idCliente — o
+  // unique composto (idCliente lider) nao cobre esse acesso.
+  @@index([caCPF])
   @@map("tb_Alunos")
 }
 
@@ -389,6 +392,8 @@ model Funcionario {
   funcionarioAtividadeAgendas FuncionarioAtividadeAgenda[]
 
   @@unique([idEmpresa, caCPF])
+  // Mesmo racional do Aluno: lookups de auth por CPF sem idEmpresa.
+  @@index([caCPF])
   @@map("tb_Funcionarios")
 }
 
