@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId } from '../../shared/normalize.js';
+import { decryptCpfValue } from '../../shared/pii.js';
 
 // Data ISO (YYYY-MM-DD) em querystring; string vazia e tratada como ausente.
 const isoDateParam = z.union([
@@ -190,7 +191,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
         id: enrollment.id,
         idAluno: enrollment.idAluno,
         nmAluno: enrollment.aluno?.nmAluno ?? '-',
-        caCPF: enrollment.aluno?.caCPF ?? '',
+        caCPF: decryptCpfValue(enrollment.aluno?.caCPF),
         dtCadastro: enrollment.dtCadastro,
         presente: presentIds.has(enrollment.idAluno),
       }));

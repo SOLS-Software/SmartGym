@@ -1,4 +1,5 @@
 import { extname } from 'node:path';
+import { fileTypeFromBuffer } from 'file-type';
 
 // Allowlist de MIME types aceitos nos uploads (imagens e PDF). SVG fica de
 // fora de proposito: pode carregar script embutido (stored XSS).
@@ -20,6 +21,17 @@ export function assertAllowedUploadType(file: { mimetype?: string } | null | und
   if (!ALLOWED_UPLOAD_MIMETYPES.has(mimetype)) {
     throw new Error('Tipo de arquivo nao permitido. Envie imagens ou PDF.');
   }
+}
+
+// Valida o conteudo real do upload (magic bytes) contra a allowlist e
+// retorna o mimetype DETECTADO (nunca o declarado pelo cliente, que e
+// spoofavel). Lanca no padrao dos handlers (cai no catch -> 400).
+export async function assertUploadBuffer(buffer: Buffer): Promise<string> {
+  const detected = await fileTypeFromBuffer(buffer);
+  if (!detected || !ALLOWED_UPLOAD_MIMETYPES.has(detected.mime)) {
+    throw new Error('Tipo de arquivo nao permitido. Envie imagens ou PDF.');
+  }
+  return detected.mime;
 }
 
 export function getImageContentType(fileName: string) {

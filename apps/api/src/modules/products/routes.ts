@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId, getMultipartFieldValue, normalizeProductPayload } from '../../shared/normalize.js';
-import { assertAllowedUploadType, getProductFilePath } from '../../shared/files.js';
+import { assertAllowedUploadType, assertUploadBuffer, getProductFilePath } from '../../shared/files.js';
 import { getSupabaseClient, getSupabaseConfig } from '../../shared/supabase.js';
 import type { CompanyChildPayload, ProductPayload } from '../../shared/api-types.js';
 
@@ -168,12 +168,13 @@ export async function registerProductRoutes(app: FastifyInstance) {
       const idTiposArquivos = rawFileTypeId ? Number(rawFileTypeId) : null;
       await assertIdentificationFileType(idTiposArquivos);
       const buffer = await file.toBuffer();
+      const safeMime = await assertUploadBuffer(buffer);
       const path = getProductFilePath(idProduto, file.filename);
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+        .upload(path, buffer, { contentType: safeMime, upsert: false });
 
       if (uploadError) {
         throw new Error(uploadError.message);
@@ -220,12 +221,13 @@ export async function registerProductRoutes(app: FastifyInstance) {
       const idTiposArquivos = rawFileTypeId ? Number(rawFileTypeId) : null;
       await assertIdentificationFileType(idTiposArquivos);
       const buffer = await file.toBuffer();
+      const safeMime = await assertUploadBuffer(buffer);
       const path = getProductFilePath(idProduto, file.filename);
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+        .upload(path, buffer, { contentType: safeMime, upsert: false });
 
       if (uploadError) {
         throw new Error(uploadError.message);

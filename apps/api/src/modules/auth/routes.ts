@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import nodemailer from 'nodemailer';
 import type SMTPTransport from 'nodemailer/lib/smtp-transport';
@@ -7,7 +8,8 @@ import {
   normalizeRegisterLogin,
   normalizeRegisterPassword,
 } from '../../shared/normalize.js';
-import { HASH_TYPE_BCRYPT, hashPassword, verifyPassword } from '../../shared/passwords.js';
+import { HASH_TYPE_BCRYPT, dummyVerify, hashPassword, verifyPassword } from '../../shared/passwords.js';
+import { cpfHash } from '../../shared/pii.js';
 import { TOKEN_EXPIRY_MOBILE, TOKEN_EXPIRY_WEB } from '../../plugins/auth.js';
 import { getSupabaseClient, getSupabaseConfig, getClientSupabaseConfig } from '../../shared/supabase.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
@@ -37,8 +39,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         where: {
           boInativo: false,
           OR: [
-            { aluno: { caCPF: cpf, boInativo: false } },
-            { funcionario: { caCPF: cpf, boInativo: false } },
+            // CPF armazenado criptografado: lookup exato via HMAC (caCPFHash).
+            { aluno: { caCPFHash: cpfHash(cpf), boInativo: false } },
+            { funcionario: { caCPFHash: cpfHash(cpf), boInativo: false } },
           ],
         },
         include: {
@@ -48,6 +51,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       });
 
       if (!user) {
+        // Equaliza o tempo de resposta com o caminho de senha errada (bcrypt)
+        // para nao vazar existencia de conta por timing.
+        await dummyVerify(password);
         throw new Error('Usuario ou senha invalidos.');
       }
 
@@ -80,6 +86,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           idAluno: user.idAluno,
           idFuncionario: user.idFuncionario,
           idCliente,
+          superAdmin: user.boSuperAdmin || undefined,
         },
         { expiresIn: request.body.client === 'mobile' ? TOKEN_EXPIRY_MOBILE : TOKEN_EXPIRY_WEB },
       );
@@ -121,8 +128,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         where: {
           boInativo: false,
           OR: [
-            { aluno: { caCPF: cpf, boInativo: false } },
-            { funcionario: { caCPF: cpf, boInativo: false } },
+            // CPF armazenado criptografado: lookup exato via HMAC (caCPFHash).
+            { aluno: { caCPFHash: cpfHash(cpf), boInativo: false } },
+            { funcionario: { caCPFHash: cpfHash(cpf), boInativo: false } },
           ],
         },
         include: { aluno: true, funcionario: true },
@@ -132,9 +140,32 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         ? user.dsLogin || user.aluno?.anEmail || user.funcionario?.anEmail || ''
         : '';
 
-      if (!email) {
+      if (!user || !email) {
         return reply.send(genericResponse);
       }
+
+      // Token single-use com expiracao de 1h: so o SHA-256 vai para o banco;
+      // o valor real trafega apenas no link enviado por email.
+      const resetToken = randomBytes(32).toString('hex');
+      const tokenHash = createHash('sha256').update(resetToken).digest('hex');
+
+      await prisma.$transaction([
+        // Invalida tokens abertos anteriores do usuario.
+        prisma.recuperacaoSenha.updateMany({
+          where: { idUsuario: user.id, dtUtilizacao: null },
+          data: { dtUtilizacao: new Date() },
+        }),
+        prisma.recuperacaoSenha.create({
+          data: {
+            idUsuario: user.id,
+            dsTokenHash: tokenHash,
+            dtExpiracao: new Date(Date.now() + 60 * 60 * 1000),
+          },
+        }),
+      ]);
+
+      const webAppUrl = (process.env.WEB_APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+      const resetUrl = `${webAppUrl}/redefinir-senha?token=${resetToken}`;
 
       const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
@@ -147,14 +178,62 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         from: process.env.SMTP_FROM,
         to: email,
         subject: 'Redefinicao de senha - SmartGym',
-        text: 'Este e um email de teste para a funcionalidade de redefinicao de senha. Nenhuma acao foi tomada em sua conta.',
-        html: `<p>Este e um email de teste para a funcionalidade de redefinicao de senha. Nenhuma acao foi tomada em sua conta.</p><p>Se voce solicitou uma redefinicao de senha, por favor ignore este email ou entre em contato com o suporte.</p>`,
+        text: `Recebemos um pedido de redefinicao de senha da sua conta SmartGym. Acesse o link para criar uma nova senha (valido por 1 hora): ${resetUrl}\n\nSe voce nao solicitou, ignore este email — nenhuma acao foi tomada.`,
+        html: `<p>Recebemos um pedido de redefinicao de senha da sua conta SmartGym.</p><p><a href="${resetUrl}">Clique aqui para criar uma nova senha</a> (link valido por 1 hora).</p><p>Se voce nao solicitou, ignore este email — nenhuma acao foi tomada.</p>`,
       });
 
       return reply.send(genericResponse);
     } catch (error) {
       request.log.error(error);
       return reply.send(genericResponse);
+    }
+  });
+
+  app.post<{
+    Body: { token?: string; password?: string };
+  }>('/auth/reset-password', authRateLimit, async (request, reply) => {
+    try {
+      const token = (request.body.token ?? '').trim();
+      if (!/^[a-f0-9]{64}$/.test(token)) {
+        return reply.code(400).send({ message: 'Link invalido ou expirado.' });
+      }
+
+      const password = normalizeRegisterPassword(request.body.password);
+      const tokenHash = createHash('sha256').update(token).digest('hex');
+
+      const recovery = await prisma.recuperacaoSenha.findFirst({
+        where: { dsTokenHash: tokenHash, dtUtilizacao: null, dtExpiracao: { gt: new Date() } },
+      });
+
+      if (!recovery) {
+        return reply.code(400).send({ message: 'Link invalido ou expirado.' });
+      }
+
+      const hashed = await hashPassword(password);
+      await prisma.$transaction([
+        prisma.senha.updateMany({
+          where: { idUsuario: recovery.idUsuario, boInativo: false },
+          data: { boInativo: true },
+        }),
+        prisma.senha.create({
+          data: {
+            idUsuario: recovery.idUsuario,
+            dsSenha: hashed,
+            cnTipoHash: HASH_TYPE_BCRYPT,
+            boTrocaObrigatoria: false,
+          },
+        }),
+        prisma.recuperacaoSenha.update({
+          where: { id: recovery.id },
+          data: { dtUtilizacao: new Date() },
+        }),
+      ]);
+
+      return { message: 'Senha redefinida com sucesso. Faca login com a nova senha.' };
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Erro ao redefinir senha.',
+      });
     }
   });
 
@@ -169,50 +248,48 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         throw new Error('Selecione aluno ou funcionario.');
       }
 
+      // Endpoint publico: resposta minimizada de proposito. Retorna apenas o
+      // necessario para o auto-cadastro (nome para confirmacao visual + email
+      // usado como login) e hasUser. NAO expoe CPF, data de nascimento nem
+      // telefone — reduz o valor deste endpoint como fonte de PII/enumeracao.
+      // A mensagem de 404 e unificada para nao diferenciar aluno x funcionario
+      // (elimina o oraculo de tipo/existencia).
       if (type === 'student') {
         const student = await prisma.aluno.findFirst({
-          where: { caCPF: cpf, boInativo: false },
+          where: { caCPFHash: cpfHash(cpf), boInativo: false },
           include: {
             usuarios: { where: { boInativo: false }, select: { id: true } },
           },
         });
 
         if (!student) {
-          return reply.code(404).send({ message: 'CPF nao encontrado no cadastro de alunos.' });
+          return reply.code(404).send({ message: 'CPF nao encontrado no cadastro.' });
         }
 
         return {
           id: student.id,
           type,
           name: student.nmAluno,
-          cpf: student.caCPF,
-          birthDate: student.dtNascimento,
-          ddd: student.nrDDD,
-          phone: student.nrContato ?? '',
           email: student.anEmail,
           hasUser: student.usuarios.length > 0,
         };
       }
 
       const employee = await prisma.funcionario.findFirst({
-        where: { caCPF: cpf, boInativo: false },
+        where: { caCPFHash: cpfHash(cpf), boInativo: false },
         include: {
           usuarios: { where: { boInativo: false }, select: { id: true } },
         },
       });
 
       if (!employee) {
-        return reply.code(404).send({ message: 'CPF nao encontrado no cadastro de funcionarios.' });
+        return reply.code(404).send({ message: 'CPF nao encontrado no cadastro.' });
       }
 
       return {
         id: employee.id,
         type,
         name: employee.nmFuncionario,
-        cpf: employee.caCPF,
-        birthDate: employee.dtNascimento,
-        ddd: employee.nrDDD,
-        phone: employee.nrContato,
         email: employee.anEmail,
         hasUser: employee.usuarios.length > 0,
       };
@@ -239,7 +316,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       const createdUser = await prisma.$transaction(async (transaction) => {
         if (type === 'student') {
           const student = await transaction.aluno.findFirst({
-            where: { caCPF: cpf, boInativo: false },
+            where: { caCPFHash: cpfHash(cpf), boInativo: false },
             include: { usuarios: { where: { boInativo: false }, select: { id: true } } },
           });
 
@@ -261,7 +338,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         }
 
         const employee = await transaction.funcionario.findFirst({
-          where: { caCPF: cpf, boInativo: false },
+          where: { caCPFHash: cpfHash(cpf), boInativo: false },
           include: { usuarios: { where: { boInativo: false }, select: { id: true } } },
         });
 
@@ -387,12 +464,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       const user = await prisma.usuario.findFirst({
         where: {
           boInativo: false,
-          funcionario: { caCPF: cpf, boInativo: false },
+          funcionario: { caCPFHash: cpfHash(cpf), boInativo: false },
         },
         include: { funcionario: { include: { empresa: true } } },
       });
 
       if (!user?.funcionario) {
+        await dummyVerify(password);
         return reply.code(401).send({ message: 'Usuario ou senha invalidos.' });
       }
 
@@ -430,6 +508,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           idAluno: null,
           idFuncionario: user.idFuncionario,
           idCliente,
+          superAdmin: user.boSuperAdmin || undefined,
         },
         { expiresIn: TOKEN_EXPIRY_WEB },
       );

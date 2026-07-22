@@ -10,7 +10,7 @@ import {
   getMultipartFieldValue,
 } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
-import { assertAllowedUploadType, getPromotionFilePath } from '../../shared/files.js';
+import { assertAllowedUploadType, assertUploadBuffer, getPromotionFilePath } from '../../shared/files.js';
 import type { CompanyChildPayload, PlanChildResource, PlanPayload } from '../../shared/api-types.js';
 
 // ---------------------------------------------------------------------------
@@ -92,6 +92,16 @@ function tenantCompanyWhere(idCliente: number) {
 async function planBelongsToTenant(idCliente: number, idPlano: number) {
   const plan = await prisma.plano.findFirst({
     where: { id: idPlano, ...planTenantWhere(idCliente) },
+    select: { id: true },
+  });
+  return Boolean(plan);
+}
+
+// Mutacao exige posse pelo tenant — nao casa plano global (sem empresa
+// vinculada). Leitura continua usando planBelongsToTenant.
+async function planOwnedByTenant(idCliente: number, idPlano: number) {
+  const plan = await prisma.plano.findFirst({
+    where: { id: idPlano, planoEmpresas: { some: { empresa: { idCliente } } } },
     select: { id: true },
   });
   return Boolean(plan);
@@ -389,7 +399,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Plano invalido.');
-      if (!(await planBelongsToTenant(idCliente, id))) {
+      if (!(await planOwnedByTenant(idCliente, id))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const data = normalizePlanPayload(request.body);
@@ -431,7 +441,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       if (!parsedBody.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      if (!(await planBelongsToTenant(idCliente, id))) {
+      if (!(await planOwnedByTenant(idCliente, id))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const boInativo = toBool(parsedBody.data.boInativo);
@@ -669,12 +679,13 @@ export async function registerPlanRoutes(app: FastifyInstance) {
           assertValidId(idTiposArquivos, 'Tipo de arquivo invalido.');
         }
         const buffer = await file.toBuffer();
+        const safeMime = await assertUploadBuffer(buffer);
         const path = getPromotionFilePath(idPromocao, file.filename);
         const { bucket } = getSupabaseConfig();
         const supabase = getSupabaseClient();
         const { error: uploadError } = await supabase.storage
           .from(bucket)
-          .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+          .upload(path, buffer, { contentType: safeMime, upsert: false });
 
         if (uploadError) {
           throw new Error(uploadError.message);
@@ -712,7 +723,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
         assertValidId(idPlano, 'Plano invalido.');
         assertValidId(fileId, 'Arquivo invalido.');
 
-        if (!(await planBelongsToTenant(idCliente, idPlano))) {
+        if (!(await planOwnedByTenant(idCliente, idPlano))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
 
@@ -739,12 +750,13 @@ export async function registerPlanRoutes(app: FastifyInstance) {
           assertValidId(Number(rawFileTypeId), 'Tipo de arquivo invalido.');
         }
         const buffer = await file.toBuffer();
+        const safeMime = await assertUploadBuffer(buffer);
         const path = getPromotionFilePath(idPromocao, file.filename);
         const { bucket } = getSupabaseConfig();
         const supabase = getSupabaseClient();
         const { error: uploadError } = await supabase.storage
           .from(bucket)
-          .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+          .upload(path, buffer, { contentType: safeMime, upsert: false });
 
         if (uploadError) {
           throw new Error(uploadError.message);
@@ -826,7 +838,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
         assertValidId(idPlano, 'Plano invalido.');
         assertValidId(fileId, 'Arquivo invalido.');
 
-        if (!(await planBelongsToTenant(idCliente, idPlano))) {
+        if (!(await planOwnedByTenant(idCliente, idPlano))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
 
@@ -897,7 +909,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idPlano, 'Plano invalido.');
       assertValidId(childId, 'Registro invalido.');
-      if (!(await planBelongsToTenant(idCliente, idPlano))) {
+      if (!(await planOwnedByTenant(idCliente, idPlano))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const config = getPlanChildResourceConfig(request.params.resource);
@@ -937,7 +949,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idPlano, 'Plano invalido.');
       assertValidId(childId, 'Registro invalido.');
-      if (!(await planBelongsToTenant(idCliente, idPlano))) {
+      if (!(await planOwnedByTenant(idCliente, idPlano))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const config = getPlanChildResourceConfig(request.params.resource);

@@ -10,7 +10,7 @@ import {
 } from '../../shared/normalize.js';
 import { prisma } from '../../shared/prisma.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
-import { assertAllowedUploadType, getPromotionFilePath } from '../../shared/files.js';
+import { assertAllowedUploadType, assertUploadBuffer, getPromotionFilePath } from '../../shared/files.js';
 import type { CompanyChildPayload } from '../../shared/api-types.js';
 
 // ---------------------------------------------------------------------------
@@ -78,6 +78,16 @@ function tenantCompanyWhere(idCliente: number) {
 async function promotionBelongsToTenant(idCliente: number, idPromocao: number) {
   const promotion = await prisma.promocao.findFirst({
     where: { id: idPromocao, ...tenantCompanyWhere(idCliente) },
+    select: { id: true },
+  });
+  return Boolean(promotion);
+}
+
+// Mutacao exige posse pelo tenant — nao casa idEmpresa nulo (evita editar
+// catalogo global/de outro tenant). Leitura continua usando promotionBelongsToTenant.
+async function promotionOwnedByTenant(idCliente: number, idPromocao: number) {
+  const promotion = await prisma.promocao.findFirst({
+    where: { id: idPromocao, empresa: { idCliente } },
     select: { id: true },
   });
   return Boolean(promotion);
@@ -279,7 +289,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Promocao invalida.');
-      if (!(await promotionBelongsToTenant(idCliente, id))) {
+      if (!(await promotionOwnedByTenant(idCliente, id))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const data = normalizePromotionPayload(request.body);
@@ -306,7 +316,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       if (!parsedBody.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      if (!(await promotionBelongsToTenant(idCliente, id))) {
+      if (!(await promotionOwnedByTenant(idCliente, id))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       return prisma.promocao.update({
@@ -433,12 +443,13 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
           assertValidId(idTiposArquivos, 'Tipo de arquivo invalido.');
         }
         const buffer = await file.toBuffer();
+        const safeMime = await assertUploadBuffer(buffer);
         const path = getPromotionFilePath(idPromocao, file.filename);
         const { bucket } = getSupabaseConfig();
         const supabase = getSupabaseClient();
         const { error: uploadError } = await supabase.storage
           .from(bucket)
-          .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+          .upload(path, buffer, { contentType: safeMime, upsert: false });
 
         if (uploadError) {
           throw new Error(uploadError.message);
@@ -474,7 +485,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
         assertValidId(idPromocao, 'Promocao invalida.');
         assertValidId(fileId, 'Arquivo invalido.');
 
-        if (!(await promotionBelongsToTenant(idCliente, idPromocao))) {
+        if (!(await promotionOwnedByTenant(idCliente, idPromocao))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
 
@@ -498,12 +509,13 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
           assertValidId(Number(rawFileTypeId), 'Tipo de arquivo invalido.');
         }
         const buffer = await file.toBuffer();
+        const safeMime = await assertUploadBuffer(buffer);
         const path = getPromotionFilePath(idPromocao, file.filename);
         const { bucket } = getSupabaseConfig();
         const supabase = getSupabaseClient();
         const { error: uploadError } = await supabase.storage
           .from(bucket)
-          .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+          .upload(path, buffer, { contentType: safeMime, upsert: false });
 
         if (uploadError) {
           throw new Error(uploadError.message);
@@ -580,7 +592,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
         assertValidId(idPromocao, 'Promocao invalida.');
         assertValidId(fileId, 'Arquivo invalido.');
 
-        if (!(await promotionBelongsToTenant(idCliente, idPromocao))) {
+        if (!(await promotionOwnedByTenant(idCliente, idPromocao))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
 
@@ -645,7 +657,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idPromocao, 'Promocao invalida.');
       assertValidId(childId, 'Registro invalido.');
-      if (!(await promotionBelongsToTenant(idCliente, idPromocao))) {
+      if (!(await promotionOwnedByTenant(idCliente, idPromocao))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const config = getPromotionChildResourceConfig(request.params.resource);
@@ -680,7 +692,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idPromocao, 'Promocao invalida.');
       assertValidId(childId, 'Registro invalido.');
-      if (!(await promotionBelongsToTenant(idCliente, idPromocao))) {
+      if (!(await promotionOwnedByTenant(idCliente, idPromocao))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const config = getPromotionChildResourceConfig(request.params.resource);

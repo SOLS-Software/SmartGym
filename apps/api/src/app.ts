@@ -30,6 +30,12 @@ validateEnv();
 
 export const app = Fastify({
   logger: true,
+  // Assume um reverse proxy/load balancer confiavel terminando TLS na frente
+  // da API (padrao em PaaS). Sem isso, request.ip seria sempre o IP do proxy,
+  // colapsando o rate limit de auth em um unico bucket para todos os usuarios
+  // e registrando o IP errado nos logs. Ajuste para o numero de hops/subnet
+  // do seu deploy se a API for diretamente alcancavel.
+  trustProxy: true,
 });
 
 // Algumas catracas Control iD enviam push como application/x-www-form-urlencoded

@@ -78,6 +78,12 @@ function tenantCompanyWhere(idCliente: number) {
   return { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] };
 }
 
+// Mutacao exige posse pelo tenant — nao casa idEmpresa nulo (evita editar
+// catalogo global/de outro tenant). Leitura continua usando o filtro amplo.
+function tenantOwnedWhere(idCliente: number) {
+  return { empresa: { idCliente } };
+}
+
 async function assertCompanyInTenant(idCliente: number, idEmpresa: number | null | undefined) {
   if (idEmpresa == null) return;
   const company = await prisma.empresa.findFirst({
@@ -229,7 +235,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       const id = Number(request.params.id);
       assertValidId(id, 'Treino invalido.');
       const current = await prisma.treino.findFirst({
-        where: { id, ...tenantCompanyWhere(idCliente) },
+        where: { id, ...tenantOwnedWhere(idCliente) },
         select: { id: true },
       });
       if (!current) {
@@ -271,7 +277,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
       const current = await prisma.treino.findFirst({
-        where: { id, ...tenantCompanyWhere(idCliente) },
+        where: { id, ...tenantOwnedWhere(idCliente) },
         select: { id: true },
       });
       if (!current) {
@@ -389,7 +395,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       assertValidId(childId, 'Exercicio do treino invalido.');
 
       const training = await prisma.treino.findFirst({
-        where: { id: idTreino, ...tenantCompanyWhere(idCliente) },
+        where: { id: idTreino, ...tenantOwnedWhere(idCliente) },
         select: { idEmpresa: true },
       });
 
@@ -449,7 +455,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       assertValidId(childId, 'Exercicio do treino invalido.');
 
       const training = await prisma.treino.findFirst({
-        where: { id: idTreino, ...tenantCompanyWhere(idCliente) },
+        where: { id: idTreino, ...tenantOwnedWhere(idCliente) },
         select: { id: true },
       });
 

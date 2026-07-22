@@ -15,13 +15,20 @@ import {
   getStudentFacialSubject,
   addComprefaceSubjectExample,
 } from '../../shared/compreface.js';
-import { assertAllowedUploadType, getStudentFilePath } from '../../shared/files.js';
+import { assertAllowedUploadType, assertUploadBuffer, getStudentFilePath } from '../../shared/files.js';
 import {
   generateInitialPayments,
   generateNextRecurringPayment,
   isRecurringFrequency,
 } from '../../shared/payments.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
+import {
+  cpfHash,
+  encryptCpfFields,
+  encryptEmbedding,
+  withDecryptedCpf,
+  withDecryptedCpfList,
+} from '../../shared/pii.js';
 import type {
   CompanyChildPayload,
   StudentFacialBiometricEnrollPayload,
@@ -177,20 +184,24 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       return reply.code(400).send({ message: 'Parametros invalidos.' });
     }
     const search = parsedQuery.data.search?.trim();
-    return prisma.aluno.findMany({
+    // CPF criptografado: busca parcial por CPF nao e possivel; CPF completo
+    // (11 digitos) e resolvido por igualdade via caCPFHash.
+    const searchDigits = search?.replace(/\D/g, '') ?? '';
+    const students = await prisma.aluno.findMany({
       where: search
         ? {
             idCliente,
             OR: [
               { nmAluno: { contains: search, mode: 'insensitive' } },
-              { caCPF: { contains: search.replace(/\D/g, '') } },
               { anEmail: { contains: search, mode: 'insensitive' } },
+              ...(searchDigits.length === 11 ? [{ caCPFHash: cpfHash(searchDigits) }] : []),
             ],
           }
         : { idCliente },
       orderBy: { nmAluno: 'asc' },
       take: clampLimit(parsedQuery.data.limit),
     });
+    return withDecryptedCpfList(students);
   });
 
   app.post<{
@@ -201,8 +212,11 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     try {
       // Tenant sempre do token; idCliente vindo do body e ignorado.
       const data = normalizeStudentPayload({ ...request.body, idCliente });
-      const student = await prisma.aluno.create({ data });
-      return reply.code(201).send(student);
+      // PII: grava o CPF criptografado + hash de lookup.
+      const student = await prisma.aluno.create({
+        data: { ...data, ...encryptCpfFields(data.caCPF) },
+      });
+      return reply.code(201).send(withDecryptedCpf(student));
     } catch (error) {
       const isPrismaUnique =
         error instanceof Error &&
@@ -230,7 +244,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      return student;
+      return withDecryptedCpf(student);
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao carregar aluno.',
@@ -253,7 +267,11 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       }
       // Tenant sempre do token; idCliente vindo do body e ignorado.
       const data = normalizeStudentPayload({ ...request.body, idCliente });
-      return prisma.aluno.update({ where: { id }, data });
+      const updated = await prisma.aluno.update({
+        where: { id },
+        data: { ...data, ...encryptCpfFields(data.caCPF) },
+      });
+      return withDecryptedCpf(updated);
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao atualizar aluno.',
@@ -339,12 +357,13 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       assertAllowedUploadType(file);
 
       const buffer = await file.toBuffer();
+      const safeMime = await assertUploadBuffer(buffer);
       const path = getStudentFilePath(idAluno, file.filename);
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+        .upload(path, buffer, { contentType: safeMime, upsert: false });
 
       if (uploadError) {
         throw new Error(uploadError.message);
@@ -463,11 +482,14 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       if (!student) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.alunoBiometriaFacial.findMany({
+      const biometrics = await prisma.alunoBiometriaFacial.findMany({
         where: { idAluno, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
         take: clampLimit(parsedQuery.data.limit),
       });
+      // Embedding e dado biometrico sensivel (criptografado at-rest): nunca
+      // sai da API — o matching e feito pelo CompreFace.
+      return biometrics.map(({ anEmbedding: _embedding, ...rest }) => rest);
     } catch (error) {
       return reply.code(400).send({
         message:
@@ -517,7 +539,8 @@ export async function registerStudentRoutes(app: FastifyInstance) {
             dsProvider: data.dsProvider,
             dsSubject: data.dsSubject,
             dsExternalImageId: data.dsExternalImageId,
-            anEmbedding: data.anEmbedding ?? undefined,
+            // PII: embedding criptografado at-rest (AES-256-GCM).
+            anEmbedding: encryptEmbedding(data.anEmbedding) ?? undefined,
             nrDimensoes: data.nrDimensoes,
             nrThreshold: data.nrThreshold,
             boInativo: false,
@@ -525,7 +548,8 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         });
       });
 
-      return reply.code(201).send(biometric);
+      const { anEmbedding: _embedding, ...biometricResponse } = biometric;
+      return reply.code(201).send(biometricResponse);
     } catch (error) {
       return reply.code(400).send({
         message:

@@ -9,6 +9,8 @@ export type AuthTokenPayload = {
   idAluno: number | null;
   idFuncionario: number | null;
   idCliente: number | null;
+  // Operacao interna (SOLS): habilita acoes cross-tenant (ex.: criar clientes).
+  superAdmin?: boolean;
 };
 
 declare module '@fastify/jwt' {
@@ -27,6 +29,7 @@ const PUBLIC_ROUTES = new Set([
   '/auth/register',
   '/auth/register-lookup',
   '/auth/forgot-password',
+  '/auth/reset-password',
   '/auth/theme',
   // Endpoints consumidos pelas catracas Control iD — os devices nao enviam
   // JWT; a validacao deles e feita por device (serial/IP) no proprio modulo.
@@ -44,18 +47,26 @@ export const TOKEN_EXPIRY_MOBILE = '30d';
 
 // Catalogos que o aluno pode ler (GET) — superficie usada pelo app do aluno
 // (mobile + telas de aluno no web). Tudo fora daqui e negado para alunos.
-const STUDENT_READ_PREFIXES = [
-  '/activities',
-  '/exercises',
-  '/plans',
-  '/promotions',
-  '/trainings',
-  '/agenda-sessions/',
-  '/clients/',
+// Allowlist EXPLICITA de leituras (GET) do app do aluno. Sao padroes de rota
+// EXATOS — nunca prefixo cru. Um prefixo (startsWith) concede, por construcao,
+// qualquer sub-recurso de gestao presente ou futuro sob ele (ex.: listas de
+// inscritos/professores de uma aula), o que vazaria PII de outros alunos.
+// Cada entrada abaixo e um endpoint de catalogo realmente consumido pelo app
+// do aluno; nada de listagens de terceiros.
+const STUDENT_GET_ALLOW: RegExp[] = [
+  /^\/activities$/,
+  /^\/activities\/\d+$/,
+  /^\/exercises$/,
+  /^\/plans$/,
+  /^\/promotions$/,
+  /^\/trainings$/,
+  /^\/trainings\/\d+\/related\/exercises$/,
+  /^\/clients\/\d+$/,
+  /^\/clients\/\d+\/theme$/,
 ];
 
 // RBAC v1 para o papel aluno: deny-by-default.
-// - Leituras de catalogo (lista acima).
+// - Leituras de catalogo (allowlist acima).
 // - Recursos proprios em /students/:id — somente o proprio idAluno, com
 //   mutacoes restritas a matricula em aula e edicao do proprio cadastro.
 function isStudentAllowed(method: string, pathname: string, idAluno: number | null): boolean {
@@ -72,7 +83,7 @@ function isStudentAllowed(method: string, pathname: string, idAluno: number | nu
   }
 
   if (method === 'GET') {
-    return STUDENT_READ_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+    return STUDENT_GET_ALLOW.some((re) => re.test(pathname));
   }
 
   return false;

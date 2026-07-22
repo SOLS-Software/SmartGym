@@ -119,6 +119,12 @@ function activityTenantFilter(idCliente: number) {
   return { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] };
 }
 
+// Mutacao exige posse pelo tenant — nao casa idEmpresa nulo (evita editar
+// catalogo global/de outro tenant). Leitura continua usando o filtro amplo.
+function activityTenantOwnedFilter(idCliente: number) {
+  return { empresa: { idCliente } };
+}
+
 // Valida que a empresa informada no payload pertence ao tenant do usuario.
 async function assertEmpresaInTenant(idEmpresa: number, idCliente: number) {
   const empresa = await prisma.empresa.findFirst({
@@ -263,7 +269,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       const id = Number(request.params.id);
       assertValidId(id, 'Atividade invalida.');
       const current = await prisma.atividade.findFirst({
-        where: { id, ...activityTenantFilter(idCliente) },
+        where: { id, ...activityTenantOwnedFilter(idCliente) },
         select: { id: true },
       });
       if (!current) {
@@ -304,7 +310,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
         return reply.code(400).send({ message: 'Dados invalidos.' });
       }
       const current = await prisma.atividade.findFirst({
-        where: { id, ...activityTenantFilter(idCliente) },
+        where: { id, ...activityTenantOwnedFilter(idCliente) },
         select: { id: true },
       });
       if (!current) {

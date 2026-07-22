@@ -8,6 +8,7 @@ const REQUIRED_ENV_VARS = [
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
   'JWT_SECRET',
+  'PII_ENCRYPTION_KEY',
 ] as const;
 
 export function validateEnv() {

@@ -11,6 +11,20 @@ export function hashPassword(password: string) {
   return bcrypt.hash(password, BCRYPT_ROUNDS);
 }
 
+// Hash descartavel (senha aleatoria) usado apenas para equalizar o tempo de
+// resposta do login quando o usuario NAO existe: sem isso, uma conta
+// inexistente responde mais rapido (sem bcrypt) que uma senha errada de conta
+// existente, criando um oraculo de enumeracao por timing. Computado uma vez.
+const DUMMY_HASH = bcrypt.hashSync('smartgym-timing-equalizer', BCRYPT_ROUNDS);
+
+export async function dummyVerify(password: string): Promise<void> {
+  try {
+    await bcrypt.compare(password || 'x', DUMMY_HASH);
+  } catch {
+    /* noop — so consome tempo comparavel ao caminho valido */
+  }
+}
+
 function sha256Legacy(password: string) {
   return createHash('sha256').update(password).digest('hex');
 }

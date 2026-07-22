@@ -14,7 +14,7 @@ import {
 } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
-import { assertAllowedUploadType, getCompanyFilePath, getPromotionFilePath } from '../../shared/files.js';
+import { assertAllowedUploadType, assertUploadBuffer, getCompanyFilePath, getPromotionFilePath } from '../../shared/files.js';
 import type { CompanyChildPayload, CompanyChildResource, CompanyPayload } from '../../shared/api-types.js';
 
 // ---------------------------------------------------------------------------
@@ -502,12 +502,13 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       const idTiposArquivos = rawFileTypeId ? Number(rawFileTypeId) : null;
 
       const buffer = await file.toBuffer();
+      const safeMime = await assertUploadBuffer(buffer);
       const path = getCompanyFilePath(idEmpresa, file.filename);
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+        .upload(path, buffer, { contentType: safeMime, upsert: false });
 
       if (uploadError) {
         throw new Error(uploadError.message);
@@ -556,12 +557,13 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       const idTiposArquivos = rawFileTypeId ? Number(rawFileTypeId) : existingFile.idTiposArquivos;
 
       const buffer = await file.toBuffer();
+      const safeMime = await assertUploadBuffer(buffer);
       const path = getCompanyFilePath(idEmpresa, file.filename);
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+        .upload(path, buffer, { contentType: safeMime, upsert: false });
 
       if (uploadError) {
         throw new Error(uploadError.message);
@@ -687,12 +689,13 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
       const idTiposArquivos = rawFileTypeId ? Number(rawFileTypeId) : null;
       const buffer = await file.toBuffer();
+      const safeMime = await assertUploadBuffer(buffer);
       const path = getPromotionFilePath(idPromocao, file.filename);
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+        .upload(path, buffer, { contentType: safeMime, upsert: false });
       if (uploadError) throw new Error(uploadError.message);
 
       return reply.code(201).send(await prisma.promocaoArquivo.create({
@@ -731,12 +734,13 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
 
       const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
       const buffer = await file.toBuffer();
+      const safeMime = await assertUploadBuffer(buffer);
       const path = getPromotionFilePath(idPromocao, file.filename);
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+        .upload(path, buffer, { contentType: safeMime, upsert: false });
       if (uploadError) throw new Error(uploadError.message);
 
       return prisma.promocaoArquivo.update({

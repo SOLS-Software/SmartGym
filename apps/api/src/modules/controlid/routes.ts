@@ -94,6 +94,31 @@ function getClientIp(request: FastifyRequest): string {
   return request.ip ?? '';
 }
 
+// Extrai o token do device enviado no push. Aceitamos duas formas para cobrir
+// diferentes firmwares/configuracoes de campo:
+//   1) header `x-controlid-token` (forma primaria, ja lida pelo handler antigo);
+//   2) campo `token` / `push_token` no corpo JSON (fallback para firmwares que
+//      nao permitem header customizado).
+// Retorna string vazia quando nenhum token e enviado.
+function extractControlidToken(request: FastifyRequest): string {
+  const headerToken = request.headers['x-controlid-token'];
+  if (typeof headerToken === 'string' && headerToken.trim() !== '') {
+    return headerToken.trim();
+  }
+  const body = request.body;
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    const record = body as Record<string, unknown>;
+    const bodyToken = record.token ?? record.push_token ?? record.pushToken;
+    if (typeof bodyToken === 'string' && bodyToken.trim() !== '') {
+      return bodyToken.trim();
+    }
+    if (typeof bodyToken === 'number' || typeof bodyToken === 'bigint') {
+      return String(bodyToken);
+    }
+  }
+  return '';
+}
+
 // Localiza (ou cria) o registro da catraca usando o serial / MAC enviado no push.
 // Se o equipamento ainda nao estiver cadastrado, criamos um registro inativo
 // para o gestor visualizar e ativar manualmente no painel.
@@ -233,6 +258,12 @@ export async function registerControlidRoutes(app: FastifyInstance) {
           ...(includeInactive ? {} : { boInativo: false }),
           // Catracas auto-registradas chegam sem idEmpresa e precisam aparecer
           // no painel para o gestor ativar/vincular.
+          // RISCO RESIDUAL (aceito): catracas com idEmpresa null ficam visiveis
+          // a TODOS os tenants ate serem reclamadas - proposital para o fluxo de
+          // ativacao, mas significa que um tenant pode enxergar serial/MAC/IP de
+          // um equipamento auto-registrado que sera de outro tenant. A MUTACAO /
+          // claim dessas catracas e protegida no PUT/PATCH abaixo (somente o
+          // proprio tenant consegue assumi-las e edita-las).
           ...(idEmpresa
             ? { idEmpresa, empresa: { idCliente } }
             : { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] }),
@@ -276,16 +307,31 @@ export async function registerControlidRoutes(app: FastifyInstance) {
       try {
         const id = Number(request.params.id);
         assertValidId(id, 'Catraca invalida.');
-        const existing = await prisma.catraca.findFirst({
-          where: { id, OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
-          select: { id: true },
+        // Carregamos a catraca com o vinculo empresa->cliente para aplicar a
+        // regra anti-sequestro cross-tenant (objetivo "b").
+        const existing = await prisma.catraca.findUnique({
+          where: { id },
+          select: { id: true, idEmpresa: true, empresa: { select: { idCliente: true } } },
         });
-        if (!existing) return reply.code(404).send({ message: 'Registro nao encontrado.' });
+        // Uma catraca ja reclamada por OUTRO tenant nunca deve ser mutavel aqui:
+        // so seguimos se ela for do proprio tenant OU ainda estiver sem empresa
+        // (idEmpresa null, aguardando reivindicacao).
+        if (!existing || (existing.idEmpresa !== null && existing.empresa?.idCliente !== idCliente)) {
+          return reply.code(404).send({ message: 'Registro nao encontrado.' });
+        }
         const parsedBody = catracaBodySchema.safeParse(request.body ?? {});
         if (!parsedBody.success) {
           throw new Error(parsedBody.error.issues[0]?.message ?? 'Dados invalidos.');
         }
         const data = normalizeCatracaPayload(request.body);
+        // Reivindicacao (claim) de catraca ainda nao vinculada: so permitimos a
+        // mutacao se ela ATRIBUIR a catraca a uma empresa do proprio tenant.
+        // Isso impede que o tenant A apenas renomeie/reconfigure uma catraca
+        // nula (que pode, de fato, ser o equipamento auto-registrado do tenant B)
+        // sem assumi-la de verdade.
+        if (existing.idEmpresa === null && !data.idEmpresa) {
+          throw new Error('Para editar uma catraca ainda nao vinculada, informe a empresa do seu cliente.');
+        }
         if (data.idEmpresa) {
           const empresa = await prisma.empresa.findFirst({
             where: { id: data.idEmpresa, idCliente },
@@ -310,8 +356,14 @@ export async function registerControlidRoutes(app: FastifyInstance) {
       try {
         const id = Number(request.params.id);
         assertValidId(id, 'Catraca invalida.');
+        // O PATCH de status nao carrega idEmpresa, entao nao ha como "reivindicar"
+        // uma catraca por aqui. Restringimos a catracas que JA pertencem ao
+        // proprio tenant, para que o tenant A nao consiga ativar/desativar
+        // catracas de outro tenant NEM catracas ainda nao reclamadas. A
+        // reivindicacao/ativacao inicial de uma catraca nula deve ser feita via
+        // PUT /controlid/catracas/:id, atribuindo a empresa do proprio cliente.
         const existing = await prisma.catraca.findFirst({
-          where: { id, OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
+          where: { id, empresa: { idCliente } },
           select: { id: true },
         });
         if (!existing) return reply.code(404).send({ message: 'Registro nao encontrado.' });
@@ -352,6 +404,11 @@ export async function registerControlidRoutes(app: FastifyInstance) {
       where: {
         ...(idCatraca ? { idCatraca } : {}),
         ...(onlyGranted ? { boAcessoLiberado: true } : {}),
+        // Mesma regra da listagem de catracas: eventos de catracas ainda nao
+        // vinculadas (idEmpresa null) ficam visiveis a todos os tenants ate a
+        // reivindicacao. RISCO RESIDUAL aceito para o fluxo de ativacao; catracas
+        // ja reclamadas por outro tenant continuam filtradas por empresa.idCliente,
+        // entao nenhum evento de aluno de outro tenant vaza aqui.
         catraca: { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
       },
       orderBy: { dtEvento: 'desc' },
@@ -462,6 +519,46 @@ async function handleControlidPushRequest(request: FastifyRequest, reply: Fastif
 
     const catraca = await findOrAutoRegisterCatraca(device, clientIp);
 
+    // -------------------------------------------------------------------
+    // Validacao de token do device (anti-forja de eventos - objetivo "a").
+    //
+    // Executada ANTES de qualquer escrita (atualizacao de metadata da catraca
+    // OU persistencia de eventos), para que um push forjado nao consiga sequer
+    // sobrescrever `anIp`/`dtUltimoPush` de uma catraca legitima.
+    //
+    // Regras:
+    //  - Se a catraca resolvida tem `caToken` configurado, o push DEVE trazer
+    //    exatamente esse token (header `x-controlid-token` OU campo `token` /
+    //    `push_token` no body). Se nao bater, rejeitamos com 401.
+    //  - Se `caToken` esta vazio (catraca auto-registrada aguardando ativacao
+    //    manual no painel), mantemos o comportamento atual (aceita sem token)
+    //    para NAO quebrar catracas legitimas ainda em provisionamento.
+    //  - A flag de ambiente CONTROLID_REQUIRE_TOKEN (default desligada) permite
+    //    endurecer: quando === 'true', QUALQUER push de catraca sem `caToken`
+    //    configurado (ou com device nao identificado) e rejeitado - bloqueio
+    //    total para deploys ja 100% provisionados com token.
+    //
+    // O corpo da resposta segue o mesmo formato ({ ok: false, error }) que os
+    // demais caminhos deste handler ja devolvem para a catraca.
+    const requireTokenGlobally = process.env.CONTROLID_REQUIRE_TOKEN === 'true';
+    const expectedToken = (catraca?.caToken ?? '').trim();
+    if (expectedToken) {
+      const providedToken = extractControlidToken(request);
+      if (providedToken !== expectedToken) {
+        request.log.warn(
+          { serial: device.caSerial, idCatraca: catraca?.id, ip: clientIp },
+          'Push da Control iD recusado: token do device invalido ou ausente.',
+        );
+        return reply.code(401).send({ ok: false, error: 'token_invalido' });
+      }
+    } else if (requireTokenGlobally) {
+      request.log.warn(
+        { serial: device.caSerial, idCatraca: catraca?.id, ip: clientIp },
+        'Push da Control iD recusado: CONTROLID_REQUIRE_TOKEN ativo e catraca sem caToken configurado.',
+      );
+      return reply.code(401).send({ ok: false, error: 'token_requerido' });
+    }
+
     if (catraca) {
       await prisma.catraca.update({
         where: { id: catraca.id },
@@ -475,17 +572,6 @@ async function handleControlidPushRequest(request: FastifyRequest, reply: Fastif
 
     if (events.length === 0) {
       return reply.code(200).send({ ok: true, received: 0 });
-    }
-
-    if (catraca && catraca.caToken) {
-      const headerToken = String(request.headers['x-controlid-token'] ?? '');
-      if (headerToken !== catraca.caToken) {
-        request.log.warn(
-          { serial: device.caSerial, ip: clientIp },
-          'Push da Control iD recusado: token invalido.',
-        );
-        return reply.code(401).send({ ok: false, error: 'token_invalido' });
-      }
     }
 
     const created = await persistEvents({

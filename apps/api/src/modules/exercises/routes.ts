@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { normalizeExercisePayload, assertValidId } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
-import { assertAllowedUploadType, getExerciseFilePath } from '../../shared/files.js';
+import { assertAllowedUploadType, assertUploadBuffer, getExerciseFilePath } from '../../shared/files.js';
 import type {
   ExercicioAreaCorporalPayload,
   ExercicioEquipamentoPayload,
@@ -71,6 +71,16 @@ function tenantCompanyWhere(idCliente: number) {
 async function exerciseBelongsToTenant(idCliente: number, idExercicio: number) {
   const exercise = await prisma.exercicio.findFirst({
     where: { id: idExercicio, ...tenantCompanyWhere(idCliente) },
+    select: { id: true },
+  });
+  return Boolean(exercise);
+}
+
+// Mutacao exige posse pelo tenant — nao casa idEmpresa nulo (evita editar
+// catalogo global/de outro tenant). Leitura continua usando exerciseBelongsToTenant.
+async function exerciseOwnedByTenant(idCliente: number, idExercicio: number) {
+  const exercise = await prisma.exercicio.findFirst({
+    where: { id: idExercicio, empresa: { idCliente } },
     select: { id: true },
   });
   return Boolean(exercise);
@@ -205,7 +215,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Exercicio invalido.');
-      if (!(await exerciseBelongsToTenant(idCliente, id))) {
+      if (!(await exerciseOwnedByTenant(idCliente, id))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const data = normalizeExercisePayload(request.body);
@@ -232,7 +242,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       if (!parsedBody.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      if (!(await exerciseBelongsToTenant(idCliente, id))) {
+      if (!(await exerciseOwnedByTenant(idCliente, id))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const boInativo = toBool(parsedBody.data.boInativo);
@@ -291,12 +301,13 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertAllowedUploadType(file);
 
       const buffer = await file.toBuffer();
+      const safeMime = await assertUploadBuffer(buffer);
       const path = getExerciseFilePath(idExercicio, file.filename);
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+        .upload(path, buffer, { contentType: safeMime, upsert: false });
 
       if (uploadError) {
         throw new Error(uploadError.message);
@@ -373,7 +384,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(fileId, 'Arquivo invalido.');
 
-      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+      if (!(await exerciseOwnedByTenant(idCliente, idExercicio))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
@@ -477,7 +488,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(linkId, 'Vinculo invalido.');
 
-      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+      if (!(await exerciseOwnedByTenant(idCliente, idExercicio))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
@@ -581,7 +592,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(linkId, 'Vinculo invalido.');
 
-      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+      if (!(await exerciseOwnedByTenant(idCliente, idExercicio))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 

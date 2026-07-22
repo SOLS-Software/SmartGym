@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId, optionalNumber, requiredText, optionalText, getMultipartFieldValue } from '../../shared/normalize.js';
 import { getClientSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
-import { assertAllowedUploadType, getClientFilePath } from '../../shared/files.js';
+import { assertAllowedUploadType, assertUploadBuffer, getClientFilePath } from '../../shared/files.js';
 
 // Paginacao de listagens: aceita ?limit= com clamp em 1..1000 (default 1000).
 const limitQuery = z.coerce
@@ -87,6 +87,10 @@ export async function registerClientRoutes(app: FastifyInstance) {
   });
 
   app.post<{ Body: Record<string, unknown> }>('/clients', async (request, reply) => {
+    // Criar um tenant e operacao interna (SOLS): exige usuario super-admin.
+    if (!request.user.superAdmin) {
+      return reply.code(403).send({ message: 'Acesso restrito ao administrador do sistema.' });
+    }
     try {
       const dsCliente = requiredText(request.body.dsCliente, 'Informe o nome do cliente.');
       const cliente = await prisma.cliente.create({
@@ -288,12 +292,13 @@ export async function registerClientRoutes(app: FastifyInstance) {
       const dsArquivo = (getMultipartFieldValue(fields, 'dsArquivo') as string | undefined) || file.filename;
 
       const buffer = await file.toBuffer();
+      const safeMime = await assertUploadBuffer(buffer);
       const path = getClientFilePath(id, file.filename);
       const { bucket } = getClientSupabaseConfig();
       const supabase = getSupabaseClient();
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+        .upload(path, buffer, { contentType: safeMime, upsert: false });
 
       if (uploadError) throw new Error(uploadError.message);
 

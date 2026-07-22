@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { getComprefaceConfig, recognizeComprefaceFace } from '../../shared/compreface.js';
-import { assertAllowedUploadType } from '../../shared/files.js';
+import { assertAllowedUploadType, assertUploadBuffer } from '../../shared/files.js';
 
 export async function registerAccessRoutes(app: FastifyInstance) {
   app.post('/access/facial/recognize', async (request, reply) => {
@@ -16,6 +16,7 @@ export async function registerAccessRoutes(app: FastifyInstance) {
       assertAllowedUploadType(file);
 
       const buffer = await file.toBuffer();
+      await assertUploadBuffer(buffer);
       const recognition = await recognizeComprefaceFace(buffer, file.filename);
       const prediction = recognition.result?.[0]?.subjects?.[0];
       const subject = prediction?.subject;

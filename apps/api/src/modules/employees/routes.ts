@@ -3,7 +3,13 @@ import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId, getMultipartFieldValue, normalizeEmployeePayload } from '../../shared/normalize.js';
-import { assertAllowedUploadType, getEmployeeFilePath } from '../../shared/files.js';
+import { assertAllowedUploadType, assertUploadBuffer, getEmployeeFilePath } from '../../shared/files.js';
+import {
+  cpfHash,
+  encryptCpfFields,
+  withDecryptedCpf,
+  withDecryptedCpfList,
+} from '../../shared/pii.js';
 import { getSupabaseClient, getSupabaseConfig } from '../../shared/supabase.js';
 import type { CompanyChildPayload, EmployeePayload } from '../../shared/api-types.js';
 
@@ -42,20 +48,24 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
     const parsedQuery = listEmployeesQuerySchema.safeParse(request.query);
     if (!parsedQuery.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
     const search = parsedQuery.data.search?.trim();
-    return prisma.funcionario.findMany({
+    // CPF criptografado: busca parcial por CPF nao e possivel; CPF completo
+    // (11 digitos) e resolvido por igualdade via caCPFHash.
+    const searchDigits = search?.replace(/\D/g, '') ?? '';
+    const employees = await prisma.funcionario.findMany({
       where: search
         ? {
             empresa: { idCliente },
             OR: [
               { nmFuncionario: { contains: search, mode: 'insensitive' } },
-              { caCPF: { contains: search.replace(/\D/g, '') } },
               { anEmail: { contains: search, mode: 'insensitive' } },
+              ...(searchDigits.length === 11 ? [{ caCPFHash: cpfHash(searchDigits) }] : []),
             ],
           }
         : { empresa: { idCliente } },
       orderBy: { nmFuncionario: 'asc' },
       take: clampLimit(parsedQuery.data.limit),
     });
+    return withDecryptedCpfList(employees);
   });
 
   app.post<{
@@ -66,10 +76,12 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
     try {
       const data = normalizeEmployeePayload(request.body);
       if (data.idEmpresa) await assertCompanyInTenant(data.idEmpresa, idCliente);
+      // PII: grava o CPF criptografado + hash de lookup.
+      const storedData = { ...data, ...encryptCpfFields(String(data.caCPF ?? '')) };
       const employee = await prisma.funcionario.create({
-        data: data as unknown as Parameters<typeof prisma.funcionario.create>[0]['data'],
+        data: storedData as unknown as Parameters<typeof prisma.funcionario.create>[0]['data'],
       });
-      return reply.code(201).send(employee);
+      return reply.code(201).send(withDecryptedCpf(employee));
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao criar funcionario.',
@@ -90,10 +102,12 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const data = normalizeEmployeePayload(request.body);
       if (data.idEmpresa) await assertCompanyInTenant(data.idEmpresa, idCliente);
-      return prisma.funcionario.update({
+      const storedData = { ...data, ...encryptCpfFields(String(data.caCPF ?? '')) };
+      const updated = await prisma.funcionario.update({
         where: { id },
-        data: data as unknown as Parameters<typeof prisma.funcionario.update>[0]['data'],
+        data: storedData as unknown as Parameters<typeof prisma.funcionario.update>[0]['data'],
       });
+      return withDecryptedCpf(updated);
     } catch (error) {
       return reply.code(400).send({
         message: error instanceof Error ? error.message : 'Erro ao atualizar funcionario.',
@@ -161,12 +175,13 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       const idTiposArquivos = rawFileTypeId ? Number(rawFileTypeId) : null;
       if (idTiposArquivos !== null) assertValidId(idTiposArquivos, 'Tipo de arquivo invalido.');
       const buffer = await file.toBuffer();
+      const safeMime = await assertUploadBuffer(buffer);
       const path = getEmployeeFilePath(idFuncionario, file.filename);
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+        .upload(path, buffer, { contentType: safeMime, upsert: false });
 
       if (uploadError) {
         throw new Error(uploadError.message);
@@ -213,12 +228,13 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       const idTiposArquivos = rawFileTypeId ? Number(rawFileTypeId) : undefined;
       if (idTiposArquivos !== undefined) assertValidId(idTiposArquivos, 'Tipo de arquivo invalido.');
       const buffer = await file.toBuffer();
+      const safeMime = await assertUploadBuffer(buffer);
       const path = getEmployeeFilePath(idFuncionario, file.filename);
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+        .upload(path, buffer, { contentType: safeMime, upsert: false });
 
       if (uploadError) {
         throw new Error(uploadError.message);

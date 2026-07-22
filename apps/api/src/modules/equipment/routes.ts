@@ -8,7 +8,7 @@ import {
   assertValidId,
 } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
-import { assertAllowedUploadType, getEquipamentoFilePath } from '../../shared/files.js';
+import { assertAllowedUploadType, assertUploadBuffer, getEquipamentoFilePath } from '../../shared/files.js';
 import type { EquipamentoPayload, EquipamentoManutencaoPayload } from '../../shared/api-types.js';
 
 const listQuerySchema = z.object({
@@ -132,12 +132,13 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       assertAllowedUploadType(file);
 
       const buffer = await file.toBuffer();
+      const safeMime = await assertUploadBuffer(buffer);
       const path = getEquipamentoFilePath(idEquipamento, file.filename);
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, buffer, { contentType: file.mimetype, upsert: false });
+        .upload(path, buffer, { contentType: safeMime, upsert: false });
 
       if (uploadError) {
         throw new Error(uploadError.message);
