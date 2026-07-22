@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_URL = process.env.API_URL ?? 'http://localhost:3333';
 const ENCRYPTED = process.env.NODE_ENV === 'production';
+// Ver nota em apiFetch.ts: envelope de OFUSCACAO, nao de seguranca. A mesma
+// passphrase existe no bundle do cliente, logo e publica. Seguranca real =
+// TLS + cookie HttpOnly de sessao.
 const API_PASSPHRASE = 'smartgym-2026-api-payload-key-sols';
 
 // Cookie HttpOnly com o JWT da API: o browser nunca ve o token — o proxy
@@ -69,6 +72,24 @@ type RouteContext = { params: Promise<{ path: string[] }> };
 
 async function handler(request: NextRequest, { params }: RouteContext) {
   const { path } = await params;
+
+  // CSRF: em metodos mutantes, o Origin (quando o browser envia) deve bater
+  // com o host da propria aplicacao. SameSite=Lax ja bloqueia a maioria dos
+  // casos; isto cobre o restante sem afetar clientes sem Origin (curl/health).
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    const origin = request.headers.get('origin');
+    if (origin) {
+      let originHost: string | null = null;
+      try {
+        originHost = new URL(origin).host;
+      } catch {
+        originHost = null;
+      }
+      if (!originHost || originHost !== request.nextUrl.host) {
+        return NextResponse.json({ message: 'Origem nao autorizada.' }, { status: 403 });
+      }
+    }
+  }
 
   // Resolve o path real da API (sem barra inicial) nos dois modos.
   let apiPath: string;

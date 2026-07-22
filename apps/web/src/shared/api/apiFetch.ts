@@ -1,4 +1,9 @@
 const ENCRYPTED = process.env.NODE_ENV === 'production';
+// ATENCAO: isto NAO e um controle de seguranca. A passphrase roda no browser
+// (client bundle), entao a chave e publica — qualquer um a extrai e decifra.
+// Serve apenas como ofuscacao leve do payload no trafego proxy. A
+// confidencialidade real vem do TLS; a autenticacao, do cookie HttpOnly de
+// sessao. Nao trate este envelope como criptografia confiavel ponta-a-ponta.
 const API_PASSPHRASE = 'smartgym-2026-api-payload-key-sols';
 
 let _key: CryptoKey | null = null;
