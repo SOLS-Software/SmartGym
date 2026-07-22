@@ -378,7 +378,8 @@ export default function HomePage() {
           if (cachedAt && Date.now() - cachedAt > SESSION_MAX_AGE_MS) {
             localStorage.removeItem(SESSION_KEY);
           } else {
-            const verifyResponse = await fetch(`${apiUrl}/auth/verify?id=${user.id}`);
+            // Identidade validada pelo cookie HttpOnly de sessao (JWT no proxy).
+            const verifyResponse = await fetch(`${apiUrl}/auth/verify`);
             if (!verifyResponse.ok) {
               localStorage.removeItem(SESSION_KEY);
             } else {
@@ -694,6 +695,8 @@ export default function HomePage() {
   }
 
   function handleLogout() {
+    // Descarta o cookie HttpOnly de sessao no proxy (fire-and-forget).
+    void fetch(`${apiUrl}/auth/logout`, { method: 'POST' }).catch(() => { });
     try {
       localStorage.removeItem(SESSION_KEY);
     } catch { }

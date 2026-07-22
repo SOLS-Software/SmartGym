@@ -101,7 +101,8 @@ export default function GestorPage() {
           if (Date.now() - parsed.cachedAt > SESSION_MAX_AGE_MS) {
             localStorage.removeItem(GESTOR_SESSION_KEY);
           } else {
-            const res = await fetch(`${apiUrl}/auth/verify?id=${parsed.data.id}`);
+            // Identidade validada pelo cookie HttpOnly de sessao (JWT no proxy).
+            const res = await fetch(`${apiUrl}/auth/verify`);
             if (res.ok && parsed.data.type === 'employee') {
               setSession(parsed.data);
               setIsLoggedIn(true);
@@ -219,6 +220,8 @@ export default function GestorPage() {
   }
 
   function handleLogout() {
+    // Descarta o cookie HttpOnly de sessao no proxy (fire-and-forget).
+    void fetch(`${apiUrl}/auth/logout`, { method: 'POST' }).catch(() => { });
     localStorage.removeItem(GESTOR_SESSION_KEY);
     localStorage.removeItem(SESSION_KEY);
     setIsLoggedIn(false);
