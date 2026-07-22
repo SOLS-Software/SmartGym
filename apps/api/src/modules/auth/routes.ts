@@ -62,7 +62,17 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         orderBy: { dtCadastro: 'desc' },
       });
 
-      const { valid, needsRehash } = await verifyPassword(password, currentPassword);
+      const { valid, needsRehash, expired } = await verifyPassword(password, currentPassword);
+
+      // Senha correta mas em formato legado apos o prazo (LEGACY_PASSWORD_DEADLINE):
+      // recusa e orienta a redefinir. So dispara com a senha certa, entao nao
+      // vira oraculo de enumeracao. Retorno direto (fora do catch generico) para
+      // a orientacao chegar ao usuario.
+      if (expired) {
+        return reply.code(403).send({
+          message: 'Por seguranca, redefina sua senha em "Esqueci minha senha".',
+        });
+      }
 
       if (!valid) {
         throw new Error('Usuario ou senha invalidos.');
@@ -87,6 +97,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           idFuncionario: user.idFuncionario,
           idCliente,
           superAdmin: user.boSuperAdmin || undefined,
+          tv: user.nrTokenVersion,
         },
         { expiresIn: request.body.client === 'mobile' ? TOKEN_EXPIRY_MOBILE : TOKEN_EXPIRY_WEB },
       );
@@ -226,6 +237,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         prisma.recuperacaoSenha.update({
           where: { id: recovery.id },
           data: { dtUtilizacao: new Date() },
+        }),
+        // Revoga toda sessao viva: um token roubado nao sobrevive a troca de senha.
+        prisma.usuario.update({
+          where: { id: recovery.idUsuario },
+          data: { nrTokenVersion: { increment: 1 } },
         }),
       ]);
 
@@ -483,7 +499,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         orderBy: { dtCadastro: 'desc' },
       });
 
-      const { valid, needsRehash } = await verifyPassword(password, currentPassword);
+      const { valid, needsRehash, expired } = await verifyPassword(password, currentPassword);
+
+      if (expired) {
+        return reply.code(403).send({
+          message: 'Por seguranca, redefina sua senha em "Esqueci minha senha".',
+        });
+      }
 
       if (!valid) {
         return reply.code(401).send({ message: 'Usuario ou senha invalidos.' });
@@ -509,6 +531,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           idFuncionario: user.idFuncionario,
           idCliente,
           superAdmin: user.boSuperAdmin || undefined,
+          tv: user.nrTokenVersion,
         },
         { expiresIn: TOKEN_EXPIRY_WEB },
       );
@@ -569,5 +592,23 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       request.log.error(error);
       return reply.code(500).send({ message: 'Erro ao verificar sessao.' });
     }
+  });
+
+  // Logout com revogacao server-side: incrementa a versao de sessao do usuario,
+  // invalidando imediatamente TODOS os tokens ja emitidos (web + mobile). Como e
+  // por-usuario (nao por-token), "Sair" encerra a sessao em todos os
+  // dispositivos — comportamento intencional e mais seguro para um app deste
+  // porte. Sempre responde 204: mesmo que o incremento falhe, o cliente
+  // descarta a credencial (cookie/SecureStore) do seu lado.
+  app.post('/auth/logout', async (request, reply) => {
+    try {
+      await prisma.usuario.update({
+        where: { id: request.user.sub },
+        data: { nrTokenVersion: { increment: 1 } },
+      });
+    } catch (error) {
+      request.log.warn(error);
+    }
+    return reply.code(204).send();
   });
 }

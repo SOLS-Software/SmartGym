@@ -1,5 +1,6 @@
 import jwt from '@fastify/jwt';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { prisma } from '../shared/prisma.js';
 
 export type AuthRole = 'student' | 'employee' | 'gestor';
 
@@ -11,6 +12,10 @@ export type AuthTokenPayload = {
   idCliente: number | null;
   // Operacao interna (SOLS): habilita acoes cross-tenant (ex.: criar clientes).
   superAdmin?: boolean;
+  // Versao de sessao (Usuario.nrTokenVersion no momento da emissao). O plugin
+  // rejeita o token se nao bater com o valor atual no banco — e assim que
+  // logout e redefinicao de senha revogam sessoes vivas.
+  tv?: number;
 };
 
 declare module '@fastify/jwt' {
@@ -71,6 +76,8 @@ const STUDENT_GET_ALLOW: RegExp[] = [
 //   mutacoes restritas a matricula em aula e edicao do proprio cadastro.
 function isStudentAllowed(method: string, pathname: string, idAluno: number | null): boolean {
   if (pathname === '/auth/verify') return true;
+  // Encerrar a propria sessao (revoga o token no servidor) e sempre permitido.
+  if (pathname === '/auth/logout' && method === 'POST') return true;
 
   const studentMatch = pathname.match(/^\/students\/(\d+)(\/|$)/);
   if (studentMatch) {
@@ -104,6 +111,18 @@ export async function registerAuthPlugin(app: FastifyInstance) {
     try {
       await request.jwtVerify();
     } catch {
+      return reply.code(401).send({ message: 'Sessao invalida ou expirada.' });
+    }
+
+    // Revogacao de sessao + kill-switch de conta: um SELECT indexado por PK a
+    // cada request. O token so vale se a conta segue ativa E a versao de sessao
+    // do token (tv) bate com a atual. Logout / reset de senha incrementam a
+    // versao, derrubando na hora qualquer token vivo (inclusive um vazado).
+    const account = await prisma.usuario.findUnique({
+      where: { id: request.user.sub },
+      select: { boInativo: true, nrTokenVersion: true },
+    });
+    if (!account || account.boInativo || account.nrTokenVersion !== (request.user.tv ?? 0)) {
       return reply.code(401).send({ message: 'Sessao invalida ou expirada.' });
     }
 

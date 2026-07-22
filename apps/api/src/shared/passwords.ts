@@ -29,6 +29,21 @@ function sha256Legacy(password: string) {
   return createHash('sha256').update(password).digest('hex');
 }
 
+// Prazo de aposentadoria dos formatos legados (texto puro e SHA-256 sem salt).
+// Definido em LEGACY_PASSWORD_DEADLINE (data ISO, ex.: "2026-12-31"). Passada a
+// data, uma senha legada CORRETA e recusada no login: o usuario precisa
+// redefinir via "Esqueci minha senha" para gerar um hash bcrypt. Sem a variavel
+// (ou com valor invalido) nao ha prazo — o rehash progressivo no login segue
+// sendo o unico mecanismo de migracao. Isto forca a migracao de contas dormentes
+// que, de outra forma, manteriam o formato fraco indefinidamente.
+function legacyDeadlinePassed(): boolean {
+  const raw = process.env.LEGACY_PASSWORD_DEADLINE;
+  if (!raw) return false;
+  const deadline = new Date(raw);
+  if (Number.isNaN(deadline.getTime())) return false;
+  return new Date() > deadline;
+}
+
 // Comparacao em tempo constante para os formatos legados (SHA-256 hex e texto
 // puro). O bcrypt.compare ja e timing-safe por construcao.
 function safeEquals(a: string, b: string) {
@@ -45,11 +60,13 @@ type StoredPassword = {
 
 // Verifica a senha contra o registro de tb_Senhas, aceitando os formatos
 // legados (SHA-256 e texto puro) uma ultima vez. `needsRehash` sinaliza que o
-// registro deve ser regravado com bcrypt apos o login bem-sucedido.
+// registro deve ser regravado com bcrypt apos o login bem-sucedido. `expired`
+// sinaliza que a senha bateu, mas o formato legado ja passou do prazo
+// (LEGACY_PASSWORD_DEADLINE) — o caller deve recusar e mandar redefinir.
 export async function verifyPassword(
   password: string,
   stored: StoredPassword | null,
-): Promise<{ valid: boolean; needsRehash: boolean }> {
+): Promise<{ valid: boolean; needsRehash: boolean; expired?: boolean }> {
   if (!stored?.dsSenha || !password) {
     return { valid: false, needsRehash: false };
   }
@@ -58,11 +75,17 @@ export async function verifyPassword(
     return { valid: await bcrypt.compare(password, stored.dsSenha), needsRehash: false };
   }
 
-  if (stored.cnTipoHash === HASH_TYPE_SHA256) {
-    return { valid: safeEquals(stored.dsSenha, sha256Legacy(password)), needsRehash: true };
+  // Formatos legados: SHA-256 sem salt ou texto puro (cnTipoHash nulo). Aceitos
+  // uma ultima vez e regravados com bcrypt no login — salvo se o prazo expirou,
+  // caso em que a senha correta e recusada (expired) para forcar a redefinicao.
+  const matched =
+    stored.cnTipoHash === HASH_TYPE_SHA256
+      ? safeEquals(stored.dsSenha, sha256Legacy(password))
+      : safeEquals(stored.dsSenha, password);
+
+  if (matched && legacyDeadlinePassed()) {
+    return { valid: false, needsRehash: false, expired: true };
   }
 
-  // Legado: senha gravada em texto puro (cnTipoHash nulo). Aceita para nao
-  // travar o usuario e regrava com bcrypt no proprio login.
-  return { valid: safeEquals(stored.dsSenha, password), needsRehash: true };
+  return { valid: matched, needsRehash: matched };
 }
