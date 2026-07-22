@@ -1,9 +1,10 @@
+import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { normalizeExercisePayload, assertValidId } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
-import { getExerciseFilePath } from '../../shared/files.js';
+import { assertAllowedUploadType, getExerciseFilePath } from '../../shared/files.js';
 import type {
   ExercicioAreaCorporalPayload,
   ExercicioEquipamentoPayload,
@@ -11,6 +12,78 @@ import type {
 } from '../../shared/api-types.js';
 
 const IMAGE_EXTENSION_PATTERN = /\.(jpg|jpeg|png|gif|webp)$/i;
+
+// ---------------------------------------------------------------------------
+// Validacao de entrada
+// ---------------------------------------------------------------------------
+
+const queryFlagSchema = z.enum(['true', 'false']).optional();
+
+const queryIntSchema = z.preprocess(
+  (value) => (value === '' ? undefined : value),
+  z.coerce.number().int().optional(),
+);
+
+const queryOffsetSchema = z.preprocess(
+  (value) => (value === '' ? undefined : value),
+  z.coerce.number().int().min(0).optional(),
+);
+
+const listQuerySchema = z.object({
+  search: z.string().optional(),
+  limit: queryIntSchema,
+  offset: queryOffsetSchema,
+  includeCover: queryFlagSchema,
+  ids: z.string().regex(/^[\d,\s]*$/, 'Lista de ids invalida.').optional(),
+});
+
+const relatedListQuerySchema = z.object({ limit: queryIntSchema });
+
+const bodyNumberSchema = z
+  .union([z.number(), z.string(), z.null()])
+  .optional()
+  .refine(
+    (value) => value == null || value === '' || Number.isFinite(Number(value)),
+    'Valor numerico invalido.',
+  );
+
+const equipmentBodySchema = z.object({ idEquipamento: bodyNumberSchema });
+
+const areaBodySchema = z.object({ idAreaCorporal: bodyNumberSchema });
+
+const statusBodySchema = z.object({
+  boInativo: z.union([z.boolean(), z.number(), z.string()]).nullish(),
+});
+
+function clampLimit(limit: number | undefined) {
+  return Math.min(Math.max(limit ?? 1000, 1), 1000);
+}
+
+// ---------------------------------------------------------------------------
+// Tenant isolation: Exercicio.idEmpresa -> Empresa.idCliente. Registros com
+// idEmpresa nulo sao tratados como catalogo global (visiveis a todos).
+// ---------------------------------------------------------------------------
+
+function tenantCompanyWhere(idCliente: number) {
+  return { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] };
+}
+
+async function exerciseBelongsToTenant(idCliente: number, idExercicio: number) {
+  const exercise = await prisma.exercicio.findFirst({
+    where: { id: idExercicio, ...tenantCompanyWhere(idCliente) },
+    select: { id: true },
+  });
+  return Boolean(exercise);
+}
+
+async function assertCompanyInTenant(idCliente: number, idEmpresa: number | null | undefined) {
+  if (idEmpresa == null) return;
+  const company = await prisma.empresa.findFirst({
+    where: { id: idEmpresa, idCliente },
+    select: { id: true },
+  });
+  if (!company) throw new Error('Empresa nao pertence ao cliente.');
+}
 
 async function attachExerciseCovers<T extends { id: number }>(exercises: T[]) {
   if (exercises.length === 0) {
@@ -78,23 +151,28 @@ async function attachExerciseCovers<T extends { id: number }>(exercises: T[]) {
 export async function registerExerciseRoutes(app: FastifyInstance) {
   app.get<{
     Querystring: { search?: string; limit?: string; offset?: string; includeCover?: string; ids?: string };
-  }>('/exercises', async (request) => {
-    const search = request.query.search?.trim();
-    const limit = request.query.limit ? Number(request.query.limit) : undefined;
-    const offset = request.query.offset ? Number(request.query.offset) : undefined;
-    const includeCover = request.query.includeCover === 'true';
-    const ids = request.query.ids
-      ? request.query.ids.split(',').map(Number).filter(Number.isFinite)
+  }>('/exercises', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    const parsedQuery = listQuerySchema.safeParse(request.query);
+    if (!parsedQuery.success) {
+      return reply.code(400).send({ message: 'Parametros invalidos.' });
+    }
+    const search = parsedQuery.data.search?.trim();
+    const includeCover = parsedQuery.data.includeCover === 'true';
+    const ids = parsedQuery.data.ids
+      ? parsedQuery.data.ids.split(',').map(Number).filter(Number.isFinite)
       : undefined;
 
     const exercises = await prisma.exercicio.findMany({
       where: {
         ...(search ? { dsExercicio: { contains: search, mode: 'insensitive' } } : {}),
         ...(ids ? { id: { in: ids } } : {}),
+        ...tenantCompanyWhere(idCliente),
       },
       orderBy: { dsExercicio: 'asc' },
-      take: limit,
-      skip: offset,
+      take: clampLimit(parsedQuery.data.limit),
+      skip: parsedQuery.data.offset,
     });
 
     return includeCover ? attachExerciseCovers(exercises) : exercises;
@@ -103,8 +181,11 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
   app.post<{
     Body: ExercisePayload;
   }>('/exercises', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const data = normalizeExercisePayload(request.body);
+      await assertCompanyInTenant(idCliente, data.idEmpresa);
       const exercise = await prisma.exercicio.create({ data });
       return reply.code(201).send(exercise);
     } catch (error) {
@@ -119,10 +200,16 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: ExercisePayload;
   }>('/exercises/:id', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Exercicio invalido.');
+      if (!(await exerciseBelongsToTenant(idCliente, id))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
       const data = normalizeExercisePayload(request.body);
+      await assertCompanyInTenant(idCliente, data.idEmpresa);
       return prisma.exercicio.update({ where: { id }, data });
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
@@ -136,9 +223,19 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: { boInativo?: number };
   }>('/exercises/:id/status', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const id = Number(request.params.id);
-      const boInativo = toBool(request.body.boInativo);
+      assertValidId(id, 'Exercicio invalido.');
+      const parsedBody = statusBodySchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      if (!(await exerciseBelongsToTenant(idCliente, id))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+      const boInativo = toBool(parsedBody.data.boInativo);
       return prisma.exercicio.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do exercicio.' });
@@ -150,12 +247,22 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string };
   }>('/exercises/:id/files', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idExercicio = Number(request.params.id);
       assertValidId(idExercicio, 'Exercicio invalido.');
+      const parsedQuery = relatedListQuerySchema.safeParse(request.query);
+      if (!parsedQuery.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
       return prisma.exercicioArquivo.findMany({
         where: { idExercicio, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
+        take: clampLimit(parsedQuery.data.limit),
       });
     } catch (error) {
       return reply.code(400).send({
@@ -167,23 +274,21 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
   app.post<{
     Params: { id: string };
   }>('/exercises/:id/files', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idExercicio = Number(request.params.id);
       assertValidId(idExercicio, 'Exercicio invalido.');
 
-      const exercise = await prisma.exercicio.findUnique({
-        where: { id: idExercicio },
-        select: { id: true },
-      });
-
-      if (!exercise) {
-        return reply.code(404).send({ message: 'Exercicio nao encontrado.' });
+      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
       const file = await request.file();
       if (!file) {
         return reply.code(400).send({ message: 'Envie um arquivo.' });
       }
+      assertAllowedUploadType(file);
 
       const buffer = await file.toBuffer();
       const path = getExerciseFilePath(idExercicio, file.filename);
@@ -219,11 +324,17 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string; fileId: string };
   }>('/exercises/:id/files/:fileId/url', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idExercicio = Number(request.params.id);
       const fileId = Number(request.params.fileId);
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(fileId, 'Arquivo invalido.');
+
+      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
 
       const exerciseFile = await prisma.exercicioArquivo.findFirst({
         where: { id: fileId, idExercicio, boInativo: false },
@@ -254,11 +365,17 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
   app.delete<{
     Params: { id: string; fileId: string };
   }>('/exercises/:id/files/:fileId', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idExercicio = Number(request.params.id);
       const fileId = Number(request.params.fileId);
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(fileId, 'Arquivo invalido.');
+
+      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
 
       const existingFile = await prisma.exercicioArquivo.findFirst({
         where: { id: fileId, idExercicio, boInativo: false },
@@ -284,13 +401,23 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string };
   }>('/exercises/:id/equipment', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idExercicio = Number(request.params.id);
       assertValidId(idExercicio, 'Exercicio invalido.');
+      const parsedQuery = relatedListQuerySchema.safeParse(request.query);
+      if (!parsedQuery.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
       return prisma.exercicioEquipamento.findMany({
         where: { idExercicio, boInativo: false },
         include: { equipamento: true },
         orderBy: { dtCadastro: 'desc' },
+        take: clampLimit(parsedQuery.data.limit),
       });
     } catch (error) {
       return reply.code(400).send({
@@ -303,11 +430,20 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: ExercicioEquipamentoPayload;
   }>('/exercises/:id/equipment', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
+      if (!equipmentBodySchema.safeParse(request.body).success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
       const idExercicio = Number(request.params.id);
       const idEquipamento = Number(request.body.idEquipamento);
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(idEquipamento, 'Equipamento invalido.');
+
+      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
 
       const existing = await prisma.exercicioEquipamento.findFirst({
         where: { idExercicio, idEquipamento, boInativo: false },
@@ -333,11 +469,17 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
   app.delete<{
     Params: { id: string; linkId: string };
   }>('/exercises/:id/equipment/:linkId', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idExercicio = Number(request.params.id);
       const linkId = Number(request.params.linkId);
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(linkId, 'Vinculo invalido.');
+
+      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
 
       const existing = await prisma.exercicioEquipamento.findFirst({
         where: { id: linkId, idExercicio },
@@ -363,13 +505,23 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string };
   }>('/exercises/:id/areas', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idExercicio = Number(request.params.id);
       assertValidId(idExercicio, 'Exercicio invalido.');
+      const parsedQuery = relatedListQuerySchema.safeParse(request.query);
+      if (!parsedQuery.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
       return prisma.exercicioAreaCorporal.findMany({
         where: { idExercicio, boInativo: false },
         include: { areaCorporal: true },
         orderBy: { dtCadastro: 'desc' },
+        take: clampLimit(parsedQuery.data.limit),
       });
     } catch (error) {
       return reply.code(400).send({
@@ -382,11 +534,20 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: ExercicioAreaCorporalPayload;
   }>('/exercises/:id/areas', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
+      if (!areaBodySchema.safeParse(request.body).success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
       const idExercicio = Number(request.params.id);
       const idAreaCorporal = Number(request.body.idAreaCorporal);
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(idAreaCorporal, 'Area corporal invalida.');
+
+      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
 
       const existing = await prisma.exercicioAreaCorporal.findFirst({
         where: { idExercicio, idAreaCorporal, boInativo: false },
@@ -412,11 +573,17 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
   app.delete<{
     Params: { id: string; linkId: string };
   }>('/exercises/:id/areas/:linkId', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idExercicio = Number(request.params.id);
       const linkId = Number(request.params.linkId);
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(linkId, 'Vinculo invalido.');
+
+      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
 
       const existing = await prisma.exercicioAreaCorporal.findFirst({
         where: { id: linkId, idExercicio },

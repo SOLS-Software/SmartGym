@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
@@ -33,6 +34,57 @@ function normalizeCatracaPayload(payload: CatracaPayload) {
     boInativo: toBool(payload.boInativo),
   };
 }
+
+// Schemas zod usados APENAS nas rotas de gestao (/controlid/catracas* e
+// /controlid/events). As rotas publicas de push/poll das catracas continuam
+// com parser tolerante de proposito.
+const optionalIdQuery = z.preprocess(
+  (value) => (value === undefined || value === null || value === '' ? undefined : value),
+  z.coerce.number().int().positive().optional(),
+);
+
+const optionalLimitQuery = z.preprocess(
+  (value) => (value === undefined || value === null || value === '' ? undefined : value),
+  z.coerce.number().int().optional(),
+);
+
+const catracasQuerySchema = z.object({
+  includeInactive: z.string().optional(),
+  idEmpresa: optionalIdQuery,
+  limit: optionalLimitQuery,
+});
+
+const eventsQuerySchema = z.object({
+  idCatraca: optionalIdQuery,
+  idAluno: optionalIdQuery,
+  onlyGranted: z.string().optional(),
+  limit: optionalLimitQuery,
+});
+
+const catracaTextField = z
+  .string({ invalid_type_error: 'Dados invalidos.' })
+  .trim()
+  .max(200, 'O campo deve ter no maximo 200 caracteres.')
+  .nullish();
+
+const catracaBodySchema = z.object({
+  idEmpresa: z.preprocess(
+    (value) => (value === undefined || value === null || value === '' || value === 0 ? undefined : value),
+    z.coerce
+      .number({ invalid_type_error: 'Empresa invalida.' })
+      .int('Empresa invalida.')
+      .positive('Empresa invalida.')
+      .optional(),
+  ),
+  dsCatraca: catracaTextField,
+  dsFabricante: catracaTextField,
+  dsModelo: catracaTextField,
+  caSerial: catracaTextField,
+  anIp: catracaTextField,
+  anMac: catracaTextField,
+  caToken: catracaTextField,
+  boInativo: z.preprocess((value) => toBool(value), z.boolean()),
+});
 
 function getClientIp(request: FastifyRequest): string {
   const forwarded = request.headers['x-forwarded-for'];
@@ -166,22 +218,47 @@ export async function registerControlidRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------
   app.get<{ Querystring: { includeInactive?: string; idEmpresa?: string } }>(
     '/controlid/catracas',
-    async (request) => {
-      const includeInactive = request.query.includeInactive === 'true';
-      const idEmpresa = optionalNumber(request.query.idEmpresa);
+    async (request, reply) => {
+      const idCliente = request.user.idCliente;
+      if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+      const parsedQuery = catracasQuerySchema.safeParse(request.query ?? {});
+      if (!parsedQuery.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      const includeInactive = parsedQuery.data.includeInactive === 'true';
+      const idEmpresa = parsedQuery.data.idEmpresa ?? null;
+      const take = Math.min(Math.max(parsedQuery.data.limit ?? 1000, 1), 1000);
       return prisma.catraca.findMany({
         where: {
           ...(includeInactive ? {} : { boInativo: false }),
-          ...(idEmpresa ? { idEmpresa } : {}),
+          // Catracas auto-registradas chegam sem idEmpresa e precisam aparecer
+          // no painel para o gestor ativar/vincular.
+          ...(idEmpresa
+            ? { idEmpresa, empresa: { idCliente } }
+            : { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] }),
         },
         orderBy: { dtCadastro: 'desc' },
+        take,
       });
     },
   );
 
   app.post<{ Body: CatracaPayload }>('/controlid/catracas', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
+      const parsedBody = catracaBodySchema.safeParse(request.body ?? {});
+      if (!parsedBody.success) {
+        throw new Error(parsedBody.error.issues[0]?.message ?? 'Dados invalidos.');
+      }
       const data = normalizeCatracaPayload(request.body);
+      if (data.idEmpresa) {
+        const empresa = await prisma.empresa.findFirst({
+          where: { id: data.idEmpresa, idCliente },
+          select: { id: true },
+        });
+        if (!empresa) throw new Error('Empresa nao pertence ao cliente.');
+      }
       const created = await prisma.catraca.create({ data });
       return reply.code(201).send(created);
     } catch (error) {
@@ -194,10 +271,28 @@ export async function registerControlidRoutes(app: FastifyInstance) {
   app.put<{ Params: { id: string }; Body: CatracaPayload }>(
     '/controlid/catracas/:id',
     async (request, reply) => {
+      const idCliente = request.user.idCliente;
+      if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
       try {
         const id = Number(request.params.id);
         assertValidId(id, 'Catraca invalida.');
+        const existing = await prisma.catraca.findFirst({
+          where: { id, OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
+          select: { id: true },
+        });
+        if (!existing) return reply.code(404).send({ message: 'Registro nao encontrado.' });
+        const parsedBody = catracaBodySchema.safeParse(request.body ?? {});
+        if (!parsedBody.success) {
+          throw new Error(parsedBody.error.issues[0]?.message ?? 'Dados invalidos.');
+        }
         const data = normalizeCatracaPayload(request.body);
+        if (data.idEmpresa) {
+          const empresa = await prisma.empresa.findFirst({
+            where: { id: data.idEmpresa, idCliente },
+            select: { id: true },
+          });
+          if (!empresa) throw new Error('Empresa nao pertence ao cliente.');
+        }
         return prisma.catraca.update({ where: { id }, data });
       } catch (error) {
         return reply.code(400).send({
@@ -210,9 +305,16 @@ export async function registerControlidRoutes(app: FastifyInstance) {
   app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>(
     '/controlid/catracas/:id/status',
     async (request, reply) => {
+      const idCliente = request.user.idCliente;
+      if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
       try {
         const id = Number(request.params.id);
         assertValidId(id, 'Catraca invalida.');
+        const existing = await prisma.catraca.findFirst({
+          where: { id, OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
+          select: { id: true },
+        });
+        if (!existing) return reply.code(404).send({ message: 'Registro nao encontrado.' });
         return prisma.catraca.update({
           where: { id },
           data: { boInativo: toBool(request.body.boInativo) },
@@ -235,15 +337,22 @@ export async function registerControlidRoutes(app: FastifyInstance) {
       onlyGranted?: string;
       limit?: string;
     };
-  }>('/controlid/events', async (request) => {
-    const idCatraca = optionalNumber(request.query.idCatraca);
-    const onlyGranted = request.query.onlyGranted === 'true';
-    const limit = Math.min(Math.max(Number(request.query.limit ?? 100), 1), 500);
+  }>('/controlid/events', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    const parsedQuery = eventsQuerySchema.safeParse(request.query ?? {});
+    if (!parsedQuery.success) {
+      return reply.code(400).send({ message: 'Parametros invalidos.' });
+    }
+    const idCatraca = parsedQuery.data.idCatraca ?? null;
+    const onlyGranted = parsedQuery.data.onlyGranted === 'true';
+    const limit = Math.min(Math.max(parsedQuery.data.limit ?? 100, 1), 500);
 
     return prisma.catracaEvento.findMany({
       where: {
         ...(idCatraca ? { idCatraca } : {}),
         ...(onlyGranted ? { boAcessoLiberado: true } : {}),
+        catraca: { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
       },
       orderBy: { dtEvento: 'desc' },
       take: limit,

@@ -1,10 +1,19 @@
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId, getMultipartFieldValue, normalizeProductPayload } from '../../shared/normalize.js';
-import { getProductFilePath } from '../../shared/files.js';
+import { assertAllowedUploadType, getProductFilePath } from '../../shared/files.js';
 import { getSupabaseClient, getSupabaseConfig } from '../../shared/supabase.js';
 import type { CompanyChildPayload, ProductPayload } from '../../shared/api-types.js';
+
+const listQuerySchema = z.object({
+  search: z.string().max(200).optional(),
+  limit: z.preprocess(
+    (value) => (value === '' || value === undefined ? undefined : value),
+    z.coerce.number().int().optional(),
+  ),
+});
 
 function normalizeText(value: unknown) {
   return String(value ?? '')
@@ -29,23 +38,49 @@ async function assertIdentificationFileType(idTiposArquivos: number | null) {
 }
 
 export async function registerProductRoutes(app: FastifyInstance) {
+  // Isolamento de tenant: Produto pertence ao cliente via Empresa.idCliente.
+  async function findTenantProduct(id: number, idCliente: number) {
+    return prisma.produto.findFirst({
+      where: { id, empresa: { idCliente } },
+      select: { id: true },
+    });
+  }
+
+  // Garante que a empresa informada no payload pertence ao tenant (400 se nao).
+  async function assertCompanyInTenant(idEmpresa: number, idCliente: number) {
+    const company = await prisma.empresa.findFirst({
+      where: { id: idEmpresa, idCliente },
+      select: { id: true },
+    });
+    if (!company) throw new Error('Empresa nao pertence ao cliente.');
+  }
+
   app.get<{
     Querystring: { search?: string };
-  }>('/products', async (request) => {
-    const search = request.query.search?.trim();
+  }>('/products', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    const parsedQuery = listQuerySchema.safeParse(request.query);
+    if (!parsedQuery.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
+    const search = parsedQuery.data.search?.trim();
+    const take = Math.min(Math.max(parsedQuery.data.limit ?? 1000, 1), 1000);
     return prisma.produto.findMany({
       where: search
-        ? { dsProduto: { contains: search, mode: 'insensitive' } }
-        : undefined,
+        ? { empresa: { idCliente }, dsProduto: { contains: search, mode: 'insensitive' } }
+        : { empresa: { idCliente } },
       orderBy: { dsProduto: 'asc' },
+      take,
     });
   });
 
   app.post<{
     Body: ProductPayload;
   }>('/products', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const data = normalizeProductPayload(request.body);
+      if (data.idEmpresa) await assertCompanyInTenant(data.idEmpresa, idCliente);
       const product = await prisma.produto.create({ data });
       return reply.code(201).send(product);
     } catch (error) {
@@ -59,9 +94,15 @@ export async function registerProductRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: ProductPayload;
   }>('/products/:id', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const id = Number(request.params.id);
+      assertValidId(id, 'Produto invalido.');
+      const current = await findTenantProduct(id, idCliente);
+      if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const data = normalizeProductPayload(request.body);
+      if (data.idEmpresa) await assertCompanyInTenant(data.idEmpresa, idCliente);
       return prisma.produto.update({ where: { id }, data });
     } catch (error) {
       return reply.code(400).send({
@@ -74,8 +115,13 @@ export async function registerProductRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: { boInativo?: number };
   }>('/products/:id/status', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const id = Number(request.params.id);
+      assertValidId(id, 'Produto invalido.');
+      const current = await findTenantProduct(id, idCliente);
+      if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const boInativo = toBool(request.body.boInativo);
       return prisma.produto.update({ where: { id }, data: { boInativo } });
     } catch {
@@ -84,9 +130,13 @@ export async function registerProductRoutes(app: FastifyInstance) {
   });
 
   app.get<{ Params: { id: string } }>('/products/:id/related/files', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idProduto = Number(request.params.id);
       assertValidId(idProduto, 'Produto invalido.');
+      const product = await findTenantProduct(idProduto, idCliente);
+      if (!product) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       return prisma.produtoArquivo.findMany({
         where: { idProduto },
         orderBy: { dtCadastro: 'desc' },
@@ -99,16 +149,19 @@ export async function registerProductRoutes(app: FastifyInstance) {
   });
 
   app.post<{ Params: { id: string }; Body: CompanyChildPayload }>('/products/:id/related/files', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idProduto = Number(request.params.id);
       assertValidId(idProduto, 'Produto invalido.');
-      const product = await prisma.produto.findUnique({ where: { id: idProduto }, select: { id: true } });
-      if (!product) return reply.code(404).send({ message: 'Produto nao encontrado.' });
+      const product = await findTenantProduct(idProduto, idCliente);
+      if (!product) return reply.code(404).send({ message: 'Registro nao encontrado.' });
 
       const file = await request.file();
       if (!file) {
         return reply.code(400).send({ message: 'Envie um arquivo.' });
       }
+      assertAllowedUploadType(file);
 
       const fields = file.fields as Record<string, unknown>;
       const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
@@ -144,11 +197,15 @@ export async function registerProductRoutes(app: FastifyInstance) {
   });
 
   app.put<{ Params: { id: string; childId: string }; Body: CompanyChildPayload }>('/products/:id/related/files/:childId', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idProduto = Number(request.params.id);
       const childId = Number(request.params.childId);
       assertValidId(idProduto, 'Produto invalido.');
       assertValidId(childId, 'Arquivo invalido.');
+      const product = await findTenantProduct(idProduto, idCliente);
+      if (!product) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const current = await prisma.produtoArquivo.findFirst({ where: { id: childId, idProduto }, select: { id: true } });
       if (!current) throw new Error('Arquivo do produto invalido.');
 
@@ -156,6 +213,7 @@ export async function registerProductRoutes(app: FastifyInstance) {
       if (!file) {
         return reply.code(400).send({ message: 'Envie um arquivo.' });
       }
+      assertAllowedUploadType(file);
 
       const fields = file.fields as Record<string, unknown>;
       const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
@@ -189,11 +247,15 @@ export async function registerProductRoutes(app: FastifyInstance) {
   });
 
   app.patch<{ Params: { id: string; childId: string }; Body: { boInativo?: number } }>('/products/:id/related/files/:childId/status', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idProduto = Number(request.params.id);
       const childId = Number(request.params.childId);
       assertValidId(idProduto, 'Produto invalido.');
       assertValidId(childId, 'Arquivo invalido.');
+      const product = await findTenantProduct(idProduto, idCliente);
+      if (!product) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const current = await prisma.produtoArquivo.findFirst({ where: { id: childId, idProduto }, select: { id: true } });
       if (!current) throw new Error('Arquivo do produto invalido.');
       return prisma.produtoArquivo.update({
@@ -208,11 +270,15 @@ export async function registerProductRoutes(app: FastifyInstance) {
   });
 
   app.get<{ Params: { id: string; childId: string } }>('/products/:id/related/files/:childId/url', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idProduto = Number(request.params.id);
       const childId = Number(request.params.childId);
       assertValidId(idProduto, 'Produto invalido.');
       assertValidId(childId, 'Arquivo invalido.');
+      const product = await findTenantProduct(idProduto, idCliente);
+      if (!product) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const productFile = await prisma.produtoArquivo.findFirst({ where: { id: childId, idProduto, boInativo: false } });
       if (!productFile) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
       const { bucket } = getSupabaseConfig();
@@ -228,11 +294,15 @@ export async function registerProductRoutes(app: FastifyInstance) {
   });
 
   app.delete<{ Params: { id: string; childId: string } }>('/products/:id/related/files/:childId', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idProduto = Number(request.params.id);
       const childId = Number(request.params.childId);
       assertValidId(idProduto, 'Produto invalido.');
       assertValidId(childId, 'Arquivo invalido.');
+      const product = await findTenantProduct(idProduto, idCliente);
+      if (!product) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const current = await prisma.produtoArquivo.findFirst({ where: { id: childId, idProduto }, select: { id: true } });
       if (!current) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
       return prisma.produtoArquivo.update({ where: { id: childId }, data: { boInativo: true } });

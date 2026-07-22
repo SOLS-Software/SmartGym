@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
@@ -14,7 +15,7 @@ import {
   getStudentFacialSubject,
   addComprefaceSubjectExample,
 } from '../../shared/compreface.js';
-import { getStudentFilePath } from '../../shared/files.js';
+import { assertAllowedUploadType, getStudentFilePath } from '../../shared/files.js';
 import {
   generateInitialPayments,
   generateNextRecurringPayment,
@@ -38,6 +39,66 @@ function getStudentChildResourceConfig(resource: string) {
     throw new Error('Tabela relacionada invalida.');
   }
   return resource;
+}
+
+// Validacao minima de entrada: os valores continuam passando pelos helpers
+// normalize* (optionalNumber/optionalDate/toBool) apos o safeParse.
+const numberLike = z.union([z.number(), z.string()]).nullish();
+const dateLike = z.union([z.string(), z.number(), z.date()]).nullish();
+const boolLike = z.union([z.boolean(), z.number(), z.string()]).nullish();
+
+const studentListQuerySchema = z.object({
+  search: z.string().optional(),
+  limit: z.coerce.number().int().optional(),
+});
+
+const listLimitQuerySchema = z.object({
+  limit: z.coerce.number().int().optional(),
+});
+
+const calendarQuerySchema = z.object({
+  month: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/)
+    .optional(),
+});
+
+const statusBodySchema = z.object({ boInativo: boolLike });
+
+const facialBiometricEnrollBodySchema = z.object({
+  idAlunoArquivo: numberLike,
+  nrThreshold: numberLike,
+});
+
+const childResourceBodySchema = z.object({
+  idPlano: numberLike,
+  idPromocaoPlano: numberLike,
+  nrDiaPagamento: numberLike,
+  qtParcelas: numberLike,
+  dtAdmissao: dateLike,
+  idEmpresa: numberLike,
+  idTreino: numberLike,
+  idFuncionario: numberLike,
+  nrOrdemSequencia: numberLike,
+  idAlunoPlano: numberLike,
+  idStatusPagamento: numberLike,
+  idFormaPagamento: numberLike,
+  idProdutoMovimentacao: numberLike,
+  vlPrevisto: numberLike,
+  vlPago: numberLike,
+  dtVencimento: dateLike,
+  dtCompetencia: dateLike,
+  dtPagamento: dateLike,
+  idAlunoTreinosSequencia: numberLike,
+  idPontuacao: numberLike,
+  idTipoCheckIn: numberLike,
+  boInativo: boolLike,
+});
+
+// Paginacao das listagens top-level: clamp 1..1000, default 1000.
+function clampLimit(limit: number | undefined) {
+  if (limit === undefined || !Number.isFinite(limit)) return 1000;
+  return Math.min(1000, Math.max(1, Math.trunc(limit)));
 }
 
 type StudentActivityScheduleEnrollPayload = {
@@ -86,6 +147,21 @@ function normalizeScheduleIds(payload: StudentActivityScheduleEnrollPayload) {
   return normalized;
 }
 
+// Tenant isolation: o aluno so e visivel se pertencer ao cliente do usuario
+// autenticado (Aluno.idCliente).
+function findTenantStudent(idAluno: number, idCliente: number) {
+  return prisma.aluno.findFirst({ where: { id: idAluno, idCliente }, select: { id: true } });
+}
+
+// Valida que a empresa informada pertence ao tenant do usuario autenticado.
+async function assertTenantEmpresa(idEmpresa: number, idCliente: number) {
+  const empresa = await prisma.empresa.findFirst({
+    where: { id: idEmpresa, idCliente },
+    select: { id: true },
+  });
+  if (!empresa) throw new Error('Empresa invalida para este cliente.');
+}
+
 export async function registerStudentRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
   // Students CRUD
@@ -93,27 +169,38 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
   app.get<{
     Querystring: { search?: string };
-  }>('/students', async (request) => {
-    const search = request.query.search?.trim();
+  }>('/students', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    const parsedQuery = studentListQuerySchema.safeParse(request.query);
+    if (!parsedQuery.success) {
+      return reply.code(400).send({ message: 'Parametros invalidos.' });
+    }
+    const search = parsedQuery.data.search?.trim();
     return prisma.aluno.findMany({
       where: search
         ? {
+            idCliente,
             OR: [
               { nmAluno: { contains: search, mode: 'insensitive' } },
               { caCPF: { contains: search.replace(/\D/g, '') } },
               { anEmail: { contains: search, mode: 'insensitive' } },
             ],
           }
-        : undefined,
+        : { idCliente },
       orderBy: { nmAluno: 'asc' },
+      take: clampLimit(parsedQuery.data.limit),
     });
   });
 
   app.post<{
     Body: StudentPayload;
   }>('/students', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
-      const data = normalizeStudentPayload(request.body);
+      // Tenant sempre do token; idCliente vindo do body e ignorado.
+      const data = normalizeStudentPayload({ ...request.body, idCliente });
       const student = await prisma.aluno.create({ data });
       return reply.code(201).send(student);
     } catch (error) {
@@ -132,13 +219,15 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string };
   }>('/students/:id', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Aluno invalido.');
-      const student = await prisma.aluno.findUnique({ where: { id } });
+      const student = await prisma.aluno.findFirst({ where: { id, idCliente } });
 
       if (!student) {
-        return reply.code(404).send({ message: 'Aluno nao encontrado.' });
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
       return student;
@@ -153,9 +242,17 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: StudentPayload;
   }>('/students/:id', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const id = Number(request.params.id);
-      const data = normalizeStudentPayload(request.body);
+      assertValidId(id, 'Aluno invalido.');
+      const current = await findTenantStudent(id, idCliente);
+      if (!current) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+      // Tenant sempre do token; idCliente vindo do body e ignorado.
+      const data = normalizeStudentPayload({ ...request.body, idCliente });
       return prisma.aluno.update({ where: { id }, data });
     } catch (error) {
       return reply.code(400).send({
@@ -168,8 +265,19 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: { boInativo?: number };
   }>('/students/:id/status', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const id = Number(request.params.id);
+      assertValidId(id, 'Aluno invalido.');
+      const current = await findTenantStudent(id, idCliente);
+      if (!current) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+      const parsedBody = statusBodySchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.code(400).send({ message: 'Dados invalidos.' });
+      }
       const boInativo = toBool(request.body.boInativo);
       return prisma.aluno.update({ where: { id }, data: { boInativo } });
     } catch {
@@ -184,12 +292,23 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string };
   }>('/students/:id/files', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       assertValidId(idAluno, 'Aluno invalido.');
+      const parsedQuery = listLimitQuerySchema.safeParse(request.query);
+      if (!parsedQuery.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
       return prisma.alunoArquivo.findMany({
         where: { idAluno, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
+        take: clampLimit(parsedQuery.data.limit),
       });
     } catch (error) {
       return reply.code(400).send({
@@ -201,23 +320,23 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   app.post<{
     Params: { id: string };
   }>('/students/:id/files', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       assertValidId(idAluno, 'Aluno invalido.');
 
-      const student = await prisma.aluno.findUnique({
-        where: { id: idAluno },
-        select: { id: true },
-      });
+      const student = await findTenantStudent(idAluno, idCliente);
 
       if (!student) {
-        return reply.code(404).send({ message: 'Aluno nao encontrado.' });
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
       const file = await request.file();
       if (!file) {
         return reply.code(400).send({ message: 'Envie um arquivo.' });
       }
+      assertAllowedUploadType(file);
 
       const buffer = await file.toBuffer();
       const path = getStudentFilePath(idAluno, file.filename);
@@ -253,11 +372,18 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string; fileId: string };
   }>('/students/:id/files/:fileId/url', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       const fileId = Number(request.params.fileId);
       assertValidId(idAluno, 'Aluno invalido.');
       assertValidId(fileId, 'Arquivo invalido.');
+
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
 
       const studentFile = await prisma.alunoArquivo.findFirst({
         where: { id: fileId, idAluno, boInativo: false },
@@ -288,11 +414,18 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   app.delete<{
     Params: { id: string; fileId: string };
   }>('/students/:id/files/:fileId', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       const fileId = Number(request.params.fileId);
       assertValidId(idAluno, 'Aluno invalido.');
       assertValidId(fileId, 'Arquivo invalido.');
+
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
 
       const existingFile = await prisma.alunoArquivo.findFirst({
         where: { id: fileId, idAluno, boInativo: false },
@@ -317,12 +450,23 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string };
   }>('/students/:id/facial-biometrics', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       assertValidId(idAluno, 'Aluno invalido.');
+      const parsedQuery = listLimitQuerySchema.safeParse(request.query);
+      if (!parsedQuery.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
       return prisma.alunoBiometriaFacial.findMany({
         where: { idAluno, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
+        take: clampLimit(parsedQuery.data.limit),
       });
     } catch (error) {
       return reply.code(400).send({
@@ -336,18 +480,17 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: StudentFacialBiometricPayload;
   }>('/students/:id/facial-biometrics', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       assertValidId(idAluno, 'Aluno invalido.');
 
       const data = normalizeStudentFacialBiometricPayload(request.body);
-      const student = await prisma.aluno.findUnique({
-        where: { id: idAluno },
-        select: { id: true },
-      });
+      const student = await findTenantStudent(idAluno, idCliente);
 
       if (!student) {
-        return reply.code(404).send({ message: 'Aluno nao encontrado.' });
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
       if (data.idAlunoArquivo) {
@@ -395,9 +538,16 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: StudentFacialBiometricEnrollPayload;
   }>('/students/:id/facial-biometrics/enroll', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       assertValidId(idAluno, 'Aluno invalido.');
+
+      const parsedBody = facialBiometricEnrollBodySchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.code(400).send({ message: 'Dados invalidos.' });
+      }
 
       const idAlunoArquivo = optionalNumber(request.body.idAlunoArquivo);
       const nrThreshold = Number(
@@ -411,13 +561,10 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         throw new Error('Informe um threshold entre 0 e 1.');
       }
 
-      const student = await prisma.aluno.findUnique({
-        where: { id: idAluno },
-        select: { id: true },
-      });
+      const student = await findTenantStudent(idAluno, idCliente);
 
       if (!student) {
-        return reply.code(404).send({ message: 'Aluno nao encontrado.' });
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
       const studentFile = await prisma.alunoArquivo.findFirst({
@@ -482,11 +629,18 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     Params: { id: string; biometricId: string };
     Body: { boInativo?: number };
   }>('/students/:id/facial-biometrics/:biometricId/status', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       const id = Number(request.params.biometricId);
       assertValidId(idAluno, 'Aluno invalido.');
       assertValidId(id, 'Biometria facial invalida.');
+
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
 
       const current = await prisma.alunoBiometriaFacial.findFirst({
         where: { id, idAluno },
@@ -495,6 +649,11 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
       if (!current) {
         return reply.code(404).send({ message: 'Biometria facial nao encontrada.' });
+      }
+
+      const parsedBody = statusBodySchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.code(400).send({ message: 'Dados invalidos.' });
       }
 
       return prisma.alunoBiometriaFacial.update({
@@ -516,11 +675,22 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string };
   }>('/students/:id/related/plans', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       assertValidId(idAluno, 'Aluno invalido.');
+      const parsedQuery = listLimitQuerySchema.safeParse(request.query);
+      if (!parsedQuery.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
       return prisma.alunoPlano.findMany({
         where: { idAluno },
+        take: clampLimit(parsedQuery.data.limit),
         include: {
           plano: {
             include: {
@@ -561,11 +731,22 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string };
   }>('/students/:id/related/payments', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       assertValidId(idAluno, 'Aluno invalido.');
+      const parsedQuery = listLimitQuerySchema.safeParse(request.query);
+      if (!parsedQuery.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
       return prisma.pagamento.findMany({
         where: { alunoPlano: { idAluno } },
+        take: clampLimit(parsedQuery.data.limit),
         include: {
           statusPagamento: { select: { id: true, dsStatusPagamento: true } },
           formaPagamento: { select: { id: true, dsFormaPagamento: true } },
@@ -583,9 +764,16 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string };
   }>('/students/:id/notifications', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       assertValidId(idAluno, 'Aluno invalido.');
+
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
 
       const notifications: { type: 'danger' | 'warning' | 'info'; title: string; message: string }[] = [];
 
@@ -695,11 +883,22 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string };
   }>('/students/:id/related/check-ins', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       assertValidId(idAluno, 'Aluno invalido.');
+      const parsedQuery = listLimitQuerySchema.safeParse(request.query);
+      if (!parsedQuery.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
       return prisma.alunoCheckIn.findMany({
         where: { alunoPlano: { idAluno } },
+        take: clampLimit(parsedQuery.data.limit),
         include: {
           alunoPlano: { include: { plano: true } },
           alunoTreinoSequencia: {
@@ -726,14 +925,22 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     Params: { id: string };
     Querystring: { month?: string };
   }>('/students/:id/calendar', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       assertValidId(idAluno, 'Aluno invalido.');
 
-      const month = request.query.month ?? new Date().toISOString().slice(0, 7);
-      if (!/^\d{4}-\d{2}$/.test(month)) {
-        throw new Error('Informe o mes no formato YYYY-MM.');
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
+
+      const parsedQuery = calendarQuerySchema.safeParse(request.query);
+      if (!parsedQuery.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      const month = parsedQuery.data.month ?? new Date().toISOString().slice(0, 7);
 
       const year = Number(month.slice(0, 4));
       const monthNumber = Number(month.slice(5, 7));
@@ -824,23 +1031,23 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: StudentActivityScheduleEnrollPayload;
   }>('/students/:id/activity-schedules/enroll', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       assertValidId(idAluno, 'Aluno invalido.');
       const scheduleIds = normalizeScheduleIds(request.body);
 
-      const student = await prisma.aluno.findUnique({
-        where: { id: idAluno },
-        select: { id: true },
-      });
+      const student = await findTenantStudent(idAluno, idCliente);
 
       if (!student) {
-        return reply.code(404).send({ message: 'Aluno nao encontrado.' });
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
       const created = await prisma.$transaction(async (transaction) => {
         const schedules = await transaction.atividadeAgenda.findMany({
-          where: { id: { in: scheduleIds }, boInativo: false },
+          // Somente agendas do tenant: ids de outros clientes caem no erro de nao encontradas.
+          where: { id: { in: scheduleIds }, boInativo: false, empresa: { idCliente } },
           include: {
             atividade: { select: { dsAtividade: true } },
             alunoAtividadeAgendas: {
@@ -959,11 +1166,22 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string };
   }>('/students/:id/related/trainings', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       assertValidId(idAluno, 'Aluno invalido.');
+      const parsedQuery = listLimitQuerySchema.safeParse(request.query);
+      if (!parsedQuery.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
       return prisma.alunoTreino.findMany({
         where: { idAluno },
+        take: clampLimit(parsedQuery.data.limit),
         include: {
           funcionario: true,
           treino: true,
@@ -982,14 +1200,21 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     Params: { id: string; resource: string };
     Body: CompanyChildPayload;
   }>('/students/:id/related/:resource', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       const resource = getStudentChildResourceConfig(request.params.resource);
       assertValidId(idAluno, 'Aluno invalido.');
 
-      const student = await prisma.aluno.findUnique({ where: { id: idAluno }, select: { id: true } });
+      const parsedBody = childResourceBodySchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.code(400).send({ message: 'Dados invalidos.' });
+      }
+
+      const student = await findTenantStudent(idAluno, idCliente);
       if (!student) {
-        return reply.code(404).send({ message: 'Aluno nao encontrado.' });
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
       if (resource === 'plans') {
@@ -1013,6 +1238,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
           plano.planoValores.find((value) => value.idEmpresa)?.idEmpresa ??
           null;
         if (!idEmpresa) throw new Error('Informe a empresa para gerar os pagamentos.');
+        await assertTenantEmpresa(idEmpresa, idCliente);
 
         const empresaValue =
           plano.planoValores.find((value) => value.idEmpresa === idEmpresa) ??
@@ -1025,11 +1251,15 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
         const idPromocaoPlano = optionalNumber(request.body.idPromocaoPlano);
         const promocaoPlano = idPromocaoPlano
-          ? await prisma.promocaoPlano.findUnique({
-              where: { id: idPromocaoPlano },
+          ? await prisma.promocaoPlano.findFirst({
+              where: {
+                id: idPromocaoPlano,
+                OR: [{ idEmpresa: null }, { empresa: { idCliente } }],
+              },
               include: { promocao: true },
             })
           : null;
+        if (idPromocaoPlano && !promocaoPlano) throw new Error('Promocao invalida para este cliente.');
 
         const record = await prisma.$transaction(async (transaction) => {
           const created = await transaction.alunoPlano.create({
@@ -1066,13 +1296,26 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         const idTreino = optionalNumber(request.body.idTreino);
         if (!idTreino) throw new Error('Selecione um treino.');
 
-        const training = await prisma.treino.findUnique({ where: { id: idTreino }, select: { id: true } });
+        const training = await prisma.treino.findFirst({
+          where: {
+            id: idTreino,
+            OR: [
+              { empresa: { idCliente } },
+              { idEmpresa: null, idAluno: null },
+              { idEmpresa: null, aluno: { idCliente } },
+            ],
+          },
+          select: { id: true },
+        });
         if (!training) throw new Error('Treino invalido.');
 
         const idFuncionario = optionalNumber(request.body.idFuncionario);
         if (!idFuncionario) throw new Error('Profissional logado invalido.');
 
-        const employee = await prisma.funcionario.findUnique({ where: { id: idFuncionario }, select: { id: true } });
+        const employee = await prisma.funcionario.findFirst({
+          where: { id: idFuncionario, empresa: { idCliente } },
+          select: { id: true },
+        });
         if (!employee) throw new Error('Profissional invalido.');
 
         const nrOrdemSequencia = optionalNumber(request.body.nrOrdemSequencia);
@@ -1122,13 +1365,22 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       if (resource === 'payments') {
         const idEmpresa = optionalNumber(request.body.idEmpresa);
         if (!idEmpresa) throw new Error('Informe a empresa do pagamento.');
+        await assertTenantEmpresa(idEmpresa, idCliente);
         const idStatusPagamento = optionalNumber(request.body.idStatusPagamento);
         if (!idStatusPagamento) throw new Error('Informe o status do pagamento.');
+        const idProdutoMovimentacao = optionalNumber(request.body.idProdutoMovimentacao);
+        if (idProdutoMovimentacao) {
+          const movimentacao = await prisma.produtoMovimentacao.findFirst({
+            where: { id: idProdutoMovimentacao, empresa: { idCliente } },
+            select: { id: true },
+          });
+          if (!movimentacao) throw new Error('Movimentacao de produto invalida para este cliente.');
+        }
         const record = await prisma.pagamento.create({
           data: {
             idEmpresa,
             idAlunoPlano,
-            idProdutoMovimentacao: optionalNumber(request.body.idProdutoMovimentacao),
+            idProdutoMovimentacao,
             vlPrevisto: Number(request.body.vlPrevisto ?? request.body.vlPago ?? 0),
             vlPago: optionalNumber(request.body.vlPago),
             idStatusPagamento,
@@ -1160,18 +1412,14 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
       let idEmpresaCheckIn = optionalNumber(request.body.idEmpresa);
 
-      if (!idEmpresaCheckIn) {
-        const student = await prisma.aluno.findUnique({
-          where: { id: idAluno },
-          select: { idCliente: true },
+      if (idEmpresaCheckIn) {
+        await assertTenantEmpresa(idEmpresaCheckIn, idCliente);
+      } else {
+        const empresa = await prisma.empresa.findFirst({
+          where: { idCliente },
+          select: { id: true },
         });
-        if (student) {
-          const empresa = await prisma.empresa.findFirst({
-            where: { idCliente: student.idCliente },
-            select: { id: true },
-          });
-          idEmpresaCheckIn = empresa?.id ?? null;
-        }
+        idEmpresaCheckIn = empresa?.id ?? null;
       }
 
       if (!idEmpresaCheckIn) throw new Error('Informe a empresa do check-in.');
@@ -1181,13 +1429,22 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         throw new Error(access.reason ?? 'Aluno sem acesso liberado para check-in.');
       }
 
+      const idPontuacao = optionalNumber(request.body.idPontuacao);
+      if (idPontuacao) {
+        const pontuacao = await prisma.pontuacao.findFirst({
+          where: { id: idPontuacao, empresa: { idCliente } },
+          select: { id: true },
+        });
+        if (!pontuacao) throw new Error('Pontuacao invalida para este cliente.');
+      }
+
       const record = await prisma.alunoCheckIn.create({
         data: {
           idEmpresa: idEmpresaCheckIn,
           idAluno,
           idAlunoPlano,
           idAlunoTreinosSequencia,
-          idPontuacao: optionalNumber(request.body.idPontuacao),
+          idPontuacao,
           idTipoCheckIn: optionalNumber(request.body.idTipoCheckIn),
           boInativo: toBool(request.body.boInativo),
         },
@@ -1217,6 +1474,8 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     Params: { id: string; resource: string; childId: string };
     Body: CompanyChildPayload;
   }>('/students/:id/related/:resource/:childId', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       const childId = Number(request.params.childId);
@@ -1224,18 +1483,36 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       assertValidId(idAluno, 'Aluno invalido.');
       assertValidId(childId, 'Registro invalido.');
 
+      const parsedBody = childResourceBodySchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.code(400).send({ message: 'Dados invalidos.' });
+      }
+
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+
       if (resource === 'plans') {
         const current = await prisma.alunoPlano.findFirst({ where: { id: childId, idAluno }, select: { id: true } });
         if (!current) throw new Error('Plano do aluno invalido.');
 
         const idPlano = optionalNumber(request.body.idPlano);
         if (!idPlano) throw new Error('Selecione o plano.');
+        const idPromocaoPlano = optionalNumber(request.body.idPromocaoPlano);
+        if (idPromocaoPlano) {
+          const promocaoPlano = await prisma.promocaoPlano.findFirst({
+            where: { id: idPromocaoPlano, OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
+            select: { id: true },
+          });
+          if (!promocaoPlano) throw new Error('Promocao invalida para este cliente.');
+        }
         const boInativoPlano = toBool(request.body.boInativo);
         return prisma.alunoPlano.update({
           where: { id: childId },
           data: {
             idPlano,
-            idPromocaoPlano: optionalNumber(request.body.idPromocaoPlano),
+            idPromocaoPlano,
             nrDiaPagamento: Number(request.body.nrDiaPagamento ?? 1),
             dtAdmissao: optionalDate(request.body.dtAdmissao) ?? new Date(),
             boInativo: boInativoPlano,
@@ -1252,13 +1529,26 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         const idTreino = optionalNumber(request.body.idTreino);
         if (!idTreino) throw new Error('Selecione um treino.');
 
-        const training = await prisma.treino.findUnique({ where: { id: idTreino }, select: { id: true } });
+        const training = await prisma.treino.findFirst({
+          where: {
+            id: idTreino,
+            OR: [
+              { empresa: { idCliente } },
+              { idEmpresa: null, idAluno: null },
+              { idEmpresa: null, aluno: { idCliente } },
+            ],
+          },
+          select: { id: true },
+        });
         if (!training) throw new Error('Treino invalido.');
 
         const idFuncionario = optionalNumber(request.body.idFuncionario);
         if (!idFuncionario) throw new Error('Profissional logado invalido.');
 
-        const employee = await prisma.funcionario.findUnique({ where: { id: idFuncionario }, select: { id: true } });
+        const employee = await prisma.funcionario.findFirst({
+          where: { id: idFuncionario, empresa: { idCliente } },
+          select: { id: true },
+        });
         if (!employee) throw new Error('Profissional invalido.');
 
         const nrOrdemSequencia = optionalNumber(request.body.nrOrdemSequencia);
@@ -1316,8 +1606,17 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
         const idEmpresa = optionalNumber(request.body.idEmpresa) ?? current.idEmpresa;
         if (!idEmpresa) throw new Error('Informe a empresa do pagamento.');
+        await assertTenantEmpresa(idEmpresa, idCliente);
         const idStatusPagamento = optionalNumber(request.body.idStatusPagamento);
         if (!idStatusPagamento) throw new Error('Informe o status do pagamento.');
+        const idProdutoMovimentacao = optionalNumber(request.body.idProdutoMovimentacao);
+        if (idProdutoMovimentacao) {
+          const movimentacao = await prisma.produtoMovimentacao.findFirst({
+            where: { id: idProdutoMovimentacao, empresa: { idCliente } },
+            select: { id: true },
+          });
+          if (!movimentacao) throw new Error('Movimentacao de produto invalida para este cliente.');
+        }
 
         const status = await prisma.statusPagamento.findUnique({
           where: { id: idStatusPagamento },
@@ -1331,7 +1630,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
             data: {
               idEmpresa,
               idAlunoPlano,
-              idProdutoMovimentacao: optionalNumber(request.body.idProdutoMovimentacao),
+              idProdutoMovimentacao,
               vlPrevisto: Number(request.body.vlPrevisto ?? request.body.vlPago ?? 0),
               vlPago: optionalNumber(request.body.vlPago),
               idStatusPagamento,
@@ -1361,14 +1660,33 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
       const idEmpresaCheckIn = optionalNumber(request.body.idEmpresa);
       if (!idEmpresaCheckIn) throw new Error('Informe a empresa do check-in.');
+      await assertTenantEmpresa(idEmpresaCheckIn, idCliente);
+
+      const idAlunoTreinosSequencia = optionalNumber(request.body.idAlunoTreinosSequencia);
+      if (idAlunoTreinosSequencia) {
+        const sequence = await prisma.alunoTreinoSequencia.findFirst({
+          where: { id: idAlunoTreinosSequencia, alunoTreino: { idAluno } },
+          select: { id: true },
+        });
+        if (!sequence) throw new Error('Sequencia de treino invalida para o aluno.');
+      }
+
+      const idPontuacao = optionalNumber(request.body.idPontuacao);
+      if (idPontuacao) {
+        const pontuacao = await prisma.pontuacao.findFirst({
+          where: { id: idPontuacao, empresa: { idCliente } },
+          select: { id: true },
+        });
+        if (!pontuacao) throw new Error('Pontuacao invalida para este cliente.');
+      }
 
       return prisma.alunoCheckIn.update({
         where: { id: childId },
         data: {
           idEmpresa: idEmpresaCheckIn,
           idAlunoPlano,
-          idAlunoTreinosSequencia: optionalNumber(request.body.idAlunoTreinosSequencia),
-          idPontuacao: optionalNumber(request.body.idPontuacao),
+          idAlunoTreinosSequencia,
+          idPontuacao,
           idTipoCheckIn: optionalNumber(request.body.idTipoCheckIn),
           boInativo: toBool(request.body.boInativo),
         },
@@ -1384,13 +1702,24 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     Params: { id: string; resource: string; childId: string };
     Body: { boInativo?: number };
   }>('/students/:id/related/:resource/:childId/status', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idAluno = Number(request.params.id);
       const childId = Number(request.params.childId);
       const resource = getStudentChildResourceConfig(request.params.resource);
+      const parsedBody = statusBodySchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.code(400).send({ message: 'Dados invalidos.' });
+      }
       const boInativo = toBool(request.body.boInativo);
       assertValidId(idAluno, 'Aluno invalido.');
       assertValidId(childId, 'Registro invalido.');
+
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
 
       if (resource === 'plans') {
         const current = await prisma.alunoPlano.findFirst({ where: { id: childId, idAluno }, select: { id: true } });

@@ -1,5 +1,6 @@
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import {
   normalizeEquipamentoPayload,
@@ -7,14 +8,30 @@ import {
   assertValidId,
 } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
-import { getEquipamentoFilePath } from '../../shared/files.js';
+import { assertAllowedUploadType, getEquipamentoFilePath } from '../../shared/files.js';
 import type { EquipamentoPayload, EquipamentoManutencaoPayload } from '../../shared/api-types.js';
 
+const listQuerySchema = z.object({
+  search: z.string().max(200).optional(),
+  limit: z.preprocess(
+    (value) => (value === '' || value === undefined ? undefined : value),
+    z.coerce.number().int().optional(),
+  ),
+});
+
+// SEM isolamento de tenant (de proposito): o model Equipamento nao possui
+// idEmpresa nem qualquer cadeia de posse ate Empresa/Cliente no schema —
+// apenas o vinculo associativo ExercicioEquipamento, que nao define dono.
+// Se um dia Equipamento ganhar idEmpresa, aplicar aqui o mesmo padrao dos
+// modulos products/suppliers (filtro empresa: { idCliente } + checagens).
 export async function registerEquipmentRoutes(app: FastifyInstance) {
   app.get<{
     Querystring: { search?: string };
-  }>('/equipments', async (request) => {
-    const search = request.query.search?.trim();
+  }>('/equipments', async (request, reply) => {
+    const parsedQuery = listQuerySchema.safeParse(request.query);
+    if (!parsedQuery.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
+    const search = parsedQuery.data.search?.trim();
+    const take = Math.min(Math.max(parsedQuery.data.limit ?? 1000, 1), 1000);
     return prisma.equipamento.findMany({
       where: search
         ? {
@@ -25,6 +42,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
         }
         : undefined,
       orderBy: { nmEquipamento: 'asc' },
+      take,
     });
   });
 
@@ -48,6 +66,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
   }>('/equipments/:id', async (request, reply) => {
     try {
       const id = Number(request.params.id);
+      assertValidId(id, 'Equipamento invalido.');
       const data = normalizeEquipamentoPayload(request.body);
       return prisma.equipamento.update({ where: { id }, data });
     } catch (error) {
@@ -63,6 +82,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
   }>('/equipments/:id/status', async (request, reply) => {
     try {
       const id = Number(request.params.id);
+      assertValidId(id, 'Equipamento invalido.');
       const boInativo = toBool(request.body.boInativo);
       return prisma.equipamento.update({ where: { id }, data: { boInativo } });
     } catch {
@@ -109,6 +129,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       if (!file) {
         return reply.code(400).send({ message: 'Envie um arquivo.' });
       }
+      assertAllowedUploadType(file);
 
       const buffer = await file.toBuffer();
       const path = getEquipamentoFilePath(idEquipamento, file.filename);
@@ -275,6 +296,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
   }>('/equipments/:id/maintenances/:maintenanceId/status', async (request, reply) => {
     try {
       const maintenanceId = Number(request.params.maintenanceId);
+      assertValidId(maintenanceId, 'Manutencao invalida.');
       const boInativo = toBool(request.body.boInativo);
       return prisma.equipamentoManutencao.update({
         where: { id: maintenanceId },

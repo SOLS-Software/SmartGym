@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { Prisma } from '@smartgym/db';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
@@ -12,7 +14,7 @@ import {
 } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
-import { getCompanyFilePath, getPromotionFilePath } from '../../shared/files.js';
+import { assertAllowedUploadType, getCompanyFilePath, getPromotionFilePath } from '../../shared/files.js';
 import type { CompanyChildPayload, CompanyChildResource, CompanyPayload } from '../../shared/api-types.js';
 
 // ---------------------------------------------------------------------------
@@ -260,13 +262,38 @@ function getChildResourceConfig(resource: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Validacao de entrada (zod)
+// ---------------------------------------------------------------------------
+
+const listQuerySchema = z.object({
+  search: z.string().optional(),
+  limit: z.coerce.number().int().optional(),
+});
+
+/** Valida a query de listagem; limit sofre clamp 1..1000 (default 1000). */
+function parseListQuery(query: unknown) {
+  const parsed = listQuerySchema.safeParse(query ?? {});
+  if (!parsed.success) return null;
+  const limit = Math.min(1000, Math.max(1, parsed.data.limit ?? 1000));
+  return { search: parsed.data.search, limit };
+}
+
+// Body de status: aceita os mesmos tipos que toBool trata.
+const statusBodySchema = z.object({
+  boInativo: z.union([z.boolean(), z.number(), z.string()]).optional(),
+});
+
+// Bodies genericos (children/custom-theme): garante objeto antes do normalize.
+const looseBodySchema = z.record(z.unknown());
+
+// ---------------------------------------------------------------------------
 // Company geo (PostGIS): geoEmpresa is an Unsupported geometry column, so it is
 // read/written with raw SQL (same pattern as Localidade). Address scalars go
 // through Prisma; only the point needs raw access.
 // ---------------------------------------------------------------------------
 
 // geoEmpresa is decomposed into latitude/longitude so the client can edit it.
-const COMPANY_SELECT_COLUMNS = `
+const COMPANY_SELECT_COLUMNS = Prisma.sql`
   id, "idCliente", "idTema", "dsEmpresa", "caCNPJ",
   "anCEP", "anLogradouro", "nrEndereco", "anBairro", "anCidade", "anUF",
   "nrDDD", "nrContato",
@@ -290,6 +317,33 @@ function parseCompanyGeo(payload: CompanyPayload) {
   return { hasGeo: true as const, latitude, longitude };
 }
 
+/** Confere se a empresa pertence ao tenant (idCliente) do usuario autenticado. */
+async function companyBelongsToTenant(companyId: number, idCliente: number) {
+  const company = await prisma.empresa.findFirst({
+    where: { id: companyId, idCliente },
+    select: { id: true },
+  });
+  return Boolean(company);
+}
+
+/**
+ * Confere se o registro filho pertence a empresa informada. Recursos sem
+ * escopo de empresa (themes) sao globais e passam direto.
+ */
+async function childBelongsToCompany(config: ChildResourceConfig, companyId: number, childId: number) {
+  const scope = config.getWhere
+    ? config.getWhere(companyId)
+    : config.companyField
+      ? { [config.companyField]: companyId }
+      : null;
+  if (!scope) return true;
+  const rows = (await config.delegate.findMany({
+    where: { id: childId, ...scope },
+    take: 1,
+  })) as unknown[];
+  return rows.length > 0;
+}
+
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
@@ -297,48 +351,46 @@ function parseCompanyGeo(payload: CompanyPayload) {
 export async function registerCompanyRoutes(app: FastifyInstance) {
   app.get<{
     Querystring: { search?: string };
-  }>('/companies', async (request) => {
-    const search = request.query.search?.trim();
+  }>('/companies', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    const query = parseListQuery(request.query);
+    if (!query) return reply.code(400).send({ message: 'Parametros invalidos.' });
+    const search = query.search?.trim();
+    // Tenant sempre presente; search entra como condicao adicional.
+    const conditions = [Prisma.sql`"idCliente" = ${idCliente}`];
     if (search) {
       const digits = search.replace(/\D/g, '');
       // Only match on CNPJ when the term actually has digits, otherwise a plain
       // text search would widen to every row via LIKE '%%'.
       if (digits) {
-        return prisma.$queryRawUnsafe(
-          `SELECT ${COMPANY_SELECT_COLUMNS} FROM "tb_Empresas"
-           WHERE "dsEmpresa" ILIKE $1 OR "caCNPJ" LIKE $2
-           ORDER BY "dsEmpresa" ASC`,
-          `%${search}%`,
-          `%${digits}%`,
+        conditions.push(
+          Prisma.sql`("dsEmpresa" ILIKE ${`%${search}%`} OR "caCNPJ" LIKE ${`%${digits}%`})`,
         );
+      } else {
+        conditions.push(Prisma.sql`"dsEmpresa" ILIKE ${`%${search}%`}`);
       }
-      return prisma.$queryRawUnsafe(
-        `SELECT ${COMPANY_SELECT_COLUMNS} FROM "tb_Empresas"
-         WHERE "dsEmpresa" ILIKE $1
-         ORDER BY "dsEmpresa" ASC`,
-        `%${search}%`,
-      );
     }
-    return prisma.$queryRawUnsafe(
-      `SELECT ${COMPANY_SELECT_COLUMNS} FROM "tb_Empresas" ORDER BY "dsEmpresa" ASC`,
-    );
+    return prisma.$queryRaw`
+      SELECT ${COMPANY_SELECT_COLUMNS} FROM "tb_Empresas"
+      WHERE ${Prisma.join(conditions, ' AND ')}
+      ORDER BY "dsEmpresa" ASC
+      LIMIT ${query.limit}`;
   });
 
   app.post<{
     Body: CompanyPayload;
   }>('/companies', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
-      const data = normalizeCompanyPayload(request.body);
+      // idCliente vem sempre do token: o body nunca define o tenant.
+      const data = normalizeCompanyPayload({ ...request.body, idCliente });
       const geo = parseCompanyGeo(request.body);
       const company = await prisma.$transaction(async (tx) => {
         const created = await tx.empresa.create({ data });
         if (geo.hasGeo) {
-          await tx.$executeRawUnsafe(
-            `UPDATE "tb_Empresas" SET "geoEmpresa" = ST_SetSRID(ST_MakePoint($1, $2), 4326) WHERE id = $3`,
-            geo.longitude,
-            geo.latitude,
-            created.id,
-          );
+          await tx.$executeRaw`UPDATE "tb_Empresas" SET "geoEmpresa" = ST_SetSRID(ST_MakePoint(${geo.longitude}, ${geo.latitude}), 4326) WHERE id = ${created.id}`;
         }
         return created;
       });
@@ -354,19 +406,21 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: CompanyPayload;
   }>('/companies/:id', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const id = Number(request.params.id);
-      const data = normalizeCompanyPayload(request.body);
+      assertValidId(id, 'Empresa invalida.');
+      if (!(await companyBelongsToTenant(id, idCliente))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+      // idCliente vem sempre do token: o body nunca define o tenant.
+      const data = normalizeCompanyPayload({ ...request.body, idCliente });
       const geo = parseCompanyGeo(request.body);
       const company = await prisma.$transaction(async (tx) => {
         const updated = await tx.empresa.update({ where: { id }, data });
         if (geo.hasGeo) {
-          await tx.$executeRawUnsafe(
-            `UPDATE "tb_Empresas" SET "geoEmpresa" = ST_SetSRID(ST_MakePoint($1, $2), 4326) WHERE id = $3`,
-            geo.longitude,
-            geo.latitude,
-            id,
-          );
+          await tx.$executeRaw`UPDATE "tb_Empresas" SET "geoEmpresa" = ST_SetSRID(ST_MakePoint(${geo.longitude}, ${geo.latitude}), 4326) WHERE id = ${id}`;
         }
         return updated;
       });
@@ -382,9 +436,17 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: { boInativo?: number };
   }>('/companies/:id/status', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const id = Number(request.params.id);
-      const boInativo = toBool(request.body.boInativo);
+      assertValidId(id, 'Empresa invalida.');
+      if (!(await companyBelongsToTenant(id, idCliente))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+      const body = statusBodySchema.safeParse(request.body);
+      if (!body.success) return reply.code(400).send({ message: 'Dados invalidos.' });
+      const boInativo = toBool(body.data.boInativo);
       return prisma.empresa.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status da empresa.' });
@@ -396,12 +458,17 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string };
   }>('/companies/:id/files', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    const query = parseListQuery(request.query);
+    if (!query) return reply.code(400).send({ message: 'Parametros invalidos.' });
     try {
       const idEmpresa = Number(request.params.id);
       assertValidId(idEmpresa, 'Empresa invalida.');
       return prisma.empresaArquivo.findMany({
-        where: { idEmpresa, boInativo: false },
+        where: { idEmpresa, boInativo: false, empresa: { idCliente } },
         orderBy: { dtCadastro: 'desc' },
+        take: query.limit,
       });
     } catch (error) {
       return reply.code(400).send({
@@ -413,16 +480,13 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   app.post<{
     Params: { id: string };
   }>('/companies/:id/files', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idEmpresa = Number(request.params.id);
       assertValidId(idEmpresa, 'Empresa invalida.');
 
-      const company = await prisma.empresa.findUnique({
-        where: { id: idEmpresa },
-        select: { id: true },
-      });
-
-      if (!company) {
+      if (!(await companyBelongsToTenant(idEmpresa, idCliente))) {
         return reply.code(404).send({ message: 'Empresa nao encontrada.' });
       }
 
@@ -430,6 +494,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       if (!file) {
         return reply.code(400).send({ message: 'Envie um arquivo.' });
       }
+      assertAllowedUploadType(file);
 
       const fields = file.fields as Record<string, unknown>;
       const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
@@ -463,6 +528,8 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   app.put<{
     Params: { id: string; fileId: string };
   }>('/companies/:id/files/:fileId', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idEmpresa = Number(request.params.id);
       const fileId = Number(request.params.fileId);
@@ -470,7 +537,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
 
       const existingFile = await prisma.empresaArquivo.findFirst({
-        where: { id: fileId, idEmpresa, boInativo: false },
+        where: { id: fileId, idEmpresa, boInativo: false, empresa: { idCliente } },
       });
 
       if (!existingFile) {
@@ -481,6 +548,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       if (!file) {
         return reply.code(400).send({ message: 'Envie um arquivo.' });
       }
+      assertAllowedUploadType(file);
 
       const fields = file.fields as Record<string, unknown>;
       const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
@@ -513,6 +581,8 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   app.get<{
     Params: { id: string; fileId: string };
   }>('/companies/:id/files/:fileId/url', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idEmpresa = Number(request.params.id);
       const fileId = Number(request.params.fileId);
@@ -520,7 +590,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
 
       const companyFile = await prisma.empresaArquivo.findFirst({
-        where: { id: fileId, idEmpresa, boInativo: false },
+        where: { id: fileId, idEmpresa, boInativo: false, empresa: { idCliente } },
       });
 
       if (!companyFile) {
@@ -548,6 +618,8 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   app.delete<{
     Params: { id: string; fileId: string };
   }>('/companies/:id/files/:fileId', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const idEmpresa = Number(request.params.id);
       const fileId = Number(request.params.fileId);
@@ -555,7 +627,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
 
       const existingFile = await prisma.empresaArquivo.findFirst({
-        where: { id: fileId, idEmpresa, boInativo: false },
+        where: { id: fileId, idEmpresa, boInativo: false, empresa: { idCliente } },
       });
 
       if (!existingFile) {
@@ -575,12 +647,17 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   app.get<{
     Params: { companyId: string };
   }>('/companies/:companyId/promotion-files', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    const query = parseListQuery(request.query);
+    if (!query) return reply.code(400).send({ message: 'Parametros invalidos.' });
     try {
       const companyId = Number(request.params.companyId);
       assertValidId(companyId, 'Empresa invalida.');
       return prisma.promocaoArquivo.findMany({
-        where: { promocao: { idEmpresa: companyId } },
+        where: { promocao: { idEmpresa: companyId, empresa: { idCliente } } },
         orderBy: { dtCadastro: 'desc' },
+        take: query.limit,
       });
     } catch (error) {
       return reply.code(400).send({
@@ -592,16 +669,19 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   app.post<{
     Params: { companyId: string };
   }>('/companies/:companyId/promotion-files', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const companyId = Number(request.params.companyId);
       assertValidId(companyId, 'Empresa invalida.');
       const file = await request.file();
       if (!file) return reply.code(400).send({ message: 'Envie um arquivo.' });
+      assertAllowedUploadType(file);
 
       const fields = file.fields as Record<string, unknown>;
       const idPromocao = Number(getMultipartFieldValue(fields, 'idPromocao'));
       assertValidId(idPromocao, 'Promocao invalida.');
-      const promotion = await prisma.promocao.findFirst({ where: { id: idPromocao, idEmpresa: companyId }, select: { id: true } });
+      const promotion = await prisma.promocao.findFirst({ where: { id: idPromocao, idEmpresa: companyId, empresa: { idCliente } }, select: { id: true } });
       if (!promotion) return reply.code(404).send({ message: 'Promocao nao encontrada.' });
 
       const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
@@ -628,22 +708,25 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   app.put<{
     Params: { companyId: string; fileId: string };
   }>('/companies/:companyId/promotion-files/:fileId', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const companyId = Number(request.params.companyId);
       const fileId = Number(request.params.fileId);
       assertValidId(companyId, 'Empresa invalida.');
       assertValidId(fileId, 'Arquivo invalido.');
       const current = await prisma.promocaoArquivo.findFirst({
-        where: { id: fileId, promocao: { idEmpresa: companyId } },
+        where: { id: fileId, promocao: { idEmpresa: companyId, empresa: { idCliente } } },
       });
       if (!current) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
 
       const file = await request.file();
       if (!file) return reply.code(400).send({ message: 'Envie um arquivo.' });
+      assertAllowedUploadType(file);
       const fields = file.fields as Record<string, unknown>;
       const idPromocao = Number(getMultipartFieldValue(fields, 'idPromocao') || current.idPromocao);
       assertValidId(idPromocao, 'Promocao invalida.');
-      const promotion = await prisma.promocao.findFirst({ where: { id: idPromocao, idEmpresa: companyId }, select: { id: true } });
+      const promotion = await prisma.promocao.findFirst({ where: { id: idPromocao, idEmpresa: companyId, empresa: { idCliente } }, select: { id: true } });
       if (!promotion) return reply.code(404).send({ message: 'Promocao nao encontrada.' });
 
       const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
@@ -675,13 +758,15 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   app.get<{
     Params: { companyId: string; fileId: string };
   }>('/companies/:companyId/promotion-files/:fileId/url', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const companyId = Number(request.params.companyId);
       const fileId = Number(request.params.fileId);
       assertValidId(companyId, 'Empresa invalida.');
       assertValidId(fileId, 'Arquivo invalido.');
       const promotionFile = await prisma.promocaoArquivo.findFirst({
-        where: { id: fileId, promocao: { idEmpresa: companyId }, boInativo: false },
+        where: { id: fileId, promocao: { idEmpresa: companyId, empresa: { idCliente } }, boInativo: false },
       });
       if (!promotionFile) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
       const { bucket } = getSupabaseConfig();
@@ -699,13 +784,15 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   app.delete<{
     Params: { companyId: string; fileId: string };
   }>('/companies/:companyId/promotion-files/:fileId', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const companyId = Number(request.params.companyId);
       const fileId = Number(request.params.fileId);
       assertValidId(companyId, 'Empresa invalida.');
       assertValidId(fileId, 'Arquivo invalido.');
       const current = await prisma.promocaoArquivo.findFirst({
-        where: { id: fileId, promocao: { idEmpresa: companyId } },
+        where: { id: fileId, promocao: { idEmpresa: companyId, empresa: { idCliente } } },
         select: { id: true },
       });
       if (!current) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
@@ -724,9 +811,14 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   app.get<{
     Params: { companyId: string };
   }>('/companies/:companyId/custom-theme', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const companyId = Number(request.params.companyId);
       assertValidId(companyId, 'Empresa invalida.');
+      if (!(await companyBelongsToTenant(companyId, idCliente))) {
+        return reply.code(404).send({ message: 'Empresa nao encontrada.' });
+      }
       const tema = await prisma.temaCustomizado.findUnique({
         where: { idEmpresa: companyId },
         include: { arquivoLogo: true, arquivoFavicon: true },
@@ -744,9 +836,17 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     Params: { companyId: string };
     Body: Record<string, unknown>;
   }>('/companies/:companyId/custom-theme', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const companyId = Number(request.params.companyId);
       assertValidId(companyId, 'Empresa invalida.');
+      if (!(await companyBelongsToTenant(companyId, idCliente))) {
+        return reply.code(404).send({ message: 'Empresa nao encontrada.' });
+      }
+      if (!looseBodySchema.safeParse(request.body).success) {
+        return reply.code(400).send({ message: 'Dados invalidos.' });
+      }
       const b = request.body;
       const data = {
         corPrimaria: optionalText(b.corPrimaria) ?? '#000000',
@@ -780,9 +880,16 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   app.get<{
     Params: { companyId: string; resource: string };
   }>('/companies/:companyId/children/:resource', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    const query = parseListQuery(request.query);
+    if (!query) return reply.code(400).send({ message: 'Parametros invalidos.' });
     try {
       const companyId = Number(request.params.companyId);
       assertValidId(companyId, 'Empresa invalida.');
+      if (!(await companyBelongsToTenant(companyId, idCliente))) {
+        return reply.code(404).send({ message: 'Empresa nao encontrada.' });
+      }
       const config = getChildResourceConfig(request.params.resource);
       const where = config.getWhere
         ? config.getWhere(companyId)
@@ -792,6 +899,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       return await config.delegate.findMany({
         where,
         orderBy: config.orderBy,
+        take: query.limit,
         ...(config.include ? { include: config.include } : {}),
       });
     } catch (error) {
@@ -805,10 +913,18 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     Params: { companyId: string; resource: string };
     Body: CompanyChildPayload;
   }>('/companies/:companyId/children/:resource', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const companyId = Number(request.params.companyId);
       assertValidId(companyId, 'Empresa invalida.');
+      if (!(await companyBelongsToTenant(companyId, idCliente))) {
+        return reply.code(404).send({ message: 'Empresa nao encontrada.' });
+      }
       const config = getChildResourceConfig(request.params.resource);
+      if (!looseBodySchema.safeParse(request.body).success) {
+        return reply.code(400).send({ message: 'Dados invalidos.' });
+      }
       const data = config.normalize(companyId, request.body) as Record<string, unknown>;
       if (request.params.resource === 'student-check-ins') {
         if (!data.idAluno && data.idAlunoPlano) {
@@ -851,12 +967,23 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     Params: { companyId: string; resource: string; childId: string };
     Body: CompanyChildPayload;
   }>('/companies/:companyId/children/:resource/:childId', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const companyId = Number(request.params.companyId);
       const childId = Number(request.params.childId);
       assertValidId(companyId, 'Empresa invalida.');
       assertValidId(childId, 'Registro invalido.');
       const config = getChildResourceConfig(request.params.resource);
+      if (!(await companyBelongsToTenant(companyId, idCliente))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+      if (!(await childBelongsToCompany(config, companyId, childId))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+      if (!looseBodySchema.safeParse(request.body).success) {
+        return reply.code(400).send({ message: 'Dados invalidos.' });
+      }
       const data = config.normalize(companyId, request.body) as Record<string, unknown>;
       if (request.params.resource === 'purchases') {
         const existing = await prisma.produtoMovimentacao.findUnique({ where: { id: childId } });
@@ -897,13 +1024,23 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     Params: { companyId: string; resource: string; childId: string };
     Body: { boInativo?: number };
   }>('/companies/:companyId/children/:resource/:childId/status', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const companyId = Number(request.params.companyId);
       const childId = Number(request.params.childId);
       assertValidId(companyId, 'Empresa invalida.');
       assertValidId(childId, 'Registro invalido.');
       const config = getChildResourceConfig(request.params.resource);
-      const nextInativo = toBool(request.body.boInativo);
+      if (!(await companyBelongsToTenant(companyId, idCliente))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+      if (!(await childBelongsToCompany(config, companyId, childId))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+      const body = statusBodySchema.safeParse(request.body);
+      if (!body.success) return reply.code(400).send({ message: 'Dados invalidos.' });
+      const nextInativo = toBool(body.data.boInativo);
       if (request.params.resource === 'purchases') {
         const existing = await prisma.produtoMovimentacao.findUnique({ where: { id: childId } });
         if (!existing) throw new Error('Compra nao encontrada.');

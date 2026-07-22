@@ -1,15 +1,19 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { getComprefaceConfig, recognizeComprefaceFace } from '../../shared/compreface.js';
+import { assertAllowedUploadType } from '../../shared/files.js';
 
 export async function registerAccessRoutes(app: FastifyInstance) {
   app.post('/access/facial/recognize', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const file = await request.file();
 
       if (!file) {
         return reply.code(400).send({ message: 'Envie uma imagem para reconhecimento facial.' });
       }
+      assertAllowedUploadType(file);
 
       const buffer = await file.toBuffer();
       const recognition = await recognizeComprefaceFace(buffer, file.filename);
@@ -21,8 +25,15 @@ export async function registerAccessRoutes(app: FastifyInstance) {
         return { match: false, access: 'denied', similarity, message: 'Nenhum aluno reconhecido.' };
       }
 
+      // Isolamento de tenant: so considera biometrias de alunos do cliente do
+      // usuario autenticado; subject de outro tenant cai no fluxo de mismatch.
       const biometric = await prisma.alunoBiometriaFacial.findFirst({
-        where: { dsProvider: 'compreface', dsSubject: subject, boInativo: false },
+        where: {
+          dsProvider: 'compreface',
+          dsSubject: subject,
+          boInativo: false,
+          aluno: { idCliente },
+        },
         select: {
           idAluno: true,
           nrThreshold: true,

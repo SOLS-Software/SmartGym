@@ -1,5 +1,7 @@
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
+import { Prisma } from '@smartgym/db';
 import { prisma } from '../../shared/prisma.js';
 import { normalizeLocalidadePayload, assertValidId } from '../../shared/normalize.js';
 import type { LocalidadePayload } from '../../shared/api-types.js';
@@ -21,11 +23,28 @@ type LocalidadeRow = {
   boInativo: number;
 };
 
-const SELECT_COLUMNS = `
+const SELECT_COLUMNS = Prisma.sql`
   id, "idEmpresa", "nmLocalidade", "dsLocalidade", "cnLocalidadeTP",
   ST_Y("geoLocalidade") as latitude, ST_X("geoLocalidade") as longitude,
   "dtCadastro", "dtAlteracao", "boInativo"
 `;
+
+const listQuerySchema = z.object({
+  search: z.string().max(200).optional(),
+  limit: z.preprocess(
+    (value) => (value === '' || value === undefined ? undefined : value),
+    z.coerce.number().int().optional(),
+  ),
+});
+
+const geocodeBodySchema = z.object({
+  cep: z.string().max(20).optional(),
+  logradouro: z.string().max(200).optional(),
+  numero: z.string().max(20).optional(),
+  bairro: z.string().max(120).optional(),
+  cidade: z.string().max(120).optional(),
+  estado: z.string().max(60).optional(),
+});
 
 type GeocodePayload = {
   cep?: string;
@@ -43,11 +62,33 @@ type NominatimResult = {
 };
 
 export async function registerLocalityRoutes(app: FastifyInstance) {
+  // Isolamento de tenant: Localidade pertence ao cliente via Empresa.idCliente.
+  // A leitura do registro usa o client normal (sem a coluna geo) so para checagem.
+  async function findTenantLocality(id: number, idCliente: number) {
+    return prisma.localidade.findFirst({
+      where: { id, empresa: { idCliente } },
+      select: { id: true },
+    });
+  }
+
+  // Garante que a empresa informada no payload pertence ao tenant (400 se nao).
+  async function assertCompanyInTenant(idEmpresa: number, idCliente: number) {
+    const company = await prisma.empresa.findFirst({
+      where: { id: idEmpresa, idCliente },
+      select: { id: true },
+    });
+    if (!company) throw new Error('Empresa nao pertence ao cliente.');
+  }
+
+  // Rota global de proposito: apenas consulta o servico externo de geocoding,
+  // nao le nem escreve dados de tenant.
   app.post<{
     Body: GeocodePayload;
   }>('/localities/geocode', async (request, reply) => {
     try {
-      const { cep, logradouro, numero, bairro, cidade, estado } = request.body;
+      const parsedBody = geocodeBodySchema.safeParse(request.body);
+      if (!parsedBody.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
+      const { cep, logradouro, numero, bairro, cidade, estado } = parsedBody.data;
       const street = [numero?.trim(), logradouro?.trim()].filter(Boolean).join(' ');
 
       if (!street && !cep?.trim()) {
@@ -95,39 +136,41 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
 
   app.get<{
     Querystring: { search?: string };
-  }>('/localities', async (request) => {
-    const search = request.query.search?.trim();
+  }>('/localities', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    const parsedQuery = listQuerySchema.safeParse(request.query);
+    if (!parsedQuery.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
+    const search = parsedQuery.data.search?.trim();
+    const take = Math.min(Math.max(parsedQuery.data.limit ?? 1000, 1), 1000);
 
-    if (search) {
-      return prisma.$queryRawUnsafe<LocalidadeRow[]>(
-        `SELECT ${SELECT_COLUMNS} FROM "tb_Localidades" WHERE "nmLocalidade" ILIKE $1 ORDER BY "nmLocalidade" ASC`,
-        `%${search}%`,
-      );
-    }
+    const searchFilter = search
+      ? Prisma.sql` AND "nmLocalidade" ILIKE ${`%${search}%`}`
+      : Prisma.empty;
 
-    return prisma.$queryRawUnsafe<LocalidadeRow[]>(
-      `SELECT ${SELECT_COLUMNS} FROM "tb_Localidades" ORDER BY "nmLocalidade" ASC`,
-    );
+    return prisma.$queryRaw<LocalidadeRow[]>(Prisma.sql`
+      SELECT ${SELECT_COLUMNS} FROM "tb_Localidades"
+      WHERE "idEmpresa" IN (SELECT id FROM "tb_Empresas" WHERE "idCliente" = ${idCliente})${searchFilter}
+      ORDER BY "nmLocalidade" ASC
+      LIMIT ${take}
+    `);
   });
 
   app.post<{
     Body: LocalidadePayload;
   }>('/localities', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const data = normalizeLocalidadePayload(request.body);
-      const rows = await prisma.$queryRawUnsafe<LocalidadeRow[]>(
-        `INSERT INTO "tb_Localidades"
-           ("idEmpresa", "nmLocalidade", "dsLocalidade", "cnLocalidadeTP", "geoLocalidade", "dtAlteracao", "boInativo")
-         VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), now(), $7)
-         RETURNING ${SELECT_COLUMNS}`,
-        data.idEmpresa,
-        data.nmLocalidade,
-        data.dsLocalidade,
-        data.cnLocalidadeTP,
-        data.longitude,
-        data.latitude,
-        data.boInativo,
-      );
+      await assertCompanyInTenant(data.idEmpresa, idCliente);
+      const rows = await prisma.$queryRaw<LocalidadeRow[]>(Prisma.sql`
+        INSERT INTO "tb_Localidades"
+          ("idEmpresa", "nmLocalidade", "dsLocalidade", "cnLocalidadeTP", "geoLocalidade", "dtAlteracao", "boInativo")
+        VALUES (${data.idEmpresa}, ${data.nmLocalidade}, ${data.dsLocalidade}, ${data.cnLocalidadeTP},
+          ST_SetSRID(ST_MakePoint(${data.longitude}, ${data.latitude}), 4326), now(), ${data.boInativo})
+        RETURNING ${SELECT_COLUMNS}
+      `);
       return reply.code(201).send(rows[0]);
     } catch (error) {
       return reply.code(400).send({
@@ -140,26 +183,25 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: LocalidadePayload;
   }>('/localities/:id', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Localidade invalida.');
+      const current = await findTenantLocality(id, idCliente);
+      if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const data = normalizeLocalidadePayload(request.body);
+      await assertCompanyInTenant(data.idEmpresa, idCliente);
 
-      const rows = await prisma.$queryRawUnsafe<LocalidadeRow[]>(
-        `UPDATE "tb_Localidades"
-         SET "idEmpresa" = $1, "nmLocalidade" = $2, "dsLocalidade" = $3, "cnLocalidadeTP" = $4,
-             "geoLocalidade" = ST_SetSRID(ST_MakePoint($5, $6), 4326), "dtAlteracao" = now(), "boInativo" = $7
-         WHERE id = $8
-         RETURNING ${SELECT_COLUMNS}`,
-        data.idEmpresa,
-        data.nmLocalidade,
-        data.dsLocalidade,
-        data.cnLocalidadeTP,
-        data.longitude,
-        data.latitude,
-        data.boInativo,
-        id,
-      );
+      const rows = await prisma.$queryRaw<LocalidadeRow[]>(Prisma.sql`
+        UPDATE "tb_Localidades"
+        SET "idEmpresa" = ${data.idEmpresa}, "nmLocalidade" = ${data.nmLocalidade},
+            "dsLocalidade" = ${data.dsLocalidade}, "cnLocalidadeTP" = ${data.cnLocalidadeTP},
+            "geoLocalidade" = ST_SetSRID(ST_MakePoint(${data.longitude}, ${data.latitude}), 4326),
+            "dtAlteracao" = now(), "boInativo" = ${data.boInativo}
+        WHERE id = ${id}
+        RETURNING ${SELECT_COLUMNS}
+      `);
 
       if (!rows[0]) {
         return reply.code(404).send({ message: 'Localidade nao encontrada.' });
@@ -177,18 +219,20 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: { boInativo?: number };
   }>('/localities/:id/status', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Localidade invalida.');
+      const current = await findTenantLocality(id, idCliente);
+      if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const boInativo = toBool(request.body.boInativo);
 
-      const rows = await prisma.$queryRawUnsafe<LocalidadeRow[]>(
-        `UPDATE "tb_Localidades" SET "boInativo" = $1, "dtAlteracao" = now()
-         WHERE id = $2
-         RETURNING ${SELECT_COLUMNS}`,
-        boInativo,
-        id,
-      );
+      const rows = await prisma.$queryRaw<LocalidadeRow[]>(Prisma.sql`
+        UPDATE "tb_Localidades" SET "boInativo" = ${boInativo}, "dtAlteracao" = now()
+        WHERE id = ${id}
+        RETURNING ${SELECT_COLUMNS}
+      `);
 
       if (!rows[0]) {
         return reply.code(404).send({ message: 'Localidade nao encontrada.' });
