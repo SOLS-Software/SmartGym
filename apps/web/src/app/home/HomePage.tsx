@@ -28,10 +28,16 @@ import { TrainingRegistration } from '../../features/trainings/TrainingRegistrat
 import { EquipmentRegistration } from '../../features/equipment/EquipmentRegistration';
 import { LocalityRegistration } from '../../features/localities/LocalityRegistration';
 import { PointsRegistration } from '../../features/points/PointsRegistration';
+import { StudentPointsView } from '../../features/points/StudentPointsView';
 import { StudentTrainingAssembly } from '../../features/students/StudentTrainingAssembly';
 import { StudentMembershipView } from '../../features/students/StudentMembershipView';
 import { StudentCalendarView } from '../../features/students/StudentCalendarView';
 import { MyTraining } from '../../features/trainings/MyTraining';
+import { GlobalSearch } from '../../shared/components/GlobalSearch';
+import { OnboardingWizard, shouldShowOnboarding, markOnboardingDone } from '../../shared/components/OnboardingWizard';
+import { EmployeeDashboard } from '../../features/dashboard/EmployeeDashboard';
+import { StudentDashboard } from '../../features/dashboard/StudentDashboard';
+import { ReportsView } from '../../features/reports/ReportsView';
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 import {
   SESSION_KEY,
@@ -44,6 +50,7 @@ import type { AuthenticatedUser, AuthUserType } from '../../shared/auth/sessionU
 import {
   Activity,
   BadgeCheck,
+  BarChart3,
   Briefcase,
   Building2,
   Calendar,
@@ -54,7 +61,9 @@ import {
   Dumbbell,
   FilePlus,
   Globe,
+  LayoutDashboard,
   MapPin,
+  Menu,
   Moon,
   Package,
   Palette,
@@ -69,6 +78,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 
 const menuItemIcons: Record<string, LucideIcon> = {
+  'Painel': LayoutDashboard,
   'Clientes': Briefcase,
   'Empresas': Building2,
   'Tema': Palette,
@@ -91,9 +101,14 @@ const menuItemIcons: Record<string, LucideIcon> = {
   'Equipamentos': Wrench,
   'Localidades': MapPin,
   'Pontuações': Star,
+  'Relatórios': BarChart3,
 };
 
 const menuGroups = [
+  {
+    title: 'INÍCIO',
+    items: ['Painel', 'Relatórios'],
+  },
   {
     title: 'EMPRESA',
     items: ['Clientes', 'Empresas'],
@@ -169,27 +184,39 @@ function lightenColor(hex: string): string {
   }).join('')}`;
 }
 
+function hexToRgb(hex: string) {
+  const h = hex.replace('#', '');
+  return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) };
+}
+
 function applyCompanyTheme(theme: CompanyTheme) {
   const root = document.documentElement;
-  root.style.setProperty('--color-primary', theme.corPrimaria);
-  root.style.setProperty('--color-text', theme.corTexto);
-  root.style.setProperty('--color-bg', theme.corFundo);
+  const dark = root.classList.contains('dark');
 
-  const hex = theme.corPrimaria.replace('#', '');
-  const r = parseInt(hex.slice(0, 2), 16);
-  const g = parseInt(hex.slice(2, 4), 16);
-  const b = parseInt(hex.slice(4, 6), 16);
+  root.style.setProperty('--color-primary', theme.corPrimaria);
+
+  if (dark) {
+    root.style.removeProperty('--color-text');
+    root.style.removeProperty('--color-bg');
+  } else {
+    root.style.setProperty('--color-text', theme.corTexto);
+    root.style.setProperty('--color-bg', theme.corFundo);
+  }
+
+  const { r, g, b } = hexToRgb(theme.corPrimaria);
   const darken = (c: number) => Math.max(0, Math.round(c * 0.82)).toString(16).padStart(2, '0');
   root.style.setProperty('--color-primary-dark', `#${darken(r)}${darken(g)}${darken(b)}`);
-  root.style.setProperty('--color-primary-bg', lightenColor(theme.corPrimaria));
+  root.style.setProperty('--color-primary-bg', dark ? `rgba(${r}, ${g}, ${b}, 0.22)` : lightenColor(theme.corPrimaria));
 
   if (theme.corSecundaria) {
     root.style.setProperty('--color-secondary', theme.corSecundaria);
-    root.style.setProperty('--color-secondary-bg', lightenColor(theme.corSecundaria));
+    const s = hexToRgb(theme.corSecundaria);
+    root.style.setProperty('--color-secondary-bg', dark ? `rgba(${s.r}, ${s.g}, ${s.b}, 0.22)` : lightenColor(theme.corSecundaria));
   }
   if (theme.corAcentuacao) {
     root.style.setProperty('--color-accent', theme.corAcentuacao);
-    root.style.setProperty('--color-accent-bg', lightenColor(theme.corAcentuacao));
+    const a = hexToRgb(theme.corAcentuacao);
+    root.style.setProperty('--color-accent-bg', dark ? `rgba(${a.r}, ${a.g}, ${a.b}, 0.22)` : lightenColor(theme.corAcentuacao));
   }
 
   if (theme.fontePrincipal) {
@@ -248,13 +275,16 @@ export default function HomePage() {
   const facialStreamRef = useRef<MediaStream | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isSessionLoading, setIsSessionLoading] = useState(true);
-  const [activeItem, setActiveItem] = useState('Meu Treino');
-  const [isMenuOpen, setIsMenuOpen] = useState(true);
+  const [activeItem, setActiveItem] = useState('Painel');
+  const [isMenuOpen, setIsMenuOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth > 760 : true,
+  );
   const [authUserName, setAuthUserName] = useState('Joao Silva');
   const [authUserRole, setAuthUserRole] = useState('Administrador');
   const [authUserType, setAuthUserType] = useState<AuthUserType>('employee');
   const [authUserEmployeeId, setAuthUserEmployeeId] = useState<number | null>(null);
   const [authUserStudentId, setAuthUserStudentId] = useState<number | null>(null);
+  const [authUserId, setAuthUserId] = useState<number | null>(null);
   const [authUserPhotoUrl, setAuthUserPhotoUrl] = useState<string | null>(null);
   const [loginMode, setLoginMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [loginCpf, setLoginCpf] = useState('');
@@ -275,6 +305,7 @@ export default function HomePage() {
   const [companyTheme, setCompanyTheme] = useState<CompanyTheme | null>(null);
   const [themePhase, setThemePhase] = useState<'fetching' | 'applying' | null>('fetching');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const themeFingerprint = useMemo(() => {
     if (!companyTheme) return '';
@@ -336,17 +367,21 @@ export default function HomePage() {
             if (!verifyResponse.ok) {
               localStorage.removeItem(SESSION_KEY);
             } else {
+              setAuthUserId(user.id);
               setAuthUserName(user.name);
               setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
               setAuthUserType(user.type);
               setAuthUserEmployeeId(user.idFuncionario);
               setAuthUserStudentId(user.idAluno);
               setActiveItem(
-                user.type === 'employee' && savedActiveItem === 'Meu Treino'
-                  ? 'Matrículas'
+                savedActiveItem === 'Meu Treino' && user.type === 'employee'
+                  ? 'Painel'
                   : savedActiveItem,
               );
               setIsLoggedIn(true);
+              if (shouldShowOnboarding(user.id)) {
+                setShowOnboarding(true);
+              }
             }
           }
         }
@@ -539,21 +574,23 @@ export default function HomePage() {
 
   function completeLogin(user: AuthenticatedUser) {
     const nextActiveItem =
-      user.type === 'student'
-        ? 'Meu Treino'
-        : activeItem === 'Meu Treino'
-          ? 'Matrículas'
-          : activeItem;
+      activeItem === 'Meu Treino' || activeItem === 'Painel'
+        ? 'Painel'
+        : activeItem;
     stopFacialCamera();
     setPendingFacialUser(null);
     setAuthFeedback('');
     setAuthUserName(user.name);
     setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
+    setAuthUserId(user.id);
     setAuthUserType(user.type);
     setAuthUserEmployeeId(user.idFuncionario);
     setAuthUserStudentId(user.idAluno);
     setActiveItem(nextActiveItem);
     setIsLoggedIn(true);
+    if (shouldShowOnboarding(user.id)) {
+      setShowOnboarding(true);
+    }
     void encryptSession({ user, activeItem: nextActiveItem, cachedAt: Date.now() })
       .then((encrypted) => { localStorage.setItem(SESSION_KEY, encrypted); })
       .catch(() => { });
@@ -638,6 +675,7 @@ export default function HomePage() {
       document.documentElement.classList.remove('dark');
       localStorage.removeItem(DARK_MODE_KEY);
     }
+    if (companyTheme) applyCompanyTheme(companyTheme);
   }
 
   function handleLogout() {
@@ -649,7 +687,7 @@ export default function HomePage() {
     setAuthUserRole('');
     setAuthUserEmployeeId(null);
     setAuthUserStudentId(null);
-    setActiveItem('Meu Treino');
+    setActiveItem('Painel');
     setLoginMode('login');
     setAuthFeedback('');
     setLoginCpf('');
@@ -835,10 +873,10 @@ export default function HomePage() {
             items: group.items.filter((item) => item !== 'Meu Treino'),
           }))
         : menuGroups
-          .filter((group) => group.title === 'TREINO' || group.title === 'ALUNOS' || group.title === 'ATIVIDADE')
+          .filter((group) => group.title === 'INÍCIO' || group.title === 'TREINO' || group.title === 'ALUNOS' || group.title === 'ATIVIDADE')
           .map((group) => ({
             ...group,
-            items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda' && item !== 'Calendário Empresa' && item !== 'Treino'),
+            items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda' && item !== 'Calendário Empresa' && item !== 'Treino' && item !== 'Relatórios'),
           }));
 
     const activeGroup = menuGroups.find((g) => g.items.includes(activeItem))?.title ?? '';
@@ -987,7 +1025,22 @@ export default function HomePage() {
         </aside>
 
         <section className="home-content">
-          {activeItem === 'Clientes' ? (
+          {activeItem === 'Painel' ? (
+            authUserType === 'student' ? (
+              <StudentDashboard
+                studentId={authUserStudentId}
+                studentName={authUserName}
+                onNavigate={setActiveItem}
+              />
+            ) : (
+              <EmployeeDashboard
+                employeeName={authUserName}
+                onNavigate={setActiveItem}
+              />
+            )
+          ) : activeItem === 'Relatórios' ? (
+            <ReportsView />
+          ) : activeItem === 'Clientes' ? (
             <ClientRegistration />
           ) : activeItem === 'Empresas' ? (
             <CompanyRegistration />
@@ -1061,7 +1114,11 @@ export default function HomePage() {
           ) : activeItem === 'Domínios' ? (
             <DomainRegistration />
           ) : activeItem === 'Pontuações' ? (
-            <PointsRegistration />
+            authUserType === 'student' ? (
+              <StudentPointsView />
+            ) : (
+              <PointsRegistration />
+            )
           ) : activeItem === 'Meu Treino' ? (
             <MyTraining
               studentId={authUserStudentId}
@@ -1092,6 +1149,68 @@ export default function HomePage() {
             </div>
           )}
         </section>
+        <nav className="mobile-bottom-nav" aria-label="Navegação rápida">
+          {(authUserType === 'student'
+            ? [
+                { key: 'Painel', icon: LayoutDashboard, label: 'Painel' },
+                { key: 'Meu Treino', icon: UserCheck, label: 'Treino' },
+                { key: 'Calendário', icon: Calendar, label: 'Calendário' },
+                { key: 'Matrículas', icon: BadgeCheck, label: 'Matrícula' },
+              ]
+            : [
+                { key: 'Painel', icon: LayoutDashboard, label: 'Painel' },
+                { key: 'Matrículas', icon: BadgeCheck, label: 'Alunos' },
+                { key: 'Montar Treino', icon: FilePlus, label: 'Treino' },
+                { key: 'Atividades', icon: Activity, label: 'Atividades' },
+              ]
+          ).map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                className={`mobile-bottom-nav-item${activeItem === tab.key ? ' active' : ''}`}
+                key={tab.key}
+                onClick={() => setActiveItem(tab.key)}
+                type="button"
+              >
+                <Icon size={20} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+          <button
+            className="mobile-bottom-nav-item"
+            onClick={() => setIsMenuOpen(true)}
+            type="button"
+          >
+            <Menu size={20} />
+            <span>Menu</span>
+          </button>
+        </nav>
+        <GlobalSearch
+          items={visibleMenuGroups.flatMap((group) =>
+            group.items.map((item) => ({
+              label: getMenuItemLabel(item, authUserType),
+              group: group.title,
+              icon: menuItemIcons[item],
+            })),
+          )}
+          onSelect={(label) => {
+            const original = Object.entries(menuItemIcons).find(
+              ([key]) => key === label || getMenuItemLabel(key, authUserType) === label,
+            );
+            setActiveItem(original?.[0] ?? label);
+          }}
+        />
+        {showOnboarding ? (
+          <OnboardingWizard
+            userName={authUserName}
+            userType={authUserType === 'student' ? 'student' : 'employee'}
+            onComplete={() => {
+              markOnboardingDone(authUserId);
+              setShowOnboarding(false);
+            }}
+          />
+        ) : null}
       </main>
     );
   }

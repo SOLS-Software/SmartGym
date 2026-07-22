@@ -5,6 +5,7 @@ import { formatDateDisplay, formatDateTimeDisplay } from '../../shared/registrat
 import { ExerciseCard } from '../../shared/registration/ExerciseCard';
 import type { StudentTraining, TrainingExerciseWithCover } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, getApiError } from '../../shared/api/apiFetch';
+import { useToast } from '../../shared/components/Toast';
 
 function formatExerciseMeta(link: TrainingExerciseWithCover) {
     const parts: string[] = [];
@@ -36,6 +37,7 @@ type StudentCheckIn = {
 
 
 export function MyTraining({ studentId, studentName }: MyTrainingProps) {
+    const { showToast } = useToast();
     const [studentTrainings, setStudentTrainings] = useState<StudentTraining[]>([]);
     const [selectedStudentTraining, setSelectedStudentTraining] = useState<StudentTraining | null>(null);
     const [selectedSequenceId, setSelectedSequenceId] = useState('');
@@ -242,7 +244,7 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
 
             const checkIn = (await response.json()) as StudentCheckIn;
             setCheckIns((current) => [checkIn, ...current]);
-            setFeedback('Treino iniciado com sucesso.');
+            showToast('Treino iniciado com sucesso.');
         } catch (error) {
             setFeedback(error instanceof Error ? error.message : 'Erro ao iniciar treino.');
         } finally {

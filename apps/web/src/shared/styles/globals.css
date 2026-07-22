@@ -81,6 +81,11 @@
   padding: 0.45rem 0.7rem;
 }
 
+html.dark .chip {
+  background: rgba(31, 122, 83, 0.18);
+  border-color: rgba(31, 122, 83, 0.35);
+}
+
 @import './base.css';
 @import './login.css';
 @import './layout.css';
@@ -89,3 +94,9 @@
 @import './company.css';
 @import './students.css';
 @import './trainings.css';
+@import './toast.css';
+@import './confirm-dialog.css';
+@import './global-search.css';
+@import './dashboard.css';
+@import './onboarding.css';
+@import './reports.css';

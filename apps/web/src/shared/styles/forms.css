@@ -168,6 +168,27 @@
   color: #7a8f82;
 }
 
+html.dark .field input:disabled,
+html.dark .field select:disabled,
+html.dark .field textarea:disabled {
+  background: var(--color-surface-alt);
+  color: var(--color-muted);
+}
+
+html.dark .form-feedback {
+  background: rgba(31, 122, 83, 0.15);
+  border-color: rgba(31, 122, 83, 0.3);
+}
+
+html.dark .status-toggle {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+html.dark .status-toggle:not(.active) span {
+  background: #3d5c46;
+}
+
 .two-columns {
   display: grid;
   gap: 1rem;
@@ -274,5 +295,27 @@
 
   .form-actions {
     flex-direction: column-reverse;
+  }
+
+  .form-actions button {
+    min-height: 2.875rem;
+    font-size: 0.9rem;
+  }
+
+  .registration-form {
+    padding: 1rem;
+    margin-top: 1rem;
+    gap: 1rem;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    min-height: 2.875rem;
+    font-size: 1rem;
+  }
+
+  .form-heading h2 {
+    font-size: clamp(1.5rem, 4vw, 2rem);
   }
 }

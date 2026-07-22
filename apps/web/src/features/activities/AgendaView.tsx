@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { CalendarDays, CheckCircle, Clock, Users, XCircle } from 'lucide-react';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import type { Activity, AgendaSession, Employee, EnrolledStudent, Sport } from '../../shared/registration/registrationTypes';
+import { useToast } from '../../shared/components/Toast';
 
 type Category = { id: number; dsCategoria: string; boInativo: boolean };
 
@@ -55,6 +56,7 @@ function groupSessionsByDate(sessions: AgendaSession[]) {
 }
 
 export function AgendaView({ userType, studentId }: AgendaViewProps) {
+  const { showToast } = useToast();
   const [sessions, setSessions] = useState<AgendaSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -186,7 +188,7 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
         body: JSON.stringify({ idAluno: studentId }),
       });
       if (!response.ok) await getApiError(response, 'Erro ao realizar inscrição.');
-      setFeedback('Inscrição realizada com sucesso.');
+      showToast('Inscrição realizada com sucesso.');
       await loadSessions();
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao realizar inscrição.');
@@ -206,7 +208,7 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
         body: JSON.stringify({ idAluno: studentId }),
       });
       if (!response.ok) await getApiError(response, 'Erro ao cancelar inscrição.');
-      setFeedback('Inscrição cancelada com sucesso.');
+      showToast('Inscrição cancelada com sucesso.');
       await loadSessions();
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao cancelar inscrição.');

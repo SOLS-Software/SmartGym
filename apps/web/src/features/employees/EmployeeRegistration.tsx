@@ -7,6 +7,7 @@ import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatCpf, for
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
+import { useToast } from '../../shared/components/Toast';
 
 const _employeeTabIcons = { files: FileText };
 import type { Company, CompanyChildRecord, CompanyChildTable, Employee, LookupRecord, Role } from '../../shared/registration/registrationTypes';
@@ -84,6 +85,7 @@ function isValidPastDate(value: string) {
 type DrawerMode = 'employee' | 'related';
 
 export function EmployeeRegistration() {
+  const { showToast } = useToast();
   const employeeFileInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const cpfInputRef = useRef<HTMLInputElement>(null);
@@ -606,7 +608,7 @@ export function EmployeeRegistration() {
       await loadEmployees();
       setSelectedEmployeeId(savedEmployee.id);
       setIsCreating(false);
-      setFeedback('Funcionário salvo com sucesso.');
+      showToast('Funcionário salvo com sucesso.');
       setIsDrawerOpen(false);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar funcionário.');
@@ -819,9 +821,9 @@ export function EmployeeRegistration() {
             ariaLabel="Funcionários cadastrados"
             label="Funcionários"
             columns={[
-              { label: 'Funcionário', render: (e) => e.nmFuncionario },
+              { label: 'Funcionário', render: (e) => e.nmFuncionario, sortValue: (e) => e.nmFuncionario },
               { label: 'Cargo', render: (e) => getRoleLabel(e.idCargo) },
-              { label: 'Status', render: (e) => <span className={`status-badge ${e.boInativo === false ? 'active' : 'inactive'}`}>{e.boInativo === false ? 'Ativo' : 'Inativo'}</span> },
+              { label: 'Status', render: (e) => <span className={`status-badge ${e.boInativo === false ? 'active' : 'inactive'}`}>{e.boInativo === false ? 'Ativo' : 'Inativo'}</span>, sortValue: (e) => (e.boInativo === false ? 0 : 1) },
             ]}
             records={paginatedEmployees}
             isLoading={isLoadingEmployees}

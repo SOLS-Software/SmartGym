@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import '../src/shared/styles/globals.css';
 import { GlobalValidation } from '../src/shared/components/GlobalValidation';
+import { Providers } from '../src/shared/components/Providers';
 
 export const metadata: Metadata = {
   title: 'SmartGym',
@@ -16,7 +17,7 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body>
         <GlobalValidation />
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

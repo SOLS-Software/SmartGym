@@ -8,6 +8,7 @@ import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Company } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useToast } from '../../shared/components/Toast';
 
 type Pontuacao = {
   id: number;
@@ -18,6 +19,7 @@ type Pontuacao = {
 };
 
 export function PointsRegistration() {
+  const { showToast } = useToast();
   const nameInputRef = useRef<HTMLInputElement | null>(null);
 
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -166,7 +168,7 @@ export function PointsRegistration() {
       });
       setSelectedPointId(saved.id);
       setIsCreating(false);
-      setFeedback('Pontuação salva com sucesso.');
+      showToast('Pontuação salva com sucesso.');
       setIsDrawerOpen(false);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar.');
@@ -211,7 +213,7 @@ export function PointsRegistration() {
             ariaLabel="Pontuações cadastradas"
             label="Pontuações"
             columns={[
-              { label: 'Descrição', render: (r) => r.dsPontuacao },
+              { label: 'Descrição', render: (r) => r.dsPontuacao, sortValue: (r) => r.dsPontuacao },
               { label: 'Pontos', render: (r) => String(r.qtPontos ?? 0) },
               {
                 label: 'Status',
@@ -220,6 +222,7 @@ export function PointsRegistration() {
                     {r.boInativo === false ? 'Ativo' : 'Inativo'}
                   </span>
                 ),
+                sortValue: (r) => (r.boInativo === false ? 0 : 1),
               },
             ]}
             records={filteredPoints}

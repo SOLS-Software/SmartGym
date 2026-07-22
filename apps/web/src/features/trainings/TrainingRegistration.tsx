@@ -8,6 +8,7 @@ import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import type { Company, CompanyChildField, CompanyChildRecord, CompanyChildTable, Level, LookupRecord, Training } from '../../shared/registration/registrationTypes';
+import { useToast } from '../../shared/components/Toast';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
 
@@ -15,6 +16,7 @@ const trainingRelatedConfig: CompanyChildTable = {
   key: 'exercises',
   endpoint: 'exercises',
   label: 'Exercícios',
+  labelSingular: 'Exercício',
   title: 'Exercícios do treino',
   columns: [
     { key: 'nrOrdem', label: 'Ordem' },
@@ -45,6 +47,7 @@ type TrainingRegistrationProps = {
 };
 
 export function TrainingRegistration({ readOnly = false }: TrainingRegistrationProps) {
+  const { showToast } = useToast();
   const trainingNameInputRef = useRef<HTMLInputElement | null>(null);
 
   // Training list state
@@ -386,7 +389,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
       await loadTrainings();
       setSelectedTrainingId(savedTraining.id);
       setIsCreating(false);
-      setFeedback('Treino salvo com sucesso.');
+      showToast('Treino salvo com sucesso.');
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar treino.');
     }
@@ -470,7 +473,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
       await loadExercises(selectedTrainingId);
       setSelectedTrainingRelatedRecordId(savedRecord.id);
       setIsCreatingTrainingRelated(false);
-      setTrainingRelatedFeedback(`${trainingRelatedConfig.label} salvo com sucesso.`);
+      setTrainingRelatedFeedback(`${trainingRelatedConfig.labelSingular ?? trainingRelatedConfig.label} salvo com sucesso.`);
     } catch (error) {
       setTrainingRelatedFeedback(error instanceof Error ? error.message : 'Erro ao salvar exercício.');
     }
@@ -490,7 +493,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
             ariaLabel="Treinos cadastrados"
             label="Treinos"
             columns={[
-              { label: 'Treino', render: (t) => t.dsTreino, tooltip: (t) => t.dsTreino },
+              { label: 'Treino', render: (t) => t.dsTreino, tooltip: (t) => t.dsTreino, sortValue: (t) => t.dsTreino },
               { label: 'Nível', render: (t) => getLevelLabel(t.idNivel), tooltip: (t) => getLevelLabel(t.idNivel) },
               {
                 label: 'Status',
@@ -499,6 +502,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                     {t.boInativo === false ? 'Ativo' : 'Inativo'}
                   </span>
                 ),
+                sortValue: (t) => (t.boInativo === false ? 0 : 1),
               },
             ]}
             records={paginatedTrainings}
@@ -682,6 +686,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                     <input
                       disabled={!isExerciseFormEnabled}
                       id={`exercise-${field.key}`}
+                      min={field.type === 'number' ? 0 : undefined}
                       onChange={(event) =>
                         setTrainingRelatedFormValues((current) => ({
                           ...current,
@@ -720,7 +725,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                 </button>
                 <button disabled={!isExerciseFormEnabled} type="submit">
                   <Save size={16} />
-                  Salvar {trainingRelatedConfig.label}
+                  Salvar {trainingRelatedConfig.labelSingular ?? trainingRelatedConfig.label}
                 </button>
               </div>
             </form>

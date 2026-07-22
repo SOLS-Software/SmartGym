@@ -10,6 +10,8 @@ import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import type { CompanyChildRecord, LookupRecord, Student, StudentFile, StudentValidationErrors, StudentValidationField } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useToast } from '../../shared/components/Toast';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { getSessionClienteId } from '../../shared/auth/sessionUtils';
 import { studentRelatedTables } from './studentRelatedTables';
 import { formatPhone, isValidBirthDate, isValidEmail, toApiDate } from './studentValidation';
@@ -22,6 +24,7 @@ const studentTabIcons = {
 };
 
 export function StudentRegistration() {
+  const { showToast } = useToast();
   const nameInputRef = useRef<HTMLInputElement>(null);
   const cpfInputRef = useRef<HTMLInputElement>(null);
   const birthDateInputRef = useRef<HTMLInputElement>(null);
@@ -52,6 +55,7 @@ export function StudentRegistration() {
   const [feedback, setFeedback] = useState('');
   const [fileFeedback, setFileFeedback] = useState('');
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [confirmToggle, setConfirmToggle] = useState(false);
   const [selectedStudentRelatedTable, setSelectedStudentRelatedTable] = useState('');
   const [studentRelatedRecords, setStudentRelatedRecords] = useState<CompanyChildRecord[]>([]);
   const [isLoadingStudentRelatedRecords, setIsLoadingStudentRelatedRecords] = useState(false);
@@ -534,7 +538,13 @@ export function StudentRegistration() {
     }
   }
 
+  function requestToggleStatus() {
+    if (!selectedStudentId) return;
+    setConfirmToggle(true);
+  }
+
   async function handleToggleStatus() {
+    setConfirmToggle(false);
     const nextActive = !isStudentActive;
     setIsStudentActive(nextActive);
 
@@ -563,6 +573,7 @@ export function StudentRegistration() {
           student.id === updatedStudent.id ? updatedStudent : student,
         ),
       );
+      showToast(nextActive ? 'Aluno ativado com sucesso.' : 'Aluno inativado com sucesso.');
     } catch (error) {
       setIsStudentActive(!nextActive);
       setFeedback(
@@ -645,7 +656,7 @@ export function StudentRegistration() {
       });
       setSelectedStudentId(savedStudent.id);
       setIsCreating(false);
-      setFeedback('Aluno salvo com sucesso.');
+      showToast('Aluno salvo com sucesso.');
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar.');
     }
@@ -748,7 +759,7 @@ export function StudentRegistration() {
       await loadStudentRelatedRecords(selectedStudentId, studentRelatedConfig);
       setSelectedStudentRelatedRecordId(savedRecord.id);
       setIsCreatingStudentRelated(false);
-      setStudentRelatedFeedback(`${studentRelatedConfig.labelSingular ?? studentRelatedConfig.label} salvo com sucesso.`);
+      showToast(`${studentRelatedConfig.labelSingular ?? studentRelatedConfig.label} salvo com sucesso.`);
       setIsDrawerOpen(false);
     } catch (error) {
       setStudentRelatedFeedback(
@@ -788,7 +799,7 @@ export function StudentRegistration() {
       if (selectedStudentRelatedTable === 'files') {
         await loadStudentRelatedRecords(selectedStudentId, studentRelatedConfig);
       }
-      setFileFeedback('Arquivo enviado com sucesso.');
+      showToast('Arquivo enviado com sucesso.');
     } catch (error) {
       setFileFeedback(
         error instanceof Error ? error.message : 'Erro ao enviar arquivo.',
@@ -938,7 +949,7 @@ export function StudentRegistration() {
       if (selectedStudentRelatedTable === 'files') {
         await loadStudentRelatedRecords(selectedStudentId, studentRelatedConfig);
       }
-      setFileFeedback('Arquivo removido.');
+      showToast('Arquivo removido.');
     } catch (error) {
       setFileFeedback(
         error instanceof Error ? error.message : 'Erro ao remover arquivo.',
@@ -959,7 +970,7 @@ export function StudentRegistration() {
           <RegistrationGrid<Student>
             ariaLabel="Alunos cadastrados"
             columns={[
-              { label: 'Aluno', render: (s) => s.nmAluno },
+              { label: 'Aluno', render: (s) => s.nmAluno, sortValue: (s) => s.nmAluno },
               { label: 'CPF', render: (s) => formatCpf(s.caCPF) },
               {
                 label: 'Status', render: (s) => (
@@ -967,6 +978,7 @@ export function StudentRegistration() {
                     {s.boInativo === false ? 'Ativo' : 'Inativo'}
                   </span>
                 ),
+                sortValue: (s) => (s.boInativo === false ? 0 : 1),
               },
             ]}
             label="Alunos"
@@ -1073,7 +1085,7 @@ export function StudentRegistration() {
               </RegistrationField>
               {/* Status */}
               <RegistrationField htmlFor="studentStatus" label="Status" size="sm">
-                <button aria-pressed={isStudentActive} className={`status-toggle ${isStudentActive ? 'active' : ''}`} id="studentStatus" onClick={handleToggleStatus} type="button">
+                <button aria-pressed={isStudentActive} className={`status-toggle ${isStudentActive ? 'active' : ''}`} id="studentStatus" onClick={requestToggleStatus} type="button">
                   <span>{isStudentActive ? 'Ativo' : 'Inativo'}</span>
                 </button>
               </RegistrationField>
@@ -1154,6 +1166,15 @@ export function StudentRegistration() {
         </RegistrationDrawer>
       </div>
     </div>
+    <ConfirmDialog
+      open={confirmToggle}
+      title={isStudentActive ? 'Inativar aluno?' : 'Ativar aluno?'}
+      message={isStudentActive ? 'O aluno perderá o acesso ao sistema enquanto estiver inativo.' : 'O aluno voltará a ter acesso ao sistema.'}
+      confirmLabel={isStudentActive ? 'Inativar' : 'Ativar'}
+      variant={isStudentActive ? 'danger' : 'default'}
+      onConfirm={handleToggleStatus}
+      onCancel={() => setConfirmToggle(false)}
+    />
     </>
   );
 }

@@ -1,14 +1,18 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Pencil, Plus } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, Inbox, Pencil, Plus, Search } from 'lucide-react';
 import { GridPagination } from './registrationHelpers';
 
 export type RegistrationGridColumn<T> = {
   label: string;
   render: (record: T) => ReactNode;
   tooltip?: (record: T) => string;
+  sortValue?: (record: T) => string | number | boolean;
 };
+
+type SortState = { column: number; direction: 'asc' | 'desc' } | null;
 
 type RegistrationGridProps<T extends { id: number }> = {
   ariaLabel: string;
@@ -57,6 +61,33 @@ export function RegistrationGrid<T extends { id: number }>({
   onPageChange,
   gridTemplateColumns,
 }: RegistrationGridProps<T>) {
+  const [sort, setSort] = useState<SortState>(null);
+
+  const sortedRecords = useMemo(() => {
+    if (!sort) return records;
+    const col = columns[sort.column];
+    if (!col?.sortValue) return records;
+    const extract = col.sortValue;
+    const dir = sort.direction === 'asc' ? 1 : -1;
+    return [...records].sort((a, b) => {
+      const va = extract(a);
+      const vb = extract(b);
+      if (va === vb) return 0;
+      if (typeof va === 'string' && typeof vb === 'string') return va.localeCompare(vb) * dir;
+      return (va < vb ? -1 : 1) * dir;
+    });
+  }, [records, sort, columns]);
+
+  function handleSort(colIndex: number) {
+    if (!columns[colIndex]?.sortValue) return;
+    setSort((prev) => {
+      if (prev?.column === colIndex) {
+        return prev.direction === 'asc' ? { column: colIndex, direction: 'desc' } : null;
+      }
+      return { column: colIndex, direction: 'asc' };
+    });
+  }
+
   const isChild = variant === 'child';
   const editColWidth = onEdit ? ' 2.75rem' : '';
   const gridStyle = gridTemplateColumns
@@ -108,9 +139,25 @@ export function RegistrationGrid<T extends { id: number }>({
 
       <div aria-label={ariaLabel} className={tableClass} role="table">
         <div className={headerClass} role="row" style={gridStyle}>
-          {columns.map((col, i) => (
-            <span key={i} role="columnheader">{col.label}</span>
-          ))}
+          {columns.map((col, i) => {
+            const isSortable = !!col.sortValue;
+            const isActive = sort?.column === i;
+            return (
+              <span
+                aria-sort={isActive ? (sort!.direction === 'asc' ? 'ascending' : 'descending') : undefined}
+                className={isSortable ? 'grid-header-sortable' : undefined}
+                key={i}
+                onClick={isSortable ? () => handleSort(i) : undefined}
+                role="columnheader"
+                style={isSortable ? { cursor: 'pointer', userSelect: 'none' } : undefined}
+              >
+                {col.label}
+                {isActive ? (
+                  sort!.direction === 'asc' ? <ArrowUp className="grid-sort-icon" size={12} /> : <ArrowDown className="grid-sort-icon" size={12} />
+                ) : null}
+              </span>
+            );
+          })}
           {onEdit ? <span role="columnheader" /> : null}
         </div>
 
@@ -119,7 +166,7 @@ export function RegistrationGrid<T extends { id: number }>({
         ) : null}
 
         {!isLoading
-          ? records.map((record) =>
+          ? sortedRecords.map((record) =>
             onEdit ? (
               <div
                 className={`${rowBaseClass}${record.id === selectedId ? ' selected' : ''}`}
@@ -165,8 +212,20 @@ export function RegistrationGrid<T extends { id: number }>({
             ))
           : null}
 
-        {!isLoading && records.length === 0 ? (
-          <div className="empty-row">{emptyMessage ?? defaultEmpty}</div>
+        {!isLoading && sortedRecords.length === 0 ? (
+          searchTerm ? (
+            <div className="empty-state">
+              <div className="empty-state-icon"><Search size={28} /></div>
+              <p className="empty-state-title">Nenhum resultado para &ldquo;{searchTerm}&rdquo;</p>
+              <p className="empty-state-description">Tente buscar com outros termos.</p>
+            </div>
+          ) : (
+            <div className="empty-state">
+              <div className="empty-state-icon"><Inbox size={28} /></div>
+              <p className="empty-state-title">{emptyMessage ?? defaultEmpty}</p>
+              <p className="empty-state-description">Clique em &ldquo;Novo&rdquo; para criar o primeiro registro.</p>
+            </div>
+          )
         ) : null}
       </div>
 

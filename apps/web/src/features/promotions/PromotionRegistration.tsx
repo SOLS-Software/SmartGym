@@ -16,6 +16,7 @@ import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
+import { useToast } from '../../shared/components/Toast';
 
 const promotionTabIcons = { promotionPlans: CreditCard, promotionProducts: Package, promotionFiles: FileImage };
 import type {
@@ -32,6 +33,7 @@ const promotionRelatedTables: CompanyChildTable[] = [
     key: 'promotionPlans',
     endpoint: 'promotion-plans',
     label: 'Planos',
+    labelSingular: 'Plano',
     title: 'Planos da promoção',
     columns: [
       { key: 'idEmpresa', label: 'Empresa', lookupLabelKey: 'dsEmpresa' },
@@ -53,6 +55,7 @@ const promotionRelatedTables: CompanyChildTable[] = [
     key: 'promotionProducts',
     endpoint: 'promotion-products',
     label: 'Produtos',
+    labelSingular: 'Produto',
     title: 'Produtos da promoção',
     columns: [
       { key: 'idEmpresa', label: 'Empresa', lookupLabelKey: 'dsEmpresa' },
@@ -70,6 +73,7 @@ const promotionRelatedTables: CompanyChildTable[] = [
     key: 'promotionFiles',
     endpoint: 'promotion-files',
     label: 'Arquivos',
+    labelSingular: 'Arquivo',
     title: 'Arquivos da promoção',
     columns: [
       { key: 'dsArquivo', label: 'Arquivo' },
@@ -83,6 +87,7 @@ const promotionRelatedTables: CompanyChildTable[] = [
 ];
 
 export function PromotionRegistration() {
+  const { showToast } = useToast();
   const promotionFileInputRef = useRef<HTMLInputElement | null>(null);
   const promotionNameInputRef = useRef<HTMLInputElement | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -482,7 +487,7 @@ export function PromotionRegistration() {
       await loadPromotions(selectedCompanyId);
       setSelectedPromotionId(saved.id);
       setIsCreating(false);
-      setFeedback('Promocao salva com sucesso.');
+      showToast('Promoção salva com sucesso.');
       setIsDrawerOpen(false);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar promocao.');
@@ -532,7 +537,7 @@ export function PromotionRegistration() {
       await loadRelatedRecords(selectedPromotionId, relatedConfig);
       setSelectedRelatedRecordId(saved.id);
       setIsCreatingRelated(false);
-      setRelatedFeedback(`${relatedConfig.label} salvo com sucesso.`);
+      setRelatedFeedback(`${relatedConfig.labelSingular ?? relatedConfig.label} salvo com sucesso.`);
       setIsDrawerOpen(false);
     } catch (error) {
       setRelatedFeedback(error instanceof Error ? error.message : 'Erro ao salvar registro relacionado.');
@@ -645,9 +650,9 @@ export function PromotionRegistration() {
             ariaLabel="Promoções cadastradas"
             label="Promoções"
             columns={[
-              { label: 'Promoção', render: (p) => p.dsPromocao },
+              { label: 'Promoção', render: (p) => p.dsPromocao, sortValue: (p) => p.dsPromocao },
               { label: 'Empresa', render: (p) => getCompanyLabel(p.idEmpresa) },
-              { label: 'Status', render: (p) => <span className={`status-badge ${p.boInativo === false ? 'active' : 'inactive'}`}>{p.boInativo === false ? 'Ativo' : 'Inativo'}</span> },
+              { label: 'Status', render: (p) => <span className={`status-badge ${p.boInativo === false ? 'active' : 'inactive'}`}>{p.boInativo === false ? 'Ativo' : 'Inativo'}</span>, sortValue: (p) => (p.boInativo === false ? 0 : 1) },
             ]}
             records={paginatedPromotions}
             isLoading={isLoadingPromotions}
@@ -719,7 +724,7 @@ export function PromotionRegistration() {
                 <input id="promotionName" maxLength={255} onChange={(event) => setPromotionName(event.target.value)} ref={promotionNameInputRef} required type="text" value={promotionName} />
               </RegistrationField>
               <RegistrationField htmlFor="periodAmount" label="Período" size="sm">
-                <input id="periodAmount" onChange={(event) => setPeriodAmount(event.target.value)} type="number" value={periodAmount} />
+                <input id="periodAmount" min={0} onChange={(event) => setPeriodAmount(event.target.value)} type="number" value={periodAmount} />
               </RegistrationField>
               <RegistrationField htmlFor="timeUnit" label="Unidade de tempo" size="md">
                 <select id="timeUnit" onChange={(event) => setTimeUnitId(event.target.value)} value={timeUnitId}>
@@ -728,10 +733,10 @@ export function PromotionRegistration() {
                 </select>
               </RegistrationField>
               <RegistrationField htmlFor="discountValue" label="Valor desconto" size="sm">
-                <input id="discountValue" onChange={(event) => setDiscountValue(event.target.value)} step="0.01" type="number" value={discountValue} />
+                <input id="discountValue" min={0} onChange={(event) => setDiscountValue(event.target.value)} step="0.01" type="number" value={discountValue} />
               </RegistrationField>
               <RegistrationField htmlFor="discountPercent" label="% desconto" size="sm">
-                <input id="discountPercent" onChange={(event) => setDiscountPercent(event.target.value)} step="0.01" type="number" value={discountPercent} />
+                <input id="discountPercent" max={100} min={0} onChange={(event) => setDiscountPercent(event.target.value)} step="0.01" type="number" value={discountPercent} />
               </RegistrationField>
               <RegistrationField htmlFor="startDate" label="Início" size="sm">
                 <input id="startDate" onChange={(event) => setStartDate(event.target.value)} type="date" value={startDate} />
@@ -807,7 +812,7 @@ export function PromotionRegistration() {
               )}
               <div className="form-actions" style={{ flex: '1 1 100%' }}>
                 <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-                {!isFileTable ? (<button disabled={!isRelatedFormEnabled} type="submit"><Save size={16} />Salvar {relatedConfig?.label}</button>) : null}
+                {!isFileTable ? (<button disabled={!isRelatedFormEnabled} type="submit"><Save size={16} />Salvar {relatedConfig?.labelSingular ?? relatedConfig?.label}</button>) : null}
               </div>
             </form>
           )}

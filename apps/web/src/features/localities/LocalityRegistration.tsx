@@ -12,6 +12,7 @@ import {
 } from '../../shared/registration/AddressLocationPicker';
 import type { Company, Localidade } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useToast } from '../../shared/components/Toast';
 
 const LOCALITY_TYPE_OPTIONS = [
   { value: '1', label: 'Sala' },
@@ -23,6 +24,7 @@ type LocalityRegistrationProps = {
 };
 
 export function LocalityRegistration({ readOnly = false }: LocalityRegistrationProps) {
+  const { showToast } = useToast();
   const localityNameInputRef = useRef<HTMLInputElement | null>(null);
 
   const [localities, setLocalities] = useState<Localidade[]>([]);
@@ -203,7 +205,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
       });
       setSelectedLocalityId(saved.id);
       setIsCreating(false);
-      setFeedback('Localidade salva com sucesso.');
+      showToast('Localidade salva com sucesso.');
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar.');
     }
