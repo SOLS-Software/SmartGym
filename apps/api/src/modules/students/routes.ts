@@ -860,6 +860,10 @@ export async function registerStudentRoutes(app: FastifyInstance) {
             throw new Error(`A agenda ${formatScheduleLabel(schedule)} esta sem periodo completo.`);
           }
 
+          if (schedule.dtFinal < new Date()) {
+            throw new Error(`A agenda ${formatScheduleLabel(schedule)} ja foi encerrada.`);
+          }
+
           if (schedule.alunoAtividadeAgendas.some((enrollment) => enrollment.idAluno === idAluno)) {
             throw new Error(`Voce ja esta inscrito na agenda ${formatScheduleLabel(schedule)}.`);
           }

@@ -93,6 +93,17 @@ async function assertScheduleBelongsToActivity(activityId: number, scheduleId: n
   }
 }
 
+async function assertScheduleNotPast(scheduleId: number) {
+  const schedule = await prisma.atividadeAgenda.findUnique({
+    where: { id: scheduleId },
+    select: { dtFinal: true },
+  });
+
+  if (schedule?.dtFinal && schedule.dtFinal < new Date()) {
+    throw new Error('Esta aula ja foi encerrada e nao aceita mais inscricoes.');
+  }
+}
+
 function buildDateRangeFilter(dtInicio?: string, dtFim?: string) {
   if (!dtInicio && !dtFim) return undefined;
   return {
@@ -454,6 +465,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       assertValidId(idAtividade, 'Atividade invalida.');
       assertValidId(scheduleId, 'Agenda invalida.');
       await assertScheduleBelongsToActivity(idAtividade, scheduleId);
+      await assertScheduleNotPast(scheduleId);
 
       return reply.code(201).send(await prisma.alunoAtividadeAgenda.create({
         data: normalizeScheduleStudentPayload(scheduleId, request.body),

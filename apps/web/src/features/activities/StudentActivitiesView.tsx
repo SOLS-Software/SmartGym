@@ -168,6 +168,20 @@ function isStudentEnrolled(schedule: ActivitySchedule, studentId: number | null)
   return schedule.alunoAtividadeAgendas?.some((enrollment) => enrollment.idAluno === studentId) ?? false;
 }
 
+function isSchedulePast(schedule: ActivitySchedule) {
+  if (!schedule.dtFinal) return false;
+  const end = new Date(schedule.dtFinal);
+  return !Number.isNaN(end.getTime()) && end < new Date();
+}
+
+function filterPastSchedules(activities: ActivityView[], hidePast: boolean): ActivityView[] {
+  if (!hidePast) return activities;
+  return activities.map((activity) => ({
+    ...activity,
+    atividadeAgendas: (activity.atividadeAgendas ?? []).filter((schedule) => !isSchedulePast(schedule)),
+  }));
+}
+
 export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps) {
   const { showToast } = useToast();
   const defaultDateRange = getDefaultActivityDateRange();
@@ -175,6 +189,7 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
   const [selectedScheduleIds, setSelectedScheduleIds] = useState<number[]>([]);
   const [dateFrom, setDateFrom] = useState(defaultDateRange.dateFrom);
   const [dateTo, setDateTo] = useState(defaultDateRange.dateTo);
+  const [hidePast, setHidePast] = useState(true);
   const [openDayGroup, setOpenDayGroup] = useState<{ dateKey: string; group: DayActivityGroup } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -259,7 +274,8 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
     );
   }
 
-  const calendarMonths = getUnifiedCalendarMonths(activities, dateFrom, dateTo);
+  const visibleActivities = filterPastSchedules(activities, hidePast);
+  const calendarMonths = getUnifiedCalendarMonths(visibleActivities, dateFrom, dateTo);
   const hasAnySchedule = calendarMonths.some((month) => month.days.some((day) => day.groups.length > 0));
 
   return (
@@ -292,6 +308,14 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
             value={dateTo}
           />
         </div>
+        <label className="checkbox-field toolbar-checkbox-field">
+          <input
+            checked={hidePast}
+            onChange={(e) => setHidePast(e.target.checked)}
+            type="checkbox"
+          />
+          <span>Ocultar aulas passadas</span>
+        </label>
       </div>
 
       <section className="student-activity-enroll-toolbar">
@@ -373,6 +397,7 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
                 const enrolled = isStudentEnrolled(schedule, studentId);
                 const isFull = availableSeats !== null && availableSeats <= 0;
                 const isSelected = selectedScheduleIds.includes(schedule.id);
+                const isPast = isSchedulePast(schedule);
 
                 return (
                   <label
@@ -381,7 +406,7 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
                   >
                     <input
                       checked={isSelected}
-                      disabled={enrolled || isFull || isSubmitting}
+                      disabled={enrolled || isFull || isPast || isSubmitting}
                       onChange={() => toggleSchedule(schedule.id)}
                       type="checkbox"
                     />
@@ -398,7 +423,8 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
                       {getText(schedule.empresa, 'dsEmpresa')}
                     </small>
                     {enrolled ? <small>Voce ja esta inscrito</small> : null}
-                    {!enrolled && isFull ? <small>Sem vagas</small> : null}
+                    {!enrolled && isPast ? <small>Aula ja encerrada</small> : null}
+                    {!enrolled && !isPast && isFull ? <small>Sem vagas</small> : null}
                   </label>
                 );
               })}

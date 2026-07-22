@@ -15,6 +15,11 @@ type ActivityRegistrationProps = {
   readOnly?: boolean;
 };
 
+function getTodayInputValue() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+}
+
 export function ActivityRegistration({ readOnly = false }: ActivityRegistrationProps) {
   const { showToast } = useToast();
   const activityNameInputRef = useRef<HTMLInputElement | null>(null);
@@ -26,8 +31,11 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
   const [sports, setSports] = useState<Sport[]>([]);
   const [isLoadingActivities, setIsLoadingActivities] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const today = getTodayInputValue();
   const [dateFrom, setDateFrom] = useState(defaultDateRange.dateFrom);
   const [dateTo, setDateTo] = useState(defaultDateRange.dateTo);
+  const [hidePast, setHidePast] = useState(true);
+  const effectiveDateFrom = hidePast && dateFrom < today ? today : dateFrom;
   const [selectedActivityId, setSelectedActivityId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
@@ -57,7 +65,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
     try {
       setIsLoadingActivities(true);
       const params = new URLSearchParams({ includeInactive: 'true' });
-      if (dateFrom) params.set('dtInicio', dateFrom);
+      if (effectiveDateFrom) params.set('dtInicio', effectiveDateFrom);
       if (dateTo) params.set('dtFim', dateTo);
       const response = await fetch(`${apiUrl}/activities?${params.toString()}`);
       if (!response.ok) await getApiError(response, 'Não foi possível carregar as atividades.');
@@ -87,7 +95,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
 
   // ── Effects ────────────────────────────────────────────────────
   useEffect(() => { void loadLookups(); }, []);
-  useEffect(() => { void loadActivities(); }, [dateFrom, dateTo]);
+  useEffect(() => { void loadActivities(); }, [effectiveDateFrom, dateTo]);
   useEffect(() => { setActivitiesPage(1); }, [searchTerm]);
 
   // ── Helpers ────────────────────────────────────────────────────
@@ -197,10 +205,11 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
           <div className="field field-size-sm">
             <label htmlFor="activityDateFrom">Data de</label>
             <input
+              disabled={hidePast}
               id="activityDateFrom"
               onChange={(e) => setDateFrom(e.target.value)}
               type="date"
-              value={dateFrom}
+              value={effectiveDateFrom}
             />
           </div>
           <div className="field field-size-sm">
@@ -212,6 +221,14 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
               value={dateTo}
             />
           </div>
+          <label className="checkbox-field toolbar-checkbox-field">
+            <input
+              checked={hidePast}
+              onChange={(e) => setHidePast(e.target.checked)}
+              type="checkbox"
+            />
+            <span>Ocultar atividades passadas</span>
+          </label>
         </div>
         <RegistrationGrid<Activity>
           ariaLabel="Atividades cadastradas"
