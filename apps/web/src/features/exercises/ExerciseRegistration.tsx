@@ -561,10 +561,10 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
           title={isCreating ? 'Novo Exercício' : 'Editar Exercício'}
           onClose={handleCloseDrawer}
         >
-          <form className="drawer-form" onSubmit={handleSaveExercise}>
-            {feedback ? <div className="form-feedback">{feedback}</div> : null}
+          <form className="drawer-fields" onSubmit={handleSaveExercise}>
+            {feedback ? <div className="form-feedback field-size-full">{feedback}</div> : null}
 
-            <div className="field">
+            <div className="field field-size-full">
               <label htmlFor="exerciseName">Nome do exercício</label>
               <input
                 disabled={!isFormEnabled}
@@ -579,7 +579,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
               />
             </div>
 
-            <div className="field">
+            <div className="field field-size-full">
               <label htmlFor="exerciseInstructions">Instruções</label>
               <textarea
                 disabled={!isFormEnabled}
@@ -592,7 +592,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
               />
             </div>
 
-            <div className="field">
+            <div className="field field-size-md">
               <label htmlFor="exerciseCompany">Empresa</label>
               <select
                 disabled={!isFormEnabled}
@@ -609,7 +609,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
               </select>
             </div>
 
-            <div className="field">
+            <div className="field field-size-sm">
               <label htmlFor="exerciseStatus">Status</label>
               <button
                 aria-pressed={isExerciseActive}
@@ -623,7 +623,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
               </button>
             </div>
 
-            <div className="form-actions">
+            <div className="form-actions field-size-full">
               <button
                 className="secondary-button"
                 onClick={() => { clearForm(); handleCloseDrawer(); }}
@@ -638,7 +638,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
             </div>
 
             {selectedExerciseId ? (
-              <section aria-label="Arquivos do exercício" className="exercise-files-section">
+              <section aria-label="Arquivos do exercício" className="exercise-files-section field-size-full">
                 <div className="exercise-files-header">
                   <p className="section-label">Arquivos</p>
                 </div>
@@ -698,7 +698,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
             ) : null}
 
             {selectedExerciseId ? (
-              <section aria-label="Equipamentos do exercício" className="exercise-files-section">
+              <section aria-label="Equipamentos do exercício" className="exercise-files-section field-size-full">
                 <div className="exercise-files-header">
                   <p className="section-label">Equipamentos</p>
                 </div>
@@ -759,7 +759,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
             ) : null}
 
             {selectedExerciseId ? (
-              <section aria-label="Áreas do corpo do exercício" className="exercise-files-section">
+              <section aria-label="Áreas do corpo do exercício" className="exercise-files-section field-size-full">
                 <div className="exercise-files-header">
                   <p className="section-label">Áreas do corpo</p>
                 </div>

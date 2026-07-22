@@ -33,6 +33,10 @@
   min-width: 0;
 }
 
+.domain-workspace-two-col {
+  grid-template-columns: minmax(18.75rem, 1.25fr) minmax(26.25rem, 1.45fr);
+}
+
 .domain-panel {
   min-width: 0;
 }
@@ -328,6 +332,39 @@ html.dark .status-badge.promotion {
   padding: 1.125rem 1rem;
   transition: padding 260ms ease, opacity 260ms ease, transform 260ms ease;
 }
+
+/* Skeleton loader */
+@keyframes skeleton-shimmer {
+  0% { background-position: -20rem 0; }
+  100% { background-position: 20rem 0; }
+}
+
+.skeleton-row {
+  align-items: center;
+  border-top: 0.0625rem solid var(--color-border-subtle);
+  display: grid;
+  gap: 0.875rem;
+  min-height: 3.375rem;
+  padding: 0 1rem;
+}
+
+.skeleton-bar {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-alt) 0%,
+    var(--color-border-subtle) 40%,
+    var(--color-surface-alt) 80%
+  );
+  background-size: 40rem 1rem;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  border-radius: 0.25rem;
+  height: 0.875rem;
+}
+
+.skeleton-row:nth-child(2) .skeleton-bar { animation-delay: 0.08s; }
+.skeleton-row:nth-child(3) .skeleton-bar { animation-delay: 0.16s; }
+.skeleton-row:nth-child(4) .skeleton-bar { animation-delay: 0.24s; }
+.skeleton-row:nth-child(5) .skeleton-bar { animation-delay: 0.32s; }
 
 .empty-state {
   display: flex;
@@ -638,7 +675,8 @@ html.dark .drawer-backdrop {
 }
 
 @media (max-width: 47.5rem) {
-  .domain-workspace {
+  .domain-workspace,
+  .domain-workspace-two-col {
     grid-template-columns: 1fr;
   }
 
