@@ -13,6 +13,14 @@ export function useAuthSession() {
   const [isLoaded, setIsLoaded] = useState(false);
 
   const signOut = useCallback(async () => {
+    // Revoga o token no servidor antes de descartá-lo (best-effort): mata a
+    // sessão de verdade, não só apaga a credencial local. Enviado enquanto o
+    // token ainda está no SecureStore (authFetch o injeta).
+    try {
+      await authFetch(`${apiUrl}/auth/logout`, { method: 'POST' });
+    } catch {
+      // Offline / API indisponível: segue com o logout local mesmo assim.
+    }
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);
     } catch (error) {
