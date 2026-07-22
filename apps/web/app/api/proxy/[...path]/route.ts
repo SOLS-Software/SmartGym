@@ -104,8 +104,23 @@ async function handler(request: NextRequest, { params }: RouteContext) {
     search = request.nextUrl.search;
   }
 
-  // Logout: resolvido no proprio proxy — basta descartar o cookie de sessao.
+  // Logout: revoga a sessao no servidor (incrementa a versao de token, matando
+  // qualquer JWT vivo) e so entao descarta o cookie. Best-effort: se a API
+  // falhar, o cookie e limpo mesmo assim para nao prender o usuario na tela.
   if (apiPath === 'auth/logout') {
+    const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
+    if (sessionToken) {
+      try {
+        await fetch(`${BACKEND_URL}/auth/logout`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${sessionToken}` },
+          signal: AbortSignal.timeout(4000),
+        });
+      } catch {
+        // ignora: a revogacao e best-effort; o descarte do cookie abaixo basta
+        // para encerrar a sessao neste cliente.
+      }
+    }
     const response = new NextResponse(null, { status: 204 });
     clearSessionCookie(response);
     return response;
