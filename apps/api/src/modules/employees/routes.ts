@@ -75,7 +75,10 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const data = normalizeEmployeePayload(request.body);
-      if (data.idEmpresa) await assertCompanyInTenant(data.idEmpresa, idCliente);
+      // Sem empresa o funcionario fica orfao de tenant (invisivel na listagem e
+      // sem idCliente no login, que deriva de empresa): vinculo obrigatorio.
+      if (!data.idEmpresa) throw new Error('Informe a empresa do funcionario.');
+      await assertCompanyInTenant(data.idEmpresa, idCliente);
       // PII: grava o CPF criptografado + hash de lookup.
       const storedData = { ...data, ...encryptCpfFields(String(data.caCPF ?? '')) };
       const employee = await prisma.funcionario.create({
@@ -101,7 +104,8 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       const current = await findTenantEmployee(id, idCliente);
       if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const data = normalizeEmployeePayload(request.body);
-      if (data.idEmpresa) await assertCompanyInTenant(data.idEmpresa, idCliente);
+      if (!data.idEmpresa) throw new Error('Informe a empresa do funcionario.');
+      await assertCompanyInTenant(data.idEmpresa, idCliente);
       const storedData = { ...data, ...encryptCpfFields(String(data.caCPF ?? '')) };
       const updated = await prisma.funcionario.update({
         where: { id },

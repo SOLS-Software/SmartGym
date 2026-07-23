@@ -575,9 +575,16 @@ export function EmployeeRegistration() {
       return;
     }
 
+    // Empresa obrigatoria: sem o vinculo o funcionario fica invisivel na
+    // listagem e sem tenant no login — a API tambem rejeita.
+    if (!selectedCompanyId) {
+      setFeedback('Selecione a empresa do funcionario.');
+      return;
+    }
+
     try {
       const payload = {
-        idEmpresa: selectedCompanyId ? Number(selectedCompanyId) : null,
+        idEmpresa: Number(selectedCompanyId),
         idCargo: selectedRoleId ? Number(selectedRoleId) : null,
         nmFuncionario: employeeName.trim(),
         caCPF: onlyDigits(employeeCpf),

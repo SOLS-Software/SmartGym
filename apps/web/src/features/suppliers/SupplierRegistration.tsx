@@ -7,7 +7,7 @@ import { GRID_PAGE_SIZE, formatCep, onlyDigits, paginateItems } from '../../shar
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
-import type { Company, Supplier } from '../../shared/registration/registrationTypes';
+import type { Supplier } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { useToast } from '../../shared/components/Toast';
 
@@ -17,12 +17,10 @@ export function SupplierRegistration() {
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [suppliersPage, setSuppliersPage] = useState(1);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [dsFornecedor, setDsFornecedor] = useState('');
   const [caCNPJ, setCaCNPJ] = useState('');
   const [nrDDD, setNrDDD] = useState('');
@@ -57,20 +55,8 @@ export function SupplierRegistration() {
     }
   }
 
-  async function loadCompanies() {
-    try {
-      const response = await fetch(`${apiUrl}/companies`);
-      if (!response.ok) await getApiError(response, 'Não foi possível carregar as empresas.');
-      const data = (await response.json()) as Company[];
-      setCompanies(data.filter((company) => company.boInativo === false));
-    } catch (error) {
-      setFeedback(error instanceof Error ? error.message : 'Erro ao carregar empresas.');
-    }
-  }
-
   useEffect(() => {
     void loadSuppliers();
-    void loadCompanies();
   }, []);
 
   useEffect(() => {
@@ -86,7 +72,6 @@ export function SupplierRegistration() {
   function clearForm() {
     setSelectedSupplierId(null);
     setIsCreating(false);
-    setSelectedCompanyId('');
     setDsFornecedor('');
     setCaCNPJ('');
     setNrDDD('');
@@ -113,7 +98,6 @@ export function SupplierRegistration() {
   function handleEdit(supplier: Supplier) {
     setSelectedSupplierId(supplier.id);
     setIsCreating(false);
-    setSelectedCompanyId(supplier.idEmpresa ? String(supplier.idEmpresa) : '');
     setDsFornecedor(supplier.dsFornecedor);
     setCaCNPJ(supplier.caCNPJ ?? '');
     setNrDDD(supplier.nrDDD != null ? String(supplier.nrDDD) : '');
@@ -154,8 +138,9 @@ export function SupplierRegistration() {
     event.preventDefault();
 
     try {
+      // Fornecedor e da rede: o tenant (cliente) vem do token na API — o form
+      // nao seleciona empresa; a filial e registrada na compra, nao aqui.
       const payload = {
-        idEmpresa: selectedCompanyId ? Number(selectedCompanyId) : null,
         dsFornecedor,
         caCNPJ: onlyDigits(caCNPJ),
         anCEP: onlyDigits(anCEP),
@@ -240,12 +225,6 @@ export function SupplierRegistration() {
         >
           <form className="drawer-fields" onSubmit={handleSave}>
             {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
-            <RegistrationField htmlFor="fornecedorEmpresa" label="Empresa" size="lg">
-              <select disabled={!isFormEnabled} id="fornecedorEmpresa" onChange={(event) => setSelectedCompanyId(event.target.value)} value={selectedCompanyId}>
-                <option value="">Sem empresa (compartilhado)</option>
-                {companies.map((company) => (<option key={company.id} value={company.id}>{company.dsEmpresa}</option>))}
-              </select>
-            </RegistrationField>
             <RegistrationField htmlFor="fornecedorNome" label="Nome" size="full">
               <input disabled={!isFormEnabled} id="fornecedorNome" maxLength={255} onChange={(event) => setDsFornecedor(event.target.value)} placeholder="Ex.: Distribuidora Fit Ltda" ref={nameInputRef} required type="text" value={dsFornecedor} />
             </RegistrationField>

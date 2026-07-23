@@ -14,21 +14,14 @@ const listQuerySchema = z.object({
 });
 
 export async function registerSupplierRoutes(app: FastifyInstance) {
-  // Isolamento de tenant: Fornecedor pertence ao cliente via Empresa.idCliente.
+  // Isolamento de tenant: Fornecedor pertence direto ao CLIENTE (rede) — fica
+  // disponivel para todas as filiais; a filial da compra e registrada na
+  // propria movimentacao (ProdutoMovimentacao.idEmpresa).
   async function findTenantSupplier(id: number, idCliente: number) {
     return prisma.fornecedor.findFirst({
-      where: { id, empresa: { idCliente } },
+      where: { id, idCliente },
       select: { id: true },
     });
-  }
-
-  // Garante que a empresa informada no payload pertence ao tenant (400 se nao).
-  async function assertCompanyInTenant(idEmpresa: number, idCliente: number) {
-    const company = await prisma.empresa.findFirst({
-      where: { id: idEmpresa, idCliente },
-      select: { id: true },
-    });
-    if (!company) throw new Error('Empresa nao pertence ao cliente.');
   }
 
   app.get<{
@@ -42,8 +35,8 @@ export async function registerSupplierRoutes(app: FastifyInstance) {
     const take = Math.min(Math.max(parsedQuery.data.limit ?? 1000, 1), 1000);
     return prisma.fornecedor.findMany({
       where: search
-        ? { empresa: { idCliente }, dsFornecedor: { contains: search, mode: 'insensitive' } }
-        : { empresa: { idCliente } },
+        ? { idCliente, dsFornecedor: { contains: search, mode: 'insensitive' } }
+        : { idCliente },
       orderBy: { dsFornecedor: 'asc' },
       take,
     });
@@ -56,8 +49,8 @@ export async function registerSupplierRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const data = normalizeFornecedorPayload(request.body);
-      if (data.idEmpresa) await assertCompanyInTenant(data.idEmpresa, idCliente);
-      const supplier = await prisma.fornecedor.create({ data });
+      // O tenant vem SEMPRE do token — nunca do body.
+      const supplier = await prisma.fornecedor.create({ data: { ...data, idCliente } });
       return reply.code(201).send(supplier);
     } catch (error) {
       return reply.code(400).send({
@@ -78,7 +71,6 @@ export async function registerSupplierRoutes(app: FastifyInstance) {
       const current = await findTenantSupplier(id, idCliente);
       if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const data = normalizeFornecedorPayload(request.body);
-      if (data.idEmpresa) await assertCompanyInTenant(data.idEmpresa, idCliente);
       return prisma.fornecedor.update({ where: { id }, data });
     } catch (error) {
       return reply.code(400).send({

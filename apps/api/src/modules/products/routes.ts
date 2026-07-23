@@ -80,7 +80,10 @@ export async function registerProductRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const data = normalizeProductPayload(request.body);
-      if (data.idEmpresa) await assertCompanyInTenant(data.idEmpresa, idCliente);
+      // Sem empresa o produto fica orfao de tenant (a lista filtra por empresa
+      // do cliente e o registro nunca aparece): vinculo obrigatorio.
+      if (!data.idEmpresa) throw new Error('Informe a empresa do produto.');
+      await assertCompanyInTenant(data.idEmpresa, idCliente);
       const product = await prisma.produto.create({ data });
       return reply.code(201).send(product);
     } catch (error) {
@@ -102,7 +105,8 @@ export async function registerProductRoutes(app: FastifyInstance) {
       const current = await findTenantProduct(id, idCliente);
       if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const data = normalizeProductPayload(request.body);
-      if (data.idEmpresa) await assertCompanyInTenant(data.idEmpresa, idCliente);
+      if (!data.idEmpresa) throw new Error('Informe a empresa do produto.');
+      await assertCompanyInTenant(data.idEmpresa, idCliente);
       return prisma.produto.update({ where: { id }, data });
     } catch (error) {
       return reply.code(400).send({

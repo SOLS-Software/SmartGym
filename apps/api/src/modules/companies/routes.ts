@@ -945,6 +945,13 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         }
       }
       if (request.params.resource === 'purchases') {
+        // Fornecedor e da rede (Fornecedor.idCliente): impede referenciar por
+        // id um fornecedor de outro cliente.
+        const supplier = await prisma.fornecedor.findFirst({
+          where: { id: Number(data.idFornecedor), idCliente },
+          select: { id: true },
+        });
+        if (!supplier) throw new Error('Fornecedor invalido.');
         const created = await prisma.$transaction(async (tx) => {
           const movement = await tx.produtoMovimentacao.create({ data: data as never });
           const product = await tx.produto.update({
@@ -992,6 +999,13 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       if (request.params.resource === 'purchases') {
         const existing = await prisma.produtoMovimentacao.findUnique({ where: { id: childId } });
         if (!existing) throw new Error('Compra nao encontrada.');
+        // Fornecedor e da rede (Fornecedor.idCliente): impede referenciar por
+        // id um fornecedor de outro cliente.
+        const supplier = await prisma.fornecedor.findFirst({
+          where: { id: Number(data.idFornecedor), idCliente },
+          select: { id: true },
+        });
+        if (!supplier) throw new Error('Fornecedor invalido.');
         const updated = await prisma.$transaction(async (tx) => {
           if (existing.boInativo === false) {
             await tx.produto.update({

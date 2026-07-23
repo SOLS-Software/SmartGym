@@ -25,7 +25,8 @@ export type Product = {
 
 export type Supplier = {
   id: number;
-  idEmpresa: number | null;
+  // Fornecedor pertence ao cliente (rede), nao a uma filial.
+  idCliente: number | null;
   dsFornecedor: string;
   caCNPJ?: string | null;
   anCEP?: string | null;

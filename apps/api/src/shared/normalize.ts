@@ -233,8 +233,9 @@ export function normalizeFornecedorPayload(payload: FornecedorPayload) {
   }
   const anUF = payload.anUF?.trim().toUpperCase().slice(0, 2) || null;
 
+  // Sem idEmpresa: fornecedor pertence ao CLIENTE (setado pela rota a partir
+  // do token), disponivel para todas as filiais.
   return {
-    idEmpresa: optionalNumber(payload.idEmpresa),
     dsFornecedor,
     caCNPJ,
     anCEP: optionalDigits(payload.anCEP, 8),

@@ -28,7 +28,6 @@ export type TrainingPayload = {
 };
 
 export type FornecedorPayload = {
-  idEmpresa?: number | string | null;
   dsFornecedor?: string;
   caCNPJ?: string;
   anCEP?: string;

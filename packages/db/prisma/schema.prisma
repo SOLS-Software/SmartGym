@@ -49,7 +49,6 @@ model Empresa {
   treinoExercicios            TreinoExercicio[]
   alunosPontuacoes            AlunoPontuacao[]
   produtoMovimentacoes        ProdutoMovimentacao[]
-  fornecedores                Fornecedor[]
   empresaArquivos             EmpresaArquivo[]
   alunoCheckIns               AlunoCheckIn[]
   funcionarios                Funcionario[]
@@ -824,7 +823,10 @@ model ProdutoMovimentacao {
 
 model Fornecedor {
   id                 Int      @id @default(autoincrement())
-  idEmpresa          Int?
+  // Fornecedor pertence ao CLIENTE (rede), nao a uma filial: fica disponivel
+  // para todas as empresas do cliente. A filial que fez a compra e registrada
+  // na propria movimentacao (ProdutoMovimentacao.idEmpresa).
+  idCliente          Int?
   dsFornecedor       String   @db.VarChar(255)
   caCNPJ             String?  @db.VarChar(14)
   anCEP              String?  @db.VarChar(8)
@@ -842,10 +844,10 @@ model Fornecedor {
   idUsuarioAlteracao Int?
   boInativo          Boolean  @default(false)
 
-  empresa              Empresa?              @relation(fields: [idEmpresa], references: [id])
+  cliente              Cliente?              @relation(fields: [idCliente], references: [id])
   produtoMovimentacoes ProdutoMovimentacao[]
 
-  @@index([idEmpresa])
+  @@index([idCliente])
   @@map("tb_Fornecedores")
 }
 
@@ -1255,6 +1257,7 @@ model Cliente {
   temaCustomizado TemaCustomizado?
   arquivos        ClienteArquivo[]
   alunos          Aluno[]
+  fornecedores    Fornecedor[]
 
   @@map("tb_Clientes")
 }

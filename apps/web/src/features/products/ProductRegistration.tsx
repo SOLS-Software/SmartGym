@@ -354,9 +354,16 @@ export function ProductRegistration() {
   async function handleSaveProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    // Empresa obrigatoria: sem o vinculo o registro fica invisivel na listagem
+    // (filtrada por empresa do cliente) — a API tambem rejeita.
+    if (!selectedCompanyId) {
+      setFeedback('Selecione a empresa do produto.');
+      return;
+    }
+
     try {
       const payload = {
-        idEmpresa: selectedCompanyId ? Number(selectedCompanyId) : null,
+        idEmpresa: Number(selectedCompanyId),
         dsProduto: productName,
         qtEstoque: Number(productStock || 0),
         boInativo: isProductActive ? false : true,
