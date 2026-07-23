@@ -132,6 +132,7 @@
   min-height: calc(100vh - 5.125rem);
   overflow: hidden;
   padding: 1.25rem;
+  position: relative;
   transition: padding 420ms cubic-bezier(0.22, 1, 0.36, 1), align-items 420ms ease;
 }
 
@@ -319,8 +320,12 @@
 }
 
 .menu-collapsed .side-menu-content {
+  left: 0.625rem;
   opacity: 0;
   pointer-events: none;
+  position: absolute;
+  right: 0.625rem;
+  top: 1.25rem;
   transform: translateX(-0.875rem);
   transition: opacity 300ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
     visibility 0ms linear 420ms;
@@ -514,6 +519,7 @@ html.dark .menu-nav-collapsed button::after {
   .menu-collapsed .side-menu-content {
     opacity: 1;
     pointer-events: auto;
+    position: static;
     transform: translateX(0);
     transition: none;
     visibility: visible;
