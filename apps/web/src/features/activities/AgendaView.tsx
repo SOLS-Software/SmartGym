@@ -3,8 +3,14 @@
 import { useEffect, useState } from 'react';
 import { CalendarDays, CheckCircle, Clock, Users, XCircle } from 'lucide-react';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { getDefaultActivityDateRange } from '../../shared/registration/registrationHelpers';
 import type { Activity, AgendaSession, Employee, EnrolledStudent, Sport } from '../../shared/registration/registrationTypes';
 import { useToast } from '../../shared/components/Toast';
+
+function getTodayInputValue() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+}
 
 type Category = { id: number; dsCategoria: string; boInativo: boolean };
 
@@ -78,8 +84,13 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
 
-  // Filters (employee only)
-  const [filterDate, setFilterDate] = useState(() => new Date().toISOString().slice(0, 10));
+  // Filters
+  const defaultDateRange = getDefaultActivityDateRange();
+  const today = getTodayInputValue();
+  const [dateFrom, setDateFrom] = useState(defaultDateRange.dateFrom);
+  const [dateTo, setDateTo] = useState(defaultDateRange.dateTo);
+  const [hidePast, setHidePast] = useState(true);
+  const effectiveDateFrom = hidePast && dateFrom < today ? today : dateFrom;
   const [filterActivity, setFilterActivity] = useState('');
   const [filterSport, setFilterSport] = useState('');
   const [filterEmployee, setFilterEmployee] = useState('');
@@ -87,7 +98,7 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
 
   useEffect(() => {
     void loadSessions();
-  }, [filterDate, filterActivity, filterSport, filterEmployee, filterCategory]);
+  }, [effectiveDateFrom, dateTo, filterActivity, filterSport, filterEmployee, filterCategory]);
 
   useEffect(() => {
     void loadLookups();
@@ -139,7 +150,8 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
       setIsLoading(true);
       setFeedback('');
       const params = new URLSearchParams();
-      if (filterDate) params.set('dtInicial', filterDate);
+      if (effectiveDateFrom) params.set('dtInicial', effectiveDateFrom);
+      if (dateTo) params.set('dtFinal', dateTo);
       if (filterActivity) params.set('idAtividade', filterActivity);
       if (filterSport) params.set('idEsporte', filterSport);
       if (filterEmployee) params.set('idFuncionario', filterEmployee);
@@ -265,8 +277,16 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
 
         <div className="agenda-filter-bar">
           <label className="field">
-            <span>Data</span>
-            <input onChange={(e) => setFilterDate(e.target.value)} type="date" value={filterDate} />
+            <span>Data de</span>
+            <input disabled={hidePast} onChange={(e) => setDateFrom(e.target.value)} type="date" value={effectiveDateFrom} />
+          </label>
+          <label className="field">
+            <span>Data até</span>
+            <input onChange={(e) => setDateTo(e.target.value)} type="date" value={dateTo} />
+          </label>
+          <label className="checkbox-field toolbar-checkbox-field">
+            <input checked={hidePast} onChange={(e) => setHidePast(e.target.checked)} type="checkbox" />
+            <span>Ocultar agendas passadas</span>
           </label>
           <label className="field">
             <span>Atividade</span>
@@ -430,8 +450,16 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
         <div className="agenda-sessions-panel">
           <div className="agenda-filter-bar">
             <label className="field">
-              <span>Data</span>
-              <input onChange={(e) => setFilterDate(e.target.value)} type="date" value={filterDate} />
+              <span>Data de</span>
+              <input disabled={hidePast} onChange={(e) => setDateFrom(e.target.value)} type="date" value={effectiveDateFrom} />
+            </label>
+            <label className="field">
+              <span>Data até</span>
+              <input onChange={(e) => setDateTo(e.target.value)} type="date" value={dateTo} />
+            </label>
+            <label className="checkbox-field toolbar-checkbox-field">
+              <input checked={hidePast} onChange={(e) => setHidePast(e.target.checked)} type="checkbox" />
+              <span>Ocultar agendas passadas</span>
             </label>
             <label className="field">
               <span>Atividade</span>

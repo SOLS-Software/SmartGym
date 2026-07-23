@@ -94,8 +94,14 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
           ...(idEmpresa ? { idEmpresa: Number(idEmpresa) } : {}),
           ...(idAtividade ? { idAtividade: Number(idAtividade) } : {}),
           ...(idCategoria ? { idCategoria: Number(idCategoria) } : {}),
-          ...(dtInicial ? { dtInicial: { gte: new Date(dtInicial), lte: new Date(`${dtInicial}T23:59:59`) } } : {}),
-          ...(dtFinal ? { dtFinal: { lte: new Date(`${dtFinal}T23:59:59`) } } : {}),
+          ...((dtInicial || dtFinal)
+            ? {
+                dtInicial: {
+                  ...(dtInicial ? { gte: new Date(dtInicial) } : {}),
+                  ...(dtFinal ? { lte: new Date(`${dtFinal}T23:59:59`) } : {}),
+                },
+              }
+            : {}),
           ...(idEsporte ? { atividade: { idEsporte: Number(idEsporte) } } : {}),
           ...(idFuncionario
             ? { funcionarioAtividadeAgendas: { some: { idFuncionario: Number(idFuncionario), boInativo: false } } }

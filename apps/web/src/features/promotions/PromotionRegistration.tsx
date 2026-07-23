@@ -8,6 +8,7 @@ import {
   formatChildCell,
   formatChildSearchValue,
   formatDateInput,
+  getDefaultActivityDateRange,
   getLookupLabel,
   isImageFile,
   paginateItems,
@@ -96,6 +97,12 @@ export function PromotionRegistration() {
   const [promotionsPage, setPromotionsPage] = useState(1);
   const [isLoadingPromotions, setIsLoadingPromotions] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const defaultDateRange = getDefaultActivityDateRange();
+  const today = new Date().toISOString().slice(0, 10);
+  const [dateFrom, setDateFrom] = useState(defaultDateRange.dateFrom);
+  const [dateTo, setDateTo] = useState(defaultDateRange.dateTo);
+  const [hidePast, setHidePast] = useState(true);
+  const effectiveDateFrom = hidePast && dateFrom < today ? today : dateFrom;
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [promotionCompanyId, setPromotionCompanyId] = useState('');
   const [selectedPromotionId, setSelectedPromotionId] = useState<number | null>(null);
@@ -140,11 +147,18 @@ export function PromotionRegistration() {
     const search = searchTerm.toLowerCase();
     const company = companies.find((item) => item.id === promotion.idEmpresa);
 
-    return (
+    const matchesSearch =
       promotion.dsPromocao.toLowerCase().includes(search) ||
       String(company?.dsEmpresa ?? '').toLowerCase().includes(search) ||
-      (promotion.boInativo === false ? 'ativo' : 'inativo').includes(search)
-    );
+      (promotion.boInativo === false ? 'ativo' : 'inativo').includes(search);
+
+    const promotionStart = promotion.dtInicio ? promotion.dtInicio.slice(0, 10) : null;
+    const promotionEnd = promotion.dtEncerramento ? promotion.dtEncerramento.slice(0, 10) : null;
+    const matchesDateRange =
+      (!effectiveDateFrom || !promotionEnd || promotionEnd >= effectiveDateFrom) &&
+      (!dateTo || !promotionStart || promotionStart <= dateTo);
+
+    return matchesSearch && matchesDateRange;
   });
   const promotionsTotalPages = Math.max(1, Math.ceil(filteredPromotions.length / GRID_PAGE_SIZE));
   const paginatedPromotions = paginateItems(filteredPromotions, promotionsPage);
@@ -246,7 +260,7 @@ export function PromotionRegistration() {
 
   useEffect(() => {
     setPromotionsPage(1);
-  }, [searchTerm, selectedPromotionId]);
+  }, [searchTerm, selectedPromotionId, effectiveDateFrom, dateTo]);
 
   useEffect(() => {
     if (promotionsPage > promotionsTotalPages) {
@@ -646,6 +660,35 @@ export function PromotionRegistration() {
 
       <div className={`activity-page-layout${selectedPromotionId !== null ? ' has-related' : ''}`}>
         <section className="data-grid-section company-grid-section">
+          <div className="drawer-fields" style={{ marginBottom: '1rem' }}>
+            <div className="field field-size-sm">
+              <label htmlFor="promotionDateFrom">Data de</label>
+              <input
+                disabled={hidePast}
+                id="promotionDateFrom"
+                onChange={(e) => setDateFrom(e.target.value)}
+                type="date"
+                value={effectiveDateFrom}
+              />
+            </div>
+            <div className="field field-size-sm">
+              <label htmlFor="promotionDateTo">Data até</label>
+              <input
+                id="promotionDateTo"
+                onChange={(e) => setDateTo(e.target.value)}
+                type="date"
+                value={dateTo}
+              />
+            </div>
+            <label className="checkbox-field toolbar-checkbox-field">
+              <input
+                checked={hidePast}
+                onChange={(e) => setHidePast(e.target.checked)}
+                type="checkbox"
+              />
+              <span>Ocultar promoções passadas</span>
+            </label>
+          </div>
           <RegistrationGrid<Promotion>
             ariaLabel="Promoções cadastradas"
             label="Promoções"
