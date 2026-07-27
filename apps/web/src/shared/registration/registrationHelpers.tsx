@@ -88,6 +88,43 @@ export function formatDateTimeDisplay(value: string | null) {
   return `${datePart} ${timePart}`;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Indice de lookup por id.
+//
+// `formatChildCell` e `formatChildSearchValue` sao chamados uma vez POR CELULA e
+// faziam `lookupOptions.find(o => String(o.id) === String(value))` — busca
+// linear com duas alocacoes de string por comparacao. Numa grade de 20 linhas x
+// 5 colunas de lookup sobre uma lista de 1000 opcoes (o limite default da API),
+// isso e 100 mil comparacoes por render, refeitas a cada tecla digitada na
+// busca.
+//
+// O indice fica em WeakMap chaveado pelo PROPRIO array: como as listas de
+// lookup vem do state e mantem identidade referencial entre renders, o indice e
+// construido uma vez (O(m)) e reaproveitado; quando o array e substituido, o
+// antigo e coletado junto com seu indice. Nenhum chamador precisou mudar.
+const lookupIndexCache = new WeakMap<LookupRecord[], Map<string, LookupRecord>>();
+
+export function findLookupOption(
+  lookupOptions: LookupRecord[] | undefined,
+  value: unknown,
+): LookupRecord | undefined {
+  if (!lookupOptions || lookupOptions.length === 0) return undefined;
+  if (value === null || value === undefined || value === '') return undefined;
+
+  let index = lookupIndexCache.get(lookupOptions);
+  if (!index) {
+    index = new Map<string, LookupRecord>();
+    for (const option of lookupOptions) {
+      const key = String(option.id);
+      // Primeira ocorrencia vence, igual ao comportamento de Array.find.
+      if (!index.has(key)) index.set(key, option);
+    }
+    lookupIndexCache.set(lookupOptions, index);
+  }
+
+  return index.get(String(value));
+}
+
 function getLookupValue(option: LookupRecord, lookupLabelKey?: string) {
   if (!lookupLabelKey) {
     return undefined;
@@ -132,7 +169,7 @@ export function formatChildCell(
   // Charge status: shows the payment status name, but flags overdue pending
   // charges (dtVencimento < today AND status "Pendente") as "Inadimplente".
   if (column.type === 'payment-status') {
-    const option = lookupOptions.find((lookupOption) => String(lookupOption.id) === String(value));
+    const option = findLookupOption(lookupOptions, value);
     const statusName = option ? getLookupDescription(option, column.lookupLabelKey) : String(value ?? '');
     const isPending = statusName.trim().toLowerCase() === 'pendente';
     const dueValue = record.dtVencimento;
@@ -160,7 +197,7 @@ export function formatChildCell(
   }
 
   if (column.lookupLabelKey) {
-    const option = lookupOptions.find((lookupOption) => String(lookupOption.id) === String(value));
+    const option = findLookupOption(lookupOptions, value);
     return option ? getLookupDescription(option, column.lookupLabelKey) : String(value);
   }
 
@@ -198,7 +235,7 @@ export function formatChildSearchValue(
   }
 
   if (column.lookupLabelKey) {
-    const option = lookupOptions.find((lookupOption) => String(lookupOption.id) === String(value));
+    const option = findLookupOption(lookupOptions, value);
     return option
       ? `${option.id} ${getLookupDescription(option, column.lookupLabelKey)}`.toLowerCase()
       : String(value).toLowerCase();
@@ -229,47 +266,17 @@ export function getLookupLabel(option: LookupRecord, field: CompanyChildField) {
   return `${option.id} - ${String(labelValue)}`;
 }
 
-export function onlyDigits(value: string) {
-  return value.replace(/\D/g, '');
-}
+// onlyDigits/formatCpf/formatCep/isValidCpf/isImageFile viviam duplicados aqui
+// e em apps/mobile/lib/utils/format.ts. Passaram para @smartgym/shared e sao
+// reexportados para nao mexer nos ~30 imports das telas.
+export {
+  formatCep,
+  formatCnpj,
+  formatCpf,
+  formatPhone,
+  isImageFile,
+  isValidCnpj,
+  isValidCpf,
+  onlyDigits,
+} from '@smartgym/shared';
 
-export function formatCpf(value: string) {
-  const digits = onlyDigits(value).slice(0, 11);
-
-  return digits
-    .replace(/^(\d{3})(\d)/, '$1.$2')
-    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d)/, '.$1-$2');
-}
-
-export function formatCep(value: string) {
-  const digits = onlyDigits(value).slice(0, 8);
-
-  return digits.replace(/^(\d{5})(\d)/, '$1-$2');
-}
-
-export function isValidCpf(value: string) {
-  const cpf = onlyDigits(value);
-
-  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) {
-    return false;
-  }
-
-  const calculateDigit = (size: number) => {
-    let sum = 0;
-
-    for (let index = 0; index < size; index += 1) {
-      sum += Number(cpf[index]) * (size + 1 - index);
-    }
-
-    const rest = (sum * 10) % 11;
-
-    return rest === 10 ? 0 : rest;
-  };
-
-  return calculateDigit(9) === Number(cpf[9]) && calculateDigit(10) === Number(cpf[10]);
-}
-
-export function isImageFile(path: string) {
-  return /\.(jpg|jpeg|png|gif|webp)$/i.test(path);
-}

@@ -1,14 +1,5 @@
-import { onlyDigits } from '../../shared/registration/registrationHelpers';
-
-export function formatPhone(value: string) {
-  const digits = onlyDigits(value).slice(0, 9);
-
-  if (digits.length <= 8) {
-    return digits.replace(/^(\d{4})(\d)/, '$1-$2');
-  }
-
-  return digits.replace(/^(\d{5})(\d)/, '$1-$2');
-}
+// formatPhone era a 3a de quatro copias identicas. Vem de @smartgym/shared.
+export { formatPhone } from '@smartgym/shared';
 
 export function toApiDate(value: string) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {

@@ -1,3 +1,10 @@
+// CPF/CNPJ/email vinham reimplementados aqui e tambem no web (duas copias) —
+// regra de negocio duplicada sai de sincronia sem ninguem perceber. Agora vem de
+// @smartgym/shared; o re-export mantem os imports internos do modulo intactos.
+import { isValidCnpj, isValidCpf, isValidEmail } from '@smartgym/shared';
+
+export { isValidCnpj, isValidCpf, isValidEmail };
+
 import type {
   CompanyPayload,
   EmployeePayload,
@@ -105,50 +112,6 @@ export function parseBirthDate(value?: string | null) {
   }
 
   return new Date(Number.NaN);
-}
-
-export function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
-export function isValidCnpj(value: string) {
-  const cnpj = value.replace(/\D/g, '');
-  if (cnpj.length !== 14 || /^(\d)\1+$/.test(cnpj)) {
-    return false;
-  }
-
-  const calculateDigit = (size: number) => {
-    const weights =
-      size === 12
-        ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
-        : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-    let sum = 0;
-    for (let index = 0; index < size; index += 1) {
-      sum += Number(cnpj[index]) * Number(weights[index]);
-    }
-    const rest = sum % 11;
-    return rest < 2 ? 0 : 11 - rest;
-  };
-
-  return calculateDigit(12) === Number(cnpj[12]) && calculateDigit(13) === Number(cnpj[13]);
-}
-
-export function isValidCpf(value: string) {
-  const cpf = value.replace(/\D/g, '');
-  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) {
-    return false;
-  }
-
-  const calculateDigit = (size: number) => {
-    let sum = 0;
-    for (let index = 0; index < size; index += 1) {
-      sum += Number(cpf[index]) * (size + 1 - index);
-    }
-    const rest = (sum * 10) % 11;
-    return rest === 10 ? 0 : rest;
-  };
-
-  return calculateDigit(9) === Number(cpf[9]) && calculateDigit(10) === Number(cpf[10]);
 }
 
 export function normalizeCompanyPayload(payload: CompanyPayload) {

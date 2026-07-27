@@ -1,7 +1,7 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, GridPagination, formatCpf, formatDateDisplay, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { Employee, Exercise, Student, StudentTraining, Training, TrainingExercise, TrainingMethod } from '../../shared/registration/registrationTypes';
@@ -102,6 +102,13 @@ export function StudentTrainingAssembly({
       ? Math.max(maxSequence, sequence)
       : maxSequence;
   }, 0);
+  // Mesmo padrao: find() dentro de map() sobre o catalogo de treinos.
+  const trainingsById = useMemo(() => {
+    const index = new Map<string, Training>();
+    for (const training of trainings) index.set(String(training.id), training);
+    return index;
+  }, [trainings]);
+
   const temporaryStudentTrainings: StudentTraining[] = selectedTrainingIds.map((trainingId, index) => ({
     id: -Number(trainingId),
     idAluno: selectedStudentId,
@@ -111,7 +118,7 @@ export function StudentTrainingAssembly({
     dtAlteracao: '',
     boInativo: false,
     funcionario: null,
-    treino: trainings.find((training) => String(training.id) === trainingId) ?? null,
+    treino: trainingsById.get(trainingId) ?? null,
     alunoTreinosSequencias: shouldCreateSequence
       ? [
         {
@@ -135,9 +142,23 @@ export function StudentTrainingAssembly({
   const activeStudentTrainings = studentTrainings
     .filter((studentTraining) => studentTraining.boInativo === false)
     .sort(compareStudentTrainingAsc);
-  const sequenceDraftRecords = sequenceDraftIds
-    .map((id) => studentTrainings.find((studentTraining) => studentTraining.id === id))
-    .filter((studentTraining): studentTraining is StudentTraining => Boolean(studentTraining));
+  // Era `sequenceDraftIds.map(id => studentTrainings.find(...))`: uma varredura
+  // linear da lista inteira POR id arrastado — O(n*m) a cada movimento do
+  // reordenamento. Com o indice por id vira O(n+m) e o custo para de crescer
+  // com o tamanho da lista de treinos do aluno.
+  const studentTrainingsById = useMemo(() => {
+    const index = new Map<number, StudentTraining>();
+    for (const studentTraining of studentTrainings) index.set(studentTraining.id, studentTraining);
+    return index;
+  }, [studentTrainings]);
+
+  const sequenceDraftRecords = useMemo(
+    () =>
+      sequenceDraftIds
+        .map((id) => studentTrainingsById.get(id))
+        .filter((studentTraining): studentTraining is StudentTraining => Boolean(studentTraining)),
+    [sequenceDraftIds, studentTrainingsById],
+  );
   const visibleStudentTrainingRows = isReorderingSequence ? sequenceDraftRecords : paginatedStudentTrainings;
 
   async function loadStudents() {

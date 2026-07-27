@@ -3,7 +3,9 @@
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { Save, UserCheck, Users } from 'lucide-react';
-import { formatDateInput, getLookupLabel } from '../../shared/registration/registrationHelpers';
+import { formatDateInput, getLookupLabel,
+  findLookupOption,
+} from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
@@ -82,8 +84,8 @@ export function ScheduleRegistration() {
 
   const filteredSchedules = schedules.filter((r) => {
     const search = scheduleSearchTerm.toLowerCase();
-    const company = lookups.idEmpresa?.find((i) => String(i.id) === String(r.idEmpresa));
-    const category = lookups.idCategoria?.find((i) => String(i.id) === String(r.idCategoria));
+    const company = findLookupOption(lookups.idEmpresa, r.idEmpresa);
+    const category = findLookupOption(lookups.idCategoria, r.idCategoria);
     return (
       String(company?.dsEmpresa ?? r.idEmpresa ?? '').toLowerCase().includes(search) ||
       String(category?.dsCategoria ?? r.idCategoria ?? '').toLowerCase().includes(search) ||
@@ -93,8 +95,8 @@ export function ScheduleRegistration() {
 
   const filteredScheduleEmployees = scheduleEmployees.filter((r) => {
     const search = scheduleEmployeeSearchTerm.toLowerCase();
-    const company = lookups.idEmpresa?.find((i) => String(i.id) === String(r.idEmpresa));
-    const employee = lookups.idFuncionario?.find((i) => String(i.id) === String(r.idFuncionario));
+    const company = findLookupOption(lookups.idEmpresa, r.idEmpresa);
+    const employee = findLookupOption(lookups.idFuncionario, r.idFuncionario);
     return (
       String(company?.dsEmpresa ?? r.idEmpresa ?? '').toLowerCase().includes(search) ||
       String(employee?.nmFuncionario ?? r.idFuncionario ?? '').toLowerCase().includes(search) ||
@@ -104,8 +106,8 @@ export function ScheduleRegistration() {
 
   const filteredScheduleStudents = scheduleStudents.filter((r) => {
     const search = scheduleStudentSearchTerm.toLowerCase();
-    const company = lookups.idEmpresa?.find((i) => String(i.id) === String(r.idEmpresa));
-    const student = lookups.idAluno?.find((i) => String(i.id) === String(r.idAluno));
+    const company = findLookupOption(lookups.idEmpresa, r.idEmpresa);
+    const student = findLookupOption(lookups.idAluno, r.idAluno);
     return (
       String(company?.dsEmpresa ?? r.idEmpresa ?? '').toLowerCase().includes(search) ||
       String(student?.nmAluno ?? r.idAluno ?? '').toLowerCase().includes(search) ||
@@ -472,8 +474,8 @@ export function ScheduleRegistration() {
             ariaLabel="Agendas"
             label="Agendas"
             columns={[
-              { label: 'Empresa', render: (r) => String(lookups.idEmpresa?.find((i) => String(i.id) === String(r.idEmpresa))?.dsEmpresa ?? r.idEmpresa ?? '-'), sortValue: (r) => String(lookups.idEmpresa?.find((i) => String(i.id) === String(r.idEmpresa))?.dsEmpresa ?? r.idEmpresa ?? '-') },
-              { label: 'Categoria', render: (r) => String(lookups.idCategoria?.find((i) => String(i.id) === String(r.idCategoria))?.dsCategoria ?? r.idCategoria ?? '-') },
+              { label: 'Empresa', render: (r) => String(findLookupOption(lookups.idEmpresa, r.idEmpresa)?.dsEmpresa ?? r.idEmpresa ?? '-'), sortValue: (r) => String(findLookupOption(lookups.idEmpresa, r.idEmpresa)?.dsEmpresa ?? r.idEmpresa ?? '-') },
+              { label: 'Categoria', render: (r) => String(findLookupOption(lookups.idCategoria, r.idCategoria)?.dsCategoria ?? r.idCategoria ?? '-') },
               { label: 'Início', render: (r) => r.dtInicial ? formatDateInput(String(r.dtInicial)) : '-' },
               { label: 'Fim', render: (r) => r.dtFinal ? formatDateInput(String(r.dtFinal)) : '-' },
               { label: 'Status', render: (r) => <span className={`status-badge ${(r.boInativo ?? false) === false ? 'active' : 'inactive'}`}>{(r.boInativo ?? false) === false ? 'Ativo' : 'Inativo'}</span> },
@@ -499,8 +501,8 @@ export function ScheduleRegistration() {
                 ariaLabel="Alunos da agenda"
                 label="Alunos da Agenda"
                 columns={[
-                  { label: 'Empresa', render: (r) => String(lookups.idEmpresa?.find((i) => String(i.id) === String(r.idEmpresa))?.dsEmpresa ?? r.idEmpresa ?? '-') },
-                  { label: 'Aluno', render: (r) => String(lookups.idAluno?.find((i) => String(i.id) === String(r.idAluno))?.nmAluno ?? r.idAluno ?? '-') },
+                  { label: 'Empresa', render: (r) => String(findLookupOption(lookups.idEmpresa, r.idEmpresa)?.dsEmpresa ?? r.idEmpresa ?? '-') },
+                  { label: 'Aluno', render: (r) => String(findLookupOption(lookups.idAluno, r.idAluno)?.nmAluno ?? r.idAluno ?? '-') },
                   { label: 'Status', render: (r) => <span className={`status-badge ${(r.boInativo ?? false) === false ? 'active' : 'inactive'}`}>{(r.boInativo ?? false) === false ? 'Ativo' : 'Inativo'}</span> },
                 ]}
                 records={filteredScheduleStudents}
@@ -519,8 +521,8 @@ export function ScheduleRegistration() {
                 ariaLabel="Profissionais da agenda"
                 label="Profissionais da Agenda"
                 columns={[
-                  { label: 'Empresa', render: (r) => String(lookups.idEmpresa?.find((i) => String(i.id) === String(r.idEmpresa))?.dsEmpresa ?? r.idEmpresa ?? '-') },
-                  { label: 'Profissional', render: (r) => String(lookups.idFuncionario?.find((i) => String(i.id) === String(r.idFuncionario))?.nmFuncionario ?? r.idFuncionario ?? '-') },
+                  { label: 'Empresa', render: (r) => String(findLookupOption(lookups.idEmpresa, r.idEmpresa)?.dsEmpresa ?? r.idEmpresa ?? '-') },
+                  { label: 'Profissional', render: (r) => String(findLookupOption(lookups.idFuncionario, r.idFuncionario)?.nmFuncionario ?? r.idFuncionario ?? '-') },
                   { label: 'Status', render: (r) => <span className={`status-badge ${(r.boInativo ?? false) === false ? 'active' : 'inactive'}`}>{(r.boInativo ?? false) === false ? 'Ativo' : 'Inativo'}</span> },
                 ]}
                 records={filteredScheduleEmployees}

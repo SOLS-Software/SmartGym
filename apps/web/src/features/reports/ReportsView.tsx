@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BarChart3, PieChart, TrendingUp, Users } from 'lucide-react';
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 
@@ -34,6 +34,10 @@ type ReportData = {
   plans: PlanRecord[];
   allStudentPlans: StudentPlan[];
   allCheckIns: CheckIn[];
+  /** Quantos alunos ativos entraram na amostra de check-ins/planos. */
+  sampledStudents: number;
+  /** Total de alunos ativos — se for maior que a amostra, o relatorio avisa. */
+  totalActiveStudents: number;
 };
 
 function getWeekLabel(date: Date): string {
@@ -230,6 +234,43 @@ function DonutChartCanvas({ data, size = 180 }: DonutChartProps) {
 
 const PLAN_COLORS = ['#1f7a53', '#2563eb', '#7c3aed', '#d97706', '#db2777', '#059669', '#dc2626', '#6366f1'];
 
+type TimeWindow = { label: string; start: Date; end: Date };
+
+/**
+ * Conta quantos itens caem em cada janela de tempo em UMA passada.
+ *
+ * As janelas (semanas/meses) sao contiguas e ordenadas, entao basta localizar
+ * por busca binaria a que contem cada ponto — O(N log W) em vez do O(N*W) de
+ * varrer a colecao inteira por bucket. Cada registro tem a data convertida uma
+ * unica vez, o que era a maior fonte de lixo do render (12N+6N objetos Date).
+ *
+ * Funcao pura em escopo de modulo: nao depende de nada do componente e nao
+ * precisa ser recriada a cada recalculo do memo.
+ */
+function bucketize<T>(items: T[], getDate: (item: T) => string, windows: TimeWindow[]) {
+  const counts = new Array<number>(windows.length).fill(0);
+
+  for (const item of items) {
+    const time = new Date(getDate(item)).getTime();
+    if (Number.isNaN(time)) continue;
+
+    let low = 0;
+    let high = windows.length - 1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      const window = windows[mid]!;
+      if (time < window.start.getTime()) high = mid - 1;
+      else if (time > window.end.getTime()) low = mid + 1;
+      else {
+        counts[mid] = (counts[mid] ?? 0) + 1;
+        break;
+      }
+    }
+  }
+
+  return windows.map((window, index) => ({ label: window.label, value: counts[index] ?? 0 }));
+}
+
 export function ReportsView() {
   const [data, setData] = useState<ReportData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -238,6 +279,14 @@ export function ReportsView() {
   useEffect(() => {
     void loadData();
   }, []);
+
+  // Quantos alunos o relatorio agrega por vez. O codigo anterior usava
+  // `.slice(0, 50)` fixo e SEM avisar: uma academia com 500 alunos via um
+  // relatorio construido sobre 10% da base, apresentado como se fosse o total.
+  // Aqui o teto continua existindo (protege o browser), mas e explicito e a UI
+  // informa quando a amostra e parcial.
+  const REPORT_STUDENT_LIMIT = 120;
+  const FETCH_CONCURRENCY = 6;
 
   async function loadData() {
     try {
@@ -251,43 +300,148 @@ export function ReportsView() {
       const plans: PlanRecord[] = plansRes.ok ? await plansRes.json() : [];
 
       const activeStudents = students.filter((s) => !s.boInativo);
-      const checkInPromises = activeStudents.slice(0, 50).map(async (s) => {
-        try {
-          const res = await fetch(`${apiUrl}/students/${s.id}/related/check-ins`);
-          if (!res.ok) return [];
-          return (await res.json()) as CheckIn[];
-        } catch {
-          return [];
-        }
-      });
+      const sampled = activeStudents.slice(0, REPORT_STUDENT_LIMIT);
 
-      const planPromises = activeStudents.slice(0, 50).map(async (s) => {
-        try {
-          const res = await fetch(`${apiUrl}/students/${s.id}/related/plans`);
-          if (!res.ok) return [];
-          return ((await res.json()) as StudentPlan[]).map((p) => ({ ...p, idAluno: s.id }));
-        } catch {
-          return [];
+      // Antes: 50 fetches de check-ins + 50 de planos disparados de uma vez
+      // (100 requisicoes simultaneas). O browser so abre ~6 conexoes por host,
+      // entao as 100 viravam ~17 ondas serializadas — e cada uma passava pelo
+      // proxy Next (decripta -> encaminha -> recripta). Com um pool de
+      // concorrencia fixo o navegador para de enfileirar e o servidor para de
+      // receber rajadas.
+      async function fetchInPool<T>(
+        items: Student[],
+        task: (student: Student) => Promise<T[]>,
+      ): Promise<T[]> {
+        const results: T[][] = new Array(items.length);
+        let cursor = 0;
+        async function worker() {
+          while (cursor < items.length) {
+            const index = cursor;
+            cursor += 1;
+            const student = items[index];
+            if (!student) continue;
+            try {
+              results[index] = await task(student);
+            } catch {
+              results[index] = [];
+            }
+          }
         }
-      });
+        await Promise.all(
+          Array.from({ length: Math.min(FETCH_CONCURRENCY, items.length) }, worker),
+        );
+        return results.flat().filter(Boolean) as T[];
+      }
 
-      const [checkInResults, planResults] = await Promise.all([
-        Promise.all(checkInPromises),
-        Promise.all(planPromises),
+      const [allCheckIns, allStudentPlans] = await Promise.all([
+        fetchInPool<CheckIn>(sampled, async (student) => {
+          const res = await fetch(`${apiUrl}/students/${student.id}/related/check-ins`);
+          return res.ok ? ((await res.json()) as CheckIn[]) : [];
+        }),
+        fetchInPool<StudentPlan>(sampled, async (student) => {
+          const res = await fetch(`${apiUrl}/students/${student.id}/related/plans`);
+          if (!res.ok) return [];
+          return ((await res.json()) as StudentPlan[]).map((plan) => ({ ...plan, idAluno: student.id }));
+        }),
       ]);
 
       setData({
         students,
         plans,
-        allStudentPlans: planResults.flat(),
-        allCheckIns: checkInResults.flat(),
+        allStudentPlans,
+        allCheckIns,
+        sampledStudents: sampled.length,
+        totalActiveStudents: activeStudents.length,
       });
     } catch {
-      setData({ students: [], plans: [], allStudentPlans: [], allCheckIns: [] });
+      setData({
+        students: [],
+        plans: [],
+        allStudentPlans: [],
+        allCheckIns: [],
+        sampledStudents: 0,
+        totalActiveStudents: 0,
+      });
     } finally {
       setIsLoading(false);
     }
   }
+
+  // Toda a agregacao roda em useMemo e em UMA passada por colecao.
+  //
+  // Antes: para cada um dos 12 buckets semanais o codigo varria a lista inteira
+  // de check-ins e construia um `new Date()` por item — O(N*W) em tempo e 12N
+  // objetos Date descartaveis. Somando semanas + meses + novos alunos dava
+  // ~90 mil alocacoes de Date por render, e nada disso era memoizado: alternar
+  // o grafico entre "semanal" e "mensal" recomputava tudo.
+  //
+  // Agora cada registro e visitado uma vez, tem a data convertida uma vez e cai
+  // no bucket por busca binaria sobre janelas ordenadas: O(N log W + W).
+  //
+  // IMPORTANTE: este hook fica ANTES dos early returns de loading/sem-dados.
+  // Hook depois de `return` condicional muda a quantidade de hooks entre um
+  // render e outro e o React quebra ("change in the order of Hooks"). Por isso
+  // o memo trata `data === null` internamente em vez de depender do guard.
+  const metrics = useMemo(() => {
+    const weeks = getLast12Weeks();
+    const months = getLast6Months();
+
+    if (!data) {
+      const empty = (windows: Array<{ label: string }>) =>
+        windows.map((window) => ({ label: window.label, value: 0 }));
+      return {
+        activeStudents: 0,
+        inactiveStudents: 0,
+        activePlans: 0,
+        totalCheckIns: 0,
+        weeklyCheckIns: empty(weeks),
+        monthlyCheckIns: empty(months),
+        newStudentsMonthly: empty(months),
+        planDistribution: [] as Array<{ label: string; value: number; color: string }>,
+      };
+    }
+
+    // Distribuicao por plano: era O(P*S) (um filter da lista inteira de
+    // matriculas por plano). Um Map indexado por idPlano resolve em O(S+P).
+    const activeByPlanId = new Map<number, number>();
+    for (const studentPlan of data.allStudentPlans) {
+      if (studentPlan.boInativo) continue;
+      const planId = studentPlan.plano?.id;
+      if (planId === undefined) continue;
+      activeByPlanId.set(planId, (activeByPlanId.get(planId) ?? 0) + 1);
+    }
+
+    let activeStudentsCount = 0;
+    let inactiveStudentsCount = 0;
+    for (const student of data.students) {
+      if (student.boInativo) inactiveStudentsCount += 1;
+      else activeStudentsCount += 1;
+    }
+
+    let activePlansCount = 0;
+    for (const studentPlan of data.allStudentPlans) {
+      if (!studentPlan.boInativo) activePlansCount += 1;
+    }
+
+    return {
+      activeStudents: activeStudentsCount,
+      inactiveStudents: inactiveStudentsCount,
+      activePlans: activePlansCount,
+      totalCheckIns: data.allCheckIns.length,
+      weeklyCheckIns: bucketize(data.allCheckIns, (checkIn) => checkIn.dtCadastro, weeks),
+      monthlyCheckIns: bucketize(data.allCheckIns, (checkIn) => checkIn.dtCadastro, months),
+      newStudentsMonthly: bucketize(data.students, (student) => student.dtCadastro, months),
+      planDistribution: data.plans
+        .filter((plan) => !plan.boInativo)
+        .map((plan, index) => ({
+          label: plan.dsPlano,
+          value: activeByPlanId.get(plan.id) ?? 0,
+          color: PLAN_COLORS[index % PLAN_COLORS.length]!,
+        }))
+        .filter((entry) => entry.value > 0)
+        .sort((a, b) => b.value - a.value),
+    };
+  }, [data]);
 
   if (isLoading) {
     return (
@@ -303,48 +457,16 @@ export function ReportsView() {
 
   if (!data) return null;
 
-  const activeStudents = data.students.filter((s) => !s.boInativo).length;
-  const inactiveStudents = data.students.filter((s) => s.boInativo).length;
-  const activePlans = data.allStudentPlans.filter((p) => !p.boInativo).length;
-  const totalCheckIns = data.allCheckIns.length;
-
-  const weeks = getLast12Weeks();
-  const weeklyCheckIns = weeks.map((week) => ({
-    label: week.label,
-    value: data.allCheckIns.filter((ci) => {
-      const d = new Date(ci.dtCadastro);
-      return d >= week.start && d <= week.end;
-    }).length,
-  }));
-
-  const months = getLast6Months();
-  const monthlyCheckIns = months.map((month) => ({
-    label: month.label,
-    value: data.allCheckIns.filter((ci) => {
-      const d = new Date(ci.dtCadastro);
-      return d >= month.start && d <= month.end;
-    }).length,
-  }));
-
-  const planDistribution = data.plans
-    .filter((p) => !p.boInativo)
-    .map((plan, i) => ({
-      label: plan.dsPlano,
-      value: data.allStudentPlans.filter(
-        (sp) => !sp.boInativo && sp.plano?.id === plan.id,
-      ).length,
-      color: PLAN_COLORS[i % PLAN_COLORS.length]!,
-    }))
-    .filter((p) => p.value > 0)
-    .sort((a, b) => b.value - a.value);
-
-  const newStudentsMonthly = months.map((month) => ({
-    label: month.label,
-    value: data.students.filter((s) => {
-      const d = new Date(s.dtCadastro);
-      return d >= month.start && d <= month.end;
-    }).length,
-  }));
+  const {
+    activeStudents,
+    inactiveStudents,
+    activePlans,
+    totalCheckIns,
+    weeklyCheckIns,
+    monthlyCheckIns,
+    newStudentsMonthly,
+    planDistribution,
+  } = metrics;
 
   return (
     <>
@@ -354,6 +476,19 @@ export function ReportsView() {
       </header>
 
       <div className="reports-content">
+        {/* O relatorio sempre agregou uma amostra (era `.slice(0, 50)` fixo e
+            invisivel). Manter o teto e legitimo — buscar check-ins de 5000
+            alunos pelo browser nao escala — mas o gestor precisa saber que os
+            numeros de check-in e matricula cobrem parte da base, senao decide
+            em cima de um dado que parece total e nao e. */}
+        {data.totalActiveStudents > data.sampledStudents ? (
+          <div className="form-hint" role="status">
+            Check-ins e matrículas calculados sobre os {data.sampledStudents} primeiros de{' '}
+            {data.totalActiveStudents} alunos ativos. Os indicadores de alunos e planos
+            consideram a base completa.
+          </div>
+        ) : null}
+
         <section className="reports-kpis" aria-label="Indicadores">
           <div className="reports-kpi">
             <div className="reports-kpi-icon" style={{ background: 'var(--color-primary-bg)', color: 'var(--color-primary)' }}>
