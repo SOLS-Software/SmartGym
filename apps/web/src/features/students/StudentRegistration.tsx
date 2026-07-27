@@ -1049,7 +1049,7 @@ export function StudentRegistration() {
               </RegistrationField>
               {/* CPF */}
               <RegistrationField error={studentErrors.cpf} htmlFor="caCPF" label="CPF" required size="md" touched={touchedStudentFields.cpf}>
-                <input className={touchedStudentFields.cpf && studentErrors.cpf ? 'invalid' : ''} id="caCPF" maxLength={14} onBlur={() => validateStudentField('cpf')} onChange={(event) => { const formattedCpf = formatCpf(event.target.value); setStudentCpf(formattedCpf); if (touchedStudentFields.cpf) { setStudentErrors((current) => ({ ...current, cpf: isValidCpf(formattedCpf) ? undefined : 'Informe um CPF válido.' })); } }} placeholder="000.000.000-00" ref={cpfInputRef} type="text" value={studentCpf} />
+                <input inputMode="numeric" className={touchedStudentFields.cpf && studentErrors.cpf ? 'invalid' : ''} id="caCPF" maxLength={14} onBlur={() => validateStudentField('cpf')} onChange={(event) => { const formattedCpf = formatCpf(event.target.value); setStudentCpf(formattedCpf); if (touchedStudentFields.cpf) { setStudentErrors((current) => ({ ...current, cpf: isValidCpf(formattedCpf) ? undefined : 'Informe um CPF válido.' })); } }} placeholder="000.000.000-00" ref={cpfInputRef} type="text" value={studentCpf} />
               </RegistrationField>
               {/* Nascimento */}
               <RegistrationField error={studentErrors.birthDate} htmlFor="dtNascimento" label="Data de nascimento" required size="sm" touched={touchedStudentFields.birthDate}>
@@ -1061,7 +1061,7 @@ export function StudentRegistration() {
               </RegistrationField>
               {/* Telefone */}
               <RegistrationField htmlFor="nrContato" label="Telefone" size="sm">
-                <input id="nrContato" maxLength={10} onChange={(event) => setStudentPhone(formatPhone(event.target.value))} placeholder="00000-0000" type="text" value={studentPhone} />
+                <input inputMode="numeric" id="nrContato" maxLength={10} onChange={(event) => setStudentPhone(formatPhone(event.target.value))} placeholder="00000-0000" type="text" value={studentPhone} />
               </RegistrationField>
               {/* Email */}
               <RegistrationField error={studentErrors.email} htmlFor="anEmail" label="Email" size="lg" touched={touchedStudentFields.email}>

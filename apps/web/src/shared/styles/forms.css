@@ -294,7 +294,17 @@ html.dark .status-toggle:not(.active) span {
   }
 
   .form-actions {
-    flex-direction: column-reverse;
+    /* Era `column-reverse`: a ordem visual (Salvar em cima, Cancelar embaixo)
+       ficava invertida em relacao a ordem do DOM e do Tab (Cancelar → Salvar).
+       Isso quebra WCAG 1.3.2/2.4.3 — quem navega por teclado ve o foco pular
+       para baixo e depois para cima. Com `column`, ordem visual = ordem de
+       foco, e a acao primaria fica embaixo, na zona do polegar. */
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
+    justify-content: center;
   }
 
   .form-actions button {

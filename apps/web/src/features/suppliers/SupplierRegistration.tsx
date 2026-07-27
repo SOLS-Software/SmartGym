@@ -241,7 +241,7 @@ export function SupplierRegistration() {
               <input disabled={!isFormEnabled} id="fornecedorEmail" maxLength={255} onChange={(event) => setDsEmail(event.target.value)} placeholder="contato@fornecedor.com" type="email" value={dsEmail} />
             </RegistrationField>
             <RegistrationField htmlFor="fornecedorCEP" label="CEP" size="sm">
-              <input disabled={!isFormEnabled} id="fornecedorCEP" maxLength={9} onChange={(event) => setAnCEP(formatCep(event.target.value))} placeholder="00000-000" type="text" value={anCEP} />
+              <input inputMode="numeric" disabled={!isFormEnabled} id="fornecedorCEP" maxLength={9} onChange={(event) => setAnCEP(formatCep(event.target.value))} placeholder="00000-000" type="text" value={anCEP} />
             </RegistrationField>
             <RegistrationField htmlFor="fornecedorLogradouro" label="Logradouro" size="lg">
               <input disabled={!isFormEnabled} id="fornecedorLogradouro" maxLength={150} onChange={(event) => setAnLogradouro(event.target.value)} type="text" value={anLogradouro} />

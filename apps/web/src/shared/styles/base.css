@@ -10,7 +10,14 @@
   --color-text-label: #34413b;
   --color-muted: #6b7a72;
   --color-muted-strong: #52605a;
-  --color-muted-faint: #7a8981;
+  /* Era #7a8981 = 3.67:1 sobre o branco — reprovava no WCAG 1.4.3 (min 4.5:1
+     para texto pequeno). Usado nos titulos de grupo do menu, que sao 0.75rem.
+     #66756d da 4.61:1 mantendo o mesmo cinza-esverdeado da marca. */
+  --color-muted-faint: #66756d;
+
+  /* Foco visivel (WCAG 2.4.7 / 2.4.11). Um unico token para todo o app. */
+  --focus-ring: 0 0 0 0.1875rem rgba(31, 122, 83, 0.35);
+  --focus-ring-danger: 0 0 0 0.1875rem rgba(220, 38, 38, 0.35);
   --color-bg: #f3f6f4;
   --color-surface: #ffffff;
   --color-surface-alt: #f8faf8;
@@ -50,7 +57,68 @@ html.dark {
   --color-danger-dark: #f87171;
   --color-warning: #fb923c;
   --color-warning-bg: rgba(154, 52, 18, 0.15);
+  --focus-ring: 0 0 0 0.1875rem rgba(122, 152, 130, 0.55);
+  --focus-ring-danger: 0 0 0 0.1875rem rgba(248, 113, 113, 0.45);
   color-scheme: dark;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Foco visivel global (WCAG 2.4.7 Focus Visible / 2.4.11 Focus Not Obscured).
+   Antes so `.field input` e `.global-search-item` tinham anel de foco proprio;
+   as centenas de botoes do app dependiam do outline default do browser, que
+   some ou fica ilegivel sobre os fundos escuros/coloridos do tema. Usamos
+   :focus-visible para nao poluir o clique de mouse.
+   ────────────────────────────────────────────────────────────────────────── */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  border-radius: 0.375rem;
+  box-shadow: var(--focus-ring);
+  outline: 0.125rem solid var(--color-primary);
+  outline-offset: 0.125rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* Linhas de tabela e itens de menu ja tem raio proprio — o anel acompanha. */
+.product-row:focus-visible,
+.domain-select-row:focus-visible {
+  outline-offset: -0.125rem;
+}
+
+/* Respeita quem pediu menos movimento (WCAG 2.3.3). O app usa animacoes de
+   entrada em praticamente todo card, grid e formulario. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Alvos de toque (WCAG 2.5.8 Target Size — minimo 24x24; 44x44 e a boa
+   pratica em mobile). Os botoes-icone do app ficavam entre 30 e 36px. */
+@media (max-width: 47.5rem) {
+  .grid-edit-button,
+  .drawer-close-button,
+  .password-eye-button,
+  .toast-close,
+  .dark-mode-toggle,
+  .grid-status-toggle {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  .password-eye-button {
+    right: 0.125rem;
+    top: 0.0625rem;
+  }
+
+  .checkbox-field input {
+    height: 1.5rem;
+    width: 1.5rem;
+  }
 }
 
 /* Dark mode: special elements */

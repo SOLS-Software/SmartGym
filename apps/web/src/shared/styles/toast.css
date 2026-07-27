@@ -10,6 +10,18 @@
   max-width: min(24rem, calc(100vw - 2.5rem));
 }
 
+/* Regioes aria-live (assertive/polite) empilhadas dentro do mesmo container
+   posicionado — sem isso as duas se sobreporiam no canto da tela. */
+.toast-region {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+}
+
+.toast-region:empty {
+  display: none;
+}
+
 .toast {
   display: flex;
   align-items: center;
@@ -133,11 +145,20 @@ html.dark .toast-info .toast-icon {
   }
 }
 
-@media (max-width: 480px) {
+.toast-close {
+  /* Alvo de toque minimo (WCAG 2.5.8). Era 1.5rem/24px de area clicavel. */
+  min-height: 1.75rem;
+  min-width: 1.75rem;
+}
+
+@media (max-width: 47.5rem) {
   .toast-container {
-    bottom: 1rem;
-    right: 1rem;
-    left: 1rem;
+    /* A barra de navegacao inferior e fixa (min-height 3rem + safe-area) e o
+       toast ficava POR CIMA dela, escondendo a navegacao justamente quando o
+       usuario acabou de concluir uma acao e quer seguir para a proxima tela. */
+    bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+    right: 0.75rem;
+    left: 0.75rem;
     max-width: none;
   }
 }

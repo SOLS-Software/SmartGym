@@ -25,16 +25,30 @@ export function RegistrationDrawer({ isOpen, title, onClose, children }: Registr
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Devolve o foco ao elemento que abriu o drawer (WCAG 2.4.3 Focus Order).
+  // Sem isso, ao fechar o modal o foco caia no <body> e o usuario de teclado
+  // era jogado de volta ao topo da pagina, tendo que tabular tudo de novo.
   useEffect(() => {
     if (!isOpen) return;
 
+    const opener = document.activeElement as HTMLElement | null;
     const drawer = drawerRef.current;
-    if (!drawer) return;
 
-    const firstFocusable = drawer.querySelector<HTMLElement>(
-      'input:not([disabled]), select:not([disabled]), button:not([disabled]), textarea:not([disabled])',
+    const firstFocusable = drawer?.querySelector<HTMLElement>(
+      'input:not([disabled]), select:not([disabled]), button:not([disabled]), textarea:not([disabled]), a[href]',
     );
-    setTimeout(() => firstFocusable?.focus(), 50);
+    const timer = setTimeout(() => firstFocusable?.focus(), 50);
+
+    // Trava o scroll do fundo: sem isso a pagina rolava atras do modal ao usar
+    // a roda do mouse, dando a sensacao de que o clique "vazou".
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      clearTimeout(timer);
+      document.body.style.overflow = previousOverflow;
+      opener?.focus?.();
+    };
   }, [isOpen]);
 
   useEffect(() => {
@@ -48,9 +62,11 @@ export function RegistrationDrawer({ isOpen, title, onClose, children }: Registr
 
       const focusable = Array.from(
         drawer!.querySelectorAll<HTMLElement>(
-          'input:not([disabled]), select:not([disabled]), button:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          'input:not([disabled]), select:not([disabled]), button:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
         ),
-      );
+        // Elementos escondidos (aba inativa, campo hidden) nao podem receber
+        // foco: se virassem o "primeiro"/"ultimo" do ciclo, o Tab travava.
+      ).filter((element) => element.offsetParent !== null || element === document.activeElement);
 
       if (focusable.length === 0) return;
 

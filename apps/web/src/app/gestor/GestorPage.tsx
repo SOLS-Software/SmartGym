@@ -280,7 +280,7 @@ export default function GestorPage() {
             )}
 
             <label htmlFor="user">CPF</label>
-            <input
+            <input inputMode="numeric"
               autoComplete="username"
               id="user"
               name="user"

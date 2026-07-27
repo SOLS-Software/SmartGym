@@ -34,6 +34,9 @@ export function CalendarViewToggle({
         const active = opt.key === value;
         return (
           <Pressable
+            accessibilityLabel={`Visualizar por ${opt.label.toLowerCase()}`}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
             key={opt.key}
             onPress={() => onChange(opt.key)}
             style={[styles.toggleItem, { backgroundColor: active ? t.brand : 'transparent', borderRadius: t.radius - 2 }]}
@@ -50,12 +53,24 @@ function NavHeader({ label, onPrev, onNext }: { label: string; onPrev: () => voi
   const t = useTokens();
   return (
     <View style={styles.navHeader}>
-      <Pressable hitSlop={8} onPress={onPrev} style={styles.navBtn}>
-        <Text style={[styles.navChevron, { color: t.brand }]}>‹</Text>
+      <Pressable
+        accessibilityLabel="Período anterior"
+        accessibilityRole="button"
+        hitSlop={12}
+        onPress={onPrev}
+        style={styles.navBtn}
+      >
+        <Text accessible={false} style={[styles.navChevron, { color: t.brand }]}>‹</Text>
       </Pressable>
-      <Text style={[styles.navLabel, { color: t.text }]}>{label}</Text>
-      <Pressable hitSlop={8} onPress={onNext} style={styles.navBtn}>
-        <Text style={[styles.navChevron, { color: t.brand }]}>›</Text>
+      <Text accessibilityRole="header" style={[styles.navLabel, { color: t.text }]}>{label}</Text>
+      <Pressable
+        accessibilityLabel="Próximo período"
+        accessibilityRole="button"
+        hitSlop={12}
+        onPress={onNext}
+        style={styles.navBtn}
+      >
+        <Text accessible={false} style={[styles.navChevron, { color: t.brand }]}>›</Text>
       </Pressable>
     </View>
   );
@@ -165,11 +180,13 @@ const CELL = `${100 / 7}%`;
 
 const styles = StyleSheet.create({
   toggle: { flexDirection: 'row', borderWidth: 1, padding: 3, gap: 3 },
-  toggleItem: { flex: 1, alignItems: 'center', paddingVertical: 8 },
+  // minHeight 44: alvo de toque recomendado (iOS HIG / Material). Com apenas
+  // paddingVertical 8 sobre um texto de 13px o botao ficava com ~34px.
+  toggleItem: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 44, paddingVertical: 8 },
   toggleText: { fontSize: 13, fontWeight: '800' },
   block: { gap: 8 },
   navHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  navBtn: { paddingHorizontal: 16, paddingVertical: 4 },
+  navBtn: { alignItems: 'center', justifyContent: 'center', minHeight: 44, minWidth: 44, paddingHorizontal: 16 },
   navChevron: { fontSize: 28, fontWeight: '800' },
   navLabel: { fontSize: 15, fontWeight: '800', textTransform: 'capitalize', flexShrink: 1, textAlign: 'center' },
   weekRow: { flexDirection: 'row' },

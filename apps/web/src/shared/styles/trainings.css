@@ -113,9 +113,6 @@
   grid-template-columns: minmax(16rem, 1.35fr) minmax(9rem, 0.7fr) minmax(14rem, 1fr) 7rem;
 }
 
-.my-training-row {
-  grid-template-columns: minmax(14rem, 1.35fr) minmax(12rem, 0.95fr) 7rem 9rem 10rem;
-}
 
 .my-training-row.last-check-in {
   background: var(--color-warning-bg);
@@ -173,20 +170,8 @@
   padding-right: 1rem;
 }
 
-.activity-schedule-builder-form {
-  animation: workout-block-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
-  margin: 0 0 1rem;
-}
 
-.activity-schedule-fields {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
 
-.activity-week-days-field {
-  grid-column: span 2;
-}
 
 /* ── Schedule assembly new layout ── */
 
@@ -260,12 +245,6 @@
   margin: 0;
 }
 
-.activity-schedule-grid-layout {
-  align-items: start;
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: minmax(0, 1fr) 22rem;
-}
 
 .activity-schedule-preview {
   animation: workout-block-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -361,20 +340,7 @@
   color: transparent;
 }
 
-.activity-preview-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
 
-.activity-preview-summary span {
-  background: #f0f8f3;
-  border-radius: 0.5rem;
-  color: var(--color-primary);
-  font-size: 0.82rem;
-  font-weight: 800;
-  padding: 0.5rem 0.625rem;
-}
 
 .workout-assembly-view .product-row:not(.header) {
   animation: workout-block-in 300ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -544,9 +510,6 @@ html.dark .training-option-list button.selected {
     grid-template-columns: 1fr;
   }
 
-  .activity-week-days-field {
-    grid-column: auto;
-  }
 
   .workout-selected-header {
     align-items: flex-start;

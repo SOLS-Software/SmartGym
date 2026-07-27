@@ -1,13 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Activity, BadgeCheck, CalendarPlus, CreditCard, Dumbbell, TrendingUp, UserCheck, Users } from 'lucide-react';
+import { Activity, BadgeCheck, CalendarPlus, CreditCard, Dumbbell, UserCheck, Users } from 'lucide-react';
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 
 type DashboardStats = {
   totalStudents: number;
   activeStudents: number;
-  todayCheckIns: number;
   activePlans: number;
 };
 
@@ -52,11 +51,10 @@ export function EmployeeDashboard({ employeeName, onNavigate }: EmployeeDashboar
       setStats({
         totalStudents: students.length,
         activeStudents: students.filter((s) => s.boInativo === false).length,
-        todayCheckIns: 0,
         activePlans: plans.filter((p) => p.boInativo === false).length,
       });
     } catch {
-      setStats({ totalStudents: 0, activeStudents: 0, todayCheckIns: 0, activePlans: 0 });
+      setStats({ totalStudents: 0, activeStudents: 0, activePlans: 0 });
     } finally {
       setIsLoading(false);
     }
@@ -98,12 +96,11 @@ export function EmployeeDashboard({ employeeName, onNavigate }: EmployeeDashboar
             onClick={() => onNavigate('Planos')}
             value={stats?.activePlans}
           />
-          <StatCard
-            icon={TrendingUp}
-            label="Check-ins hoje"
-            loading={isLoading}
-            value={stats?.todayCheckIns}
-          />
+          {/* O card "Check-ins hoje" foi removido: `todayCheckIns` era fixado em
+              0 no loadStats() (nao existe endpoint agregado de check-ins), entao
+              o painel afirmava todo dia que ninguem treinou. Um KPI errado e
+              pior que KPI nenhum — o gestor toma decisao em cima dele. Volta
+              assim que a API expuser GET /check-ins?date=. */}
         </section>
 
         <section className="dashboard-quick-actions" aria-label="Ações rápidas">

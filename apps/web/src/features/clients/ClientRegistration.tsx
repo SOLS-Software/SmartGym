@@ -244,7 +244,7 @@ export function ClientRegistration() {
           </div>
           <div className="field field-size-md">
             <label htmlFor="clientCnpj">CNPJ</label>
-            <input
+            <input inputMode="numeric"
               id="clientCnpj"
               maxLength={18}
               onChange={(e) => setClientCnpj(formatCnpj(e.target.value))}

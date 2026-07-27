@@ -14,24 +14,8 @@
   transition: gap 360ms cubic-bezier(0.22, 1, 0.36, 1), grid-template-columns 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.registration-split-layout {
-  align-items: start;
-  display: grid;
-  gap: 1.375rem;
-  grid-template-columns: minmax(38.75rem, 1.25fr) minmax(26.25rem, 1fr);
-  transition: gap 360ms cubic-bezier(0.22, 1, 0.36, 1), grid-template-columns 420ms cubic-bezier(0.22, 1, 0.36, 1);
-}
 
-.split-form-panel {
-  margin-top: 0;
-}
 
-.split-form-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 1.125rem;
-  min-width: 0;
-}
 
 .domain-workspace-two-col {
   grid-template-columns: minmax(18.75rem, 1.25fr) minmax(26.25rem, 1.45fr);
@@ -321,6 +305,29 @@ html.dark .status-badge.promotion {
   color: var(--color-text);
 }
 
+/* Botao de ordenacao dentro do cabecalho: herda a tipografia do header e
+   mantem a mesma aparencia de antes, mas agora e focavel e acionavel por
+   teclado (Enter/Espaco) por ser um <button> de verdade. */
+.grid-sort-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  gap: 0.3rem;
+  letter-spacing: inherit;
+  margin: 0;
+  padding: 0;
+  text-transform: inherit;
+  transition: color 150ms ease;
+}
+
+.grid-sort-button:hover {
+  color: var(--color-text);
+}
+
 .grid-sort-icon {
   flex-shrink: 0;
   opacity: 0.7;
@@ -401,10 +408,12 @@ html.dark .status-badge.promotion {
   max-width: 28ch;
 }
 
-.empty-state .new-button {
+.empty-state .new-button,
+.empty-state .secondary-button {
   margin-top: 0.75rem;
   font-size: 0.825rem;
-  min-height: 2.25rem;
+  /* 2.75rem = 44px: alvo de toque adequado (WCAG 2.5.8). Era 2.25rem/36px. */
+  min-height: 2.75rem;
   padding: 0 0.875rem;
 }
 
@@ -581,7 +590,12 @@ html.dark .drawer-backdrop {
   position: fixed;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 80vw;
+  /* Teto absoluto alem do 80vw: em um monitor de 1920px o modal ocupava
+     1536px e os campos do formulario esticavam ate ~1400px de largura. Linhas
+     tao longas prejudicam a leitura e afastam label de valor. 68rem (~1090px)
+     mantem o formulario confortavel sem desperdicar a tela. */
+  max-width: min(80vw, 68rem);
+  width: min(80vw, 68rem);
   z-index: 201;
 }
 
@@ -670,9 +684,6 @@ html.dark .drawer-backdrop {
 .drawer-fields .field-size-sm   { flex: 1 1 7rem; max-width: 10rem; }
 .drawer-fields .field-size-xs   { flex: 1 1 5rem; max-width: 7rem; }
 
-.child-grid-mobile {
-  display: none;
-}
 
 @media (max-width: 47.5rem) {
   .domain-workspace,
@@ -680,22 +691,12 @@ html.dark .drawer-backdrop {
     grid-template-columns: 1fr;
   }
 
-  .registration-split-layout {
-    gap: 0.625rem;
-    grid-template-columns: 1fr auto;
-  }
 
   .child-grid-toolbar-actions {
     grid-template-columns: minmax(0, 1fr) max-content;
   }
 
-  .child-grid-desktop {
-    display: none;
-  }
 
-  .child-grid-mobile {
-    display: block;
-  }
 
   .grid-toolbar {
     align-items: stretch;
@@ -706,10 +707,65 @@ html.dark .drawer-backdrop {
     min-width: 0;
   }
 
+  /* ──────────────────────────────────────────────────────────────────────
+     Linha de tabela → cartao rotulado.
+
+     Abaixo de 760px o cabecalho some (`.product-row.header { display:none }`)
+     e a linha vira uma coluna unica. Sem rotulo, o usuario via so uma pilha de
+     valores truncados ("Joao da Silva / Ativo / 01/01/2026") sem saber o que
+     era cada um. Agora cada celula imprime o proprio cabecalho via `data-label`
+     e o texto deixa de ser cortado em uma linha.
+     ────────────────────────────────────────────────────────────────────── */
   .product-row {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.5rem;
     padding: 0.875rem 1rem;
+  }
+
+  .product-row:not(.header) > span[data-label] {
+    align-items: baseline;
+    display: grid;
+    gap: 0.25rem 0.75rem;
+    grid-template-columns: minmax(5.5rem, 40%) minmax(0, 1fr);
+  }
+
+  .product-row:not(.header) > span[data-label]::before {
+    color: var(--color-muted);
+    content: attr(data-label);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 1.35;
+    text-transform: uppercase;
+  }
+
+  /* A regra global de truncamento (uma linha + ellipsis) faz sentido na grade
+     desktop, mas em cartao esconde justamente o dado que o usuario abriu para
+     ler. No mobile o valor quebra em ate 3 linhas. */
+  .product-row:not(.header) > span[data-label] {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .product-row:not(.header) > span[data-label] {
+    overflow-wrap: anywhere;
+  }
+
+  /* Primeira coluna vira o "titulo" do cartao: sem rotulo e com mais peso. */
+  .product-row:not(.header) > span[data-label]:first-child {
+    display: block;
+    font-size: 1rem;
+    font-weight: 800;
+  }
+
+  .product-row:not(.header) > span[data-label]:first-child::before {
+    content: none;
+  }
+
+  /* Acao de editar alinhada a direita, fora do fluxo de rotulos. */
+  .product-row .grid-row-actions {
+    justify-content: flex-end;
   }
 
   .grid-pagination {

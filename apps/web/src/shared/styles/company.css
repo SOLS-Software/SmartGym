@@ -38,15 +38,7 @@
   margin: 0;
 }
 
-.company-split-layout {
-  gap: 1.23rem;
-  grid-template-columns: 35rem 60rem auto;
-}
 
-.plan-split-layout {
-  gap: 1.23rem;
-  grid-template-columns: minmax(28rem, 1fr) minmax(30rem, 1fr) auto;
-}
 
 .product-row.company-grid {
   gap: 0.5rem;
@@ -120,24 +112,12 @@
   gap: 0.75rem;
 }
 
-.company-form-panel {
-  /* max-width: 45rem; */
-  min-height: 16.25rem;
-  padding: 1.375rem 1.75rem;
-}
 
 .registration-form.collapsed {
   gap: 0;
   min-height: auto;
 }
 
-.company-form-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  min-width: 0;
-  transition: gap 320ms cubic-bezier(0.22, 1, 0.36, 1);
-}
 
 .company-form-panel .field input,
 .company-form-panel .field select,
@@ -155,15 +135,7 @@
   margin-top: 1.125rem;
 }
 
-.company-child-form-panel {
-  margin-top: 0;
-}
 
-.company-child-form-panel h3 {
-  color: var(--color-text);
-  font-size: 1.25rem;
-  margin: 0;
-}
 
 .collapsible-panel-header {
   align-items: center;
@@ -193,12 +165,6 @@
   width: 2.375rem;
 }
 
-.company-child-fields {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  transition: gap 320ms cubic-bezier(0.22, 1, 0.36, 1), grid-template-columns 420ms cubic-bezier(0.22, 1, 0.36, 1);
-}
 
 .company-child-tabs {
   align-self: start;
@@ -237,17 +203,7 @@
   color: var(--color-accent);
 }
 
-.company-child-tabs-header {
-  background: var(--color-surface-alt);
-  border-bottom: 0.0625rem solid var(--color-border-subtle);
-  padding: 0.875rem 1rem;
-}
 
-.company-child-tabs-header h3 {
-  color: var(--color-text);
-  font-size: 1.05rem;
-  margin: 0;
-}
 
 .company-child-tabs-list {
   display: flex;
@@ -348,13 +304,7 @@
 /* ── Mobile: horizontal scrollable tab bar ── */
 
 @media (max-width: 47.5rem) {
-  .company-child-fields {
-    grid-template-columns: 1fr;
-  }
 
-  .plan-split-layout {
-    grid-template-columns: 1fr auto;
-  }
 
   /* Grid Principal (esquerda) + TAB (direita) na mesma linha */
   .data-grid-section {
@@ -376,18 +326,11 @@
   }
 
   /* Campos + Grid Tab abaixo, largura total */
-  .split-form-stack {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
 
   .tabs-toggle-btn {
     display: none;
   }
 
-  .company-child-tabs-header {
-    display: none;
-  }
 
   /* Tabs verticais, ícone apenas, coluna estreita */
   .company-child-tabs-list {
@@ -550,25 +493,10 @@
 
 /* ── Client Registration ── */
 
-.client-workspace {
-  align-items: start;
-  display: grid;
-  gap: 1.25rem;
-  grid-template-columns: minmax(18rem, 1fr) minmax(34rem, 2.5fr);
-}
 
-.client-detail-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  min-width: 0;
-}
 
 
 @media (max-width: 56rem) {
-  .client-workspace {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* ── Theme file upload ── */

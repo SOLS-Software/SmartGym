@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, Inbox, Pencil, Plus, Search } from 'lucide-react';
 import { GridPagination } from './registrationHelpers';
 
@@ -63,6 +63,28 @@ export function RegistrationGrid<T extends { id: number }>({
 }: RegistrationGridProps<T>) {
   const [sort, setSort] = useState<SortState>(null);
 
+  // Busca com debounce.
+  //
+  // `onSearch` disparava a cada tecla, e nas telas consumidoras ele refiltra a
+  // lista inteira (ate 1000 registros) e re-renderiza a grade. Digitar "joao"
+  // custava 4 ciclos completos de filtro+sort+render. O input continua
+  // respondendo instantaneamente (estado local), mas a consulta pesada so roda
+  // 250ms apos a ultima tecla.
+  const [draftSearch, setDraftSearch] = useState(searchTerm);
+  const onSearchRef = useRef(onSearch);
+  onSearchRef.current = onSearch;
+
+  // Reflete mudancas vindas de fora (ex.: botao "Limpar busca" do estado vazio).
+  useEffect(() => {
+    setDraftSearch(searchTerm);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (draftSearch === searchTerm) return;
+    const timer = setTimeout(() => onSearchRef.current(draftSearch), 250);
+    return () => clearTimeout(timer);
+  }, [draftSearch, searchTerm]);
+
   const sortedRecords = useMemo(() => {
     if (!sort) return records;
     const col = columns[sort.column];
@@ -122,10 +144,10 @@ export function RegistrationGrid<T extends { id: number }>({
           <label className="search-field">
             <span>Pesquisar</span>
             <input
-              onChange={(e) => onSearch(e.target.value)}
+              onChange={(e) => setDraftSearch(e.target.value)}
               placeholder={searchPlaceholder}
               type="search"
-              value={searchTerm}
+              value={draftSearch}
             />
           </label>
           {showNewButton ? (
@@ -142,19 +164,31 @@ export function RegistrationGrid<T extends { id: number }>({
           {columns.map((col, i) => {
             const isSortable = !!col.sortValue;
             const isActive = sort?.column === i;
+            // Cabecalho ordenavel precisa ser operavel por teclado (WCAG 2.1.1):
+            // antes era um <span onClick> — invisivel para Tab e para leitor de
+            // tela, deixando a ordenacao inacessivel a quem nao usa mouse.
             return (
               <span
-                aria-sort={isActive ? (sort!.direction === 'asc' ? 'ascending' : 'descending') : undefined}
+                aria-sort={isActive ? (sort!.direction === 'asc' ? 'ascending' : 'descending') : isSortable ? 'none' : undefined}
                 className={isSortable ? 'grid-header-sortable' : undefined}
                 key={i}
-                onClick={isSortable ? () => handleSort(i) : undefined}
                 role="columnheader"
-                style={isSortable ? { cursor: 'pointer', userSelect: 'none' } : undefined}
               >
-                {col.label}
-                {isActive ? (
-                  sort!.direction === 'asc' ? <ArrowUp className="grid-sort-icon" size={12} /> : <ArrowDown className="grid-sort-icon" size={12} />
-                ) : null}
+                {isSortable ? (
+                  <button
+                    aria-label={`Ordenar por ${col.label}`}
+                    className="grid-sort-button"
+                    onClick={() => handleSort(i)}
+                    type="button"
+                  >
+                    {col.label}
+                    {isActive ? (
+                      sort!.direction === 'asc' ? <ArrowUp className="grid-sort-icon" size={12} /> : <ArrowDown className="grid-sort-icon" size={12} />
+                    ) : null}
+                  </button>
+                ) : (
+                  col.label
+                )}
               </span>
             );
           })}
@@ -192,7 +226,10 @@ export function RegistrationGrid<T extends { id: number }>({
                 tabIndex={0}
               >
                 {columns.map((col, i) => (
-                  <span key={i} role="cell" title={col.tooltip?.(record)}>{col.render(record)}</span>
+                  // data-label alimenta o ::before do CSS mobile: sem o cabecalho
+                  // (escondido abaixo de 760px) os valores empilhados ficariam
+                  // sem nenhuma indicacao do que representam.
+                  <span data-label={col.label} key={i} role="cell" title={col.tooltip?.(record)}>{col.render(record)}</span>
                 ))}
                 <span role="cell" className="grid-row-actions">
                   <button
@@ -215,28 +252,45 @@ export function RegistrationGrid<T extends { id: number }>({
                 type="button"
               >
                 {columns.map((col, i) => (
-                  <span key={i} role="cell" title={col.tooltip?.(record)}>{col.render(record)}</span>
+                  <span data-label={col.label} key={i} role="cell" title={col.tooltip?.(record)}>{col.render(record)}</span>
                 ))}
               </button>
             ))
           : null}
 
-        {!isLoading && sortedRecords.length === 0 ? (
-          searchTerm ? (
-            <div className="empty-state">
-              <div className="empty-state-icon"><Search size={28} /></div>
-              <p className="empty-state-title">Nenhum resultado para &ldquo;{searchTerm}&rdquo;</p>
-              <p className="empty-state-description">Tente buscar com outros termos.</p>
-            </div>
-          ) : (
-            <div className="empty-state">
-              <div className="empty-state-icon"><Inbox size={28} /></div>
-              <p className="empty-state-title">{emptyMessage ?? defaultEmpty}</p>
-              <p className="empty-state-description">Clique em &ldquo;Novo&rdquo; para criar o primeiro registro.</p>
-            </div>
-          )
-        ) : null}
       </div>
+
+      {/* Fora do role="table": os filhos de uma tabela ARIA devem ser row/rowgroup,
+          entao um bloco de estado vazio ali dentro era ignorado (ou lido de forma
+          errada) por leitores de tela. */}
+      {!isLoading && sortedRecords.length === 0 ? (
+        searchTerm ? (
+          <div className="empty-state">
+            <div className="empty-state-icon"><Search size={28} /></div>
+            <p className="empty-state-title">Nenhum resultado para &ldquo;{searchTerm}&rdquo;</p>
+            <p className="empty-state-description">Tente buscar com outros termos ou limpe a busca.</p>
+            <button className="secondary-button" onClick={() => onSearch('')} type="button">
+              Limpar busca
+            </button>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <div className="empty-state-icon"><Inbox size={28} /></div>
+            <p className="empty-state-title">{emptyMessage ?? defaultEmpty}</p>
+            {showNewButton ? (
+              <>
+                {/* CTA no proprio vazio: antes o texto mandava "clique em Novo",
+                    obrigando o usuario a procurar o botao na barra acima. */}
+                <p className="empty-state-description">Comece criando o primeiro registro.</p>
+                <button className="new-button" disabled={newDisabled} onClick={onNew} type="button">
+                  <Plus size={16} />
+                  Novo {label.toLowerCase()}
+                </button>
+              </>
+            ) : null}
+          </div>
+        )
+      ) : null}
 
       {page !== undefined && totalItems !== undefined && onPageChange ? (
         <GridPagination onChange={onPageChange} page={page} totalItems={totalItems} />

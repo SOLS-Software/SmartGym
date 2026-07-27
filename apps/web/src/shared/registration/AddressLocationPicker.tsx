@@ -166,7 +166,7 @@ export function AddressLocationPicker({
       <div className="drawer-fields">
         <div className="field field-size-sm">
           <label htmlFor="addressCep">CEP</label>
-          <input
+          <input inputMode="numeric"
             disabled={disabled}
             id="addressCep"
             maxLength={9}

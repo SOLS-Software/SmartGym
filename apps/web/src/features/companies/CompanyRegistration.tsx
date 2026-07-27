@@ -830,7 +830,7 @@ export function CompanyRegistration() {
               />
             </RegistrationField>
             <RegistrationField error={companyErrors.cnpj} htmlFor="caCNPJ" label="CNPJ" size="md" touched={touchedCompanyFields.cnpj}>
-              <input
+              <input inputMode="numeric"
                 className={touchedCompanyFields.cnpj && companyErrors.cnpj ? 'invalid' : ''}
                 id="caCNPJ"
                 maxLength={18}

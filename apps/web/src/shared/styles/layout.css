@@ -4,7 +4,71 @@
   grid-template-columns: 18.75rem minmax(0, 1fr);
   grid-template-rows: 5.125rem minmax(0, 1fr);
   min-height: 100vh;
+  min-height: 100dvh;
   transition: grid-template-columns 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Skip link (WCAG 2.4.1 Bypass Blocks): invisivel ate receber foco. */
+.skip-to-content {
+  background: var(--color-primary);
+  border-radius: 0 0 0.5rem 0;
+  color: #ffffff;
+  font-weight: 800;
+  left: 0;
+  padding: 0.75rem 1.25rem;
+  position: fixed;
+  text-decoration: none;
+  top: 0;
+  transform: translateY(-120%);
+  transition: transform 160ms ease;
+  z-index: 500;
+}
+
+.skip-to-content:focus-visible {
+  transform: translateY(0);
+}
+
+/* O <main> recebe tabIndex={-1} para o skip link poder focá-lo; o anel de foco
+   em um bloco de pagina inteira e ruido visual sem ganho. */
+.home-content:focus {
+  outline: none;
+}
+
+/* Estado de boot: substitui a tela branca que aparecia enquanto a sessao e o
+   tema eram resolvidos. */
+.app-boot {
+  align-items: center;
+  color: var(--color-muted-strong);
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+  gap: 0.875rem;
+}
+
+.app-boot p {
+  margin: 0;
+}
+
+.app-boot-spinner {
+  animation: app-boot-spin 700ms linear infinite;
+  border: 0.1875rem solid var(--color-border);
+  border-radius: 50%;
+  border-top-color: var(--color-primary);
+  display: block;
+  height: 2rem;
+  width: 2rem;
+}
+
+@keyframes app-boot-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-boot-spinner {
+    animation-duration: 1.6s;
+  }
 }
 
 .home-page.menu-collapsed {
@@ -355,9 +419,6 @@ html.dark .menu-nav-collapsed button::after {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-.mobile-menu-trigger {
-  display: none;
-}
 
 /* ── Bottom nav (hidden on desktop) ── */
 .mobile-bottom-nav {
@@ -425,9 +486,6 @@ html.dark .menu-nav-collapsed button::after {
     font-size: 1.35rem;
   }
 
-  .mobile-menu-trigger {
-    display: none;
-  }
 
   /* ── Bottom navigation bar ── */
   .mobile-bottom-nav {
