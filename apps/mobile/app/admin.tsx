@@ -21,6 +21,16 @@ import { useCurrentClient } from '../lib/hooks/useCurrentClient';
 import { useTheme } from '../lib/contexts/ThemeContext';
 // Alias: todas as chamadas fetch deste módulo passam a enviar o JWT da sessão.
 import { authFetch as fetch, setAuthToken } from '../lib/api/client';
+// Helpers de formatacao/validacao: vinham reimplementados neste arquivo,
+// identicos aos de lib/utils/format.ts que todas as outras telas ja usam.
+import {
+  formatCpf,
+  formatPhone,
+  getPasswordValidationMessage,
+  isImageFile,
+  isValidCpf,
+  onlyDigits,
+} from '../lib/utils/format';
 
 function getApiUrl() {
   const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
@@ -882,35 +892,12 @@ function formatDateInput(value: string | null) {
   return year && month && day ? `${day}/${month}/${year}` : '';
 }
 
-function onlyDigits(value: string) {
-  return value.replace(/\D/g, '');
-}
-
-function formatCpf(value: string) {
-  const digits = onlyDigits(value).slice(0, 11);
-
-  return digits
-    .replace(/^(\d{3})(\d)/, '$1.$2')
-    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d)/, '.$1-$2');
-}
-
 function formatBirthDate(value: string) {
   const digits = onlyDigits(value).slice(0, 8);
 
   return digits
     .replace(/^(\d{2})(\d)/, '$1/$2')
     .replace(/^(\d{2})\/(\d{2})(\d)/, '$1/$2/$3');
-}
-
-function formatPhone(value: string) {
-  const digits = onlyDigits(value).slice(0, 9);
-
-  if (digits.length <= 8) {
-    return digits.replace(/^(\d{4})(\d)/, '$1-$2');
-  }
-
-  return digits.replace(/^(\d{5})(\d)/, '$1-$2');
 }
 
 function toApiDate(value: string) {
@@ -980,34 +967,8 @@ function getCalendarDays(monthDate: Date) {
   });
 }
 
-function isImageFile(path: string) {
-  return /\.(jpg|jpeg|png|gif|webp)$/i.test(path);
-}
-
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
-function isValidCpf(value: string) {
-  const cpf = onlyDigits(value);
-
-  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) {
-    return false;
-  }
-
-  const calculateDigit = (size: number) => {
-    let sum = 0;
-
-    for (let index = 0; index < size; index += 1) {
-      sum += Number(cpf[index]) * (size + 1 - index);
-    }
-
-    const rest = (sum * 10) % 11;
-
-    return rest === 10 ? 0 : rest;
-  };
-
-  return calculateDigit(9) === Number(cpf[9]) && calculateDigit(10) === Number(cpf[10]);
 }
 
 function StudentRegistration() {
@@ -2061,41 +2022,17 @@ function StudentRegistration() {
   );
 }
 
+// Resposta minimizada de /auth/register-lookup (endpoint publico). CPF, data de
+// nascimento e telefone nao sao mais devolvidos, e o email vem MASCARADO
+// (`emailMask`): o endereco completo e exigido no /auth/register e conferido no
+// servidor, entao nao pode ser entregue aqui a quem so descobriu o CPF.
 type RegisterLookupRecord = {
   id: number;
   type: 'student' | 'employee';
   name: string;
-  cpf: string;
-  birthDate: string | null;
-  ddd: number | string;
-  phone: number | string | null;
-  email: string;
+  emailMask: string;
   hasUser: boolean;
 };
-
-function getPasswordValidationMessage(password: string) {
-  if (password.length < 6) {
-    return 'A senha deve ter pelo menos 6 caracteres.';
-  }
-
-  if (password.length > 20) {
-    return 'A senha deve ter no maximo 20 caracteres.';
-  }
-
-  if (/\s/.test(password)) {
-    return 'A senha não pode conter espaços.';
-  }
-
-  if (!/\d/.test(password)) {
-    return 'A senha deve conter pelo menos 1 numero.';
-  }
-
-  if ((password.match(/[a-zA-Z]/g) ?? []).length < 3) {
-    return 'A senha deve conter pelo menos 3 letras.';
-  }
-
-  return '';
-}
 
 export default function HomeScreen() {
   const appTheme = useTheme();
@@ -2118,6 +2055,7 @@ export default function HomeScreen() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [registerType, setRegisterType] = useState<'student' | 'employee'>('student');
   const [registerCpf, setRegisterCpf] = useState('');
+  const [registerEmail, setRegisterEmail] = useState('');
   const [registerLookup, setRegisterLookup] = useState<RegisterLookupRecord | null>(null);
   const [registerLookupFeedback, setRegisterLookupFeedback] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
@@ -2172,7 +2110,12 @@ export default function HomeScreen() {
       setRegisterLookupFeedback(
         data.hasUser
           ? 'Este CPF já possui usuário cadastrado.'
-          : 'Cadastro encontrado. Confira os dados e crie sua senha.',
+          : // Sem email na ficha nao ha como provar a titularidade do cadastro,
+            // entao o auto-cadastro nao pode prosseguir: o servidor recusa e o
+            // aviso evita que a pessoa fique tentando sem entender o motivo.
+            !data.emailMask
+            ? 'Seu cadastro nao tem email registrado. Procure a recepção da academia para concluir o acesso.'
+            : 'Cadastro encontrado. Confirme o email do cadastro e crie sua senha.',
       );
     } catch (error) {
       setRegisterLookupFeedback(
@@ -2295,12 +2238,20 @@ export default function HomeScreen() {
       return;
     }
 
+    const typedEmail = registerEmail.trim();
+    if (!typedEmail) {
+      setAuthFeedback('Informe o email do seu cadastro.');
+      return;
+    }
+
     try {
       setIsSubmittingAuth(true);
       const payload = {
         type: registerType,
         cpf: registerCpf.replace(/\D/g, ''),
-        email: registerLookup.email,
+        // Digitado pelo titular e conferido no servidor contra o cadastro: so o
+        // CPF (dado publico no Brasil) nao basta mais para criar a conta.
+        email: typedEmail,
         password: registerPassword,
       };
 
@@ -3091,32 +3042,26 @@ export default function HomeScreen() {
                   <Text style={styles.lockedValueText}>{registerLookup?.name ?? ''}</Text>
                 </View>
 
-                <Text style={styles.label}>Data de nascimento</Text>
-                <View style={styles.lockedValue}>
-                  <Text style={styles.lockedValueText}>
-                    {registerLookup?.birthDate ? formatDateInput(registerLookup.birthDate) : ''}
+                {/* Data de nascimento, DDD e telefone sairam daqui: o
+                    /auth/register-lookup e publico e parou de devolver esses
+                    campos para nao virar fonte de PII a partir de um CPF. */}
+
+                <Text style={styles.label}>Email do cadastro</Text>
+                <TextInput
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  keyboardType="email-address"
+                  maxLength={255}
+                  onChangeText={setRegisterEmail}
+                  placeholder={registerLookup?.emailMask || 'email cadastrado na academia'}
+                  style={styles.input}
+                  value={registerEmail}
+                />
+                {registerLookup?.emailMask ? (
+                  <Text style={styles.helperText}>
+                    Confirme o email do seu cadastro ({registerLookup.emailMask}).
                   </Text>
-                </View>
-
-                <View style={styles.inlineFields}>
-                  <View style={styles.dddInput}>
-                    <Text style={styles.label}>DDD</Text>
-                    <View style={styles.lockedValue}>
-                      <Text style={styles.lockedValueText}>{registerLookup?.ddd ? String(registerLookup.ddd) : ''}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.flexInput}>
-                    <Text style={styles.label}>Telefone</Text>
-                    <View style={styles.lockedValue}>
-                      <Text style={styles.lockedValueText}>{registerLookup?.phone ? String(registerLookup.phone) : ''}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <Text style={styles.label}>Email</Text>
-                <View style={styles.lockedValue}>
-                  <Text style={styles.lockedValueText}>{registerLookup?.email ?? ''}</Text>
-                </View>
+                ) : null}
 
                 <Text style={styles.label}>Senha</Text>
                 <View style={styles.passwordField}>
@@ -3495,6 +3440,11 @@ const styles = StyleSheet.create({
   lockedValueText: {
     color: '#17211c',
     fontSize: 15,
+  },
+  helperText: {
+    color: '#5b6b62',
+    fontSize: 12,
+    marginTop: -4,
   },
   passwordChecklist: {
     gap: 4,

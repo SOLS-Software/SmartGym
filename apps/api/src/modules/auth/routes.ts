@@ -22,6 +22,24 @@ import type {
   VerifySessionQuery,
 } from '../../shared/api-types.js';
 
+// Mascara o email cadastrado para exibicao no auto-cadastro: mostra o
+// suficiente para o titular reconhecer a propria caixa ("jo***@gm***.com")
+// sem entregar o endereco a quem so descobriu o CPF. O endereco completo e
+// exigido em /auth/register e conferido no servidor — ou seja, o CPF sozinho
+// (dado nada secreto no Brasil) deixa de bastar para criar a conta.
+export function maskEmail(email: string | null | undefined): string {
+  const value = (email ?? '').trim();
+  const at = value.lastIndexOf('@');
+  if (at <= 0) return '';
+  const local = value.slice(0, at);
+  const domain = value.slice(at + 1);
+  const dot = domain.lastIndexOf('.');
+  const domainName = dot > 0 ? domain.slice(0, dot) : domain;
+  const tld = dot > 0 ? domain.slice(dot) : '';
+  const keep = (text: string) => (text.length <= 2 ? text.slice(0, 1) : text.slice(0, 2));
+  return `${keep(local)}***@${keep(domainName)}***${tld}`;
+}
+
 export async function registerAuthRoutes(app: FastifyInstance) {
   // Limites restritos de rate limit para endpoints de autenticacao (anti brute
   // force / enumeracao). O limite global de 300/min continua valendo no resto.
@@ -266,8 +284,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
       // Endpoint publico: resposta minimizada de proposito. Retorna apenas o
       // necessario para o auto-cadastro (nome para confirmacao visual + email
-      // usado como login) e hasUser. NAO expoe CPF, data de nascimento nem
-      // telefone — reduz o valor deste endpoint como fonte de PII/enumeracao.
+      // MASCARADO) e hasUser. NAO expoe CPF, data de nascimento, telefone nem o
+      // email completo — reduz o valor deste endpoint como fonte de PII e, o
+      // que mais importa, impede que quem so conhece o CPF descubra aqui o
+      // email exigido em /auth/register.
       // A mensagem de 404 e unificada para nao diferenciar aluno x funcionario
       // (elimina o oraculo de tipo/existencia).
       if (type === 'student') {
@@ -286,7 +306,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           id: student.id,
           type,
           name: student.nmAluno,
-          email: student.anEmail,
+          emailMask: maskEmail(student.anEmail),
           hasUser: student.usuarios.length > 0,
         };
       }
@@ -306,7 +326,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         id: employee.id,
         type,
         name: employee.nmFuncionario,
-        email: employee.anEmail,
+        emailMask: maskEmail(employee.anEmail),
         hasUser: employee.usuarios.length > 0,
       };
     } catch (error) {
@@ -329,6 +349,15 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         throw new Error('Selecione aluno ou funcionario.');
       }
 
+      // Prova de titularidade do auto-cadastro: alem do CPF (que nao e segredo),
+      // o solicitante precisa acertar o email JA cadastrado na ficha. Sem isso,
+      // conhecer o CPF de um funcionario bastava para criar o usuario dele e
+      // herdar acesso de funcionario ao tenant inteiro (escalacao de privilegio).
+      // A mensagem de erro e a mesma do CPF inexistente para nao virar oraculo.
+      const CREDENTIAL_MISMATCH = 'CPF ou email nao conferem com o cadastro.';
+      const emailMatchesRecord = (recordEmail: string | null | undefined) =>
+        !!recordEmail && recordEmail.trim().toLowerCase() === dsLogin.trim().toLowerCase();
+
       const createdUser = await prisma.$transaction(async (transaction) => {
         if (type === 'student') {
           const student = await transaction.aluno.findFirst({
@@ -337,7 +366,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           });
 
           if (!student) {
-            throw new Error('CPF nao encontrado no cadastro de alunos.');
+            throw new Error(CREDENTIAL_MISMATCH);
+          }
+          if (!emailMatchesRecord(student.anEmail)) {
+            throw new Error(CREDENTIAL_MISMATCH);
           }
           if (student.usuarios.length > 0) {
             throw new Error('Este aluno ja possui usuario cadastrado.');
@@ -359,7 +391,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         });
 
         if (!employee) {
-          throw new Error('CPF nao encontrado no cadastro de funcionarios.');
+          throw new Error(CREDENTIAL_MISMATCH);
+        }
+        if (!emailMatchesRecord(employee.anEmail)) {
+          throw new Error(CREDENTIAL_MISMATCH);
         }
         if (employee.usuarios.length > 0) {
           throw new Error('Este funcionario ja possui usuario cadastrado.');
@@ -490,10 +525,6 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         return reply.code(401).send({ message: 'Usuario ou senha invalidos.' });
       }
 
-      if (user.funcionario.empresa?.idCliente !== idCliente) {
-        return reply.code(403).send({ message: 'Acesso nao autorizado para este cliente.' });
-      }
-
       const currentPassword = await prisma.senha.findFirst({
         where: { idUsuario: user.id, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
@@ -508,6 +539,15 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       }
 
       if (!valid) {
+        return reply.code(401).send({ message: 'Usuario ou senha invalidos.' });
+      }
+
+      // A checagem de tenant vem DEPOIS da senha e responde 401 generico. Se
+      // viesse antes (ou respondesse 403), o endpoint viraria oraculo: sem
+      // saber senha nenhuma, um atacante distinguiria "CPF existe" (403) de
+      // "CPF nao existe" (401) e ainda descobriria a que cliente um CPF
+      // pertence variando idCliente ate parar de receber 403.
+      if (user.funcionario.empresa?.idCliente !== idCliente) {
         return reply.code(401).send({ message: 'Usuario ou senha invalidos.' });
       }
 

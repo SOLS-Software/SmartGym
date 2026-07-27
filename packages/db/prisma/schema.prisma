@@ -1258,6 +1258,7 @@ model Cliente {
   arquivos        ClienteArquivo[]
   alunos          Aluno[]
   fornecedores    Fornecedor[]
+  equipamentos    Equipamento[]
 
   @@map("tb_Clientes")
 }
@@ -1313,7 +1314,13 @@ model CatracaEvento {
 }
 
 model Equipamento {
-  id                 Int       @id @default(autoincrement())
+  id Int @id @default(autoincrement())
+  // Equipamento pertence ao CLIENTE (rede), como Fornecedor: fica disponivel
+  // para todas as empresas do cliente. Nullable para nao quebrar as linhas
+  // anteriores a esta coluna — a migration faz o backfill pelos exercicios
+  // vinculados e o que sobra sem dono precisa de atribuicao manual (ver o
+  // comentario no fim da migration 20260727120000_equipamento_por_cliente).
+  idCliente          Int?
   nrEquipamento      Int?
   dsEquipamento      String?   @db.VarChar(200)
   nmEquipamento      String?   @db.VarChar(100)
@@ -1324,10 +1331,12 @@ model Equipamento {
   idUsuarioAlteracao Int?
   boInativo          Boolean   @default(false)
 
+  cliente               Cliente?                @relation(fields: [idCliente], references: [id])
   manutencoes           EquipamentoManutencao[]
   exercicioEquipamentos ExercicioEquipamento[]
   equipamentoArquivos   EquipamentoArquivo[]
 
+  @@index([idCliente])
   @@map("tb_Equipamentos")
 }
 

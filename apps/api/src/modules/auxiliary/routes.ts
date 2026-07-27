@@ -155,7 +155,65 @@ function parseId(value: string) {
   return id;
 }
 
+// Esporte/Categoria sao hibridos: a linha pode ser do tenant (idEmpresa de uma
+// empresa do cliente) ou GLOBAL (idEmpresa null, compartilhada com todo mundo).
+// Leitura enxerga as duas; ESCRITA so alcanca as do proprio tenant — senao um
+// cliente renomeia/desativa um esporte global e o registro some das telas de
+// todos os outros. Linhas globais seguem editaveis pelo super-admin.
+function ownedScope(idCliente: number, superAdmin: boolean | undefined) {
+  return superAdmin
+    ? { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] }
+    : { empresa: { idCliente } };
+}
+
+const VISIBLE_SCOPE = (idCliente: number) => ({
+  OR: [{ idEmpresa: null }, { empresa: { idCliente } }],
+});
+
+// Tabelas de dominio GLOBAIS: nao possuem idEmpresa/idCliente, entao uma linha
+// e literalmente a mesma para todos os clientes da instalacao. Escrever nelas e
+// operacao cross-tenant e fica restrita ao super-admin (SOLS).
+//
+// Impacto concreto de deixar aberto: `shared/payments.ts` resolve os status de
+// pagamento POR NOME ("Pendente"/"Pago"/"Cancelado"). Um funcionario de um unico
+// tenant renomeando ou desativando esses registros quebra a geracao de cobrancas
+// e o gate de acesso de aluno de TODOS os tenants — negacao de servico
+// cross-tenant sem precisar de privilegio nenhum.
+//
+// A LEITURA (GET) continua liberada a qualquer usuario autenticado: as telas de
+// cadastro do web consomem essas listas como combos. Nenhum cliente (web ou
+// mobile) chama POST/PUT/PATCH nessas rotas hoje, entao o guard nao remove
+// funcionalidade em uso — apenas fecha uma superficie administrativa esquecida.
+const GLOBAL_DOMAIN_PATHS = [
+  'roles',
+  'frequencies',
+  'check-in-types',
+  'levels',
+  'body-areas',
+  'time-units',
+  'payment-statuses',
+  'payment-methods',
+  'training-methods',
+  'file-types',
+  'measurement-units',
+];
+
+const GLOBAL_DOMAIN_ROUTE = new RegExp(
+  `^/(${GLOBAL_DOMAIN_PATHS.join('|')})(/\\d+(/status)?)?$`,
+);
+
 export async function registerAuxiliaryRoutes(app: FastifyInstance) {
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.method === 'GET' || request.method === 'HEAD') return;
+    const pathname = request.url.split('?')[0] ?? request.url;
+    if (!GLOBAL_DOMAIN_ROUTE.test(pathname)) return;
+    if (!request.user?.superAdmin) {
+      return reply.code(403).send({
+        message: 'Cadastro global: alteracao restrita ao administrador do sistema.',
+      });
+    }
+  });
+
   app.get('/roles', async (request, reply) => {
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
@@ -689,9 +747,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
     return prisma.esporte.findMany({
       take,
-      where: {
-        OR: [{ idEmpresa: null }, { empresa: { idCliente } }],
-      },
+      where: VISIBLE_SCOPE(idCliente),
       orderBy: {
         dsEsporte: 'asc',
       },
@@ -737,7 +793,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const body = parseBody(sportBodySchema, request.body);
 
       const existing = await prisma.esporte.findFirst({
-        where: { id, OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
+        where: { id, ...ownedScope(idCliente, request.user.superAdmin) },
         select: { id: true },
       });
       if (!existing) return reply.code(404).send({ message: 'Registro nao encontrado.' });
@@ -772,7 +828,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       const id = parseId(request.params.id);
       const existing = await prisma.esporte.findFirst({
-        where: { id, OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
+        where: { id, ...ownedScope(idCliente, request.user.superAdmin) },
         select: { id: true },
       });
       if (!existing) return reply.code(404).send({ message: 'Registro nao encontrado.' });
@@ -792,9 +848,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
     return prisma.categoria.findMany({
       take,
-      where: {
-        OR: [{ idEmpresa: null }, { empresa: { idCliente } }],
-      },
+      where: VISIBLE_SCOPE(idCliente),
       include: {
         esporte: true,
       },
@@ -822,7 +876,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const idEsporte = body.idEsporte ?? null;
       if (idEsporte) {
         const esporte = await prisma.esporte.findFirst({
-          where: { id: idEsporte, OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
+          where: { id: idEsporte, ...VISIBLE_SCOPE(idCliente) },
           select: { id: true },
         });
         if (!esporte) throw new Error('Esporte nao pertence ao cliente.');
@@ -856,7 +910,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const body = parseBody(categoryBodySchema, request.body);
 
       const existing = await prisma.categoria.findFirst({
-        where: { id, OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
+        where: { id, ...ownedScope(idCliente, request.user.superAdmin) },
         select: { id: true },
       });
       if (!existing) return reply.code(404).send({ message: 'Registro nao encontrado.' });
@@ -873,7 +927,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const idEsporte = body.idEsporte ?? null;
       if (idEsporte) {
         const esporte = await prisma.esporte.findFirst({
-          where: { id: idEsporte, OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
+          where: { id: idEsporte, ...VISIBLE_SCOPE(idCliente) },
           select: { id: true },
         });
         if (!esporte) throw new Error('Esporte nao pertence ao cliente.');
@@ -904,7 +958,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       const id = parseId(request.params.id);
       const existing = await prisma.categoria.findFirst({
-        where: { id, OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
+        where: { id, ...ownedScope(idCliente, request.user.superAdmin) },
         select: { id: true },
       });
       if (!existing) return reply.code(404).send({ message: 'Registro nao encontrado.' });

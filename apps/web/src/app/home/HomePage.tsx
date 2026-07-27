@@ -35,6 +35,7 @@ import { StudentTrainingAssembly } from '../../features/students/StudentTraining
 import { StudentMembershipView } from '../../features/students/StudentMembershipView';
 import { StudentCalendarView } from '../../features/students/StudentCalendarView';
 import { MyTraining } from '../../features/trainings/MyTraining';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { GlobalSearch } from '../../shared/components/GlobalSearch';
 import { OnboardingWizard, shouldShowOnboarding, markOnboardingDone } from '../../shared/components/OnboardingWizard';
 import { EmployeeDashboard } from '../../features/dashboard/EmployeeDashboard';
@@ -308,10 +309,26 @@ export default function HomePage() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [registerType, setRegisterType] = useState<'student' | 'employee'>('student');
   const [registerCpf, setRegisterCpf] = useState('');
+  const [registerEmail, setRegisterEmail] = useState('');
   const [registerLookup, setRegisterLookup] = useState<RegisterLookupRecord | null>(null);
   const [authFeedback, setAuthFeedback] = useState('');
+  // A caixa de feedback do login era SEMPRE verde (.login-feedback usa a cor
+  // primaria), entao "Usuario ou senha invalidos" aparecia com a mesma
+  // aparencia de uma confirmacao de sucesso. O tom separa erro de informacao.
+  const [authFeedbackTone, setAuthFeedbackTone] = useState<'info' | 'error'>('info');
   const [registerLookupFeedback, setRegisterLookupFeedback] = useState('');
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+
+  function showAuthError(message: string) {
+    setAuthFeedbackTone('error');
+    setAuthFeedback(message);
+  }
+
+  function showAuthInfo(message: string) {
+    setAuthFeedbackTone('info');
+    setAuthFeedback(message);
+  }
   const [isSubmittingFacial, setIsSubmittingFacial] = useState(false);
   const [isLookingUpRegister, setIsLookingUpRegister] = useState(false);
   const [registerPassword, setRegisterPassword] = useState('');
@@ -337,6 +354,21 @@ export default function HomePage() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeItem]);
+
+  // Esc fecha o menu mobile. Abaixo de 760px o menu vira uma camada que cobre a
+  // tela inteira; sem Esc, quem abriu sem querer so sai clicando exatamente no
+  // hamburger. Padrao esperado de qualquer overlay (e ja usado no drawer e no
+  // dialogo de confirmacao — a inconsistencia por si so ja confundia).
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      if (window.innerWidth > 760) return;
+      setIsMenuOpen(false);
+    }
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isMenuOpen]);
 
   useEffect(() => {
     if (localStorage.getItem(DARK_MODE_KEY) === '1') {
@@ -484,7 +516,7 @@ export default function HomePage() {
 
     void startFacialCamera().catch((error) => {
       setPendingFacialUser(null);
-      setAuthFeedback(
+      showAuthError(
         error instanceof Error ? error.message : 'Não foi possível iniciar a câmera.',
       );
     });
@@ -515,11 +547,9 @@ export default function HomePage() {
         `${apiUrl}/auth/register-lookup?type=${type}&cpf=${cpf}`,
       );
 
-      if (false && !response.ok) {
-        const errorBody = (await response.json()) as { message?: string };
-        throw new Error(errorBody.message ?? 'CPF não encontrado.');
-      }
-
+      // `if (false && ...)` desativava esta checagem e deixava o fluxo seguir
+      // com a resposta de erro; readJsonResponse ja lanca em !response.ok, mas
+      // a condicao morta escondia a intencao. Mantida a validacao explicita.
       const data = await readJsonResponse<RegisterLookupRecord>(
         response,
         'CPF não encontrado.',
@@ -528,7 +558,12 @@ export default function HomePage() {
       setRegisterLookupFeedback(
         data.hasUser
           ? 'Este CPF já possui usuário cadastrado.'
-          : 'Cadastro encontrado. Confira os dados e crie sua senha.',
+          : // Sem email na ficha nao ha como provar a titularidade do cadastro,
+            // entao o auto-cadastro nao pode prosseguir: o servidor recusa e o
+            // aviso evita que a pessoa fique tentando sem entender o motivo.
+            !data.emailMask
+            ? 'Seu cadastro nao tem email registrado. Procure a recepção da academia para concluir o acesso.'
+            : 'Cadastro encontrado. Confirme o email do cadastro e crie sua senha.',
       );
     } catch (error) {
       setRegisterLookupFeedback(
@@ -585,7 +620,7 @@ export default function HomePage() {
     }
 
     setPendingFacialUser(user);
-    setAuthFeedback('Senha confirmada. Posicione o rosto na câmera para validar o acesso.');
+    showAuthInfo('Senha confirmada. Posicione o rosto na câmera para validar o acesso.');
   }
 
   function completeLogin(user: AuthenticatedUser) {
@@ -620,7 +655,7 @@ export default function HomePage() {
     const video = facialVideoRef.current;
 
     if (!video.videoWidth || !video.videoHeight) {
-      setAuthFeedback('Aguarde a câmera carregar antes de validar.');
+      showAuthError('Aguarde a câmera carregar antes de validar.');
       return;
     }
 
@@ -667,7 +702,7 @@ export default function HomePage() {
 
       completeLogin(pendingFacialUser);
     } catch (error) {
-      setAuthFeedback(
+      showAuthError(
         error instanceof Error ? error.message : 'Erro ao validar reconhecimento facial.',
       );
     } finally {
@@ -747,7 +782,7 @@ export default function HomePage() {
       setActiveItem(user.type === 'student' ? 'Meu Treino' : activeItem);
       setIsLoggedIn(true);
     } catch (error) {
-      setAuthFeedback(error instanceof Error ? error.message : 'Erro ao entrar.');
+      showAuthError(error instanceof Error ? error.message : 'Erro ao entrar.');
     } finally {
       setIsSubmittingAuth(false);
     }
@@ -780,9 +815,9 @@ export default function HomePage() {
         message: string;
       }>(response, 'Não foi possível enviar o email.');
       setForgotEmail(data.email);
-      setAuthFeedback(data.message);
+      showAuthInfo(data.message);
     } catch (error) {
-      setAuthFeedback(
+      showAuthError(
         error instanceof Error ? error.message : 'Erro ao enviar email de redefinicao.',
       );
     } finally {
@@ -799,13 +834,14 @@ export default function HomePage() {
     const payload = {
       type: registerType,
       cpf: String(formData.get('cpf') ?? ''),
-      email: registerLookup?.email ?? '',
+      // Digitado pelo usuario e conferido no servidor contra o cadastro.
+      email: String(formData.get('email') ?? '').trim(),
       password: String(formData.get('password') ?? ''),
     };
     const passwordMessage = getPasswordValidationMessage(payload.password);
 
     if (passwordMessage) {
-      setAuthFeedback(passwordMessage);
+      showAuthError(passwordMessage);
       return;
     }
 
@@ -861,7 +897,7 @@ export default function HomePage() {
       completeLogin(user);
       return;
     } catch (error) {
-      setAuthFeedback(
+      showAuthError(
         error instanceof Error ? error.message : 'Erro ao criar cadastro.',
       );
     } finally {
@@ -870,15 +906,26 @@ export default function HomePage() {
   }
 
   if (isSessionLoading) {
-    return null;
+    // Retornar null pintava a tela de branco ate a sessao resolver — em conexao
+    // lenta o usuario nao sabe se o app travou. Um estado de carga com a marca
+    // custa nada e elimina a duvida.
+    return (
+      <main className="login-page">
+        <div className="app-boot" role="status">
+          <span aria-hidden="true" className="app-boot-spinner" />
+          <p>Carregando sua conta...</p>
+        </div>
+      </main>
+    );
   }
 
   if (themePhase && !isLoggedIn) {
     return (
       <main className="login-page">
-        <p className="text-text/50 text-sm">
-          {themePhase === 'applying' ? 'Aplicando configurações...' : 'Buscando configurações...'}
-        </p>
+        <div className="app-boot" role="status">
+          <span aria-hidden="true" className="app-boot-spinner" />
+          <p>{themePhase === 'applying' ? 'Aplicando configurações...' : 'Buscando configurações...'}</p>
+        </div>
       </main>
     );
   }
@@ -900,7 +947,13 @@ export default function HomePage() {
     const activeGroup = menuGroups.find((g) => g.items.includes(activeItem))?.title ?? '';
 
     return (
-      <main className={`home-page ${isMenuOpen ? '' : 'menu-collapsed'}`}>
+      <div className={`home-page ${isMenuOpen ? '' : 'menu-collapsed'}`}>
+        {/* Atalho de teclado obrigatorio para pular a navegacao (WCAG 2.4.1):
+            sem ele, quem usa teclado/leitor percorre os ~25 itens de menu a cada
+            troca de tela antes de chegar ao conteudo. */}
+        <a className="skip-to-content" href="#conteudo-principal">
+          Pular para o conteúdo
+        </a>
         <header className="app-header">
           <div className="header-brand">
             <button
@@ -970,7 +1023,11 @@ export default function HomePage() {
                 {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
               </button>
             )}
-            <button className="secondary-button" type="button" onClick={handleLogout}>
+            <button
+              className="secondary-button"
+              onClick={() => setIsLogoutConfirmOpen(true)}
+              type="button"
+            >
               Sair
             </button>
           </div>
@@ -995,13 +1052,15 @@ export default function HomePage() {
                 const Icon = menuItemIcons[item];
                 return (
                   <button
+                    aria-current={item === activeItem ? 'page' : undefined}
+                    aria-label={getMenuItemLabel(item, authUserType)}
                     className={item === activeItem ? 'active' : ''}
                     key={item}
                     onClick={() => setActiveItem(item)}
                     title={getMenuItemLabel(item, authUserType)}
                     type="button"
                   >
-                    {Icon ? <Icon size={20} /> : item.slice(0, 2).toUpperCase()}
+                    {Icon ? <Icon aria-hidden="true" size={20} /> : item.slice(0, 2).toUpperCase()}
                   </button>
                 );
               })
@@ -1022,6 +1081,7 @@ export default function HomePage() {
                     const Icon = menuItemIcons[item];
                     return (
                       <button
+                        aria-current={item === activeItem ? 'page' : undefined}
                         className={item === activeItem ? 'active' : ''}
                         key={item}
                         onClick={() => {
@@ -1031,7 +1091,7 @@ export default function HomePage() {
                         tabIndex={isMenuOpen ? 0 : -1}
                         type="button"
                       >
-                        {Icon && <Icon size={16} />}
+                        {Icon && <Icon aria-hidden="true" size={16} />}
                         {getMenuItemLabel(item, authUserType)}
                       </button>
                     );
@@ -1042,7 +1102,7 @@ export default function HomePage() {
           </div>
         </aside>
 
-        <section className="home-content">
+        <main className="home-content" id="conteudo-principal" tabIndex={-1}>
           {activeItem === 'Painel' ? (
             authUserType === 'student' ? (
               <StudentDashboard
@@ -1163,7 +1223,7 @@ export default function HomePage() {
               </p>
             </div>
           )}
-        </section>
+        </main>
         <nav className="mobile-bottom-nav" aria-label="Navegação rápida">
           {(authUserType === 'student'
             ? [
@@ -1182,25 +1242,40 @@ export default function HomePage() {
             const Icon = tab.icon;
             return (
               <button
+                aria-current={activeItem === tab.key ? 'page' : undefined}
                 className={`mobile-bottom-nav-item${activeItem === tab.key ? ' active' : ''}`}
                 key={tab.key}
                 onClick={() => setActiveItem(tab.key)}
                 type="button"
               >
-                <Icon size={20} />
+                <Icon aria-hidden="true" size={20} />
                 <span>{tab.label}</span>
               </button>
             );
           })}
           <button
+            aria-expanded={isMenuOpen}
             className="mobile-bottom-nav-item"
             onClick={() => setIsMenuOpen(true)}
             type="button"
           >
-            <Menu size={20} />
+            <Menu aria-hidden="true" size={20} />
             <span>Menu</span>
           </button>
         </nav>
+        <ConfirmDialog
+          cancelLabel="Continuar conectado"
+          confirmLabel="Sair da conta"
+          message="Sua sessão será encerrada em todos os dispositivos conectados nesta conta."
+          onCancel={() => setIsLogoutConfirmOpen(false)}
+          onConfirm={() => {
+            setIsLogoutConfirmOpen(false);
+            void handleLogout();
+          }}
+          open={isLogoutConfirmOpen}
+          title="Deseja sair?"
+          variant="warning"
+        />
         <GlobalSearch
           items={visibleMenuGroups.flatMap((group) =>
             group.items.map((item) => ({
@@ -1226,7 +1301,7 @@ export default function HomePage() {
             }}
           />
         ) : null}
-      </main>
+      </div>
     );
   }
 
@@ -1280,7 +1355,17 @@ export default function HomePage() {
           </button>
         </div>
 
-        {authFeedback ? <div className="login-feedback">{authFeedback}</div> : null}
+        {/* role="alert" faz o leitor de tela anunciar o resultado na hora: antes
+            a mensagem aparecia silenciosamente e quem nao enxerga a tela nao
+            sabia por que o login nao avancou. */}
+        {authFeedback ? (
+          <div
+            className={`login-feedback${authFeedbackTone === 'error' ? ' login-feedback-error' : ''}`}
+            role={authFeedbackTone === 'error' ? 'alert' : 'status'}
+          >
+            {authFeedback}
+          </div>
+        ) : null}
 
         {pendingFacialUser ? (
           <div className="login-form facial-login-panel">
@@ -1316,13 +1401,20 @@ export default function HomePage() {
             onSubmit={handleLogin}
           >
             <label htmlFor="user">CPF</label>
+            {/* inputMode="numeric" abre o teclado numerico no celular. Com
+                type="text" puro o usuario recebia o teclado alfabetico completo
+                e tinha de trocar de layout para digitar o proprio CPF — atrito
+                em 100% dos logins mobile. */}
             <input
               id="user"
               name="user"
-              onChange={(event) => setLoginCpf(formatCpf(event.target.value))}
-              type="text"
               autoComplete="username"
+              inputMode="numeric"
+              maxLength={14}
+              onChange={(event) => setLoginCpf(formatCpf(event.target.value))}
               placeholder="000.000.000-00"
+              required
+              type="text"
               value={loginCpf}
             />
 
@@ -1346,7 +1438,11 @@ export default function HomePage() {
               </button>
             </div>
 
-            <a
+            {/* Era um <a> sem href: o browser nao coloca ancora sem href na
+                ordem de tabulacao, entao "Esqueci minha senha" era inalcancavel
+                por teclado e invisivel para leitores de tela — a recuperacao de
+                conta ficava exclusiva de quem usa mouse (WCAG 2.1.1). */}
+            <button
               className="forgot-link"
               onClick={() => {
                 setLoginMode('forgot');
@@ -1356,7 +1452,7 @@ export default function HomePage() {
               type="button"
             >
               Esqueci minha senha
-            </a>
+            </button>
 
             <button disabled={isSubmittingAuth} type="submit">
               {isSubmittingAuth ? 'Entrando...' : 'Entrar'}
@@ -1368,6 +1464,8 @@ export default function HomePage() {
             <input
               id="forgotCpf"
               name="cpf"
+              inputMode="numeric"
+              maxLength={14}
               onChange={(event) => {
                 setForgotCpf(formatCpf(event.target.value));
                 setForgotEmail('');
@@ -1381,15 +1479,15 @@ export default function HomePage() {
 
             {forgotEmail ? (
               <>
-                <label>Email cadastrado</label>
-                <div aria-label="Email cadastrado" className="login-locked-value">
+                <label htmlFor="forgotEmailValue">Email cadastrado</label>
+                <div className="login-locked-value" id="forgotEmailValue">
                   {forgotEmail}
                 </div>
               </>
             ) : null}
 
             <button disabled={isSubmittingAuth} type="submit">
-              {isSubmittingAuth ? 'Enviando...' : 'Enviar email de teste'}
+              {isSubmittingAuth ? 'Enviando...' : 'Enviar link de redefinição'}
             </button>
 
             <button
@@ -1410,6 +1508,8 @@ export default function HomePage() {
             <input
               id="registerCpf"
               name="cpf"
+              inputMode="numeric"
+              maxLength={14}
               onBlur={() => void lookupRegisterCpf()}
               onChange={(event) => {
                 setRegisterCpf(formatCpf(event.target.value));
@@ -1452,34 +1552,33 @@ export default function HomePage() {
               {registerLookup?.name ?? ''}
             </div>
 
-            <label htmlFor="registerBirthDate">Data de nascimento</label>
-            <div
-              aria-label="Data de nascimento"
-              className="login-locked-value"
-              id="registerBirthDate"
-            >
-              {registerLookup?.birthDate ? formatDateInput(registerLookup.birthDate) : ''}
-            </div>
+            {/* Data de nascimento, DDD e telefone foram removidos daqui: o
+                /auth/register-lookup e publico e parou de devolver esses campos
+                para nao virar fonte de PII a partir de um CPF. Os blocos
+                renderizavam vazio desde entao. */}
 
-            <div className="login-inline-fields">
-              <div>
-                <label htmlFor="registerDdd">DDD</label>
-                <div aria-label="DDD" className="login-locked-value" id="registerDdd">
-                  {registerLookup?.ddd ? String(registerLookup.ddd) : ''}
-                </div>
+            {/* O email deixou de ser exibido/preenchido pelo lookup e passou a
+                ser DIGITADO pelo titular: o servidor confere contra o cadastro.
+                Antes, conhecer o CPF (dado publico no Brasil) bastava para criar
+                a conta de qualquer aluno OU funcionario. A dica mascarada abaixo
+                orienta o dono da conta sem entregar o endereco a terceiros. */}
+            <label htmlFor="registerEmail">Email do cadastro</label>
+            <input
+              id="registerEmail"
+              name="email"
+              autoComplete="email"
+              maxLength={255}
+              onChange={(event) => setRegisterEmail(event.target.value)}
+              placeholder={registerLookup?.emailMask || 'email cadastrado na academia'}
+              required
+              type="email"
+              value={registerEmail}
+            />
+            {registerLookup?.emailMask ? (
+              <div className="login-hint">
+                Confirme o email do seu cadastro ({registerLookup.emailMask}).
               </div>
-              <div>
-                <label htmlFor="registerPhone">Telefone</label>
-                <div aria-label="Telefone" className="login-locked-value" id="registerPhone">
-                  {registerLookup?.phone ? String(registerLookup.phone) : ''}
-                </div>
-              </div>
-            </div>
-
-            <label htmlFor="registerEmail">Email</label>
-            <div aria-label="Email" className="login-locked-value" id="registerEmail">
-              {registerLookup?.email ?? ''}
-            </div>
+            ) : null}
 
             <label htmlFor="registerPassword">Senha</label>
             <div className="password-field">

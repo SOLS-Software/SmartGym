@@ -273,15 +273,15 @@ export type DomainRecord = {
   values: Record<string, unknown>;
 };
 
+// Resposta minimizada de /auth/register-lookup (endpoint publico). CPF, data de
+// nascimento e telefone nao sao mais devolvidos, e o email vem MASCARADO
+// (`emailMask`): o endereco completo e exigido no /auth/register e conferido no
+// servidor, entao nao pode ser entregue aqui a quem so descobriu o CPF.
 export type RegisterLookupRecord = {
   id: number;
   type: 'student' | 'employee';
   name: string;
-  cpf: string;
-  birthDate: string | null;
-  ddd: number | string;
-  phone: number | string | null;
-  email: string;
+  emailMask: string;
   hasUser: boolean;
 };
 

@@ -24,6 +24,7 @@ import {
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 import {
   cpfHash,
+  decryptCpfValue,
   encryptCpfFields,
   encryptEmbedding,
   withDecryptedCpf,
@@ -265,11 +266,48 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       if (!current) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      // Tenant sempre do token; idCliente vindo do body e ignorado.
-      const data = normalizeStudentPayload({ ...request.body, idCliente });
+
+      // O RBAC do aluno libera PUT no PROPRIO cadastro. Como o handler grava o
+      // payload inteiro, o aluno conseguia reescrever campos de IDENTIDADE:
+      //  - caCPF: o CPF e a credencial de login (caCPFHash) e a chave de
+      //    /auth/forgot-password. Trocando o proprio CPF pelo de alguem de outro
+      //    tenant, o aluno passa a colidir com aquela pessoa nos lookups por CPF
+      //    (que sao findFirst SEM idCliente) e pode sequestrar o fluxo de
+      //    recuperacao de senha / travar o login dela.
+      //  - nmAluno e boInativo: adulteracao de cadastro e auto-desativacao.
+      // Funcionario/gestor seguem com o PUT completo (e a tela de cadastro do
+      // web); para o papel aluno, os campos de identidade sao preservados do
+      // registro atual — sobra o que a tela de perfil realmente edita (contato
+      // e endereco).
+      const isSelfService = request.user.role === 'student';
+      const stored = isSelfService
+        ? await prisma.aluno.findUnique({
+            where: { id },
+            select: { nmAluno: true, caCPF: true, caCPFHash: true, boInativo: true },
+          })
+        : null;
+
+      const data = normalizeStudentPayload({
+        ...request.body,
+        // Tenant sempre do token; idCliente vindo do body e ignorado.
+        idCliente,
+        ...(stored
+          ? {
+              nmAluno: stored.nmAluno,
+              // normalizeStudentPayload exige um CPF valido: usamos o CPF ja
+              // gravado (decifrado) para revalidar sem permitir troca.
+              caCPF: decryptCpfValue(stored.caCPF),
+              boInativo: stored.boInativo,
+            }
+          : {}),
+      });
+
       const updated = await prisma.aluno.update({
         where: { id },
-        data: { ...data, ...encryptCpfFields(data.caCPF) },
+        data: stored
+          ? // Aluno editando a si mesmo: nem sequer reescreve as colunas de CPF.
+            { ...data, caCPF: undefined, caCPFHash: undefined }
+          : { ...data, ...encryptCpfFields(data.caCPF) },
       });
       return withDecryptedCpf(updated);
     } catch (error) {

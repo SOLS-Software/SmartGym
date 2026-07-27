@@ -28,14 +28,19 @@ import { registerLocalityRoutes } from './modules/localities/routes.js';
 
 validateEnv();
 
+// Numero de proxies CONFIAVEIS a frente da API (default 1: um load balancer /
+// PaaS terminando TLS). NUNCA usar `trustProxy: true` aqui: `true` manda o
+// Fastify confiar na cadeia inteira de X-Forwarded-For, e como esse header e
+// escrito pelo cliente, qualquer um forja `X-Forwarded-For: <aleatorio>` e ganha
+// um bucket novo de rate limit a cada request — derrubando o limite de 10/min do
+// /auth/login (brute force livre) e envenenando o IP nos logs. Com N hops, o
+// proxy-addr descarta as entradas mais a esquerda (as que o atacante controla) e
+// usa a que o proxy realmente anexou.
+const TRUST_PROXY_HOPS = Number(process.env.TRUST_PROXY_HOPS ?? 1);
+
 export const app = Fastify({
   logger: true,
-  // Assume um reverse proxy/load balancer confiavel terminando TLS na frente
-  // da API (padrao em PaaS). Sem isso, request.ip seria sempre o IP do proxy,
-  // colapsando o rate limit de auth em um unico bucket para todos os usuarios
-  // e registrando o IP errado nos logs. Ajuste para o numero de hops/subnet
-  // do seu deploy se a API for diretamente alcancavel.
-  trustProxy: true,
+  trustProxy: Number.isFinite(TRUST_PROXY_HOPS) && TRUST_PROXY_HOPS >= 0 ? TRUST_PROXY_HOPS : 1,
 });
 
 // Algumas catracas Control iD enviam push como application/x-www-form-urlencoded

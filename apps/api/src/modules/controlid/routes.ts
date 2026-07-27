@@ -86,11 +86,13 @@ const catracaBodySchema = z.object({
   boInativo: z.preprocess((value) => toBool(value), z.boolean()),
 });
 
+// IP de origem do device. Usa SEMPRE request.ip, que o Fastify deriva do
+// X-Forwarded-For respeitando o numero de proxies confiaveis configurado em
+// app.ts (trustProxy). Ler o header cru aqui, como era feito antes, entregava a
+// escrita de `anIpOrigem`/`Catraca.anIp` ao cliente: bastava mandar
+// `X-Forwarded-For: 10.0.0.1` para forjar a origem dos eventos de acesso e
+// contaminar a trilha de auditoria da catraca.
 function getClientIp(request: FastifyRequest): string {
-  const forwarded = request.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.length > 0) {
-    return forwarded.split(',')[0]!.trim();
-  }
   return request.ip ?? '';
 }
 
@@ -119,6 +121,23 @@ function extractControlidToken(request: FastifyRequest): string {
   return '';
 }
 
+// Teto de catracas auto-registradas AGUARDANDO reivindicacao (idEmpresa null).
+// As rotas de push/poll sao publicas por necessidade (o firmware nao manda JWT),
+// e cada serial/deviceId novo criava uma linha em tb_Catracas — ou seja, um
+// anonimo com um laco `for` enchia a tabela e poluia o painel de todos os
+// tenants indefinidamente. Com o teto, o provisionamento normal (poucos
+// equipamentos por vez, reivindicados no painel) continua funcionando e o abuso
+// para de crescer. Ajustavel por CONTROLID_MAX_PENDING_DEVICES.
+const MAX_PENDING_AUTOREGISTERED = Number(process.env.CONTROLID_MAX_PENDING_DEVICES ?? 50);
+
+async function canAutoRegister(): Promise<boolean> {
+  const limit = Number.isFinite(MAX_PENDING_AUTOREGISTERED) && MAX_PENDING_AUTOREGISTERED > 0
+    ? MAX_PENDING_AUTOREGISTERED
+    : 50;
+  const pending = await prisma.catraca.count({ where: { idEmpresa: null } });
+  return pending < limit;
+}
+
 // Localiza (ou cria) o registro da catraca usando o serial / MAC enviado no push.
 // Se o equipamento ainda nao estiver cadastrado, criamos um registro inativo
 // para o gestor visualizar e ativar manualmente no painel.
@@ -137,6 +156,8 @@ async function findOrAutoRegisterCatraca(device: ControlidDeviceInfo, clientIp: 
   const existing = await prisma.catraca.findFirst({ where: { OR: where } });
   if (existing) return existing;
 
+  if (!(await canAutoRegister())) return null;
+
   return prisma.catraca.create({
     data: {
       dsCatraca: device.dsModelo || 'Catraca Control iD',
@@ -150,19 +171,12 @@ async function findOrAutoRegisterCatraca(device: ControlidDeviceInfo, clientIp: 
   });
 }
 
-// Tenta resolver `nrUsuarioCatraca` -> `idAluno`.
-// Convencao adotada: o `user_id` cadastrado na catraca e o proprio `Aluno.id` do SmartGym.
-// Se sua academia usa outra convencao (ex.: CPF), aqui e o lugar de ajustar.
-async function resolveAlunoId(nrUsuarioCatraca: string | null): Promise<number | null> {
-  if (!nrUsuarioCatraca) return null;
-  const candidate = Number(nrUsuarioCatraca);
-  if (!Number.isInteger(candidate) || candidate <= 0) return null;
-  const aluno = await prisma.aluno.findUnique({
-    where: { id: candidate },
-    select: { id: true },
-  });
-  return aluno?.id ?? null;
-}
+// NOTA: existia aqui um `resolveAlunoId(nrUsuarioCatraca)` que traduzia o
+// user_id da catraca para Aluno.id. Nunca foi chamado — persistEvents grava
+// apenas `nrUsuarioCatraca` cru — e, como fazia `aluno.findUnique` por id sem
+// nenhum filtro de tenant, seria um vazamento cross-tenant esperando o primeiro
+// uso. Removido: quando o vinculo evento->aluno for implementado, a busca
+// precisa ser escopada pelo cliente da empresa dona da catraca.
 
 export async function registerControlidRoutes(app: FastifyInstance) {
   // Hook de diagnostico: loga TODA requisicao que a catraca eventualmente mandar
@@ -177,22 +191,36 @@ export async function registerControlidRoutes(app: FastifyInstance) {
       // Padrao comum: catraca manda do IP 192.168.1.x onde foi configurada.
       false;
     if (looksLikeControlid) {
+      // NUNCA logar `request.headers` inteiro aqui. A condicao acima e
+      // controlada pelo cliente (basta mandar `x-controlid-token: x` ou um
+      // User-Agent com "controlid"), entao qualquer usuario autenticado
+      // conseguia forcar o despejo dos proprios headers no log — incluindo
+      // `authorization: Bearer <JWT>` e `cookie: smartgym_token=...`. Um JWT
+      // valido em texto claro no armazenamento de logs e credencial vazada
+      // (OWASP A09). Registramos so o que serve ao diagnostico da integracao.
       request.log.warn(
         {
           method: request.method,
           url: request.url,
           ip: request.ip,
           ua: userAgent,
-          headers: request.headers,
+          hasControlidToken: String(request.headers['x-controlid-token'] ?? '') !== '',
+          contentType: request.headers['content-type'],
         },
         'Possivel requisicao da catraca chegando em path NAO esperado.',
       );
     }
   });
 
+  // Rate limit das rotas PUBLICAS da catraca (push/poll). Sao os unicos
+  // endpoints nao autenticados que ESCREVEM no banco (eventos + auto-registro),
+  // entao merecem teto proprio, mais generoso que o de auth (uma catraca faz
+  // polling a cada poucos segundos) e bem abaixo do limite global de 300/min.
+  const deviceRateLimit = { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } };
+
   // Catch-all: aceita POST em qualquer rota /controlid/* para nao perder evento
   // caso a URL configurada na catraca esteja sem o /push.
-  app.post('/controlid', async (request, reply) => {
+  app.post('/controlid', deviceRateLimit, async (request, reply) => {
     request.log.warn(
       { ip: request.ip },
       'POST em /controlid sem /push - tratando como push mesmo assim. Considere ajustar a URL na catraca.',
@@ -217,26 +245,26 @@ export async function registerControlidRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------
   app.get<{
     Querystring: { deviceId?: string; uuid?: string };
-  }>('/controlid/push', async (request, reply) => {
+  }>('/controlid/push', deviceRateLimit, async (request, reply) => {
     return handleControlidPollRequest(request, reply);
   });
 
-  app.post('/controlid/push', async (request, reply) => {
+  app.post('/controlid/push', deviceRateLimit, async (request, reply) => {
     return handleControlidPushRequest(request, reply);
   });
 
   // Alguns firmwares anexam /push tambem em GET. Cobertura defensiva.
   app.get<{
     Querystring: { deviceId?: string; uuid?: string };
-  }>('/controlid/push/push', async (request, reply) => {
+  }>('/controlid/push/push', deviceRateLimit, async (request, reply) => {
     return handleControlidPollRequest(request, reply);
   });
-  app.post('/controlid/push/push', async (request, reply) => {
+  app.post('/controlid/push/push', deviceRateLimit, async (request, reply) => {
     return handleControlidPushRequest(request, reply);
   });
 
   // Endpoint para o equipamento testar conectividade.
-  app.get('/controlid/health', async () => ({ ok: true, ts: new Date().toISOString() }));
+  app.get('/controlid/health', deviceRateLimit, async () => ({ ok: true, ts: new Date().toISOString() }));
 
   // -------------------------------------------------------------------
   // CRUD basico das catracas cadastradas.
@@ -439,25 +467,35 @@ async function handleControlidPollRequest(
   if (deviceId) {
     catraca = await prisma.catraca.findFirst({ where: { caSerial: deviceId } });
     if (!catraca) {
-      catraca = await prisma.catraca.create({
-        data: {
-          dsCatraca: 'Catraca Control iD',
-          dsFabricante: 'controlid',
-          dsModelo: '',
-          caSerial: deviceId,
-          anIp: clientIp,
-          boInativo: true,
-        },
-      });
-      request.log.info(
-        { idCatraca: catraca.id, deviceId, ip: clientIp },
-        'Catraca auto-registrada (inativa, aguardando ativacao no painel).',
-      );
+      // Mesmo teto do push: rota publica nao pode criar linhas sem limite.
+      if (await canAutoRegister()) {
+        catraca = await prisma.catraca.create({
+          data: {
+            dsCatraca: 'Catraca Control iD',
+            dsFabricante: 'controlid',
+            dsModelo: '',
+            caSerial: deviceId,
+            anIp: clientIp,
+            boInativo: true,
+          },
+        });
+        request.log.info(
+          { idCatraca: catraca.id, deviceId, ip: clientIp },
+          'Catraca auto-registrada (inativa, aguardando ativacao no painel).',
+        );
+      } else {
+        request.log.warn(
+          { deviceId, ip: clientIp },
+          'Auto-registro recusado: limite de catracas pendentes atingido (CONTROLID_MAX_PENDING_DEVICES). Reivindique/remova as pendentes no painel.',
+        );
+      }
     }
-    await prisma.catraca.update({
-      where: { id: catraca.id },
-      data: { dtUltimoPush: new Date(), anIp: clientIp || catraca.anIp },
-    });
+    if (catraca) {
+      await prisma.catraca.update({
+        where: { id: catraca.id },
+        data: { dtUltimoPush: new Date(), anIp: clientIp || catraca.anIp },
+      });
+    }
   }
 
   // Descobre o ultimo evento ja recebido dessa catraca para pedir apenas
@@ -502,14 +540,18 @@ async function handleControlidPollRequest(
 async function handleControlidPushRequest(request: FastifyRequest, reply: FastifyReply) {
   const clientIp = getClientIp(request);
 
-  // Log de diagnostico - mostra exatamente o que a catraca esta mandando.
+  // Log de diagnostico. O CORPO so vai para o log quando CONTROLID_DEBUG_BODY
+  // estiver ligado explicitamente: o push carrega identificacao de pessoa
+  // (numero de usuario, cartao, biometria reportada) e nao deve ir parar no
+  // armazenamento de logs por padrao — e PII sob a LGPD, retida por tempo
+  // indeterminado e visivel a quem tem acesso aos logs, nao ao sistema.
   request.log.info(
     {
       url: request.url,
       ip: clientIp,
       contentType: request.headers['content-type'],
       bodyType: typeof request.body,
-      body: request.body,
+      ...(process.env.CONTROLID_DEBUG_BODY === 'true' ? { body: request.body } : {}),
     },
     'Push da Control iD: requisicao recebida.',
   );
@@ -607,33 +649,34 @@ async function persistEvents(params: {
   anIpOrigem: string;
 }) {
   const { events, idCatraca, anIpOrigem } = params;
-  let persisted = 0;
 
-  if (idCatraca == null) {
-    return persisted;
+  if (idCatraca == null || events.length === 0) {
+    return 0;
   }
 
-  for (const event of events) {
-    await prisma.catracaEvento.create({
-      data: {
-        idCatraca,
-        idEventoDispositivo: event.idEventoDispositivo,
-        nrUsuarioCatraca: event.nrUsuarioCatraca,
-        nrTipoEvento: event.nrTipoEvento,
-        dsTipoEvento: event.dsTipoEvento,
-        boAcessoLiberado: event.boAcessoLiberado,
-        dsIdentificacao: event.dsIdentificacao,
-        dsCartao: event.dsCartao,
-        dsPortal: event.dsPortal,
-        dsDirecao: event.dsDirecao,
-        anIpOrigem,
-        dtEvento: event.dtEvento,
-        jsPayload: event.raw as object,
-      },
-    });
+  // Era um `for` com `await prisma.create()` por evento: N round trips
+  // sequenciais. O comando de poll pede `limit: 100`, entao um unico push podia
+  // custar 100 idas ao Postgres. Em Neon (serverless, latencia de rede por
+  // query) isso e ~2-5s de handler segurando uma conexao do pool — com varias
+  // catracas em polling simultaneo, o pool esgota e a API inteira degrada.
+  // createMany insere o lote em UM comando.
+  const result = await prisma.catracaEvento.createMany({
+    data: events.map((event) => ({
+      idCatraca,
+      idEventoDispositivo: event.idEventoDispositivo,
+      nrUsuarioCatraca: event.nrUsuarioCatraca,
+      nrTipoEvento: event.nrTipoEvento,
+      dsTipoEvento: event.dsTipoEvento,
+      boAcessoLiberado: event.boAcessoLiberado,
+      dsIdentificacao: event.dsIdentificacao,
+      dsCartao: event.dsCartao,
+      dsPortal: event.dsPortal,
+      dsDirecao: event.dsDirecao,
+      anIpOrigem,
+      dtEvento: event.dtEvento,
+      jsPayload: event.raw as object,
+    })),
+  });
 
-    persisted += 1;
-  }
-
-  return persisted;
+  return result.count;
 }

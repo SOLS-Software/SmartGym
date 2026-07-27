@@ -107,6 +107,20 @@ export async function requireGestor(request: FastifyRequest, reply: FastifyReply
   }
 }
 
+// Guard para MUTACAO de tabelas de dominio GLOBAIS (cargos, frequencias, status
+// de pagamento, formas de pagamento, niveis, unidades...). Essas tabelas nao tem
+// coluna de tenant: uma linha e a MESMA para todos os clientes. Sem este guard,
+// um funcionario de qualquer tenant renomeia/desativa o status "Pendente" e
+// quebra a geracao de pagamentos de TODOS os clientes (shared/payments.ts
+// resolve o status por nome). Leitura continua liberada a qualquer autenticado.
+export async function requireSuperAdmin(request: FastifyRequest, reply: FastifyReply) {
+  if (!request.user.superAdmin) {
+    return reply
+      .code(403)
+      .send({ message: 'Cadastro global: alteracao restrita ao administrador do sistema.' });
+  }
+}
+
 // Tenant do usuario autenticado. Funcionario/gestor derivam de Empresa.idCliente
 // e aluno de Aluno.idCliente (ambos populados no login). Rotas de gestao devem
 // exigir non-null.
