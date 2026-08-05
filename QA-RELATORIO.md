@@ -377,6 +377,102 @@ para as iniciais. É infraestrutura, não código.
 
 ---
 
+## Auditoria de UX — perfil profissional, 2026-08-05
+
+Testado com usuário funcionário (`idFuncionario 1`) em 375px, 903px e 1440px.
+
+| Item | Gravidade | Status |
+|---|---|---|
+| P1 — Montagem de Agenda: coluna STATUS invisível em qualquer largura | Alta | Corrigido e verificado |
+| P2 — Montagem de Treino: 141px (903px) e 326px (375px) cortados | Alta | Corrigido e verificado |
+| P3 — Painel e Relatórios discordavam do mesmo número | Média | Corrigido e verificado |
+| P4 — Dois cards para quase o mesmo número | Média | Corrigido e verificado |
+| P5 — Menu e título com nomes diferentes na mesma tela | Média | Corrigido e verificado |
+| P6 — Rótulo de seção contradizia o grupo do menu | Média | Corrigido e verificado |
+| P7 — Títulos em dois padrões | Baixa | Corrigido e verificado |
+| P8 — Montagem de Treino listava aluno inativo sem filtro | Baixa | Corrigido e verificado |
+| P9 — Paginação sem acento | Baixa | Corrigido |
+| P10 — Telefone em dois campos (DDD + número) | Baixa | Corrigido e verificado |
+
+### P1/P2 — Conteúdo inalcançável nas telas de fluxo
+
+As linhas em `trainings.css` usavam mínimos **fixos**: `.workout-student-row` pedia
+`minmax(16rem…) minmax(9rem…) minmax(14rem…) 7rem` = **46rem (644px)** de mínimo num
+container de 554px. `minmax` com mínimo fixo não encolhe, e `.product-table` herda
+`overflow: hidden` de `app-card` (que existe para arredondar cantos na animação) — então
+o excedente não virava rolagem, sumia.
+
+| Tela | 375px | 903px | 1440px |
+|---|---|---|---|
+| Montagem de Treino | 326px perdidos | 141px | ok |
+| Montagem de Agenda | ok | 293px | 163px |
+
+Em Montagem de Agenda a coluna **STATUS estava 100% fora da tela** em qualquer largura.
+
+Correções: mínimos passaram a `minmax(0, Nfr)` (as células já têm `text-overflow:
+ellipsis`, então truncam limpo); `.activity-schedule-activity-row` declarava uma 4ª faixa
+de 7rem que nenhuma linha preenche, desperdiçando 98px de um painel de 381px; o breakpoint
+de `.schedule-assembly-layout` subiu de 900px para 1100px, porque com o menu aberto uma
+janela de 903px deixa só 556px para as duas colunas; e `.product-table` ganhou
+`overflow-x: auto` como rede de segurança — as colunas de dados são fixas de propósito
+(cada linha é um grid independente, dimensionar por conteúdo desalinha cabeçalho e dados),
+então quando não cabe, a saída correta é rolar, não sumir.
+
+As grades de cadastro (`RegistrationGrid`) já usavam `minmax(0, 1fr)` e passavam limpas —
+o padrão certo existia na casa e não estava sendo usado nas telas de fluxo.
+
+### P3/P4 — KPIs do Painel
+
+"Planos ativos: 9" contava `/plans`, o **catálogo** da academia, não as matrículas. Com 7
+alunos cadastrados o número não podia significar o que o gestor lê, e contradizia o
+Relatório ("Matrículas ativas: 6") a um clique de distância. O número está certo; o rótulo
+é que mentia — agora é "Planos no catálogo".
+
+Não virou contagem de matrículas porque não existe rota agregada: o Relatório busca aluno
+a aluno em pool, caro demais para a tela de entrada.
+
+"Total de alunos: 7" ao lado de "Alunos ativos: 6" eram dois cards para quase o mesmo
+número, ambos levando para Matrículas. Virou "Alunos inativos", que é o dado que faltava —
+o total continua sendo a soma, visível na própria tela. Os três rótulos ganharam
+concordância de número.
+
+### P5/P6/P7 — Nomes e rótulos
+
+- O menu dizia "Montar Treino" e a tela se intitulava "MONTAGEM DE TREINO", os dois
+  visíveis ao mesmo tempo. O rótulo exibido virou "Montagem de Treino" (a chave interna
+  continua `Montar Treino`, usada no roteamento), alinhando com o irmão "Montagem de Agenda".
+- Rótulo de seção passou a ser sempre o grupo do menu: Painel e Relatórios → "Início"
+  (era "Painel" e "Gestão"), Pontuações → "Alunos" (era "Fidelidade"), Localidades →
+  "Equipamentos" (era "Localidades").
+- Padrão de título: **"CADASTRO DE X"** nas telas de cadastro (Matrículas e Compras
+  ganharam o prefixo que faltava), substantivo puro nas de consulta e fluxo (Agendas,
+  Calendário, Montagem de Treino/Agenda, Relatórios).
+
+### P8 — Alunos inativos em Montagem de Treino
+
+Apareciam misturados aos ativos, sem filtro. Agora o padrão é só ativos, com um
+"Mostrar inativos (N)" na barra da grade — o contador mostra quantos estão ocultos.
+
+### P10 — Telefone
+
+DDD e número eram dois campos, com validação cruzada entre eles ("Informe o DDD do
+contato" / "Informe o contato") — regras que só existiam porque a divisão permite um estado
+inválido no meio do preenchimento. Viraram um campo só, com máscara `(11) 96796-7158` e uma
+regra única. O banco continua com `nrDDD` e `nrContato` separados; `splitDddPhone` divide na
+hora de salvar e `joinDddPhone` junta ao carregar. Aplicado em Profissionais e Matrículas,
+para não criar uma inconsistência nova.
+
+### Não corrigido — são dados, não código
+
+- **"Recepicionista"** no seletor de Cargo (visível em todo cadastro de funcionário).
+  Confirmei que não está no código: é registro do domínio de cargos, corrigível pela própria
+  tela de Domínios.
+- Os registros de teste listados na seção de limpeza abaixo — inclusive um aluno chamado
+  "Sessão não identificada. Faça login novamente.", que é uma mensagem de erro salva como
+  nome, e o "Plano QA Teste" e o "Plano Sem Frequência" duplicado, que inflavam o KPI do P3.
+
+---
+
 ## Pendência de limpeza
 
 Registro de teste criado com autorização, **não removido**:
