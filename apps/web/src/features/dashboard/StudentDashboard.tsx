@@ -87,9 +87,14 @@ export function StudentDashboard({ studentId, studentName, onNavigate }: Student
   async function loadData(id: number) {
     try {
       setIsLoading(true);
+      // `children/` e o padrao das rotas de EMPRESA; aluno usa `related/`. Com o
+      // caminho errado as duas chamadas voltavam 404, o `res.ok` engolia o erro
+      // e o painel exibia "Nenhum plano ativo" e zero check-ins para quem tinha
+      // plano ativo e 5 check-ins — contradizendo Matricula, Meu Treino e a
+      // propria notificacao ("faz 22 dias desde seu ultimo treino") logo acima.
       const [plansRes, checkInsRes, notifRes] = await Promise.all([
-        fetch(`${apiUrl}/students/${id}/children/plans`),
-        fetch(`${apiUrl}/students/${id}/children/check-ins`),
+        fetch(`${apiUrl}/students/${id}/related/plans`),
+        fetch(`${apiUrl}/students/${id}/related/check-ins`),
         fetch(`${apiUrl}/students/${id}/notifications`),
       ]);
 
