@@ -191,7 +191,13 @@ button.domain-select-row.selected {
   border-top: 0.0625rem solid var(--color-border-subtle);
   display: grid;
   gap: 0.875rem;
-  grid-template-columns: minmax(0, 1fr) 6.875rem 6.875rem;
+  /* A segunda coluna era 6.875rem (96px com root de 14px) e o CPF formatado
+     precisa de ate 110px: TODA linha da grid de alunos quebrava o CPF em duas
+     linhas, enquanto a coluna de nome ficava com ~841px ociosos. 8.5rem (119px)
+     cobre CPF, e o espaco sai do 1fr, que tinha folga de sobra.
+     (max-content nao serve aqui: com uma trilha fr no mesmo grid a coluna fica
+     presa no minimo do minmax.) */
+  grid-template-columns: minmax(0, 1fr) 8.5rem 6.875rem;
   min-height: 3.375rem;
   padding: 0 1rem;
   transition: background 220ms ease, box-shadow 260ms ease, gap 260ms ease,

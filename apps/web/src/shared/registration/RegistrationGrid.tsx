@@ -117,7 +117,11 @@ export function RegistrationGrid<T extends { id: number }>({
     : isChild
       ? { gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))${editColWidth}` }
       : onEdit
-        ? { gridTemplateColumns: `minmax(0, 1fr) 6.875rem 6.875rem${editColWidth}` }
+        ? // A segunda coluna era 6.875rem (96px com root de 14px). CPF formatado
+          // precisa de ate 110px, entao toda linha da grid de alunos quebrava o
+          // CPF em duas linhas — o espaco extra sai da coluna de nome, que ficava
+          // com centenas de pixels ociosos.
+          { gridTemplateColumns: `minmax(0, 1fr) 8.5rem 6.875rem${editColWidth}` }
         : undefined;
 
   const tableClass = isChild
@@ -144,6 +148,7 @@ export function RegistrationGrid<T extends { id: number }>({
           <label className="search-field">
             <span>Pesquisar</span>
             <input
+              maxLength={100}
               onChange={(e) => setDraftSearch(e.target.value)}
               placeholder={searchPlaceholder}
               type="search"

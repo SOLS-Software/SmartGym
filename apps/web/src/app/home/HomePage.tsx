@@ -1567,7 +1567,8 @@ export default function HomePage() {
               id="registerEmail"
               name="email"
               autoComplete="email"
-              maxLength={255}
+              // Era 255, mas anEmail (Aluno e Funcionario) e VarChar(100).
+              maxLength={100}
               onChange={(event) => setRegisterEmail(event.target.value)}
               placeholder={registerLookup?.emailMask || 'email cadastrado na academia'}
               required

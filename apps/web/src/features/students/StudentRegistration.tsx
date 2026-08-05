@@ -3,7 +3,7 @@
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, CreditCard, FileText, Receipt, Save } from 'lucide-react';
-import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { GRID_PAGE_SIZE, formatCep, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
@@ -377,7 +377,7 @@ export function StudentRegistration() {
     setStudentDdd(student.nrDDD ? String(student.nrDDD) : '');
     setStudentPhone(formatPhone(student.nrContato ?? ''));
     setStudentEmail(student.anEmail);
-    setStudentCep(student.anCEP);
+    setStudentCep(formatCep(student.anCEP));
     setStudentAddress(student.anLogradouro);
     setStudentComplement(student.anComplemento);
     setStudentDistrict(student.anBairro);
@@ -617,7 +617,8 @@ export function StudentRegistration() {
         nrDDD: Number(studentDdd || 0),
         nrContato: onlyDigits(studentPhone) || null,
         anEmail: trimmedEmail,
-        anCEP: studentCep,
+        // O campo agora e mascarado ("00000-000"); a coluna e VarChar(8).
+        anCEP: onlyDigits(studentCep),
         anLogradouro: studentAddress,
         anComplemento: studentComplement,
         anBairro: studentDistrict,
@@ -1078,10 +1079,10 @@ export function StudentRegistration() {
                 <input id="anComplemento" maxLength={100} onChange={(event) => setStudentComplement(event.target.value)} placeholder="Apt, bloco..." type="text" value={studentComplement} />
               </RegistrationField>
               <RegistrationField htmlFor="anCEP" label="CEP" size="sm">
-                <input id="anCEP" maxLength={8} onChange={(event) => setStudentCep(onlyDigits(event.target.value))} placeholder="Somente numeros" type="text" value={studentCep} />
+                <input id="anCEP" inputMode="numeric" maxLength={9} onChange={(event) => setStudentCep(formatCep(event.target.value))} placeholder="00000-000" type="text" value={studentCep} />
               </RegistrationField>
               <RegistrationField htmlFor="nrEndereco" label="Número" size="xs">
-                <input id="nrEndereco" onChange={(event) => setStudentAddressNumber(event.target.value)} placeholder="0" type="number" value={studentAddressNumber} />
+                <input id="nrEndereco" max={999999999} min={0} onChange={(event) => setStudentAddressNumber(event.target.value)} placeholder="0" type="number" value={studentAddressNumber} />
               </RegistrationField>
               {/* Status */}
               <RegistrationField htmlFor="studentStatus" label="Status" size="sm">

@@ -488,6 +488,9 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
               <input
                 disabled={!isFormEnabled}
                 id="equipmentNumber"
+                // Sem faixa o campo aceitava patrimonio negativo.
+                max={999999999}
+                min={0}
                 onChange={(e) => setEquipmentNumber(e.target.value)}
                 placeholder="0"
                 type="number"

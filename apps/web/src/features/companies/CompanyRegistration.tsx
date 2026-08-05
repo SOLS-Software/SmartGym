@@ -15,6 +15,7 @@ import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetc
 import { getSessionClienteId } from '../../shared/auth/sessionUtils';
 import { companyChildTables } from './companyChildTables';
 import { formatCnpj, getSelectedRecord, isValidCnpj } from './companyUtils';
+import { formatPhone } from '@smartgym/shared';
 
 const companyTabIcons = {
   promotions: Tag,
@@ -567,7 +568,7 @@ export function CompanyRegistration() {
     setCompanyName(company.dsEmpresa);
     setCompanyCnpj(formatCnpj(company.caCNPJ));
     setCompanyDdd(company.nrDDD != null ? String(company.nrDDD) : '');
-    setCompanyContato(company.nrContato ?? '');
+    setCompanyContato(formatPhone(company.nrContato ?? ''));
     setCompanyAddress({
       cep: company.anCEP ? formatCep(company.anCEP) : '',
       logradouro: company.anLogradouro ?? '',
@@ -868,9 +869,11 @@ export function CompanyRegistration() {
               <input
                 id="empresaContato"
                 inputMode="numeric"
-                maxLength={11}
-                onChange={(event) => setCompanyContato(onlyDigits(event.target.value).slice(0, 11))}
-                placeholder="999999999"
+                maxLength={10}
+                // Era digito cru ("999999999") enquanto Alunos e Profissionais
+                // usavam mascara. Mesmo dado, duas experiencias diferentes.
+                onChange={(event) => setCompanyContato(formatPhone(event.target.value))}
+                placeholder="00000-0000"
                 type="text"
                 value={companyContato}
               />

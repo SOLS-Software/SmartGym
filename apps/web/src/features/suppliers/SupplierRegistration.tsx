@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatCep, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { formatCnpj, formatPhone } from '@smartgym/shared';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
@@ -99,9 +100,9 @@ export function SupplierRegistration() {
     setSelectedSupplierId(supplier.id);
     setIsCreating(false);
     setDsFornecedor(supplier.dsFornecedor);
-    setCaCNPJ(supplier.caCNPJ ?? '');
+    setCaCNPJ(formatCnpj(supplier.caCNPJ ?? ''));
     setNrDDD(supplier.nrDDD != null ? String(supplier.nrDDD) : '');
-    setNrContato(supplier.nrContato ?? '');
+    setNrContato(formatPhone(supplier.nrContato ?? ''));
     setDsEmail(supplier.dsEmail ?? '');
     setAnCEP(supplier.anCEP ? formatCep(supplier.anCEP) : '');
     setAnLogradouro(supplier.anLogradouro ?? '');
@@ -196,8 +197,14 @@ export function SupplierRegistration() {
             label="Fornecedores"
             columns={[
               { label: 'Fornecedor', render: (s) => s.dsFornecedor, sortValue: (s) => s.dsFornecedor },
-              { label: 'CNPJ', render: (s) => s.caCNPJ ?? '-' },
-              { label: 'Contato', render: (s) => (s.nrContato ? `(${s.nrDDD ?? ''}) ${s.nrContato}` : '-') },
+              // A grid mostrava o CNPJ cru ("11444777000161") e o telefone sem
+              // mascara, diferente de Empresas, que exibe os dois formatados.
+              { label: 'CNPJ', render: (s) => (s.caCNPJ ? formatCnpj(s.caCNPJ) : '-') },
+              {
+                label: 'Contato',
+                render: (s) =>
+                  s.nrContato ? `(${s.nrDDD ?? ''}) ${formatPhone(s.nrContato)}`.trim() : '-',
+              },
               {
                 label: 'Status',
                 render: (s) => <span className={`status-badge ${s.boInativo === false ? 'active' : 'inactive'}`}>{s.boInativo === false ? 'Ativo' : 'Inativo'}</span>,
@@ -229,13 +236,13 @@ export function SupplierRegistration() {
               <input disabled={!isFormEnabled} id="fornecedorNome" maxLength={255} onChange={(event) => setDsFornecedor(event.target.value)} placeholder="Ex.: Distribuidora Fit Ltda" ref={nameInputRef} required type="text" value={dsFornecedor} />
             </RegistrationField>
             <RegistrationField htmlFor="fornecedorCNPJ" label="CNPJ" size="md">
-              <input disabled={!isFormEnabled} id="fornecedorCNPJ" maxLength={18} onChange={(event) => setCaCNPJ(event.target.value)} placeholder="00.000.000/0000-00" type="text" value={caCNPJ} />
+              <input disabled={!isFormEnabled} id="fornecedorCNPJ" inputMode="numeric" maxLength={18} onChange={(event) => setCaCNPJ(formatCnpj(event.target.value))} placeholder="00.000.000/0000-00" type="text" value={caCNPJ} />
             </RegistrationField>
             <RegistrationField htmlFor="fornecedorDDD" label="DDD" size="xs">
               <input disabled={!isFormEnabled} id="fornecedorDDD" maxLength={2} onChange={(event) => setNrDDD(event.target.value)} placeholder="11" type="text" value={nrDDD} />
             </RegistrationField>
             <RegistrationField htmlFor="fornecedorContato" label="Telefone" size="sm">
-              <input disabled={!isFormEnabled} id="fornecedorContato" maxLength={11} onChange={(event) => setNrContato(event.target.value)} placeholder="999999999" type="text" value={nrContato} />
+              <input disabled={!isFormEnabled} id="fornecedorContato" inputMode="numeric" maxLength={10} onChange={(event) => setNrContato(formatPhone(event.target.value))} placeholder="00000-0000" type="text" value={nrContato} />
             </RegistrationField>
             <RegistrationField htmlFor="fornecedorEmail" label="E-mail" size="md">
               <input disabled={!isFormEnabled} id="fornecedorEmail" maxLength={255} onChange={(event) => setDsEmail(event.target.value)} placeholder="contato@fornecedor.com" type="email" value={dsEmail} />

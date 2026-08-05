@@ -865,6 +865,10 @@
 .student-calendar-toolbar {
   align-items: flex-end;
   display: flex;
+  /* Sem wrap os tres blocos (mes, empresa e legenda) nao cabiam em 375px e
+     vazavam para fora da viewport — com overflow-x: hidden no main, os botoes
+     "Atividades" e "Promocoes" ficavam inalcancaveis no celular. */
+  flex-wrap: wrap;
   gap: 1rem;
 }
 

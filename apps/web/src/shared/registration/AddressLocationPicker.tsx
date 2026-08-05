@@ -182,6 +182,7 @@ export function AddressLocationPicker({
           <input
             disabled={disabled}
             id="addressLogradouro"
+            maxLength={150}
             onChange={(e) => patch({ logradouro: e.target.value })}
             placeholder="Rua, avenida..."
             type="text"
@@ -193,6 +194,7 @@ export function AddressLocationPicker({
           <input
             disabled={disabled}
             id="addressNumero"
+            maxLength={10}
             onChange={(e) => patch({ numero: e.target.value })}
             placeholder="0"
             type="text"
@@ -204,6 +206,7 @@ export function AddressLocationPicker({
           <input
             disabled={disabled}
             id="addressBairro"
+            maxLength={100}
             onChange={(e) => patch({ bairro: e.target.value })}
             placeholder="Bairro"
             type="text"
@@ -215,6 +218,7 @@ export function AddressLocationPicker({
           <input
             disabled={disabled}
             id="addressCidade"
+            maxLength={100}
             onChange={(e) => patch({ cidade: e.target.value })}
             placeholder="Cidade"
             type="text"
@@ -227,7 +231,8 @@ export function AddressLocationPicker({
             disabled={disabled}
             id="addressEstado"
             maxLength={2}
-            onChange={(e) => patch({ estado: e.target.value.toUpperCase() })}
+            // UF aceitava digito ("9Z" chegava a ser gravado). So letras.
+            onChange={(e) => patch({ estado: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })}
             placeholder="SP"
             type="text"
             value={value.estado}
