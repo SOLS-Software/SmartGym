@@ -15,6 +15,8 @@ describe('isStudentAllowed (RBAC do aluno, deny-by-default)', () => {
       '/trainings/5/related/exercises',
       '/clients/5',
       '/clients/5/theme',
+      '/companies',
+      '/companies/5/children/points',
     ]) {
       expect(isStudentAllowed('GET', p, ID)).toBe(true);
     }
@@ -32,6 +34,10 @@ describe('isStudentAllowed (RBAC do aluno, deny-by-default)', () => {
       '/exercises/5', // detalhe nao esta na allowlist (so a listagem)
       '/trainings/5', // idem
       '/students', // listagem geral de alunos
+      '/companies/1', // detalhe da filial nao esta liberado (so a listagem)
+      '/companies/1/children/points/2', // detalhe de pontuacao
+      '/companies/1/children/purchases', // demais sub-recursos da filial
+      '/companies/1/children/student-plans', // planos de outros alunos
     ]) {
       expect(isStudentAllowed('GET', p, ID)).toBe(false);
     }

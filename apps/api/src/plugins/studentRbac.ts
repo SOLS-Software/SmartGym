@@ -17,6 +17,13 @@ export const STUDENT_GET_ALLOW: RegExp[] = [
   /^\/trainings\/\d+\/related\/exercises$/,
   /^\/clients\/\d+$/,
   /^\/clients\/\d+\/theme$/,
+  // Tela de Pontuacoes do aluno: precisa das filiais para o seletor e do
+  // catalogo de pontos da filial escolhida. Sem estes dois a tela abria
+  // mostrando "Acesso nao autorizado." — estava no menu e nunca funcionou.
+  // Ambos sao dados da propria academia (escopo do tenant, filtrado por
+  // idCliente na rota); nao expoem nenhum dado de outro aluno.
+  /^\/companies$/,
+  /^\/companies\/\d+\/children\/points$/,
 ];
 
 // RBAC v1 para o papel aluno: deny-by-default.
