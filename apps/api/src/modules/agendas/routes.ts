@@ -46,6 +46,23 @@ const statusBodySchema = z.object({
   boInativo: z.union([z.number(), z.boolean(), z.string()]),
 });
 
+// Resolve de quem e a inscricao em enroll/unenroll.
+//
+// O RBAC do aluno libera estas duas rotas so pelo caminho — o dono vem no
+// corpo, que ele nao inspeciona. Sem esta trava um aluno autenticado poderia
+// inscrever ou (pior) cancelar a inscricao de qualquer outro aluno do mesmo
+// cliente, so trocando o idAluno do corpo. Para o papel aluno o corpo e
+// ignorado: vale o idAluno do token. Funcionario/gestor seguem podendo agir
+// em nome de terceiros (uso legitimo da recepcao).
+function resolveEnrollmentOwner(
+  request: { user: { role: string; idAluno: number | null } },
+  bodyIdAluno: number | string,
+): number {
+  if (request.user.role !== 'student') return Number(bodyIdAluno);
+  // Token de aluno sem idAluno vira 0 e cai no assertValidId ("Aluno inválido.").
+  return Number(request.user.idAluno);
+}
+
 // Clampa o limite de paginacao entre 1 e 1000 (padrao 1000).
 function clampLimit(value?: string) {
   if (!value) return 1000;
@@ -221,7 +238,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
     }
     try {
       const idAgenda = Number(request.params.id);
-      const idAluno = Number(request.body.idAluno);
+      const idAluno = resolveEnrollmentOwner(request, request.body.idAluno);
       assertValidId(idAgenda, 'Agenda inválida.');
       assertValidId(idAluno, 'Aluno inválido.');
 
@@ -289,7 +306,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
     }
     try {
       const idAgenda = Number(request.params.id);
-      const idAluno = Number(request.body.idAluno);
+      const idAluno = resolveEnrollmentOwner(request, request.body.idAluno);
       assertValidId(idAgenda, 'Agenda inválida.');
       assertValidId(idAluno, 'Aluno inválido.');
 

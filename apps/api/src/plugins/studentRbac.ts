@@ -42,6 +42,18 @@ export function isStudentAllowed(
     );
   }
 
+  // Inscricao/cancelamento pela tela de Calendario e pela Agenda. Sao a mesma
+  // acao das rotas /students/:id/activity-schedules/*, so que enderecadas pela
+  // agenda; ficaram de fora da allowlist e o aluno conseguia se inscrever mas
+  // nunca cancelar (403 no botao "Cancelar inscricao").
+  //
+  // O dono da inscricao vem no CORPO (idAluno), que este modulo nao enxerga —
+  // liberar so a rota permitiria mexer na inscricao de outro aluno. A posse e
+  // conferida no handler (modules/agendas/routes.ts), que ignora o idAluno do
+  // corpo quando o papel e aluno e usa o do token.
+  if (method === 'POST' && /^\/agenda-sessions\/\d+\/enroll$/.test(pathname)) return true;
+  if (method === 'DELETE' && /^\/agenda-sessions\/\d+\/unenroll$/.test(pathname)) return true;
+
   if (method === 'GET') {
     return STUDENT_GET_ALLOW.some((re) => re.test(pathname));
   }

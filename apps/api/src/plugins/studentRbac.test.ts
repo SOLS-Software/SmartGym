@@ -52,6 +52,17 @@ describe('isStudentAllowed (RBAC do aluno, deny-by-default)', () => {
     expect(isStudentAllowed('PUT', '/students/8', 7)).toBe(false); // outro aluno
   });
 
+  it('inscricao e cancelamento pela agenda — regressao: cancelar dava 403', () => {
+    expect(isStudentAllowed('POST', '/agenda-sessions/12/enroll', ID)).toBe(true);
+    expect(isStudentAllowed('DELETE', '/agenda-sessions/12/unenroll', ID)).toBe(true);
+    // Metodo trocado nao vale, e nenhuma outra acao na agenda e liberada.
+    expect(isStudentAllowed('DELETE', '/agenda-sessions/12/enroll', ID)).toBe(false);
+    expect(isStudentAllowed('POST', '/agenda-sessions/12/unenroll', ID)).toBe(false);
+    expect(isStudentAllowed('POST', '/agenda-sessions/12/students/9/presence', ID)).toBe(false);
+    expect(isStudentAllowed('DELETE', '/agenda-sessions/12', ID)).toBe(false);
+    expect(isStudentAllowed('POST', '/agenda-sessions', ID)).toBe(false);
+  });
+
   it('sessao: verify sempre liberado; logout apenas via POST', () => {
     expect(isStudentAllowed('GET', '/auth/verify', ID)).toBe(true);
     expect(isStudentAllowed('POST', '/auth/logout', ID)).toBe(true);
