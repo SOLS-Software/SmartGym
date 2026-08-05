@@ -5,9 +5,9 @@ import { Activity, BadgeCheck, CalendarPlus, CreditCard, Dumbbell, UserCheck, Us
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 
 type DashboardStats = {
-  totalStudents: number;
   activeStudents: number;
-  activePlans: number;
+  inactiveStudents: number;
+  catalogPlans: number;
 };
 
 type QuickAction = {
@@ -48,13 +48,14 @@ export function EmployeeDashboard({ employeeName, onNavigate }: EmployeeDashboar
       const students = studentsRes.ok ? ((await studentsRes.json()) as Array<{ id: number; boInativo: boolean }>) : [];
       const plans = plansRes.ok ? ((await plansRes.json()) as Array<{ id: number; boInativo: boolean }>) : [];
 
+      const active = students.filter((s) => s.boInativo === false).length;
       setStats({
-        totalStudents: students.length,
-        activeStudents: students.filter((s) => s.boInativo === false).length,
-        activePlans: plans.filter((p) => p.boInativo === false).length,
+        activeStudents: active,
+        inactiveStudents: students.length - active,
+        catalogPlans: plans.filter((p) => p.boInativo === false).length,
       });
     } catch {
-      setStats({ totalStudents: 0, activeStudents: 0, activePlans: 0 });
+      setStats({ activeStudents: 0, inactiveStudents: 0, catalogPlans: 0 });
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +68,7 @@ export function EmployeeDashboard({ employeeName, onNavigate }: EmployeeDashboar
   return (
     <>
       <header className="module-page-header">
-        <p className="section-label">Painel</p>
+        <p className="section-label">Início</p>
         <h2 className="module-page-title">
           {greeting}, {firstName}!
         </h2>
@@ -75,26 +76,38 @@ export function EmployeeDashboard({ employeeName, onNavigate }: EmployeeDashboar
 
       <div className="dashboard-content">
         <section className="dashboard-stats" aria-label="Métricas">
+          {/* Concordancia: com 1 registro os rotulos saiam como "1 Alunos
+              ativos". O painel do aluno ja fazia isso em "dia(s) seguido(s)". */}
           <StatCard
             icon={Users}
-            label="Alunos ativos"
+            label={stats?.activeStudents === 1 ? 'Aluno ativo' : 'Alunos ativos'}
             loading={isLoading}
             onClick={() => onNavigate('Matrículas')}
             value={stats?.activeStudents}
           />
+          {/* Era "Total de alunos" — 7 ao lado de "Alunos ativos: 6", dois cards
+              para quase o mesmo numero, os dois levando para Matriculas. O dado
+              que faltava era justamente o complemento; o total continua sendo a
+              soma dos dois, visivel na propria tela. */}
           <StatCard
             icon={BadgeCheck}
-            label="Total de alunos"
+            label={stats?.inactiveStudents === 1 ? 'Aluno inativo' : 'Alunos inativos'}
             loading={isLoading}
             onClick={() => onNavigate('Matrículas')}
-            value={stats?.totalStudents}
+            value={stats?.inactiveStudents}
           />
+          {/* Era "Planos ativos", contando /plans — o catalogo da academia, nao
+              as matriculas. Com 7 alunos o painel dizia "9 planos ativos" e
+              contradizia o Relatorio ("Matriculas ativas: 6") a um clique dali.
+              O numero esta certo, o rotulo e que mentia. Nao virou contagem de
+              matriculas porque nao existe rota agregada — o Relatorio precisa
+              buscar aluno a aluno, caro demais para a tela de entrada. */}
           <StatCard
             icon={CreditCard}
-            label="Planos ativos"
+            label={stats?.catalogPlans === 1 ? 'Plano no catálogo' : 'Planos no catálogo'}
             loading={isLoading}
             onClick={() => onNavigate('Planos')}
-            value={stats?.activePlans}
+            value={stats?.catalogPlans}
           />
           {/* O card "Check-ins hoje" foi removido: `todayCheckIns` era fixado em
               0 no loadStats() (nao existe endpoint agregado de check-ins), entao
