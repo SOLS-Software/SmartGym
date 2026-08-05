@@ -8,5 +8,6 @@ build
 .env.*
 !.env.example
 *.log
+*.tsbuildinfo
 .claude
 /generated/prisma
