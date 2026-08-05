@@ -679,10 +679,12 @@ export function StudentCalendarView({
     today.setHours(0, 0, 0, 0);
     const eventDay = new Date(event.date);
     eventDay.setHours(0, 0, 0, 0);
-    // Inclui HOJE: a API recusa inscrever e cancelar em aula com data <= hoje
-    // (409). Com `<` a tela mostrava os botoes para as aulas de hoje e o aluno
-    // so descobria a recusa depois de clicar. AgendaView ja usava `<=`.
-    const isPast = eventDay.getTime() <= today.getTime();
+    // A API recusa inscrever e cancelar em aula com data <= hoje (409). Sao
+    // dois casos diferentes para quem le a tela: a de ontem ja aconteceu, a de
+    // hoje ainda vai acontecer mas esta fechada para mudancas. Esconder o botao
+    // nos dois casos deixava o aluno sem entender por que a acao sumiu.
+    const isBeforeToday = eventDay.getTime() < today.getTime();
+    const isToday = eventDay.getTime() === today.getTime();
 
     return (
       <div className={`agenda-session-card ${isPresent ? 'present' : isEnrolled ? 'enrolled' : ''} ${isFull && !isEnrolled ? 'full' : ''}`} key={event.id}>
@@ -725,7 +727,11 @@ export function StudentCalendarView({
                 <span className="agenda-enrolled-badge">
                   <CheckCircle size={13} /> Inscrito
                 </span>
-                {!isPast && (
+                {isToday ? (
+                  <span className="agenda-session-note">
+                    Não é possível cancelar no dia da aula
+                  </span>
+                ) : !isBeforeToday ? (
                   <button
                     className="ghost-button danger"
                     disabled={isWorking}
@@ -734,10 +740,14 @@ export function StudentCalendarView({
                   >
                     {isWorking ? 'Cancelando...' : 'Cancelar inscrição'}
                   </button>
-                )}
+                ) : null}
               </>
-            ) : isPast ? (
+            ) : isBeforeToday ? (
               null
+            ) : isToday ? (
+              <span className="agenda-session-note">
+                Inscrições encerradas para hoje
+              </span>
             ) : isFull ? (
               <span className="agenda-full-badge">
                 <XCircle size={13} /> Lotado
@@ -795,7 +805,7 @@ export function StudentCalendarView({
   return (
     <>
     <header className="module-page-header">
-      <p className="section-label">Atividade</p>
+      <p className="section-label">Aulas</p>
       <h2 className="module-page-title">CALENDÁRIO</h2>
     </header>
     <div className="form-view student-calendar-view">

@@ -351,7 +351,11 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
                   sessionDay.setHours(0, 0, 0, 0);
                   const todayDay = new Date();
                   todayDay.setHours(0, 0, 0, 0);
-                  const isPast = sessionDay.getTime() <= todayDay.getTime();
+                  // Ver StudentCalendarView: a API recusa mexer em aula com
+                  // data <= hoje. "Ontem" e "hoje" precisam de textos
+                  // diferentes — some o botao sem explicar, caso contrario.
+                  const isBeforeToday = sessionDay.getTime() < todayDay.getTime();
+                  const isToday = sessionDay.getTime() === todayDay.getTime();
 
                   return (
                     <div className={`agenda-session-card ${isPresent ? 'present' : isEnrolled ? 'enrolled' : ''} ${isFull && !isEnrolled ? 'full' : ''}`} key={session.id}>
@@ -392,7 +396,11 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
                             <span className="agenda-enrolled-badge">
                               <CheckCircle size={13} /> Inscrito
                             </span>
-                            {!isPast && (
+                            {isToday ? (
+                              <span className="agenda-session-note">
+                                Não é possível cancelar no dia da aula
+                              </span>
+                            ) : !isBeforeToday ? (
                               <button
                                 className="ghost-button danger"
                                 disabled={isWorking}
@@ -401,10 +409,14 @@ export function AgendaView({ userType, studentId }: AgendaViewProps) {
                               >
                                 {isWorking ? 'Cancelando...' : 'Cancelar inscrição'}
                               </button>
-                            )}
+                            ) : null}
                           </>
-                        ) : isPast ? (
+                        ) : isBeforeToday ? (
                           null
+                        ) : isToday ? (
+                          <span className="agenda-session-note">
+                            Inscrições encerradas para hoje
+                          </span>
                         ) : isFull ? (
                           <span className="agenda-full-badge">
                             <XCircle size={13} /> Lotado

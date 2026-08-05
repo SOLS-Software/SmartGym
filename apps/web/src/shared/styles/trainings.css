@@ -48,7 +48,13 @@
 .my-training-last-grid {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Eram 4 colunas fixas. O card divide a linha com o de "Iniciar treino",
+     entao em telas intermediarias (~900px) com o menu aberto ele fica com
+     ~262px e as colunas caiam para 48px: "Superior" virava "Su/pe/rio/r" e a
+     data quebrava em seis linhas. O breakpoint de 1 coluna so agia abaixo de
+     760px, deixando toda a faixa do meio quebrada. Com auto-fit as colunas
+     reflui sozinhas quando nao cabem quatro. */
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
 }
 
 .my-training-last-grid div {
@@ -583,6 +589,14 @@ button.exercise-card:hover {
   background: var(--color-surface-alt);
   overflow: hidden;
   width: 100%;
+}
+
+/* Exercicio sem capa cadastrada: a area 4/3 nao tem o que mostrar, entao vira
+   uma tarja fina. O card cai de ~190px para ~70px e cabem varias vezes mais
+   por tela, sem prejudicar quem cadastrou foto. */
+.exercise-card-photo.is-empty {
+  aspect-ratio: auto;
+  height: 1.75rem;
 }
 
 .exercise-card-photo img {

@@ -1474,6 +1474,16 @@ html.dark .ghost-button.success {
   padding: 0.375rem 0.625rem;
 }
 
+/* Motivo de a acao nao estar disponivel (ex.: aula de hoje). Nao e um badge de
+   estado como os irmaos acima — e uma explicacao, entao fica em peso normal e
+   sem fundo, para nao competir com "Inscrito"/"Lotado" na mesma linha. */
+.agenda-session-note {
+  align-self: center;
+  color: var(--color-muted-strong);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
 .agenda-filter-bar {
   align-items: flex-end;
   display: flex;

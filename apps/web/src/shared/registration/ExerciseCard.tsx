@@ -10,14 +10,20 @@ type ExerciseCardProps = {
 };
 
 export function ExerciseCard({ exercise, meta, onClick }: ExerciseCardProps) {
+  // Sem capa o card virava uma caixa de ~190px com 85% de placeholder cinza
+  // identico ao dos vizinhos. Numa base sem foto nenhuma isso vira um mural de
+  // retangulos iguais (86 exercicios = ~8000px de rolagem) onde so a busca
+  // ajuda a achar algo. Sem capa a faixa da foto encolhe para uma tarja fina
+  // com o icone; com capa o card continua exatamente como era.
+  const hasCover = Boolean(exercise.coverImageUrl);
   const content = (
     <>
-      <div className="exercise-card-photo">
-        {exercise.coverImageUrl ? (
-          <img alt={exercise.dsExercicio} src={exercise.coverImageUrl} />
+      <div className={`exercise-card-photo${hasCover ? '' : ' is-empty'}`}>
+        {hasCover ? (
+          <img alt={exercise.dsExercicio} src={exercise.coverImageUrl!} />
         ) : (
           <div className="exercise-card-photo-placeholder">
-            <Dumbbell size={28} />
+            <Dumbbell size={16} />
           </div>
         )}
       </div>
