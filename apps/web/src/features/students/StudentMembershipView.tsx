@@ -8,6 +8,7 @@ import {
 } from '../../shared/registration/registrationHelpers';
 import type { Student, StudentFile } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { formatPhone } from '@smartgym/shared';
 
 type StudentMembershipViewProps = {
   studentId: number | null;
@@ -55,9 +56,25 @@ function isPaidStatus(payment: StudentPaymentView) {
   return payment.statusPagamento?.dsStatusPagamento?.toLowerCase() === 'pago';
 }
 
-function formatPhone(ddd: number | null | undefined, phone: string | null | undefined) {
+// Cobranca nao paga cuja data de vencimento ja passou. Antes a tela dava o
+// mesmo peso visual a uma parcela que vence daqui a duas semanas e a uma
+// vencida ha dois meses — as duas saiam como "Pendente" num badge neutro.
+function isOverdue(payment: StudentPaymentView) {
+  if (isPaidStatus(payment) || !payment.dtVencimento) return false;
+  const due = new Date(payment.dtVencimento);
+  if (Number.isNaN(due.getTime())) return false;
+  due.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return due.getTime() < today.getTime();
+}
+
+function formatPhoneDisplay(ddd: number | null | undefined, phone: string | null | undefined) {
   if (!phone) return '-';
-  return ddd ? `(${ddd}) ${phone}` : phone;
+  // Sem o formatPhone compartilhado saia "(11) 967967158" — um terceiro
+  // formato de telefone, diferente do usado no resto do sistema.
+  const formatted = formatPhone(phone);
+  return ddd ? `(${ddd}) ${formatted}` : formatted;
 }
 
 function formatMoney(value: number | string | null | undefined) {
@@ -98,6 +115,7 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
     ?? [];
   const latestValue = activePlan?.plano?.planoValores?.[0] ?? null;
   const pendingPaymentsCount = payments.filter((payment) => !isPaidStatus(payment)).length;
+  const overduePaymentsCount = payments.filter(isOverdue).length;
 
   useEffect(() => {
     if (!studentId) {
@@ -125,16 +143,16 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
       ]);
 
       if (!studentResponse.ok) {
-        await getApiError(studentResponse, 'Nao foi possivel carregar sua matricula.');
+        await getApiError(studentResponse, 'Não foi possível carregar sua matrícula.');
       }
       if (!plansResponse.ok) {
-        await getApiError(plansResponse, 'Nao foi possivel carregar seu plano.');
+        await getApiError(plansResponse, 'Não foi possível carregar seu plano.');
       }
       if (!paymentsResponse.ok) {
-        await getApiError(paymentsResponse, 'Nao foi possivel carregar seus pagamentos.');
+        await getApiError(paymentsResponse, 'Não foi possível carregar seus pagamentos.');
       }
       if (!filesResponse.ok) {
-        await getApiError(filesResponse, 'Nao foi possivel carregar sua foto.');
+        await getApiError(filesResponse, 'Não foi possível carregar sua foto.');
       }
 
       const nextStudent = (await studentResponse.json()) as Student;
@@ -174,9 +192,9 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
     return (
       <div className="form-view">
         <div className="form-heading">
-          <p className="section-label">Matricula</p>
+          <p className="section-label">Matrícula</p>
           <h2>Sem acesso</h2>
-          <p>Faca login como aluno para visualizar sua matricula.</p>
+          <p>Faça login como aluno para visualizar sua matrícula.</p>
         </div>
       </div>
     );
@@ -185,7 +203,7 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
   return (
     <>
     <header className="module-page-header">
-      <p className="section-label">Alunos</p>
+      <p className="section-label">Minha conta</p>
       <h2 className="module-page-title">MATRÍCULA</h2>
       <span className={`status-badge ${activePlan?.boInativo === false ? 'active' : 'inactive'}`}>
         {activePlan?.boInativo === false ? 'Plano ativo' : 'Sem plano ativo'}
@@ -225,7 +243,7 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
             </div>
             <div>
               <span>Contato</span>
-              <strong>{formatPhone(student?.nrDDD, student?.nrContato)}</strong>
+              <strong>{formatPhoneDisplay(student?.nrDDD, student?.nrContato)}</strong>
             </div>
             <div>
               <span>Email</span>
@@ -253,7 +271,7 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
               <strong>{activePlan?.nrDiaPagamento ?? '-'}</strong>
             </div>
             <div>
-              <span>Admissao</span>
+              <span>Admissão</span>
               <strong>{activePlan?.dtAdmissao ? formatDateDisplay(activePlan.dtAdmissao) : '-'}</strong>
             </div>
             <div>
@@ -271,7 +289,11 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
                     <span key={item.id}>{getText(item.atividade, 'dsAtividade')}</span>
                   ))
                 ) : (
-                  <p>Nenhuma atividade vinculada ao plano.</p>
+                  // Plano sem atividades vinculadas libera TODAS as aulas (e
+                  // assim que a regra de inscricao funciona). "Nenhuma atividade
+                  // vinculada" fazia o aluno ler o oposto: que nao tinha acesso
+                  // a nada.
+                  <p>Todas as aulas da academia estão liberadas no seu plano.</p>
                 )}
               </div>
             </section>
@@ -284,7 +306,7 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
                     <span key={item.id}>{getText(item.empresa, 'dsEmpresa')}</span>
                   ))
                 ) : (
-                  <p>Acesso padrao da academia.</p>
+                  <p>Acesso padrão da academia.</p>
                 )}
               </div>
             </section>
@@ -303,7 +325,7 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
             </section>
 
             <section>
-              <h4>Arquivos da matricula</h4>
+              <h4>Arquivos da matrícula</h4>
               <div className="membership-chip-list">
                 <span>{files.length} arquivo(s)</span>
                 {activePlan?.promocaoPlano?.promocao ? (
@@ -321,8 +343,14 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
             <p className="section-label">Pagamentos</p>
             <h3>Histórico e próximas cobranças</h3>
           </div>
-          {pendingPaymentsCount > 0 ? (
-            <span className="status-badge pending">{pendingPaymentsCount} pendente(s)</span>
+          {overduePaymentsCount > 0 ? (
+            <span className="status-badge danger">
+              {overduePaymentsCount === 1 ? '1 cobrança vencida' : `${overduePaymentsCount} cobranças vencidas`}
+            </span>
+          ) : pendingPaymentsCount > 0 ? (
+            <span className="status-badge pending">
+              {pendingPaymentsCount === 1 ? '1 cobrança em aberto' : `${pendingPaymentsCount} cobranças em aberto`}
+            </span>
           ) : (
             <span className="status-badge success">Em dia</span>
           )}
@@ -339,19 +367,31 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
               <span role="columnheader">Pago em</span>
               <span role="columnheader">Status</span>
             </div>
-            {payments.map((payment) => (
-              <div className="membership-payments-row" key={payment.id} role="row">
-                <span role="cell">{payment.alunoPlano?.plano?.dsPlano ?? '-'}</span>
-                <span role="cell">{payment.dtVencimento ? formatDateDisplay(payment.dtVencimento) : '-'}</span>
-                <span role="cell">{formatMoney(payment.vlPago ?? payment.vlPrevisto)}</span>
-                <span role="cell">{payment.dtPagamento ? formatDateDisplay(payment.dtPagamento) : '-'}</span>
-                <span role="cell">
-                  <span className={`status-badge ${isPaidStatus(payment) ? 'success' : 'pending'}`}>
-                    {payment.statusPagamento?.dsStatusPagamento ?? '-'}
+            {payments.map((payment) => {
+              const paid = isPaidStatus(payment);
+              const overdue = isOverdue(payment);
+              return (
+                <div className="membership-payments-row" key={payment.id} role="row">
+                  <span role="cell">{payment.alunoPlano?.plano?.dsPlano ?? '-'}</span>
+                  <span role="cell">
+                    {payment.dtVencimento ? formatDateDisplay(payment.dtVencimento) : 'A definir'}
                   </span>
-                </span>
-              </div>
-            ))}
+                  <span role="cell">{formatMoney(payment.vlPago ?? payment.vlPrevisto)}</span>
+                  {/* So mostra data de pagamento em cobranca efetivamente paga.
+                      A base tem parcelas "Pendente" com dtPagamento preenchida,
+                      e a tela exibia "Pago em 20/06/2026" ao lado do badge
+                      "Pendente" — o aluno lia duas informacoes que se negam. */}
+                  <span role="cell">
+                    {paid && payment.dtPagamento ? formatDateDisplay(payment.dtPagamento) : '-'}
+                  </span>
+                  <span role="cell">
+                    <span className={`status-badge ${paid ? 'success' : overdue ? 'danger' : 'pending'}`}>
+                      {overdue ? 'Vencido' : payment.statusPagamento?.dsStatusPagamento ?? '-'}
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

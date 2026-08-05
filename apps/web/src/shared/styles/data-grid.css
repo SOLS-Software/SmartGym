@@ -297,6 +297,18 @@ html.dark .status-badge.promotion {
   color: var(--color-danger, #c53030);
 }
 
+/* Cobranca vencida: precisa se destacar de "pending" (amarelo), que cobre a
+   parcela que ainda vai vencer. Sem isso as duas saiam iguais. */
+.status-badge.danger {
+  background: var(--color-danger-bg, #fde8e8);
+  color: var(--color-danger, #c53030);
+}
+
+html.dark .status-badge.danger {
+  background: rgba(220, 38, 38, 0.15);
+  color: #f87171;
+}
+
 .grid-header-sortable {
   display: inline-flex;
   align-items: center;
