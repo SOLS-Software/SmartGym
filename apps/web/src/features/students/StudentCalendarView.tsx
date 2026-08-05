@@ -679,7 +679,10 @@ export function StudentCalendarView({
     today.setHours(0, 0, 0, 0);
     const eventDay = new Date(event.date);
     eventDay.setHours(0, 0, 0, 0);
-    const isPast = eventDay.getTime() < today.getTime();
+    // Inclui HOJE: a API recusa inscrever e cancelar em aula com data <= hoje
+    // (409). Com `<` a tela mostrava os botoes para as aulas de hoje e o aluno
+    // so descobria a recusa depois de clicar. AgendaView ja usava `<=`.
+    const isPast = eventDay.getTime() <= today.getTime();
 
     return (
       <div className={`agenda-session-card ${isPresent ? 'present' : isEnrolled ? 'enrolled' : ''} ${isFull && !isEnrolled ? 'full' : ''}`} key={event.id}>

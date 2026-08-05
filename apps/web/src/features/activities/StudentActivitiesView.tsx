@@ -392,7 +392,10 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
             <div className="student-activity-schedule-list">
               {openDayGroup.group.schedules.map((schedule) => {
                 const professionals = getProfessionals(schedule);
-                const category = getText(schedule.categoria, 'dsCategoria');
+                // Sem fallback "-": o elemento so existe se houver categoria.
+                // Um "-" sozinho e em negrito no meio do card nao informa nada,
+                // e o card ja tem horario, profissional, vagas e empresa.
+                const category = getText(schedule.categoria, 'dsCategoria', '');
                 const availableSeats = getAvailableSeats(schedule);
                 const enrolled = isStudentEnrolled(schedule, studentId);
                 const isFull = availableSeats !== null && availableSeats <= 0;
@@ -411,7 +414,7 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
                       type="checkbox"
                     />
                     <span>{formatTime(schedule.dtInicial)} ate {formatTime(schedule.dtFinal)}</span>
-                    <b>{category}</b>
+                    {category ? <b>{category}</b> : null}
                     <small>
                       {professionals.length > 0 ? professionals.join(', ') : 'Profissional nao informado'}
                     </small>
