@@ -207,6 +207,80 @@ Os campos "Pesquisar" das grids não têm `maxLength`.
 
 ---
 
+## Perfil ALUNO — rodada 2026-08-05
+
+Testado com o usuário `Caio Dev` (aluno 2), em 1280x800 e 375x812.
+
+### Layout — limpo
+
+As 10 telas do aluno (Painel, Meu Treino, Exercícios, Matrícula, Planos, Promoções,
+Pontuações, Atividades, Agendas, Calendário) passaram nos dois tamanhos: nenhum scroll
+horizontal, nada estourando a viewport, nenhum corte de conteúdo, nenhum alvo de toque
+abaixo de 24px, todos os campos com label.
+
+O menu esconde corretamente Montar Treino, Montagem de Agenda, Calendário Empresa,
+Treino e Relatórios.
+
+| Item | Gravidade | Status |
+|---|---|---|
+| S1 — Aluno não consegue cancelar inscrição (403) | Alta | Corrigido e verificado |
+| S2 — Aluno não consegue se inscrever pelo Calendário (403) | Alta | Corrigido e verificado |
+| S3 — Botão de inscrever/cancelar aparecia em aula de hoje (409) | Média | Corrigido e verificado |
+| S4 — Categoria vazia virava um "-" solto | Baixa | Corrigido e verificado |
+
+### S1/S2 — RBAC barrava inscrição e cancelamento pela agenda
+
+`studentRbac.ts` é deny-by-default e liberava só `POST /students/:id/activity-schedules/enroll`.
+As telas de Calendário e Agenda usam outra família de rota — `/agenda-sessions/:id/enroll`
+e `/agenda-sessions/:id/unenroll` — que não estava na allowlist. Resultado: o aluno se
+inscrevia pela tela de Atividades e **nunca conseguia cancelar**; o botão "Cancelar inscrição"
+existia e sempre respondia `403 {"message":"Acesso nao autorizado."}`.
+
+**Correção:** as duas rotas entraram na allowlist. Como o dono da inscrição vem no **corpo**
+(`idAluno`) e o RBAC só enxerga método e caminho, liberar a rota sozinha permitiria a um
+aluno mexer na inscrição de outro. A posse passou a ser resolvida no handler
+(`resolveEnrollmentOwner`, `modules/agendas/routes.ts`): para o papel aluno o `idAluno` do
+corpo é **ignorado** e vale o do token. Funcionário e gestor continuam podendo agir em nome
+de terceiros.
+
+**Verificação no navegador:**
+
+| Requisição | Antes | Depois |
+|---|---|---|
+| `POST /agenda-sessions/220/enroll` | 403 | 201 |
+| `DELETE /agenda-sessions/220/unenroll` | 403 | 200 "Inscrição cancelada com sucesso." |
+| `POST .../enroll` com `idAluno: 999` no corpo | — | 201 gravando **`idAluno: 2`** (o do token) |
+
+### S3 — Botão aparecia para aula que a API recusa
+
+A API recusa inscrever e cancelar em aula com data **igual ou anterior** a hoje (409).
+`StudentCalendarView.tsx` calculava `isPast` com `<`, então nas aulas **de hoje** mostrava
+os botões e o aluno só descobria a recusa depois de clicar. `AgendaView.tsx` já usava `<=`.
+Alinhado ao servidor.
+
+### S4 — Categoria vazia
+
+`StudentActivitiesView.tsx` renderizava `<b>-</b>` no meio do card quando a aula não tinha
+categoria — 36 das 87 sessões do período. O elemento agora só existe quando há categoria
+(mesmo padrão do `StudentCalendarView`). Confirmado nos dois casos: some nas Zumba (sem
+categoria) e continua aparecendo nas JiuJitsu ("Sub 20").
+
+### Não são bugs
+
+- Botão "Inscrever nas aulas" `disabled` com 0 selecionados — comportamento correto.
+- Checkbox de 13x13px dentro de um `<label>` de 908x94px: o alvo real é a linha inteira.
+- Truncamento de evento no calendário: `text-overflow: ellipsis` proposital, com o detalhe
+  completo no painel lateral.
+- "Dois DELETE por clique": artefato da minha própria instrumentação (`window.fetch`
+  embrulhado várias vezes). Com interceptador limpo é 1 requisição.
+
+### Observação de UX (não corrigido)
+
+Inscrever-se acontece em **Atividades**, cancelar fica em **Calendário**. As duas metades da
+mesma ação estão em telas diferentes.
+
+---
+
 ## Pendência de limpeza
 
 Registro de teste criado com autorização, **não removido**:
@@ -218,6 +292,18 @@ Registro de teste criado com autorização, **não removido**:
 ```sql
 DELETE FROM "tb_Empresas" WHERE id IN (6, 9);
 ```
+
+Inscrição de teste do aluno 2 na agenda 219 (Aula Zumba de 05/08), criada na rodada
+anterior. **Não removida**: a aula caiu para "hoje" e a regra de negócio impede cancelar
+no dia — corretamente. Só sai por SQL:
+
+```sql
+UPDATE "tb_AlunoAtividadeAgendas" SET "boInativo" = true WHERE id = 23;
+```
+
+As inscrições 24 e 25 (agenda 220, criadas na verificação desta rodada) já foram
+canceladas pela própria tela — estão com `boInativo = true`, que é o estado normal de
+qualquer inscrição cancelada.
 
 Observação: a base já continha outros registros aparentemente de teste anteriores
 (`__QA_GEO__`, `teste do gustinha`, aluno `Sessão não identificada. Faça login novamente.`).
