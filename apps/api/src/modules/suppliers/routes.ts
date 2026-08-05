@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId, normalizeFornecedorPayload } from '../../shared/normalize.js';
 import type { FornecedorPayload } from '../../shared/api-types.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 const listQuerySchema = z.object({
   search: z.string().max(200).optional(),
@@ -54,7 +55,7 @@ export async function registerSupplierRoutes(app: FastifyInstance) {
       return reply.code(201).send(supplier);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar fornecedor.',
+        message: clientErrorMessage(error, 'Erro ao criar fornecedor.'),
       });
     }
   });
@@ -74,7 +75,7 @@ export async function registerSupplierRoutes(app: FastifyInstance) {
       return prisma.fornecedor.update({ where: { id }, data });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar fornecedor.',
+        message: clientErrorMessage(error, 'Erro ao atualizar fornecedor.'),
       });
     }
   });

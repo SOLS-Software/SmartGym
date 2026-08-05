@@ -5,6 +5,7 @@ import { Prisma } from '@smartgym/db';
 import { prisma } from '../../shared/prisma.js';
 import { normalizeLocalidadePayload, assertValidId } from '../../shared/normalize.js';
 import type { LocalidadePayload } from '../../shared/api-types.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 // tb_Localidades tem a coluna "geoLocalidade" (PostGIS geometry), que o Prisma
 // mapeia como Unsupported e nao consegue ler/escrever pelo client normal.
@@ -129,7 +130,7 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
       };
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao buscar coordenadas.',
+        message: clientErrorMessage(error, 'Erro ao buscar coordenadas.'),
       });
     }
   });
@@ -174,7 +175,7 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
       return reply.code(201).send(rows[0]);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar localidade.',
+        message: clientErrorMessage(error, 'Erro ao criar localidade.'),
       });
     }
   });
@@ -210,7 +211,7 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
       return rows[0];
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar localidade.',
+        message: clientErrorMessage(error, 'Erro ao atualizar localidade.'),
       });
     }
   });

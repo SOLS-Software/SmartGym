@@ -5,6 +5,7 @@ import { prisma } from '../../shared/prisma.js';
 import { assertValidId, optionalNumber, requiredText, optionalText, getMultipartFieldValue } from '../../shared/normalize.js';
 import { getClientSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { assertAllowedUploadType, assertUploadBuffer, getClientFilePath } from '../../shared/files.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 // Paginacao de listagens: aceita ?limit= com clamp em 1..1000 (default 1000).
 const limitQuery = z.coerce
@@ -98,7 +99,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       });
       return reply.code(201).send(cliente);
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar cliente.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar cliente.') });
     }
   });
 
@@ -113,7 +114,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
         data: { dsCliente, caCNPJ: optionalText(request.body.caCNPJ) || null, boInativo: toBool(request.body.boInativo) },
       });
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar cliente.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao atualizar cliente.') });
     }
   });
 
@@ -147,7 +148,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
         take: query.data.limit,
       });
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao listar empresas.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao listar empresas.') });
     }
   });
 
@@ -167,7 +168,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       if (!tema) return reply.code(204).send();
       return tema;
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao buscar tema.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao buscar tema.') });
     }
   });
 
@@ -186,7 +187,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       });
       return tema;
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao salvar tema.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao salvar tema.') });
     }
   });
 
@@ -203,7 +204,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       if (!query.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
       return prisma.dominioCorporativo.findMany({ where: { idCliente: id }, orderBy: { urlDominio: 'asc' }, take: query.data.limit });
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao listar dominios.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao listar dominios.') });
     }
   });
 
@@ -218,7 +219,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       });
       return reply.code(201).send(dominio);
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar dominio.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar dominio.') });
     }
   });
 
@@ -235,7 +236,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
         data: { urlDominio: urlDominio.toLowerCase(), boSubdominio: toBool(request.body.boSubdominio ?? true), boAtivo: toBool(request.body.boAtivo ?? true) },
       });
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar dominio.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao atualizar dominio.') });
     }
   });
 
@@ -250,7 +251,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       if (!body.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
       return prisma.dominioCorporativo.update({ where: { id: domainId, idCliente: id }, data: { boAtivo: toBool(body.data.boAtivo ?? true) } });
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao alterar status do dominio.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao alterar status do dominio.') });
     }
   });
 
@@ -271,7 +272,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
         take: query.data.limit,
       });
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao listar arquivos do cliente.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao listar arquivos do cliente.') });
     }
   });
 
@@ -308,7 +309,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
 
       return reply.code(201).send(record);
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao enviar arquivo do cliente.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao enviar arquivo do cliente.') });
     }
   });
 
@@ -332,7 +333,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
 
       return { url: data.signedUrl, expiresIn: 60 * 5 };
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao gerar link do arquivo.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao gerar link do arquivo.') });
     }
   });
 
@@ -356,7 +357,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       await prisma.clienteArquivo.update({ where: { id: fileId }, data: { boInativo: true } });
       return reply.code(204).send();
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao remover arquivo do cliente.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao remover arquivo do cliente.') });
     }
   });
 }

@@ -8,6 +8,7 @@ import {
   type ControlidDeviceInfo,
   type ControlidNormalizedEvent,
 } from './events.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 type CatracaPayload = {
   idEmpresa?: number | string | null;
@@ -322,7 +323,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
       return reply.code(201).send(created);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao cadastrar catraca.',
+        message: clientErrorMessage(error, 'Erro ao cadastrar catraca.'),
       });
     }
   });
@@ -370,7 +371,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
         return prisma.catraca.update({ where: { id }, data });
       } catch (error) {
         return reply.code(400).send({
-          message: error instanceof Error ? error.message : 'Erro ao atualizar catraca.',
+          message: clientErrorMessage(error, 'Erro ao atualizar catraca.'),
         });
       }
     },
@@ -401,7 +402,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
         });
       } catch (error) {
         return reply.code(400).send({
-          message: error instanceof Error ? error.message : 'Erro ao alterar status da catraca.',
+          message: clientErrorMessage(error, 'Erro ao alterar status da catraca.'),
         });
       }
     },

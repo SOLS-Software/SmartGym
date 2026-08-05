@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 type RolePayload = {
   dsCargo?: string;
@@ -241,7 +242,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       return reply.code(201).send(role);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar cargo.',
+        message: clientErrorMessage(error, 'Erro ao criar cargo.'),
       });
     }
   });
@@ -268,7 +269,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message:
-          error instanceof Error ? error.message : 'Erro ao atualizar cargo.',
+          clientErrorMessage(error, 'Erro ao atualizar cargo.'),
       });
     }
   });
@@ -330,7 +331,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         }),
       );
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar frequencia.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar frequencia.') });
     }
   });
 
@@ -350,7 +351,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         },
       });
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar frequencia.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao atualizar frequencia.') });
     }
   });
 
@@ -382,7 +383,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         await prisma.tipoCheckIn.create({ data: { dsTipoCheckIn, boInativo } }),
       );
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar tipo de check-in.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar tipo de check-in.') });
     }
   });
 
@@ -394,7 +395,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         data: { dsTipoCheckIn, boInativo },
       });
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar tipo de check-in.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao atualizar tipo de check-in.') });
     }
   });
 
@@ -428,7 +429,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const { dsNivel, boInativo } = parseBody(levelBodySchema, request.body);
       return reply.code(201).send(await prisma.nivel.create({ data: { dsNivel, boInativo } }));
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar nivel.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar nivel.') });
     }
   });
 
@@ -440,7 +441,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         data: { dsNivel, boInativo },
       });
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar nivel.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao atualizar nivel.') });
     }
   });
 
@@ -475,7 +476,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       );
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar area corporal.',
+        message: clientErrorMessage(error, 'Erro ao criar area corporal.'),
       });
     }
   });
@@ -491,7 +492,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         });
       } catch (error) {
         return reply.code(400).send({
-          message: error instanceof Error ? error.message : 'Erro ao atualizar area corporal.',
+          message: clientErrorMessage(error, 'Erro ao atualizar area corporal.'),
         });
       }
     },
@@ -527,7 +528,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const { dsUnidadeTempo, boInativo } = parseBody(timeUnitBodySchema, request.body);
       return reply.code(201).send(await prisma.unidadeTempo.create({ data: { dsUnidadeTempo, boInativo } }));
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar unidade de tempo.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar unidade de tempo.') });
     }
   });
 
@@ -539,7 +540,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         data: { dsUnidadeTempo, boInativo },
       });
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar unidade de tempo.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao atualizar unidade de tempo.') });
     }
   });
 
@@ -573,7 +574,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const { dsStatusPagamento, boInativo } = parseBody(paymentStatusBodySchema, request.body);
       return reply.code(201).send(await prisma.statusPagamento.create({ data: { dsStatusPagamento, boInativo } }));
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar status de pagamento.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar status de pagamento.') });
     }
   });
 
@@ -585,7 +586,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         data: { dsStatusPagamento, boInativo },
       });
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar status de pagamento.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao atualizar status de pagamento.') });
     }
   });
 
@@ -619,7 +620,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const { dsFormaPagamento, boInativo } = parseBody(paymentMethodBodySchema, request.body);
       return reply.code(201).send(await prisma.formaPagamento.create({ data: { dsFormaPagamento, boInativo } }));
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar forma de pagamento.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar forma de pagamento.') });
     }
   });
 
@@ -631,7 +632,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         data: { dsFormaPagamento, boInativo },
       });
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar forma de pagamento.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao atualizar forma de pagamento.') });
     }
   });
 
@@ -667,7 +668,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         data: { nmMetodoTreino, dsMetodoTreino: dsMetodoTreino ?? '', boInativo },
       }));
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar metodo de treino.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar metodo de treino.') });
     }
   });
 
@@ -679,7 +680,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         data: { nmMetodoTreino, dsMetodoTreino: dsMetodoTreino ?? '', boInativo },
       });
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar metodo de treino.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao atualizar metodo de treino.') });
     }
   });
 
@@ -713,7 +714,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const { dsTipo, boInativo } = parseBody(fileTypeBodySchema, request.body);
       return reply.code(201).send(await prisma.tipoArquivo.create({ data: { dsTipo, boInativo } }));
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao criar tipo de arquivo.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar tipo de arquivo.') });
     }
   });
 
@@ -725,7 +726,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
         data: { dsTipo, boInativo },
       });
     } catch (error) {
-      return reply.code(400).send({ message: error instanceof Error ? error.message : 'Erro ao atualizar tipo de arquivo.' });
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao atualizar tipo de arquivo.') });
     }
   });
 
@@ -780,7 +781,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       );
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar esporte.',
+        message: clientErrorMessage(error, 'Erro ao criar esporte.'),
       });
     }
   });
@@ -817,7 +818,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar esporte.',
+        message: clientErrorMessage(error, 'Erro ao atualizar esporte.'),
       });
     }
   });
@@ -897,7 +898,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       );
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar categoria.',
+        message: clientErrorMessage(error, 'Erro ao criar categoria.'),
       });
     }
   });
@@ -947,7 +948,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar categoria.',
+        message: clientErrorMessage(error, 'Erro ao atualizar categoria.'),
       });
     }
   });

@@ -21,6 +21,7 @@ import type {
   ThemeQuery,
   VerifySessionQuery,
 } from '../../shared/api-types.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 // Mascara o email cadastrado para exibicao no auto-cadastro: mostra o
 // suficiente para o titular reconhecer a propria caixa ("jo***@gm***.com")
@@ -266,7 +267,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return { message: 'Senha redefinida com sucesso. Faca login com a nova senha.' };
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao redefinir senha.',
+        message: clientErrorMessage(error, 'Erro ao redefinir senha.'),
       });
     }
   });
@@ -331,7 +332,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       };
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao buscar cadastro.',
+        message: clientErrorMessage(error, 'Erro ao buscar cadastro.'),
       });
     }
   });
@@ -413,7 +414,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return reply.code(201).send(createdUser);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar cadastro.',
+        message: clientErrorMessage(error, 'Erro ao criar cadastro.'),
       });
     }
   });
@@ -495,7 +496,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       };
     } catch (error) {
       return reply.code(500).send({
-        message: error instanceof Error ? error.message : 'Erro ao buscar tema.',
+        message: clientErrorMessage(error, 'Erro ao buscar tema.'),
       });
     }
   });

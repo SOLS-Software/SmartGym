@@ -10,6 +10,7 @@ import {
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { assertAllowedUploadType, assertUploadBuffer, getEquipamentoFilePath } from '../../shared/files.js';
 import type { EquipamentoPayload, EquipamentoManutencaoPayload } from '../../shared/api-types.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 const listQuerySchema = z.object({
   search: z.string().max(200).optional(),
@@ -90,7 +91,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       return reply.code(201).send(equipment);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar equipamento.',
+        message: clientErrorMessage(error, 'Erro ao criar equipamento.'),
       });
     }
   });
@@ -111,7 +112,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       return prisma.equipamento.update({ where: { id }, data });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar equipamento.',
+        message: clientErrorMessage(error, 'Erro ao atualizar equipamento.'),
       });
     }
   });
@@ -154,7 +155,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar arquivos do equipamento.',
+        message: clientErrorMessage(error, 'Erro ao listar arquivos do equipamento.'),
       });
     }
   });
@@ -208,7 +209,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       return reply.code(201).send(equipmentFile);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao enviar arquivo do equipamento.',
+        message: clientErrorMessage(error, 'Erro ao enviar arquivo do equipamento.'),
       });
     }
   });
@@ -249,7 +250,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       return { url: data.signedUrl, expiresIn: 60 * 5 };
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao gerar link do arquivo.',
+        message: clientErrorMessage(error, 'Erro ao gerar link do arquivo.'),
       });
     }
   });
@@ -283,7 +284,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao remover arquivo do equipamento.',
+        message: clientErrorMessage(error, 'Erro ao remover arquivo do equipamento.'),
       });
     }
   });
@@ -307,7 +308,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar manutencoes do equipamento.',
+        message: clientErrorMessage(error, 'Erro ao listar manutencoes do equipamento.'),
       });
     }
   });
@@ -331,7 +332,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       return reply.code(201).send(maintenance);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar manutencao.',
+        message: clientErrorMessage(error, 'Erro ao criar manutencao.'),
       });
     }
   });
@@ -364,7 +365,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       return prisma.equipamentoManutencao.update({ where: { id: maintenanceId }, data });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar manutencao.',
+        message: clientErrorMessage(error, 'Erro ao atualizar manutencao.'),
       });
     }
   });
@@ -434,7 +435,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao remover manutencao.',
+        message: clientErrorMessage(error, 'Erro ao remover manutencao.'),
       });
     }
   });

@@ -10,6 +10,7 @@ import type {
   ExercicioEquipamentoPayload,
   ExercisePayload,
 } from '../../shared/api-types.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 const IMAGE_EXTENSION_PATTERN = /\.(jpg|jpeg|png|gif|webp)$/i;
 
@@ -276,7 +277,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar arquivos do exercicio.',
+        message: clientErrorMessage(error, 'Erro ao listar arquivos do exercicio.'),
       });
     }
   });
@@ -327,7 +328,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       return reply.code(201).send(exerciseFile);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao enviar arquivo do exercicio.',
+        message: clientErrorMessage(error, 'Erro ao enviar arquivo do exercicio.'),
       });
     }
   });
@@ -368,7 +369,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       return { url: data.signedUrl, expiresIn: 60 * 5 };
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao gerar link do arquivo.',
+        message: clientErrorMessage(error, 'Erro ao gerar link do arquivo.'),
       });
     }
   });
@@ -402,7 +403,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao remover arquivo do exercicio.',
+        message: clientErrorMessage(error, 'Erro ao remover arquivo do exercicio.'),
       });
     }
   });
@@ -432,7 +433,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar equipamentos do exercicio.',
+        message: clientErrorMessage(error, 'Erro ao listar equipamentos do exercicio.'),
       });
     }
   });
@@ -472,7 +473,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       return reply.code(201).send(link);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao vincular equipamento ao exercicio.',
+        message: clientErrorMessage(error, 'Erro ao vincular equipamento ao exercicio.'),
       });
     }
   });
@@ -506,7 +507,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao remover equipamento do exercicio.',
+        message: clientErrorMessage(error, 'Erro ao remover equipamento do exercicio.'),
       });
     }
   });
@@ -536,7 +537,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar areas do exercicio.',
+        message: clientErrorMessage(error, 'Erro ao listar areas do exercicio.'),
       });
     }
   });
@@ -576,7 +577,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       return reply.code(201).send(link);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao vincular area ao exercicio.',
+        message: clientErrorMessage(error, 'Erro ao vincular area ao exercicio.'),
       });
     }
   });
@@ -610,7 +611,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao remover area do exercicio.',
+        message: clientErrorMessage(error, 'Erro ao remover area do exercicio.'),
       });
     }
   });

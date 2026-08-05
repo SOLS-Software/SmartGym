@@ -16,6 +16,7 @@ import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 import { assertAllowedUploadType, assertUploadBuffer, getCompanyFilePath, getPromotionFilePath } from '../../shared/files.js';
 import type { CompanyChildPayload, CompanyChildResource, CompanyPayload } from '../../shared/api-types.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 // ---------------------------------------------------------------------------
 // Company child resource config
@@ -397,7 +398,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       return reply.code(201).send({ ...company, latitude: geo.latitude, longitude: geo.longitude });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar empresa.',
+        message: clientErrorMessage(error, 'Erro ao criar empresa.'),
       });
     }
   });
@@ -427,7 +428,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       return { ...company, latitude: geo.latitude, longitude: geo.longitude };
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar empresa.',
+        message: clientErrorMessage(error, 'Erro ao atualizar empresa.'),
       });
     }
   });
@@ -472,7 +473,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar arquivos da empresa.',
+        message: clientErrorMessage(error, 'Erro ao listar arquivos da empresa.'),
       });
     }
   });
@@ -521,7 +522,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       return reply.code(201).send(companyFile);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao enviar arquivo da empresa.',
+        message: clientErrorMessage(error, 'Erro ao enviar arquivo da empresa.'),
       });
     }
   });
@@ -575,7 +576,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao alterar arquivo da empresa.',
+        message: clientErrorMessage(error, 'Erro ao alterar arquivo da empresa.'),
       });
     }
   });
@@ -612,7 +613,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       return { url: data.signedUrl, expiresIn: 60 * 5 };
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao gerar link do arquivo.',
+        message: clientErrorMessage(error, 'Erro ao gerar link do arquivo.'),
       });
     }
   });
@@ -639,7 +640,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       return prisma.empresaArquivo.update({ where: { id: fileId }, data: { boInativo: true } });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao remover arquivo da empresa.',
+        message: clientErrorMessage(error, 'Erro ao remover arquivo da empresa.'),
       });
     }
   });
@@ -663,7 +664,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar arquivos de promocao.',
+        message: clientErrorMessage(error, 'Erro ao listar arquivos de promocao.'),
       });
     }
   });
@@ -703,7 +704,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       }));
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao enviar arquivo de promocao.',
+        message: clientErrorMessage(error, 'Erro ao enviar arquivo de promocao.'),
       });
     }
   });
@@ -754,7 +755,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao alterar arquivo de promocao.',
+        message: clientErrorMessage(error, 'Erro ao alterar arquivo de promocao.'),
       });
     }
   });
@@ -780,7 +781,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       return { url: data.signedUrl, expiresIn: 60 * 5 };
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao gerar link do arquivo.',
+        message: clientErrorMessage(error, 'Erro ao gerar link do arquivo.'),
       });
     }
   });
@@ -803,7 +804,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       return prisma.promocaoArquivo.update({ where: { id: fileId }, data: { boInativo: true } });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao remover arquivo de promocao.',
+        message: clientErrorMessage(error, 'Erro ao remover arquivo de promocao.'),
       });
     }
   });
@@ -831,7 +832,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       return tema;
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao buscar tema.',
+        message: clientErrorMessage(error, 'Erro ao buscar tema.'),
       });
     }
   });
@@ -876,7 +877,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       return tema;
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao salvar tema.',
+        message: clientErrorMessage(error, 'Erro ao salvar tema.'),
       });
     }
   });
@@ -908,7 +909,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar registros filhos.',
+        message: clientErrorMessage(error, 'Erro ao listar registros filhos.'),
       });
     }
   });
@@ -969,7 +970,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       return reply.code(201).send(await config.delegate.create({ data }));
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar registro filho.',
+        message: clientErrorMessage(error, 'Erro ao criar registro filho.'),
       });
     }
   });
@@ -1033,7 +1034,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       return await config.delegate.update({ where: { id: childId }, data });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar registro filho.',
+        message: clientErrorMessage(error, 'Erro ao atualizar registro filho.'),
       });
     }
   });
@@ -1083,7 +1084,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao alterar status do registro filho.',
+        message: clientErrorMessage(error, 'Erro ao alterar status do registro filho.'),
       });
     }
   });

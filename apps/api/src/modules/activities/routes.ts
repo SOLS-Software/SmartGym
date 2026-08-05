@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { assertValidId, optionalDate, optionalNumber, requiredText } from '../../shared/normalize.js';
 import { prisma } from '../../shared/prisma.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 // Data ISO (YYYY-MM-DD) em querystring; string vazia e tratada como ausente.
 const isoDateParam = z.union([
@@ -322,7 +323,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao alterar status da atividade.',
+        message: clientErrorMessage(error, 'Erro ao alterar status da atividade.'),
       });
     }
   });
@@ -346,7 +347,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar agendas da atividade.',
+        message: clientErrorMessage(error, 'Erro ao listar agendas da atividade.'),
       });
     }
   });
@@ -431,7 +432,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao alterar status da agenda.',
+        message: clientErrorMessage(error, 'Erro ao alterar status da agenda.'),
       });
     }
   });
@@ -457,7 +458,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar funcionarios da agenda.',
+        message: clientErrorMessage(error, 'Erro ao listar funcionarios da agenda.'),
       });
     }
   });
@@ -564,7 +565,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao alterar status do funcionario da agenda.',
+        message: clientErrorMessage(error, 'Erro ao alterar status do funcionario da agenda.'),
       });
     }
   });
@@ -590,7 +591,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar alunos da agenda.',
+        message: clientErrorMessage(error, 'Erro ao listar alunos da agenda.'),
       });
     }
   });
@@ -698,7 +699,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao alterar status do aluno da agenda.',
+        message: clientErrorMessage(error, 'Erro ao alterar status do aluno da agenda.'),
       });
     }
   });

@@ -10,6 +10,7 @@ import {
 } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import type { CompanyChildPayload, TrainingPayload } from '../../shared/api-types.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 const IMAGE_EXTENSION_PATTERN = /\.(jpg|jpeg|png|gif|webp)$/i;
 
@@ -326,7 +327,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       return attachExerciseCoversToTrainingExercises(records);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar exercicios do treino.',
+        message: clientErrorMessage(error, 'Erro ao listar exercicios do treino.'),
       });
     }
   });
@@ -483,7 +484,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message:
-          error instanceof Error ? error.message : 'Erro ao alterar status do exercicio do treino.',
+          clientErrorMessage(error, 'Erro ao alterar status do exercicio do treino.'),
       });
     }
   });

@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { getComprefaceConfig, recognizeComprefaceFace } from '../../shared/compreface.js';
 import { assertAllowedUploadType, assertUploadBuffer } from '../../shared/files.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 export async function registerAccessRoutes(app: FastifyInstance) {
   app.post('/access/facial/recognize', async (request, reply) => {
@@ -70,7 +71,7 @@ export async function registerAccessRoutes(app: FastifyInstance) {
       };
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao reconhecer biometria facial.',
+        message: clientErrorMessage(error, 'Erro ao reconhecer biometria facial.'),
       });
     }
   });

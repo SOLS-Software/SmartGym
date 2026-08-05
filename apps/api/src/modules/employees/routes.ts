@@ -12,6 +12,7 @@ import {
 } from '../../shared/pii.js';
 import { getSupabaseClient, getSupabaseConfig } from '../../shared/supabase.js';
 import type { CompanyChildPayload, EmployeePayload } from '../../shared/api-types.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 const limitQuerySchema = z.object({ limit: z.coerce.number().int().optional() });
 const listEmployeesQuerySchema = limitQuerySchema.extend({ search: z.string().optional() });
@@ -87,7 +88,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       return reply.code(201).send(withDecryptedCpf(employee));
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar funcionario.',
+        message: clientErrorMessage(error, 'Erro ao criar funcionario.'),
       });
     }
   });
@@ -114,7 +115,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       return withDecryptedCpf(updated);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar funcionario.',
+        message: clientErrorMessage(error, 'Erro ao atualizar funcionario.'),
       });
     }
   });
@@ -154,7 +155,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar arquivos do funcionario.',
+        message: clientErrorMessage(error, 'Erro ao listar arquivos do funcionario.'),
       });
     }
   });
@@ -203,7 +204,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       }));
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar arquivo do funcionario.',
+        message: clientErrorMessage(error, 'Erro ao criar arquivo do funcionario.'),
       });
     }
   });
@@ -254,7 +255,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar arquivo do funcionario.',
+        message: clientErrorMessage(error, 'Erro ao atualizar arquivo do funcionario.'),
       });
     }
   });
@@ -277,7 +278,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao alterar status do arquivo do funcionario.',
+        message: clientErrorMessage(error, 'Erro ao alterar status do arquivo do funcionario.'),
       });
     }
   });
@@ -301,7 +302,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       return { url: data.signedUrl, expiresIn: 60 * 5 };
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao gerar link do arquivo.',
+        message: clientErrorMessage(error, 'Erro ao gerar link do arquivo.'),
       });
     }
   });
@@ -321,7 +322,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       return prisma.funcionarioArquivo.update({ where: { id: childId }, data: { boInativo: true } });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao remover arquivo do funcionario.',
+        message: clientErrorMessage(error, 'Erro ao remover arquivo do funcionario.'),
       });
     }
   });
@@ -372,7 +373,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       return { sessions };
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao carregar calendário do funcionário.',
+        message: clientErrorMessage(error, 'Erro ao carregar calendário do funcionário.'),
       });
     }
   });

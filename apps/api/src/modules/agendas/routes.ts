@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId } from '../../shared/normalize.js';
 import { decryptCpfValue } from '../../shared/pii.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 // Data ISO (YYYY-MM-DD) em querystring; string vazia e tratada como ausente.
 const isoDateParam = z.union([
@@ -154,7 +155,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       }));
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar agendas.',
+        message: clientErrorMessage(error, 'Erro ao listar agendas.'),
       });
     }
   });
@@ -203,7 +204,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       }));
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar alunos inscritos.',
+        message: clientErrorMessage(error, 'Erro ao listar alunos inscritos.'),
       });
     }
   });
@@ -271,7 +272,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       return reply.code(201).send(enrollment);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao realizar inscrição.',
+        message: clientErrorMessage(error, 'Erro ao realizar inscrição.'),
       });
     }
   });
@@ -325,7 +326,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       return reply.code(200).send({ message: 'Inscrição cancelada com sucesso.' });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao cancelar inscrição.',
+        message: clientErrorMessage(error, 'Erro ao cancelar inscrição.'),
       });
     }
   });
@@ -379,7 +380,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       return reply.code(201).send(checkIn);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao registrar presença.',
+        message: clientErrorMessage(error, 'Erro ao registrar presença.'),
       });
     }
   });
@@ -410,7 +411,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao alterar status da agenda.',
+        message: clientErrorMessage(error, 'Erro ao alterar status da agenda.'),
       });
     }
   });

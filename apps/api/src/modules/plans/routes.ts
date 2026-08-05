@@ -12,6 +12,7 @@ import {
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { assertAllowedUploadType, assertUploadBuffer, getPromotionFilePath } from '../../shared/files.js';
 import type { CompanyChildPayload, PlanChildResource, PlanPayload } from '../../shared/api-types.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 // ---------------------------------------------------------------------------
 // Validacao de entrada
@@ -473,7 +474,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar valores do plano.',
+        message: clientErrorMessage(error, 'Erro ao listar valores do plano.'),
       });
     }
   });
@@ -498,7 +499,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar produtos do plano.',
+        message: clientErrorMessage(error, 'Erro ao listar produtos do plano.'),
       });
     }
   });
@@ -523,7 +524,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar empresas do plano.',
+        message: clientErrorMessage(error, 'Erro ao listar empresas do plano.'),
       });
     }
   });
@@ -548,7 +549,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar atividades do plano.',
+        message: clientErrorMessage(error, 'Erro ao listar atividades do plano.'),
       });
     }
   });
@@ -575,7 +576,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
         });
       } catch (error) {
         return reply.code(400).send({
-          message: error instanceof Error ? error.message : 'Erro ao listar promocoes do plano.',
+          message: clientErrorMessage(error, 'Erro ao listar promocoes do plano.'),
         });
       }
     },
@@ -610,7 +611,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       } catch (error) {
         return reply.code(400).send({
           message:
-            error instanceof Error ? error.message : 'Erro ao listar produtos de promocao.',
+            clientErrorMessage(error, 'Erro ao listar produtos de promocao.'),
         });
       }
     },
@@ -645,7 +646,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       } catch (error) {
         return reply.code(400).send({
           message:
-            error instanceof Error ? error.message : 'Erro ao listar arquivos de promocao.',
+            clientErrorMessage(error, 'Erro ao listar arquivos de promocao.'),
         });
       }
     },
@@ -706,7 +707,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       } catch (error) {
         return reply.code(400).send({
           message:
-            error instanceof Error ? error.message : 'Erro ao enviar arquivo de promocao.',
+            clientErrorMessage(error, 'Erro ao enviar arquivo de promocao.'),
         });
       }
     },
@@ -774,7 +775,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       } catch (error) {
         return reply.code(400).send({
           message:
-            error instanceof Error ? error.message : 'Erro ao alterar arquivo de promocao.',
+            clientErrorMessage(error, 'Erro ao alterar arquivo de promocao.'),
         });
       }
     },
@@ -821,7 +822,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       } catch (error) {
         return reply.code(400).send({
           message:
-            error instanceof Error ? error.message : 'Erro ao gerar link do arquivo.',
+            clientErrorMessage(error, 'Erro ao gerar link do arquivo.'),
         });
       }
     },
@@ -858,7 +859,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       } catch (error) {
         return reply.code(400).send({
           message:
-            error instanceof Error ? error.message : 'Erro ao remover arquivo de promocao.',
+            clientErrorMessage(error, 'Erro ao remover arquivo de promocao.'),
         });
       }
     },
@@ -893,7 +894,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       return reply.code(201).send(record);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar registro relacionado.',
+        message: clientErrorMessage(error, 'Erro ao criar registro relacionado.'),
       });
     }
   });
@@ -933,7 +934,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar registro relacionado.',
+        message: clientErrorMessage(error, 'Erro ao atualizar registro relacionado.'),
       });
     }
   });
@@ -970,7 +971,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message:
-          error instanceof Error ? error.message : 'Erro ao alterar status do registro relacionado.',
+          clientErrorMessage(error, 'Erro ao alterar status do registro relacionado.'),
       });
     }
   });

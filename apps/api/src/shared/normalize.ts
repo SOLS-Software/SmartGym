@@ -114,6 +114,54 @@ export function parseBirthDate(value?: string | null) {
   return new Date(Number.NaN);
 }
 
+// Estes tres helpers substituem versoes que faziam `.slice(0, maxLength)`. O corte
+// era silencioso: quem digitasse 261 caracteres de logradouro recebia sucesso e
+// so 150 iam para o banco, truncados no meio da palavra. Agora o que nao cabe
+// vira erro de validacao com o nome do campo.
+const UFS = [
+  'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT',
+  'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO',
+];
+
+function trimmedWithin(value: string | undefined, maxLength: number, label: string) {
+  const text = value?.trim() ?? '';
+
+  if (!text) {
+    return null;
+  }
+  if (text.length > maxLength) {
+    throw new Error(`${label} deve ter no maximo ${maxLength} caracteres.`);
+  }
+
+  return text;
+}
+
+function digitsWithin(value: string | undefined, maxLength: number, label: string) {
+  const digits = value?.replace(/\D/g, '') ?? '';
+
+  if (!digits) {
+    return null;
+  }
+  if (digits.length > maxLength) {
+    throw new Error(`${label} deve ter no maximo ${maxLength} digitos.`);
+  }
+
+  return digits;
+}
+
+function validUf(value: string | undefined) {
+  const uf = value?.trim().toUpperCase() ?? '';
+
+  if (!uf) {
+    return null;
+  }
+  if (!UFS.includes(uf)) {
+    throw new Error('Informe uma UF valida.');
+  }
+
+  return uf;
+}
+
 export function normalizeCompanyPayload(payload: CompanyPayload) {
   const dsEmpresa = payload.dsEmpresa?.trim();
   const caCNPJ = payload.caCNPJ?.replace(/\D/g, '') ?? '';
@@ -135,29 +183,18 @@ export function normalizeCompanyPayload(payload: CompanyPayload) {
     throw new Error('Cliente nao identificado.');
   }
 
-  const optionalDigits = (value: string | undefined, maxLength: number) => {
-    const digits = value?.replace(/\D/g, '') ?? '';
-    return digits ? digits.slice(0, maxLength) : null;
-  };
-  const optionalTrimmed = (value: string | undefined, maxLength: number) => {
-    const text = value?.trim() ?? '';
-    return text ? text.slice(0, maxLength) : null;
-  };
-
-  const anUF = payload.anUF?.trim().toUpperCase().slice(0, 2) || null;
-
   return {
     idCliente,
     dsEmpresa,
     caCNPJ,
-    anCEP: optionalDigits(payload.anCEP, 8),
-    anLogradouro: optionalTrimmed(payload.anLogradouro, 150),
-    nrEndereco: optionalTrimmed(payload.nrEndereco, 10),
-    anBairro: optionalTrimmed(payload.anBairro, 100),
-    anCidade: optionalTrimmed(payload.anCidade, 100),
-    anUF,
+    anCEP: digitsWithin(payload.anCEP, 8, 'O CEP'),
+    anLogradouro: trimmedWithin(payload.anLogradouro, 150, 'O logradouro'),
+    nrEndereco: trimmedWithin(payload.nrEndereco, 10, 'O numero do endereco'),
+    anBairro: trimmedWithin(payload.anBairro, 100, 'O bairro'),
+    anCidade: trimmedWithin(payload.anCidade, 100, 'A cidade'),
+    anUF: validUf(payload.anUF),
     nrDDD: optionalNumber(payload.nrDDD),
-    nrContato: optionalDigits(payload.nrContato, 11),
+    nrContato: digitsWithin(payload.nrContato, 11, 'O contato'),
     boInativo: toBool(payload.boInativo),
   };
 }
@@ -166,6 +203,9 @@ export function normalizeProductPayload(payload: ProductPayload) {
   const dsProduto = payload.dsProduto?.trim();
   if (!dsProduto) {
     throw new Error('Informe o nome do produto.');
+  }
+  if (dsProduto.length > 255) {
+    throw new Error('O nome do produto deve ter no maximo 255 caracteres.');
   }
   return {
     idEmpresa: payload.idEmpresa ?? null,
@@ -180,36 +220,29 @@ export function normalizeFornecedorPayload(payload: FornecedorPayload) {
   if (!dsFornecedor) {
     throw new Error('Informe o nome do fornecedor.');
   }
+  if (dsFornecedor.length > 255) {
+    throw new Error('O nome do fornecedor deve ter no maximo 255 caracteres.');
+  }
 
-  const optionalDigits = (value: string | undefined, maxLength: number) => {
-    const digits = value?.replace(/\D/g, '') ?? '';
-    return digits ? digits.slice(0, maxLength) : null;
-  };
-  const optionalTrimmed = (value: string | undefined, maxLength: number) => {
-    const text = value?.trim() ?? '';
-    return text ? text.slice(0, maxLength) : null;
-  };
-
-  const caCNPJ = optionalDigits(payload.caCNPJ, 14);
+  const caCNPJ = digitsWithin(payload.caCNPJ, 14, 'O CNPJ');
   if (caCNPJ && !isValidCnpj(caCNPJ)) {
     throw new Error('Informe um CNPJ valido.');
   }
-  const anUF = payload.anUF?.trim().toUpperCase().slice(0, 2) || null;
 
   // Sem idEmpresa: fornecedor pertence ao CLIENTE (setado pela rota a partir
   // do token), disponivel para todas as filiais.
   return {
     dsFornecedor,
     caCNPJ,
-    anCEP: optionalDigits(payload.anCEP, 8),
-    anLogradouro: optionalTrimmed(payload.anLogradouro, 150),
-    nrEndereco: optionalTrimmed(payload.nrEndereco, 10),
-    anBairro: optionalTrimmed(payload.anBairro, 100),
-    anCidade: optionalTrimmed(payload.anCidade, 100),
-    anUF,
+    anCEP: digitsWithin(payload.anCEP, 8, 'O CEP'),
+    anLogradouro: trimmedWithin(payload.anLogradouro, 150, 'O logradouro'),
+    nrEndereco: trimmedWithin(payload.nrEndereco, 10, 'O numero do endereco'),
+    anBairro: trimmedWithin(payload.anBairro, 100, 'O bairro'),
+    anCidade: trimmedWithin(payload.anCidade, 100, 'A cidade'),
+    anUF: validUf(payload.anUF),
     nrDDD: optionalNumber(payload.nrDDD),
-    nrContato: optionalDigits(payload.nrContato, 11),
-    dsEmail: optionalTrimmed(payload.dsEmail, 255),
+    nrContato: digitsWithin(payload.nrContato, 11, 'O contato'),
+    dsEmail: trimmedWithin(payload.dsEmail, 255, 'O e-mail'),
     boInativo: toBool(payload.boInativo),
   };
 }

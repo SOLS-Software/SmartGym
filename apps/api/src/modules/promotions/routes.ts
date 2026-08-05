@@ -12,6 +12,7 @@ import { prisma } from '../../shared/prisma.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { assertAllowedUploadType, assertUploadBuffer, getPromotionFilePath } from '../../shared/files.js';
 import type { CompanyChildPayload } from '../../shared/api-types.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 // ---------------------------------------------------------------------------
 // Validacao de entrada
@@ -325,7 +326,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao alterar status da promocao.',
+        message: clientErrorMessage(error, 'Erro ao alterar status da promocao.'),
       });
     }
   });
@@ -353,7 +354,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       } catch (error) {
         return reply.code(400).send({
           message:
-            error instanceof Error ? error.message : 'Erro ao listar planos da promocao.',
+            clientErrorMessage(error, 'Erro ao listar planos da promocao.'),
         });
       }
     },
@@ -382,7 +383,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       } catch (error) {
         return reply.code(400).send({
           message:
-            error instanceof Error ? error.message : 'Erro ao listar produtos da promocao.',
+            clientErrorMessage(error, 'Erro ao listar produtos da promocao.'),
         });
       }
     },
@@ -411,7 +412,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       } catch (error) {
         return reply.code(400).send({
           message:
-            error instanceof Error ? error.message : 'Erro ao listar arquivos da promocao.',
+            clientErrorMessage(error, 'Erro ao listar arquivos da promocao.'),
         });
       }
     },
@@ -468,7 +469,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       } catch (error) {
         return reply.code(400).send({
           message:
-            error instanceof Error ? error.message : 'Erro ao enviar arquivo da promocao.',
+            clientErrorMessage(error, 'Erro ao enviar arquivo da promocao.'),
         });
       }
     },
@@ -532,7 +533,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       } catch (error) {
         return reply.code(400).send({
           message:
-            error instanceof Error ? error.message : 'Erro ao alterar arquivo da promocao.',
+            clientErrorMessage(error, 'Erro ao alterar arquivo da promocao.'),
         });
       }
     },
@@ -575,7 +576,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       } catch (error) {
         return reply.code(400).send({
           message:
-            error instanceof Error ? error.message : 'Erro ao gerar link do arquivo.',
+            clientErrorMessage(error, 'Erro ao gerar link do arquivo.'),
         });
       }
     },
@@ -612,7 +613,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       } catch (error) {
         return reply.code(400).send({
           message:
-            error instanceof Error ? error.message : 'Erro ao remover arquivo da promocao.',
+            clientErrorMessage(error, 'Erro ao remover arquivo da promocao.'),
         });
       }
     },
@@ -641,7 +642,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message:
-          error instanceof Error ? error.message : 'Erro ao criar registro relacionado.',
+          clientErrorMessage(error, 'Erro ao criar registro relacionado.'),
       });
     }
   });
@@ -676,7 +677,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message:
-          error instanceof Error ? error.message : 'Erro ao atualizar registro relacionado.',
+          clientErrorMessage(error, 'Erro ao atualizar registro relacionado.'),
       });
     }
   });
@@ -711,7 +712,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message:
-          error instanceof Error ? error.message : 'Erro ao alterar status do registro relacionado.',
+          clientErrorMessage(error, 'Erro ao alterar status do registro relacionado.'),
       });
     }
   });

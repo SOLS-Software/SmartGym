@@ -36,6 +36,7 @@ import type {
   StudentFacialBiometricPayload,
   StudentPayload,
 } from '../../shared/api-types.js';
+import { clientErrorMessage } from '../../shared/errors.js';
 
 function getStudentChildResourceConfig(resource: string) {
   if (
@@ -248,7 +249,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       return withDecryptedCpf(student);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao carregar aluno.',
+        message: clientErrorMessage(error, 'Erro ao carregar aluno.'),
       });
     }
   });
@@ -312,7 +313,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       return withDecryptedCpf(updated);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar aluno.',
+        message: clientErrorMessage(error, 'Erro ao atualizar aluno.'),
       });
     }
   });
@@ -368,7 +369,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar arquivos do aluno.',
+        message: clientErrorMessage(error, 'Erro ao listar arquivos do aluno.'),
       });
     }
   });
@@ -421,7 +422,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       return reply.code(201).send(studentFile);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao enviar arquivo do aluno.',
+        message: clientErrorMessage(error, 'Erro ao enviar arquivo do aluno.'),
       });
     }
   });
@@ -463,7 +464,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       return { url: data.signedUrl, expiresIn: 60 * 5 };
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao gerar link do arquivo.',
+        message: clientErrorMessage(error, 'Erro ao gerar link do arquivo.'),
       });
     }
   });
@@ -495,7 +496,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       return prisma.alunoArquivo.update({ where: { id: fileId }, data: { boInativo: true } });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao remover arquivo do aluno.',
+        message: clientErrorMessage(error, 'Erro ao remover arquivo do aluno.'),
       });
     }
   });
@@ -531,7 +532,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message:
-          error instanceof Error ? error.message : 'Erro ao listar biometrias faciais do aluno.',
+          clientErrorMessage(error, 'Erro ao listar biometrias faciais do aluno.'),
       });
     }
   });
@@ -591,7 +592,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message:
-          error instanceof Error ? error.message : 'Erro ao salvar biometria facial do aluno.',
+          clientErrorMessage(error, 'Erro ao salvar biometria facial do aluno.'),
       });
     }
   });
@@ -680,9 +681,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message:
-          error instanceof Error
-            ? error.message
-            : 'Erro ao cadastrar biometria facial no CompreFace.',
+          clientErrorMessage(error, 'Erro ao cadastrar biometria facial no CompreFace.'),
       });
     }
   });
@@ -725,7 +724,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message:
-          error instanceof Error ? error.message : 'Erro ao alterar status da biometria facial.',
+          clientErrorMessage(error, 'Erro ao alterar status da biometria facial.'),
       });
     }
   });
@@ -785,7 +784,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar planos do aluno.',
+        message: clientErrorMessage(error, 'Erro ao listar planos do aluno.'),
       });
     }
   });
@@ -818,7 +817,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar pagamentos do aluno.',
+        message: clientErrorMessage(error, 'Erro ao listar pagamentos do aluno.'),
       });
     }
   });
@@ -937,7 +936,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       return notifications;
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao buscar notificações.',
+        message: clientErrorMessage(error, 'Erro ao buscar notificações.'),
       });
     }
   });
@@ -978,7 +977,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar check-ins do aluno.',
+        message: clientErrorMessage(error, 'Erro ao listar check-ins do aluno.'),
       });
     }
   });
@@ -1084,7 +1083,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       return { checkIns, activitySchedules, activityPresences };
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao carregar calendario do aluno.',
+        message: clientErrorMessage(error, 'Erro ao carregar calendario do aluno.'),
       });
     }
   });
@@ -1220,7 +1219,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       return reply.code(201).send(created);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao realizar inscricao na aula.',
+        message: clientErrorMessage(error, 'Erro ao realizar inscricao na aula.'),
       });
     }
   });
@@ -1253,7 +1252,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao listar treinos do aluno.',
+        message: clientErrorMessage(error, 'Erro ao listar treinos do aluno.'),
       });
     }
   });
@@ -1527,7 +1526,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       return reply.code(201).send(record);
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao criar registro relacionado.',
+        message: clientErrorMessage(error, 'Erro ao criar registro relacionado.'),
       });
     }
   });
@@ -1755,7 +1754,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       });
     } catch (error) {
       return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Erro ao atualizar registro relacionado.',
+        message: clientErrorMessage(error, 'Erro ao atualizar registro relacionado.'),
       });
     }
   });
@@ -1826,9 +1825,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message:
-          error instanceof Error
-            ? error.message
-            : 'Erro ao alterar status do registro relacionado.',
+          clientErrorMessage(error, 'Erro ao alterar status do registro relacionado.'),
       });
     }
   });
