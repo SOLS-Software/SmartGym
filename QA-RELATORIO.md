@@ -281,6 +281,102 @@ mesma ação estão em telas diferentes.
 
 ---
 
+## Auditoria de UX — perfil aluno, 2026-08-05
+
+Rodada focada em o que é pouco intuitivo ou conceitualmente errado, não em bugs de layout.
+
+| Item | Gravidade | Status |
+|---|---|---|
+| U1 — Painel exibia dados falsos (rotas 404 engolidas) | Alta | Corrigido e verificado |
+| U2 — Pontuações inacessível ao aluno (403) | Alta | Corrigido e verificado |
+| U3 — "Pago em" preenchido em cobrança pendente | Média | Corrigido e verificado |
+| U4 — Vocabulário de admin no app do aluno | Média | Corrigido e verificado |
+| U5 — Exercícios: mural de placeholders | Média | Corrigido e verificado |
+| U6 — Grid do último treino quebrava em ~900px | Média | Corrigido e verificado |
+| U7 — Regra do mesmo dia escondia o botão sem explicar | Baixa | Corrigido e verificado |
+| U8 — Acentuação inconsistente | Baixa | Corrigido |
+| U9 — Campos vazios em planos de terceiros | Baixa | Corrigido |
+| U10 — "Nenhuma atividade vinculada" dizia o oposto | Baixa | Corrigido |
+
+### U1 — O painel do aluno mostrava dados falsos
+
+`StudentDashboard` chamava `students/:id/children/plans` e `children/check-ins`. O padrão
+`children/` é das rotas de **empresa**; para aluno é `related/`. As duas voltavam 404, o
+`if (res.ok)` engolia o erro e a tela renderizava lista vazia.
+
+Um aluno com plano ativo e 5 check-ins via **"Nenhum plano ativo"** e **zero** em todos os
+contadores — contradizendo a tela de Matrícula ("Plano ativo"), o Meu Treino (último treino
+em 13/07) e a notificação exibida na mesma tela ("faz 22 dias desde seu último treino").
+
+Depois da correção: `Simple Plan`, 5 check-ins total, 0 no mês (o último foi em julho) e
+0 dias seguidos — tudo coerente entre si.
+
+### U2 — Pontuações nunca funcionou
+
+A tela chama `/companies` e `/companies/:id/children/points`; nenhuma das duas estava na
+allowlist do aluno, então abria com a mensagem crua **"Acesso nao autorizado."** Ambas
+entraram na allowlist — são dados da própria academia, filtrados por `idCliente` na rota,
+sem exposição de outro aluno. Agora a tela carrega o seletor de filial e mostra o estado
+vazio correto.
+
+### U3 — Pagamentos
+
+A base tem parcelas com `dsStatusPagamento = "Pendente"` e `dtPagamento` preenchida, e a
+tela exibia "Pago em 20/06/2026" ao lado do badge "Pendente". Agora a data de pagamento só
+aparece em cobrança efetivamente paga; `dtVencimento` nulo virou "A definir" em vez de "-";
+e cobrança vencida ganhou badge próprio (`danger`), separada da que ainda vai vencer.
+O resumo passou de "2 pendente(s)" para "2 cobranças em aberto".
+
+### U4 — Vocabulário
+
+O aluno via um grupo de menu **"ALUNOS"** e a trilha "ALUNOS / MATRÍCULA". Os grupos foram
+escritos para a operação e o app do aluno reaproveita a lista. `getMenuGroupLabel` traduz
+só para o papel aluno: ALUNOS → MINHA CONTA, ATIVIDADE → AULAS. Os `section-label` das
+telas exclusivas do aluno acompanharam.
+
+### U5 — Exercícios
+
+86 exercícios em cards de ~190px, dos quais ~85% era um placeholder cinza idêntico —
+nenhum exercício tem capa cadastrada. Sem capa a faixa da foto agora encolhe para uma tarja
+de 1,75rem: o card cai para 71px e cabem ~10 por tela no lugar de 2. Com capa cadastrada o
+card continua exatamente como era.
+
+**Correção de uma afirmação minha:** eu disse que o modelo não tinha campo de imagem. Tem —
+`coverImageUrl` (via arquivos do exercício) e `areas` (área corporal). O layout não estava
+errado; ele degrada mal com a base vazia.
+
+### U6 — Grid do último treino
+
+`.my-training-last-grid` usava 4 colunas fixas e o card divide a linha com o de "Iniciar
+treino". Em ~900px com o menu aberto sobravam 262px → colunas de 48px, e "Superior" saía
+quebrado como "Su/pe/rio/r". O breakpoint de 1 coluna só agia abaixo de 760px, deixando
+toda a faixa intermediária quebrada — que minhas varreduras anteriores (1280 e 375) não
+cobriram. Agora usa `auto-fit`.
+
+### U7 — Regra do mesmo dia
+
+Na rodada anterior eu escondi o botão nas aulas de hoje. Some sem explicar. Agora "ontem" e
+"hoje" são casos distintos: aula passada não mostra nada, aula de hoje mostra "Não é
+possível cancelar no dia da aula" / "Inscrições encerradas para hoje". Aplicado no
+Calendário e na Agenda.
+
+### Não corrigido — decisão de produto
+
+- **Três telas para a mesma coisa** (Atividades, Agendas, Calendário), com inscrição em duas
+  e cancelamento em uma. Unificar muda a navegação do app.
+- **Planos sem CTA**: dá para ver "Best Plan · R$ 250 · Disponível" e não há como contratar
+  ou pedir troca. Precisa de fluxo no servidor.
+- **Acesso rápido duplica o menu** no desktop — mas em mobile o menu fica atrás do
+  hambúrguer, onde os atalhos têm valor. Mantido.
+
+### Observação de ambiente
+
+`GET /students/2/files/2/url` responde 400 `{"message":"fetch failed"}`: o storage de
+arquivos não está acessível neste ambiente, então a foto do aluno não carrega e a tela cai
+para as iniciais. É infraestrutura, não código.
+
+---
+
 ## Pendência de limpeza
 
 Registro de teste criado com autorização, **não removido**:
