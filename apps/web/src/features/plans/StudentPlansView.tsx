@@ -98,10 +98,10 @@ export function StudentPlansView({ studentId }: StudentPlansViewProps) {
       ]);
 
       if (!plansResponse.ok) {
-        await getApiError(plansResponse, 'Nao foi possivel carregar os planos da academia.');
+        await getApiError(plansResponse, 'Não foi possível carregar os planos da academia.');
       }
       if (!studentPlansResponse.ok) {
-        await getApiError(studentPlansResponse, 'Nao foi possivel identificar seu plano.');
+        await getApiError(studentPlansResponse, 'Não foi possível identificar seu plano.');
       }
 
       setAcademyPlans((await plansResponse.json()) as AcademyPlan[]);
@@ -120,7 +120,7 @@ export function StudentPlansView({ studentId }: StudentPlansViewProps) {
         <div className="form-heading">
           <p className="section-label">Planos</p>
           <h2>Sem acesso</h2>
-          <p>Faca login como aluno para visualizar os planos da academia.</p>
+          <p>Faça login como aluno para visualizar os planos da academia.</p>
         </div>
       </div>
     );
@@ -129,7 +129,7 @@ export function StudentPlansView({ studentId }: StudentPlansViewProps) {
   return (
     <>
     <header className="module-page-header">
-      <p className="section-label">Alunos</p>
+      <p className="section-label">Minha conta</p>
       <h2 className="module-page-title">PLANOS</h2>
     </header>
     <div className="form-view student-plans-view">
@@ -162,7 +162,7 @@ export function StudentPlansView({ studentId }: StudentPlansViewProps) {
           const benefits = [
             ...activities,
             ...products.map((product) => `Produto: ${product}`),
-            ...promotions.map((promotion) => `Promocao: ${promotion}`),
+            ...promotions.map((promotion) => `Promoção: ${promotion}`),
           ];
 
           return (
@@ -173,7 +173,7 @@ export function StudentPlansView({ studentId }: StudentPlansViewProps) {
                   <h3>{plan.dsPlano ?? 'Plano sem nome'}</h3>
                 </div>
                 <span className={`status-badge ${myPlan ? 'active' : 'pending'}`}>
-                  {myPlan ? 'Pertence a voce' : 'Disponivel'}
+                  {myPlan ? 'Pertence a você' : 'Disponível'}
                 </span>
               </div>
 
@@ -183,17 +183,25 @@ export function StudentPlansView({ studentId }: StudentPlansViewProps) {
                   <strong>{formatMoney(value?.vlVenda)}</strong>
                 </div>
                 <div>
-                  <span>Frequencia</span>
+                  <span>Frequência</span>
                   <strong>{getText(plan.frequencia, 'dsFrequencia')}</strong>
                 </div>
-                <div>
-                  <span>Pagamento</span>
-                  <strong>{myPlan ? `Dia ${myPlan.nrDiaPagamento || '-'}` : '-'}</strong>
-                </div>
-                <div>
-                  <span>Minha admissao</span>
-                  <strong>{myPlan?.dtAdmissao ? formatDateDisplay(myPlan.dtAdmissao) : '-'}</strong>
-                </div>
+                {/* "Pagamento" e "Minha admissão" so existem na matricula do
+                    aluno. Nos planos que ele nao tem, os dois saiam sempre como
+                    "-" — um campo chamado "minha admissão" num plano alheio nao
+                    quer dizer nada. */}
+                {myPlan ? (
+                  <>
+                    <div>
+                      <span>Pagamento</span>
+                      <strong>{myPlan.nrDiaPagamento ? `Dia ${myPlan.nrDiaPagamento}` : '-'}</strong>
+                    </div>
+                    <div>
+                      <span>Minha admissão</span>
+                      <strong>{myPlan.dtAdmissao ? formatDateDisplay(myPlan.dtAdmissao) : '-'}</strong>
+                    </div>
+                  </>
+                ) : null}
               </div>
 
               <div className="student-plan-detail-grid">
@@ -209,7 +217,7 @@ export function StudentPlansView({ studentId }: StudentPlansViewProps) {
                 </section>
 
                 <section>
-                  <h4>Beneficios do plano</h4>
+                  <h4>Benefícios do plano</h4>
                   <div className="student-plan-chip-list">
                     {benefits.length > 0 ? (
                       benefits.map((benefit) => <span key={benefit}>{benefit}</span>)

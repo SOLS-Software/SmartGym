@@ -149,7 +149,7 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
             const response = await fetch(`/api/proxy/students/${studentId}/related/check-ins`);
 
             if (!response.ok) {
-                await getApiError(response, 'Nao foi possivel carregar o ultimo treino.');
+                await getApiError(response, 'Não foi possível carregar o último treino.');
             }
 
             setCheckIns((await response.json()) as StudentCheckIn[]);
@@ -280,9 +280,9 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
 
             <section className="my-training-start-panel" aria-label="Inicio do treino">
                 <div className="my-training-last-card">
-                    <p className="section-label">Ultimo treino realizado</p>
+                    <p className="section-label">Último treino realizado</p>
                     {isLoadingCheckIns ? (
-                        <div className="form-hint">Carregando ultimo treino...</div>
+                        <div className="form-hint">Carregando último treino...</div>
                     ) : lastCheckIn ? (
                         <div className="my-training-last-grid">
                             <div>
@@ -290,7 +290,7 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
                                 <strong>{getLastWorkoutName()}</strong>
                             </div>
                             <div>
-                                <span>Sequencia</span>
+                                <span>Sequência</span>
                                 <strong>{getLastWorkoutSequence()}</strong>
                             </div>
                             <div>
@@ -311,7 +311,7 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
                     <p className="section-label">Iniciar treino</p>
                     <h3>{workoutStartTarget.training?.treino?.dsTreino ?? 'Nenhum treino disponivel'}</h3>
                     <div className="field">
-                        <label htmlFor="selectedWorkoutSequence">Treino - sequencia</label>
+                        <label htmlFor="selectedWorkoutSequence">Treino - sequência</label>
                         <select
                             disabled={activeTrainings.length === 0 || isStartingWorkout}
                             id="selectedWorkoutSequence"
@@ -379,7 +379,7 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
                                     Cadastro: {st.dtCadastro ? formatDateDisplay(st.dtCadastro) : '-'}
                                 </span>
                                 {isLastCheckInTraining(st) ? (
-                                    <span className="status-badge pending">Ultimo check-in</span>
+                                    <span className="status-badge pending">Último check-in</span>
                                 ) : null}
                             </button>
                         ))}

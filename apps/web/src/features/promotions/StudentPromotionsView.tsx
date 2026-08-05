@@ -83,7 +83,7 @@ export function StudentPromotionsView(_props: StudentPromotionsViewProps) {
       const response = await fetch(`${apiUrl}/promotions?currentOnly=true&includeDetails=true`);
 
       if (!response.ok) {
-        await getApiError(response, 'Nao foi possivel carregar as promocoes vigentes.');
+        await getApiError(response, 'Não foi possível carregar as promoções vigentes.');
       }
 
       setPromotions((await response.json()) as PromotionView[]);
@@ -98,7 +98,7 @@ export function StudentPromotionsView(_props: StudentPromotionsViewProps) {
   return (
     <>
     <header className="module-page-header">
-      <p className="section-label">Alunos</p>
+      <p className="section-label">Minha conta</p>
       <h2 className="module-page-title">PROMOÇÕES</h2>
     </header>
     <div className="form-view student-promotions-view">
@@ -106,10 +106,10 @@ export function StudentPromotionsView(_props: StudentPromotionsViewProps) {
 
       {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
-      {isLoading ? <div className="form-hint">Carregando promocoes...</div> : null}
+      {isLoading ? <div className="form-hint">Carregando promoções...</div> : null}
 
       {!isLoading && promotions.length === 0 ? (
-        <div className="form-hint">Nenhuma promocao vigente encontrada.</div>
+        <div className="form-hint">Nenhuma promoção vigente encontrada.</div>
       ) : null}
 
       <section className="student-promotion-list" aria-label="Promocoes vigentes">
@@ -131,7 +131,7 @@ export function StudentPromotionsView(_props: StudentPromotionsViewProps) {
             <article className="student-promotion-card" key={promotion.id}>
               <div className="student-promotion-card-header">
                 <div>
-                  <span className="section-label">Promocao</span>
+                  <span className="section-label">Promoção</span>
                   <h3>{promotion.dsPromocao}</h3>
                 </div>
                 <span className="status-badge active">Vigente</span>
@@ -143,7 +143,7 @@ export function StudentPromotionsView(_props: StudentPromotionsViewProps) {
                   <strong>{getDiscountLabel(promotion)}</strong>
                 </div>
                 <div>
-                  <span>Periodo</span>
+                  <span>Período</span>
                   <strong>
                     {promotion.qtPeriodo > 0
                       ? `${promotion.qtPeriodo} ${periodUnit || 'periodo(s)'}`
@@ -151,7 +151,7 @@ export function StudentPromotionsView(_props: StudentPromotionsViewProps) {
                   </strong>
                 </div>
                 <div>
-                  <span>Inicio</span>
+                  <span>Início</span>
                   <strong>{promotion.dtInicio ? formatDateDisplay(promotion.dtInicio) : '-'}</strong>
                 </div>
                 <div>
@@ -169,18 +169,18 @@ export function StudentPromotionsView(_props: StudentPromotionsViewProps) {
                     {plans.length > 0 ? (
                       plans.map((plan) => <span key={plan}>{plan}</span>)
                     ) : (
-                      <p>Promocao geral da academia.</p>
+                      <p>Promoção geral da academia.</p>
                     )}
                   </div>
                 </section>
 
                 <section>
-                  <h4>Beneficios</h4>
+                  <h4>Benefícios</h4>
                   <div className="student-promotion-chip-list">
                     <span>{getDiscountLabel(promotion)}</span>
                     {products.map((product) => <span key={product}>Produto: {product}</span>)}
                     {products.length === 0 && Number(promotion.pcDesconto ?? 0) === 0 && !formatMoney(promotion.vlDesconto) ? (
-                      <p>Beneficio definido pela academia.</p>
+                      <p>Benefício definido pela academia.</p>
                     ) : null}
                   </div>
                 </section>

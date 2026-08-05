@@ -209,7 +209,7 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
       const response = await fetch(`${apiUrl}/activities?${params.toString()}`);
 
       if (!response.ok) {
-        await getApiError(response, 'Nao foi possivel carregar as atividades.');
+        await getApiError(response, 'Não foi possível carregar as atividades.');
       }
 
       setActivities((await response.json()) as ActivityView[]);
@@ -250,7 +250,7 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
       });
 
       if (!response.ok) {
-        await getApiError(response, 'Nao foi possivel realizar a inscricao.');
+        await getApiError(response, 'Não foi possível realizar a inscrição.');
       }
 
       showToast('Inscrição realizada com sucesso.');
@@ -268,7 +268,7 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
         <div className="form-heading">
           <p className="section-label">Atividades da academia</p>
           <h2>Sem acesso</h2>
-          <p>Faca login como aluno para se inscrever nas aulas.</p>
+          <p>Faça login como aluno para se inscrever nas aulas.</p>
         </div>
       </div>
     );
@@ -281,7 +281,7 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
   return (
     <>
       <header className="module-page-header">
-        <p className="section-label">Atividade</p>
+        <p className="section-label">Aulas</p>
         <h2 className="module-page-title">ATIVIDADES</h2>
       </header>
       <div className="form-view student-activities-view">
@@ -320,7 +320,7 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
 
       <section className="student-activity-enroll-toolbar">
         <div>
-          <span className="section-label">Inscricao em aula</span>
+          <span className="section-label">Inscrição em aula</span>
           <strong>{selectedScheduleIds.length} selecionada(s)</strong>
         </div>
         <button
@@ -336,7 +336,7 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
       {isLoading ? <div className="form-hint">Carregando atividades...</div> : null}
 
       {!isLoading && !hasAnySchedule ? (
-        <div className="form-hint">Nenhuma atividade encontrada no periodo selecionado.</div>
+        <div className="form-hint">Nenhuma atividade encontrada no período selecionado.</div>
       ) : null}
 
       <div className="student-activity-calendar-list">
@@ -413,10 +413,10 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
                       onChange={() => toggleSchedule(schedule.id)}
                       type="checkbox"
                     />
-                    <span>{formatTime(schedule.dtInicial)} ate {formatTime(schedule.dtFinal)}</span>
+                    <span>{formatTime(schedule.dtInicial)} até {formatTime(schedule.dtFinal)}</span>
                     {category ? <b>{category}</b> : null}
                     <small>
-                      {professionals.length > 0 ? professionals.join(', ') : 'Profissional nao informado'}
+                      {professionals.length > 0 ? professionals.join(', ') : 'Profissional não informado'}
                     </small>
                     <small>
                       {availableSeats === null
@@ -425,8 +425,8 @@ export function StudentActivitiesView({ studentId }: StudentActivitiesViewProps)
                       {' - '}
                       {getText(schedule.empresa, 'dsEmpresa')}
                     </small>
-                    {enrolled ? <small>Voce ja esta inscrito</small> : null}
-                    {!enrolled && isPast ? <small>Aula ja encerrada</small> : null}
+                    {enrolled ? <small>Você já está inscrito</small> : null}
+                    {!enrolled && isPast ? <small>Aula já encerrada</small> : null}
                     {!enrolled && !isPast && isFull ? <small>Sem vagas</small> : null}
                   </label>
                 );

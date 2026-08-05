@@ -153,6 +153,17 @@ function getMenuItemLabel(item: string, userType: AuthUserType) {
   return item;
 }
 
+// Os grupos do menu foram escritos para a operacao da academia e o app do aluno
+// reaproveita a mesma lista. Sem esta traducao o aluno via um grupo "ALUNOS"
+// (e a trilha "ALUNOS / MATRÍCULA") com a propria matricula dentro — ele nao e
+// uma lista de alunos, ele e o aluno.
+function getMenuGroupLabel(title: string, userType: AuthUserType) {
+  if (userType !== 'student') return title;
+  if (title === 'ALUNOS') return 'MINHA CONTA';
+  if (title === 'ATIVIDADE') return 'AULAS';
+  return title;
+}
+
 const THEME_CACHE_KEY = 'smartgym_theme_cache';
 const DARK_MODE_KEY = 'smartgym_dark_mode';
 
@@ -941,10 +952,14 @@ export default function HomePage() {
           .filter((group) => group.title === 'INÍCIO' || group.title === 'TREINO' || group.title === 'ALUNOS' || group.title === 'ATIVIDADE')
           .map((group) => ({
             ...group,
+            title: getMenuGroupLabel(group.title, 'student'),
             items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda' && item !== 'Calendário Empresa' && item !== 'Treino' && item !== 'Relatórios'),
           }));
 
-    const activeGroup = menuGroups.find((g) => g.items.includes(activeItem))?.title ?? '';
+    const activeGroup = getMenuGroupLabel(
+      menuGroups.find((g) => g.items.includes(activeItem))?.title ?? '',
+      authUserType,
+    );
 
     return (
       <div className={`home-page ${isMenuOpen ? '' : 'menu-collapsed'}`}>
