@@ -447,7 +447,7 @@ export function ReportsView() {
     return (
       <>
         <header className="module-page-header">
-          <p className="section-label">Gestão</p>
+          <p className="section-label">Início</p>
           <h2 className="module-page-title">RELATÓRIOS</h2>
         </header>
         <div className="reports-loading">Carregando dados...</div>
@@ -471,7 +471,7 @@ export function ReportsView() {
   return (
     <>
       <header className="module-page-header">
-        <p className="section-label">Gestão</p>
+        <p className="section-label">Início</p>
         <h2 className="module-page-title">RELATÓRIOS</h2>
       </header>
 

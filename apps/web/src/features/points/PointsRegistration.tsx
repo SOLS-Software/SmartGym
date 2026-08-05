@@ -178,7 +178,7 @@ export function PointsRegistration() {
   return (
     <>
       <header className="module-page-header">
-        <p className="section-label">Fidelidade</p>
+        <p className="section-label">Alunos</p>
         <h2 className="module-page-title">CADASTRO DE PONTUAÇÕES</h2>
       </header>
       <div className="form-view">

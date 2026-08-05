@@ -214,7 +214,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
   return (
     <>
     <header className="module-page-header">
-      <p className="section-label">Localidades</p>
+      <p className="section-label">Equipamentos</p>
       <h2 className="module-page-title">CADASTRO DE LOCALIDADES</h2>
     </header>
     <div className="form-view">

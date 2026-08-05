@@ -247,7 +247,7 @@ export function PurchaseRegistration() {
     <>
       <header className="module-page-header">
         <p className="section-label">Estoque</p>
-        <h2 className="module-page-title">COMPRAS</h2>
+        <h2 className="module-page-title">CADASTRO DE COMPRAS</h2>
       </header>
       <div className="form-view">
         <section className="data-grid-section">

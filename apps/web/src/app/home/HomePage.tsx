@@ -150,6 +150,12 @@ const menuGroups = [
 
 function getMenuItemLabel(item: string, userType: AuthUserType) {
   if (item === 'Matrículas' && userType === 'student') return 'Matrícula';
+  // A tela se intitula "MONTAGEM DE TREINO", mas o menu (e a trilha no topo)
+  // dizia "Montar Treino" — os dois nomes ficavam visiveis ao mesmo tempo, a
+  // ~40px de distancia. Alinhado ao titulo e ao irmao "Montagem de Agenda".
+  // A chave interna continua 'Montar Treino' (usada no roteamento por
+  // activeItem); so o rotulo exibido muda.
+  if (item === 'Montar Treino') return 'Montagem de Treino';
   return item;
 }
 
