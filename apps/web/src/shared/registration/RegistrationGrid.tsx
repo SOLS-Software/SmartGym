@@ -117,11 +117,19 @@ export function RegistrationGrid<T extends { id: number }>({
     : isChild
       ? { gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))${editColWidth}` }
       : onEdit
-        ? // A segunda coluna era 6.875rem (96px com root de 14px). CPF formatado
-          // precisa de ate 110px, entao toda linha da grid de alunos quebrava o
-          // CPF em duas linhas — o espaco extra sai da coluna de nome, que ficava
-          // com centenas de pixels ociosos.
-          { gridTemplateColumns: `minmax(0, 1fr) 8.5rem 6.875rem${editColWidth}` }
+        ? // As colunas de dados eram 6.875rem (96px com root de 14px) e o template
+          // so declarava duas, entao grids com mais colunas (Fornecedores tem
+          // quatro) caiam em trilhas implicitas. Nao cabia CPF (104px), CNPJ
+          // formatado (128px) nem telefone (110px): o texto quebrava em duas
+          // linhas. 9.5rem (133px) cobre os tres, e o espaco sai da coluna de
+          // nome, que sobrava.
+          //
+          // Precisa ser largura fixa: cada linha e um grid independente, entao
+          // dimensionar por conteudo (auto/max-content) desalinha o cabecalho
+          // das linhas de dados.
+          {
+            gridTemplateColumns: `minmax(0, 1fr) repeat(${Math.max(columns.length - 1, 1)}, 9.5rem)${editColWidth}`,
+          }
         : undefined;
 
   const tableClass = isChild
