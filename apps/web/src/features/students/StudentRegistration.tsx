@@ -3,7 +3,7 @@
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, CreditCard, FileText, Receipt, Save } from 'lucide-react';
-import { GRID_PAGE_SIZE, formatCep, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { GRID_PAGE_SIZE, formatCep, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, formatDddPhone, getLookupLabel, isImageFile, isValidCpf, joinDddPhone, onlyDigits, paginateItems, splitDddPhone } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
@@ -43,7 +43,6 @@ export function StudentRegistration() {
   const [studentName, setStudentName] = useState('');
   const [studentCpf, setStudentCpf] = useState('');
   const [studentBirthDate, setStudentBirthDate] = useState('');
-  const [studentDdd, setStudentDdd] = useState('');
   const [studentPhone, setStudentPhone] = useState('');
   const [studentEmail, setStudentEmail] = useState('');
   const [studentCep, setStudentCep] = useState('');
@@ -317,7 +316,6 @@ export function StudentRegistration() {
     setStudentName('');
     setStudentCpf('');
     setStudentBirthDate('');
-    setStudentDdd('');
     setStudentPhone('');
     setStudentEmail('');
     setStudentCep('');
@@ -374,8 +372,7 @@ export function StudentRegistration() {
     setStudentName(student.nmAluno);
     setStudentCpf(formatCpf(student.caCPF));
     setStudentBirthDate(formatDateInput(student.dtNascimento));
-    setStudentDdd(student.nrDDD ? String(student.nrDDD) : '');
-    setStudentPhone(formatPhone(student.nrContato ?? ''));
+    setStudentPhone(joinDddPhone(student.nrDDD, student.nrContato));
     setStudentEmail(student.anEmail);
     setStudentCep(formatCep(student.anCEP));
     setStudentAddress(student.anLogradouro);
@@ -614,8 +611,8 @@ export function StudentRegistration() {
         nmAluno: studentName,
         caCPF: onlyDigits(studentCpf),
         dtNascimento: apiBirthDate,
-        nrDDD: Number(studentDdd || 0),
-        nrContato: onlyDigits(studentPhone) || null,
+        nrDDD: Number(splitDddPhone(studentPhone).ddd || 0),
+        nrContato: splitDddPhone(studentPhone).phone || null,
         anEmail: trimmedEmail,
         // O campo agora e mascarado ("00000-000"); a coluna e VarChar(8).
         anCEP: onlyDigits(studentCep),
@@ -962,7 +959,7 @@ export function StudentRegistration() {
     <>
     <header className="module-page-header">
       <p className="section-label">Alunos</p>
-      <h2 className="module-page-title">MATRÍCULAS</h2>
+      <h2 className="module-page-title">CADASTRO DE MATRÍCULAS</h2>
     </header>
     <div className="form-view">
 
@@ -1057,12 +1054,9 @@ export function StudentRegistration() {
                 <input className={touchedStudentFields.birthDate && studentErrors.birthDate ? 'invalid' : ''} id="dtNascimento" max={new Date().toISOString().slice(0, 10)} onBlur={() => validateStudentField('birthDate')} onChange={(event) => { const value = event.target.value; setStudentBirthDate(value); if (touchedStudentFields.birthDate) { setStudentErrors((current) => ({ ...current, birthDate: isValidBirthDate(value) ? undefined : 'Informe uma data de nascimento valida.' })); } }} ref={birthDateInputRef} type="date" value={studentBirthDate} />
               </RegistrationField>
               {/* DDD */}
-              <RegistrationField htmlFor="nrDDD" label="DDD" size="xs">
-                <input id="nrDDD" maxLength={2} onChange={(event) => setStudentDdd(onlyDigits(event.target.value))} placeholder="11" type="text" value={studentDdd} />
-              </RegistrationField>
               {/* Telefone */}
               <RegistrationField htmlFor="nrContato" label="Telefone" size="sm">
-                <input inputMode="numeric" id="nrContato" maxLength={10} onChange={(event) => setStudentPhone(formatPhone(event.target.value))} placeholder="00000-0000" type="text" value={studentPhone} />
+                <input inputMode="numeric" id="nrContato" maxLength={15} onChange={(event) => setStudentPhone(formatDddPhone(event.target.value))} placeholder="(11) 96796-7158" type="text" value={studentPhone} />
               </RegistrationField>
               {/* Email */}
               <RegistrationField error={studentErrors.email} htmlFor="anEmail" label="Email" size="lg" touched={touchedStudentFields.email}>

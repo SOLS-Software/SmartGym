@@ -3,7 +3,7 @@
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { FileText, Save } from 'lucide-react';
-import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, getLookupLabel, isImageFile, isValidCpf, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, formatDddPhone, getLookupLabel, isImageFile, isValidCpf, joinDddPhone, onlyDigits, paginateItems, splitDddPhone } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
@@ -17,7 +17,6 @@ type EmployeeValidationField =
   | 'cpf'
   | 'birthDate'
   | 'admissionDate'
-  | 'ddd'
   | 'phone'
   | 'email';
 type EmployeeValidationErrors = Partial<Record<EmployeeValidationField, string>>;
@@ -80,7 +79,6 @@ export function EmployeeRegistration() {
   const cpfInputRef = useRef<HTMLInputElement>(null);
   const birthDateInputRef = useRef<HTMLInputElement>(null);
   const admissionDateInputRef = useRef<HTMLInputElement>(null);
-  const dddInputRef = useRef<HTMLInputElement>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -96,7 +94,7 @@ export function EmployeeRegistration() {
   const [employeeName, setEmployeeName] = useState('');
   const [employeeCpf, setEmployeeCpf] = useState('');
   const [employeeBirthDate, setEmployeeBirthDate] = useState('');
-  const [employeeDdd, setEmployeeDdd] = useState('');
+  // DDD + numero num campo so; a divisao volta a acontecer no submit.
   const [employeePhone, setEmployeePhone] = useState('');
   const [employeeEmail, setEmployeeEmail] = useState('');
   const [employeeAdmissionDate, setEmployeeAdmissionDate] = useState('');
@@ -308,7 +306,6 @@ export function EmployeeRegistration() {
     setEmployeeName('');
     setEmployeeCpf('');
     setEmployeeBirthDate('');
-    setEmployeeDdd('');
     setEmployeePhone('');
     setEmployeeEmail('');
     setEmployeeAdmissionDate('');
@@ -346,8 +343,7 @@ export function EmployeeRegistration() {
     setEmployeeName(employee.nmFuncionario);
     setEmployeeCpf(formatCpf(employee.caCPF));
     setEmployeeBirthDate(formatDateInput(employee.dtNascimento));
-    setEmployeeDdd(employee.nrDDD ? String(employee.nrDDD) : '');
-    setEmployeePhone(formatPhone(String(employee.nrContato ?? '')));
+    setEmployeePhone(joinDddPhone(employee.nrDDD, employee.nrContato));
     setEmployeeEmail(employee.anEmail);
     setEmployeeAdmissionDate(formatDateInput(employee.dtAdmissao));
     setIsEmployeeActive(employee.boInativo === false);
@@ -411,8 +407,7 @@ export function EmployeeRegistration() {
   function getEmployeeValidationErrors() {
     const errors: EmployeeValidationErrors = {};
     const cpf = onlyDigits(employeeCpf);
-    const ddd = onlyDigits(employeeDdd);
-    const phone = onlyDigits(employeePhone);
+    const { ddd, phone } = splitDddPhone(employeePhone);
     const trimmedEmail = employeeEmail.trim();
 
     if (!employeeName.trim()) {
@@ -431,20 +426,9 @@ export function EmployeeRegistration() {
       errors.admissionDate = 'Informe uma data de admissao valida.';
     }
 
-    if (ddd && ddd.length !== 2) {
-      errors.ddd = 'Informe o DDD com 2 digitos.';
-    }
-
-    if (phone && phone.length !== 8 && phone.length !== 9) {
-      errors.phone = 'Informe um contato com 8 ou 9 digitos.';
-    }
-
-    if (phone && !ddd) {
-      errors.ddd = 'Informe o DDD do contato.';
-    }
-
-    if (ddd && !phone) {
-      errors.phone = 'Informe o contato.';
+    // Uma regra so: ou o campo esta vazio, ou tem DDD + 8/9 digitos.
+    if ((ddd || phone) && (ddd.length !== 2 || (phone.length !== 8 && phone.length !== 9))) {
+      errors.phone = 'Informe DDD e numero, ex.: (11) 96796-7158.';
     }
 
     if (trimmedEmail && !isValidEmail(trimmedEmail)) {
@@ -464,8 +448,6 @@ export function EmployeeRegistration() {
     setEmployeeErrors((current) => ({
       ...current,
       [field]: errors[field],
-      ...(field === 'ddd' ? { phone: errors.phone } : {}),
-      ...(field === 'phone' ? { ddd: errors.ddd } : {}),
     }));
 
     return !errors[field];
@@ -489,11 +471,6 @@ export function EmployeeRegistration() {
 
     if (errors.admissionDate) {
       admissionDateInputRef.current?.focus();
-      return;
-    }
-
-    if (errors.ddd) {
-      dddInputRef.current?.focus();
       return;
     }
 
@@ -554,7 +531,6 @@ export function EmployeeRegistration() {
         admissionDate: true,
         birthDate: true,
         cpf: true,
-        ddd: true,
         email: true,
         name: true,
         phone: true,
@@ -578,8 +554,8 @@ export function EmployeeRegistration() {
         nmFuncionario: employeeName.trim(),
         caCPF: onlyDigits(employeeCpf),
         dtNascimento: employeeBirthDate || null,
-        nrDDD: onlyDigits(employeeDdd) || null,
-        nrContato: Number(phone || 0),
+        nrDDD: splitDddPhone(employeePhone).ddd || null,
+        nrContato: Number(splitDddPhone(employeePhone).phone || 0),
         anEmail: employeeEmail.trim(),
         dtAdmissao: employeeAdmissionDate || null,
         boInativo: isEmployeeActive ? false : true,
@@ -893,11 +869,8 @@ export function EmployeeRegistration() {
               <RegistrationField error={employeeErrors.admissionDate} htmlFor="employeeAdmissionDate" label="Admissão" size="sm" touched={touchedEmployeeFields.admissionDate}>
                 <input className={touchedEmployeeFields.admissionDate && employeeErrors.admissionDate ? 'invalid' : ''} id="employeeAdmissionDate" onBlur={() => validateEmployeeField('admissionDate')} onChange={(event) => { const value = event.target.value; setEmployeeAdmissionDate(value); if (touchedEmployeeFields.admissionDate) { setEmployeeErrors((current) => ({ ...current, admissionDate: !value || isValidDateInput(value) ? undefined : 'Informe uma data de admissao valida.' })); } }} ref={admissionDateInputRef} type="date" value={employeeAdmissionDate} />
               </RegistrationField>
-              <RegistrationField error={employeeErrors.ddd} htmlFor="employeeDdd" label="DDD" size="xs" touched={touchedEmployeeFields.ddd}>
-                <input className={touchedEmployeeFields.ddd && employeeErrors.ddd ? 'invalid' : ''} id="employeeDdd" maxLength={2} onBlur={() => validateEmployeeField('ddd')} onChange={(event) => { const value = onlyDigits(event.target.value).slice(0, 2); setEmployeeDdd(value); if (touchedEmployeeFields.ddd || touchedEmployeeFields.phone) { const phone = onlyDigits(employeePhone); setEmployeeErrors((current) => ({ ...current, ddd: phone && !value ? 'Informe o DDD do contato.' : value && value.length !== 2 ? 'Informe o DDD com 2 digitos.' : undefined, phone: value && !phone ? 'Informe o contato.' : current.phone })); } }} placeholder="11" ref={dddInputRef} type="text" value={employeeDdd} />
-              </RegistrationField>
-              <RegistrationField error={employeeErrors.phone} htmlFor="employeePhone" label="Contato" size="sm" touched={touchedEmployeeFields.phone}>
-                <input inputMode="numeric" className={touchedEmployeeFields.phone && employeeErrors.phone ? 'invalid' : ''} id="employeePhone" maxLength={10} onBlur={() => validateEmployeeField('phone')} onChange={(event) => { const formattedPhone = formatPhone(event.target.value); const phone = onlyDigits(formattedPhone); setEmployeePhone(formattedPhone); if (touchedEmployeeFields.phone || touchedEmployeeFields.ddd) { setEmployeeErrors((current) => ({ ...current, ddd: phone && !employeeDdd ? 'Informe o DDD do contato.' : current.ddd, phone: phone && phone.length !== 8 && phone.length !== 9 ? 'Informe um contato com 8 ou 9 digitos.' : employeeDdd && !phone ? 'Informe o contato.' : undefined })); } }} placeholder="00000-0000" ref={phoneInputRef} type="text" value={employeePhone} />
+              <RegistrationField error={employeeErrors.phone} htmlFor="employeePhone" label="Contato" size="md" touched={touchedEmployeeFields.phone}>
+                <input inputMode="numeric" className={touchedEmployeeFields.phone && employeeErrors.phone ? 'invalid' : ''} id="employeePhone" maxLength={15} onBlur={() => validateEmployeeField('phone')} onChange={(event) => { const formatted = formatDddPhone(event.target.value); setEmployeePhone(formatted); if (touchedEmployeeFields.phone) { const { ddd, phone } = splitDddPhone(formatted); setEmployeeErrors((current) => ({ ...current, phone: (ddd || phone) && (ddd.length !== 2 || (phone.length !== 8 && phone.length !== 9)) ? 'Informe DDD e numero, ex.: (11) 96796-7158.' : undefined })); } }} placeholder="(11) 96796-7158" ref={phoneInputRef} type="text" value={employeePhone} />
               </RegistrationField>
               <RegistrationField error={employeeErrors.email} htmlFor="employeeEmail" label="Email" size="lg" touched={touchedEmployeeFields.email}>
                 <input className={touchedEmployeeFields.email && employeeErrors.email ? 'invalid' : ''} id="employeeEmail" maxLength={100} onBlur={() => validateEmployeeField('email')} onChange={(event) => { const value = event.target.value; setEmployeeEmail(value); if (touchedEmployeeFields.email) { const trimmedEmail = value.trim(); setEmployeeErrors((current) => ({ ...current, email: trimmedEmail && !isValidEmail(trimmedEmail) ? 'Informe um email válido.' : undefined })); } }} placeholder="profissional@email.com" ref={emailInputRef} type="email" value={employeeEmail} />

@@ -25,7 +25,7 @@ export function GridPagination({
   const end = Math.min(page * pageSize, totalItems);
 
   return (
-    <div className="grid-pagination" aria-label="Paginacao da tabela">
+    <div className="grid-pagination" aria-label="Paginação da tabela">
       <p>
         {start}-{end} de {totalItems}
       </p>
@@ -39,7 +39,7 @@ export function GridPagination({
           Anterior
         </button>
         <span>
-          Pagina {page} de {totalPages}
+          Página {page} de {totalPages}
         </span>
         <button
           className="secondary-button"
@@ -47,11 +47,44 @@ export function GridPagination({
           onClick={() => onChange(page + 1)}
           type="button"
         >
-          Proxima
+          Próxima
         </button>
       </div>
     </div>
   );
+}
+
+// Telefone completo num campo so.
+//
+// DDD e numero eram dois inputs separados, com validacao cruzada entre eles
+// ("Informe o DDD do contato" / "Informe o contato") — regras que so existiam
+// porque a divisao permite um estado invalido no meio do preenchimento. Para
+// quem digita e um dado unico. O banco continua com nrDDD e nrContato
+// separados; splitDddPhone faz a separacao na hora de salvar.
+export function formatDddPhone(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 2) return digits;
+
+  const ddd = digits.slice(0, 2);
+  const rest = digits.slice(2);
+  const formattedRest = rest.length <= 8
+    ? rest.replace(/^(\d{4})(\d)/, '$1-$2')
+    : rest.replace(/^(\d{5})(\d)/, '$1-$2');
+
+  return `(${ddd}) ${formattedRest}`;
+}
+
+export function splitDddPhone(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  return { ddd: digits.slice(0, 2), phone: digits.slice(2) };
+}
+
+// Monta o valor do campo a partir das duas colunas do banco.
+export function joinDddPhone(ddd: number | string | null | undefined, phone: number | string | null | undefined) {
+  const dddDigits = String(ddd ?? '').replace(/\D/g, '');
+  const phoneDigits = String(phone ?? '').replace(/\D/g, '');
+  if (!dddDigits && !phoneDigits) return '';
+  return formatDddPhone(`${dddDigits}${phoneDigits}`);
 }
 
 export function formatDateInput(value: string | null) {
