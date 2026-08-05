@@ -115,8 +115,20 @@
   transition: border-color 280ms ease, box-shadow 280ms ease, max-height 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* As linhas abaixo usavam minimos FIXOS (minmax(16rem, ...)) que somavam mais
+   que o container: .workout-student-row pedia 46rem (644px) de minimo num
+   espaco de 554px. minmax com minimo fixo se recusa a encolher, e o pai
+   (.product-table) tem overflow-x: hidden — entao o excedente nao virava
+   rolagem, sumia. Montar Treino perdia 141px em 903px e 326px em 375px;
+   Montagem de Agenda perdia 293px em 903px e 163px ate em 1440px, com a
+   coluna STATUS inteiramente fora da tela.
+
+   minmax(0, Nfr) deixa a coluna encolher; as celulas ja tem
+   text-overflow: ellipsis (data-grid.css), entao o texto trunca limpo em vez
+   de estourar. E o mesmo padrao que as grades de cadastro (RegistrationGrid)
+   ja usavam — por isso Matriculas, Profissionais e Clientes passavam limpas. */
 .workout-student-row {
-  grid-template-columns: minmax(16rem, 1.35fr) minmax(9rem, 0.7fr) minmax(14rem, 1fr) 7rem;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.7fr) minmax(0, 1fr) 7rem;
 }
 
 
@@ -125,19 +137,22 @@
 }
 
 .workout-training-row {
-  grid-template-columns: minmax(12rem, 1.1fr) minmax(11rem, 0.9fr) minmax(5rem, 0.4fr) minmax(7rem, 0.6fr) 6.5rem 6.5rem;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 0.4fr) minmax(0, 0.6fr) 6.5rem 6.5rem;
 }
 
 .activity-schedule-activity-row {
-  grid-template-columns: minmax(14rem, 1.2fr) minmax(10rem, 1fr) minmax(12rem, 1fr) 7rem;
+  /* Declarava uma quarta faixa de 7rem que nenhuma linha preenche — sao 3
+     colunas (Atividade, Esporte, Status). Os 98px mortos saiam de um painel de
+     381px, espremendo as tres colunas reais. */
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .activity-schedule-row {
-  grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) minmax(10rem, 1fr) 9rem minmax(11rem, 1fr) 6rem minmax(7rem, 0.8fr) 9rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 9rem minmax(0, 1fr) 6rem minmax(0, 0.8fr) 9rem;
 }
 
 .activity-schedule-actions {
-  grid-template-columns: minmax(12rem, 1fr) max-content max-content;
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
 }
 
 .schedule-agenda-toolbar {
@@ -185,7 +200,9 @@
   align-items: start;
   display: grid;
   gap: 1.25rem;
-  grid-template-columns: minmax(18rem, 0.55fr) minmax(0, 1fr);
+  /* minmax(18rem, ...) forcava 252px de minimo e podia estourar o container;
+     o minimo agora e 0 e quem garante largura util e o breakpoint abaixo. */
+  grid-template-columns: minmax(0, 0.55fr) minmax(0, 1fr);
 }
 
 .schedule-drawer-layout {
@@ -226,7 +243,15 @@
   margin-top: 0.75rem;
 }
 
-@media (max-width: 900px) {
+/* Era 900px. O menu lateral come ~262px, entao numa janela de 903px sobravam
+   556px de conteudo para as duas colunas: a lista de atividades ficava com
+   252px e as colunas da tabela caiam para ~30px ("Aula Zumba" em 33px). O
+   painel da direita, ainda vazio ("Selecione uma atividade"), ficava com mais
+   espaco que a lista que o usuario precisa ler primeiro.
+
+   Em 1100px sobram ~800px de conteudo, que e o minimo para as duas colunas
+   valerem a pena; abaixo disso empilha. */
+@media (max-width: 68.75rem) {
   .schedule-assembly-layout {
     grid-template-columns: 1fr;
   }
@@ -420,7 +445,7 @@
 }
 
 .workout-training-grid .child-grid-toolbar-actions {
-  grid-template-columns: minmax(12rem, 1fr) max-content max-content max-content;
+  grid-template-columns: minmax(0, 1fr) max-content max-content max-content;
 }
 
 .workout-training-form {

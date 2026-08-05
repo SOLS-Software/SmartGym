@@ -27,6 +27,10 @@ export function StudentTrainingAssembly({
   const [studentsPage, setStudentsPage] = useState(1);
   const [studentTrainingsPage, setStudentTrainingsPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  // Montar treino para aluno inativo nao deveria ser o caminho facil: eles
+  // apareciam misturados aos ativos, sem nenhum filtro. Continuam alcancaveis,
+  // so deixaram de ser o padrao.
+  const [showInactiveStudents, setShowInactiveStudents] = useState(false);
   const [studentTrainingSearchTerm, setStudentTrainingSearchTerm] = useState('');
   const [trainingOptionSearchTerm, setTrainingOptionSearchTerm] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
@@ -54,6 +58,8 @@ export function StudentTrainingAssembly({
   const isStudentTrainingFormEnabled = Boolean(selectedStudentId) && isCreatingStudentTraining;
   const isSaveEnabled = isStudentTrainingFormEnabled && Boolean(loggedEmployeeId) && selectedTrainingIds.length > 0;
   const filteredStudents = students.filter((student) => {
+    if (!showInactiveStudents && student.boInativo !== false) return false;
+
     const search = searchTerm.toLowerCase();
 
     return (
@@ -63,6 +69,9 @@ export function StudentTrainingAssembly({
       (student.boInativo === false ? 'ativo' : 'inativo').includes(search)
     );
   });
+  const hiddenInactiveCount = showInactiveStudents
+    ? 0
+    : students.filter((student) => student.boInativo !== false).length;
   const filteredStudentTrainings = studentTrainings
     .filter((studentTraining) => {
       const search = studentTrainingSearchTerm.toLowerCase();
@@ -752,6 +761,20 @@ export function StudentTrainingAssembly({
             <p className="section-label">Alunos cadastrados</p>
           </div>
           <div className="child-grid-toolbar-actions">
+            <label className="grid-toggle-field">
+              <input
+                checked={showInactiveStudents}
+                onChange={(event) => {
+                  setShowInactiveStudents(event.target.checked);
+                  setStudentsPage(1);
+                }}
+                type="checkbox"
+              />
+              <span>
+                Mostrar inativos
+                {hiddenInactiveCount > 0 ? ` (${hiddenInactiveCount})` : ''}
+              </span>
+            </label>
             <label className="search-field">
               <span>Pesquisar</span>
               <input
@@ -785,9 +808,13 @@ export function StudentTrainingAssembly({
                 role="row"
                 type="button"
               >
-                <span role="cell">{student.nmAluno}</span>
+                {/* title: as celulas truncam com ellipsis, entao nome e email
+                    longos ficavam ilegiveis sem nenhuma forma de ler o valor
+                    inteiro. E o mesmo recurso que a RegistrationGrid ja oferece
+                    via `tooltip`. */}
+                <span role="cell" title={student.nmAluno}>{student.nmAluno}</span>
                 <span role="cell">{formatCpf(student.caCPF)}</span>
-                <span role="cell">{student.anEmail || '-'}</span>
+                <span role="cell" title={student.anEmail || undefined}>{student.anEmail || '-'}</span>
                 <span role="cell">
                   <span className={`status-badge ${student.boInativo === false ? 'active' : 'inactive'}`}>
                     {student.boInativo === false ? 'Ativo' : 'Inativo'}
