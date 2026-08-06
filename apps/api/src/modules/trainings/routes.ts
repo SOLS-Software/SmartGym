@@ -105,7 +105,7 @@ async function assertExerciseInTenant(idCliente: number, idExercicio: number | n
 
 async function attachExerciseCoversToTrainingExercises<
   T extends { idExercicio: number | null; exercicio: { id: number } | null },
->(records: T[]) {
+>(records: T[], idCliente: number) {
   const exerciseIds = records
     .map((record) => record.exercicio?.id)
     .filter((id): id is number => typeof id === 'number');
@@ -113,11 +113,13 @@ async function attachExerciseCoversToTrainingExercises<
   if (exerciseIds.length === 0) {
     return records.map((record) => ({
       ...record,
-      exercicio: record.exercicio ? { ...record.exercicio, coverImageUrl: null, areas: [] } : null,
+      exercicio: record.exercicio
+        ? { ...record.exercicio, coverImageUrl: null, areas: [], equipamentos: [] }
+        : null,
     }));
   }
 
-  const [files, areaLinks] = await Promise.all([
+  const [files, areaLinks, equipmentLinks] = await Promise.all([
     prisma.exercicioArquivo.findMany({
       where: { idExercicio: { in: exerciseIds }, boInativo: false },
       orderBy: { dtCadastro: 'asc' },
@@ -125,6 +127,17 @@ async function attachExerciseCoversToTrainingExercises<
     prisma.exercicioAreaCorporal.findMany({
       where: { idExercicio: { in: exerciseIds }, boInativo: false },
       include: { areaCorporal: true },
+    }),
+    // Mesmo criterio de exercises/routes.ts: equipamento vem em lote para o
+    // card, filtrado pelo que o tenant enxerga (proprio + catalogo global).
+    prisma.exercicioEquipamento.findMany({
+      where: {
+        idExercicio: { in: exerciseIds },
+        boInativo: false,
+        equipamento: { OR: [{ idCliente: null }, { idCliente }] },
+      },
+      include: { equipamento: true },
+      orderBy: { dtCadastro: 'asc' },
     }),
   ]);
 
@@ -159,6 +172,18 @@ async function attachExerciseCoversToTrainingExercises<
     areasByExercise.set(link.idExercicio, list);
   }
 
+  const equipmentByExercise = new Map<number, Array<{ id: number; nmEquipamento: string | null; dsEquipamento: string | null }>>();
+  for (const link of equipmentLinks) {
+    if (!link.equipamento) continue;
+    const list = equipmentByExercise.get(link.idExercicio) ?? [];
+    list.push({
+      id: link.equipamento.id,
+      nmEquipamento: link.equipamento.nmEquipamento,
+      dsEquipamento: link.equipamento.dsEquipamento,
+    });
+    equipmentByExercise.set(link.idExercicio, list);
+  }
+
   return records.map((record) => {
     if (!record.exercicio) return { ...record, exercicio: null };
     const path = coverPathByExercise.get(record.exercicio.id);
@@ -168,6 +193,7 @@ async function attachExerciseCoversToTrainingExercises<
         ...record.exercicio,
         coverImageUrl: path ? signedUrlByPath.get(path) ?? null : null,
         areas: areasByExercise.get(record.exercicio.id) ?? [],
+        equipamentos: equipmentByExercise.get(record.exercicio.id) ?? [],
       },
     };
   });
@@ -324,7 +350,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
         return records;
       }
 
-      return attachExerciseCoversToTrainingExercises(records);
+      return attachExerciseCoversToTrainingExercises(records, idCliente);
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao listar exercicios do treino.'),

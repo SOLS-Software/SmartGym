@@ -14,9 +14,18 @@ export interface Exercise {
   boInativo: number;
 }
 
+// Resumo do equipamento que vem junto do exercicio quando a listagem e pedida
+// com includeCover=true — o suficiente para o card e a tela de detalhe.
+export interface EquipamentoResumo {
+  id: number;
+  nmEquipamento: string | null;
+  dsEquipamento: string | null;
+}
+
 export interface ExerciseWithCover extends Exercise {
   coverImageUrl: string | null;
   areas: AreaCorporal[];
+  equipamentos: EquipamentoResumo[];
 }
 
 export interface Training {

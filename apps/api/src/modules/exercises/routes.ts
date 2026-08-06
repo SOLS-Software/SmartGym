@@ -120,18 +120,19 @@ async function assertCompanyInTenant(idCliente: number, idEmpresa: number | null
   if (!company) throw new Error('Empresa nao pertence ao cliente.');
 }
 
-async function attachExerciseCovers<T extends { id: number }>(exercises: T[]) {
+async function attachExerciseCovers<T extends { id: number }>(exercises: T[], idCliente: number) {
   if (exercises.length === 0) {
     return exercises.map((exercise) => ({
       ...exercise,
       coverImageUrl: null as string | null,
       areas: [] as Array<{ id: number; dsAreaCorporal: string; boInativo: number }>,
+      equipamentos: [] as Array<{ id: number; nmEquipamento: string | null }>,
     }));
   }
 
   const exerciseIds = exercises.map((exercise) => exercise.id);
 
-  const [files, areaLinks] = await Promise.all([
+  const [files, areaLinks, equipmentLinks] = await Promise.all([
     prisma.exercicioArquivo.findMany({
       where: { idExercicio: { in: exerciseIds }, boInativo: false },
       orderBy: { dtCadastro: 'asc' },
@@ -139,6 +140,20 @@ async function attachExerciseCovers<T extends { id: number }>(exercises: T[]) {
     prisma.exercicioAreaCorporal.findMany({
       where: { idExercicio: { in: exerciseIds }, boInativo: false },
       include: { areaCorporal: true },
+    }),
+    // Equipamento vem junto (uma consulta para a pagina inteira) porque o card
+    // e o painel de detalhe mostram a lista. Buscar por card seria 1 request
+    // por exercicio na tela. O filtro de tenant e o mesmo do
+    // GET /exercises/:id/equipment: exercicio de catalogo e visto por todos os
+    // clientes e nao pode expor o parque de quem vinculou primeiro.
+    prisma.exercicioEquipamento.findMany({
+      where: {
+        idExercicio: { in: exerciseIds },
+        boInativo: false,
+        equipamento: equipmentVisibleWhere(idCliente),
+      },
+      include: { equipamento: true },
+      orderBy: { dtCadastro: 'asc' },
     }),
   ]);
 
@@ -173,12 +188,25 @@ async function attachExerciseCovers<T extends { id: number }>(exercises: T[]) {
     areasByExercise.set(link.idExercicio, list);
   }
 
+  const equipmentByExercise = new Map<number, Array<{ id: number; nmEquipamento: string | null; dsEquipamento: string | null }>>();
+  for (const link of equipmentLinks) {
+    if (!link.equipamento) continue;
+    const list = equipmentByExercise.get(link.idExercicio) ?? [];
+    list.push({
+      id: link.equipamento.id,
+      nmEquipamento: link.equipamento.nmEquipamento,
+      dsEquipamento: link.equipamento.dsEquipamento,
+    });
+    equipmentByExercise.set(link.idExercicio, list);
+  }
+
   return exercises.map((exercise) => {
     const path = coverPathByExercise.get(exercise.id);
     return {
       ...exercise,
       coverImageUrl: path ? signedUrlByPath.get(path) ?? null : null,
       areas: areasByExercise.get(exercise.id) ?? [],
+      equipamentos: equipmentByExercise.get(exercise.id) ?? [],
     };
   });
 }
@@ -212,7 +240,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       skip: parsedQuery.data.offset,
     });
 
-    return includeCover ? attachExerciseCovers(exercises) : exercises;
+    return includeCover ? attachExerciseCovers(exercises, idCliente) : exercises;
   });
 
   app.post<{

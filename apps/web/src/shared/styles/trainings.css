@@ -673,6 +673,30 @@ button.exercise-card:hover {
   padding: 0.2rem 0.55rem;
 }
 
+/* Lista de equipamentos no card: uma linha so, cortada com reticencias quando
+   nao cabe. A lista completa fica no painel de detalhe. */
+.exercise-card-equipment {
+  align-items: center;
+  color: var(--color-muted);
+  display: flex;
+  font-size: 0.75rem;
+  font-weight: 600;
+  gap: 0.3rem;
+  margin-top: 0.125rem;
+  min-width: 0;
+}
+
+.exercise-card-equipment svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.exercise-card-equipment span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .exercise-card-instruction {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
@@ -686,6 +710,143 @@ button.exercise-card:hover {
 
 .card-load-sentinel {
   height: 0.0625rem;
+}
+
+/* Painel de detalhe do exercicio: imagem a esquerda e texto a direita em tela
+   larga, empilhado no mobile. */
+.exercise-detail {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+}
+
+.exercise-detail-photo {
+  align-items: center;
+  align-self: start;
+  aspect-ratio: 4 / 3;
+  background: var(--color-surface-alt);
+  border: 0.0625rem solid var(--color-border);
+  border-radius: 0.75rem;
+  color: var(--color-muted);
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.exercise-detail-photo img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+/* Sem capa a moldura 4/3 vira um retangulo vazio grande; encolhe para uma faixa
+   com o icone, mesmo criterio do card. */
+.exercise-detail-photo.is-empty {
+  aspect-ratio: auto;
+  padding: 1.25rem;
+}
+
+.exercise-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.exercise-detail-name {
+  color: var(--color-text);
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.exercise-detail-meta {
+  color: var(--color-primary);
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.exercise-detail-description {
+  color: var(--color-muted-strong);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.exercise-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.exercise-detail-section .section-label {
+  margin: 0;
+}
+
+.exercise-detail-steps {
+  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  list-style: decimal;
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.exercise-detail-steps li::marker {
+  color: var(--color-primary);
+  font-weight: 800;
+}
+
+.exercise-detail-equipment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.exercise-detail-equipment li {
+  align-items: center;
+  background: var(--color-surface-alt);
+  border-radius: 0.5rem;
+  color: var(--color-text);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  font-weight: 700;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.exercise-detail-equipment li svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.exercise-detail-equipment li small {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  width: 100%;
+}
+
+.exercise-detail-empty {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+@media (max-width: 48rem) {
+  .exercise-detail {
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .training-card {

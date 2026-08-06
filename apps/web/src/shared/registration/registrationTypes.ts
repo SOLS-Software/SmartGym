@@ -68,7 +68,19 @@ export type AreaCorporal = {
   boInativo: boolean;
 };
 
-export type ExerciseWithCover = Exercise & { coverImageUrl: string | null; areas: AreaCorporal[] };
+// Resumo do equipamento que acompanha o exercicio na listagem — o suficiente
+// para o card e o painel de detalhe, sem trazer o registro completo.
+export type EquipamentoResumo = {
+  id: number;
+  nmEquipamento: string | null;
+  dsEquipamento: string | null;
+};
+
+export type ExerciseWithCover = Exercise & {
+  coverImageUrl: string | null;
+  areas: AreaCorporal[];
+  equipamentos: EquipamentoResumo[];
+};
 
 export type ExercicioAreaCorporal = {
   id: number;

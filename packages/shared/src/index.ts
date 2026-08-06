@@ -121,3 +121,38 @@ export function formatPhone(value: string): string {
 export function isImageFile(path: string): boolean {
   return /\.(jpg|jpeg|png|gif|webp)$/i.test(path);
 }
+
+// Exercicio.dsInstrucao guarda descricao e passo a passo no MESMO campo, no
+// formato "<descricao>\n\nComo executar:\n1. ...\n2. ...". O card mostra o texto
+// cru cortado em poucas linhas; a tela de detalhe (web e mobile) precisa separar
+// para render descricao como paragrafo e passos como lista numerada.
+//
+// Mora aqui porque web e mobile fazem a MESMA leitura do mesmo campo: uma copia
+// em cada app sairia de sincronia na primeira mudanca de formato, e a tela que
+// ficasse para tras despejaria "Como executar:" no meio da descricao sem que
+// nada acusasse.
+//
+// Texto fora do formato cai inteiro em `descricao` e `passos` volta vazio, entao
+// exercicio cadastrado a mao continua legivel.
+export function parseExerciseInstruction(texto: string | null | undefined): {
+  descricao: string;
+  passos: string[];
+} {
+  if (!texto) return { descricao: '', passos: [] };
+
+  const marcador = 'Como executar:';
+  const corte = texto.indexOf(marcador);
+  if (corte === -1) return { descricao: texto.trim(), passos: [] };
+
+  return {
+    descricao: texto.slice(0, corte).trim(),
+    passos: texto
+      .slice(corte + marcador.length)
+      .split('\n')
+      .map((linha) => linha.trim())
+      .filter(Boolean)
+      // Remove a numeracao do texto: quem numera e a lista (<ol> no web,
+      // indice no mobile). Sem isso sai "1. 1. Deite no banco...".
+      .map((linha) => linha.replace(/^\d+[.)]\s*/, '')),
+  };
+}
