@@ -60,7 +60,9 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
 
   async function loadExercises() {
     try {
-      const response = await fetch(`${apiUrl}/exercises`);
+      // Tela de cadastro: precisa dos inativos para mostrar o badge de status e
+      // permitir reativar. As demais telas usam o padrao da rota (so ativos).
+      const response = await fetch(`${apiUrl}/exercises?includeInactive=true`);
       if (!response.ok) await getApiError(response, 'Não foi possível carregar os exercícios.');
       setExercises((await response.json()) as Exercise[]);
       setFeedback('');

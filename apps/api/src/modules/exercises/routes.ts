@@ -35,6 +35,12 @@ const listQuerySchema = z.object({
   limit: queryIntSchema,
   offset: queryOffsetSchema,
   includeCover: queryFlagSchema,
+  // Padrao: so exercicio ATIVO. O catalogo do aluno (web e mobile) e a montagem
+  // de treino consomem esta rota, e exercicio inativo aparecia la como card
+  // vazio — sem imagem, sem area e sem instrucao. Quem precisa dos inativos e a
+  // tela de cadastro, que mostra o badge de status e permite reativar; ela pede
+  // includeInactive=true explicitamente.
+  includeInactive: queryFlagSchema,
   ids: z.string().regex(/^[\d,\s]*$/, 'Lista de ids invalida.').optional(),
 });
 
@@ -189,6 +195,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
     }
     const search = parsedQuery.data.search?.trim();
     const includeCover = parsedQuery.data.includeCover === 'true';
+    const includeInactive = parsedQuery.data.includeInactive === 'true';
     const ids = parsedQuery.data.ids
       ? parsedQuery.data.ids.split(',').map(Number).filter(Number.isFinite)
       : undefined;
@@ -197,6 +204,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       where: {
         ...(search ? { dsExercicio: { contains: search, mode: 'insensitive' } } : {}),
         ...(ids ? { id: { in: ids } } : {}),
+        ...(includeInactive ? {} : { boInativo: false }),
         ...tenantCompanyWhere(idCliente),
       },
       orderBy: { dsExercicio: 'asc' },
