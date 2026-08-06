@@ -26,12 +26,20 @@ const listQuerySchema = z.object({
 // manutencoes) era compartilhada entre todos os clientes da instalacao.
 //
 // Regras:
-// - Leitura: registros do proprio cliente + os LEGADOS (idCliente null, criados
-//   antes da migration e sem dono deduzivel) — preserva o que ja aparecia nas
-//   telas ate o operador rodar o backfill manual descrito na migration.
-// - Escrita: SOMENTE registros do proprio cliente. Legado sem dono nao e mais
-//   editavel/apagavel por ninguem, justamente porque pode ser de outro tenant.
+// - Leitura: registros do proprio cliente + os de idCliente nulo — que sao os
+//   LEGADOS (criados antes da migration, sem dono deduzivel) e o CATALOGO
+//   GLOBAL (equipamento generico dos exercicios de catalogo, ver abaixo).
+// - Escrita: SOMENTE registros do proprio cliente. Linha sem dono nao e
+//   editavel/apagavel pelo tenant, justamente porque pode ser de outro.
 // - Criacao: idCliente vem sempre do token, nunca do body.
+//
+// Excecao do CATALOGO GLOBAL: o exercicio de catalogo (Exercicio.idEmpresa
+// nulo) e o mesmo para todos os clientes, entao o equipamento generico que ele
+// referencia ("Banco Reto", "Barra Olimpica") tambem precisa ser global — senao
+// o vinculo exercicio->equipamento vaza o parque de um cliente para os outros
+// na leitura de /exercises/:id/equipment. Esse equipamento fica com idCliente
+// nulo e so o super-admin (SOLS) o cria/edita, mesmo criterio do catalogo de
+// exercicios e das tabelas de dominio globais em auxiliary/routes.ts.
 const visibleScope = (idCliente: number) => ({
   OR: [{ idCliente: null }, { idCliente }],
 });
@@ -45,9 +53,13 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
     });
   }
 
-  // Equipamento do proprio tenant — exigido em qualquer escrita.
-  async function findOwnedEquipment(id: number, idCliente: number) {
-    return prisma.equipamento.findFirst({ where: { id, idCliente }, select: { id: true } });
+  // Equipamento do proprio tenant — exigido em qualquer escrita. O super-admin
+  // alcanca tambem o catalogo global (idCliente nulo), que e ele quem mantem.
+  async function findOwnedEquipment(id: number, idCliente: number, isSuperAdmin = false) {
+    return prisma.equipamento.findFirst({
+      where: isSuperAdmin ? { id, OR: [{ idCliente: null }, { idCliente }] } : { id, idCliente },
+      select: { id: true },
+    });
   }
 
   app.get<{
@@ -85,9 +97,18 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
     const idCliente = request.user.idCliente;
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
-      // Tenant sempre do token; idCliente vindo do body e ignorado.
+      // Tenant sempre do token; idCliente vindo do body e ignorado. A unica
+      // saida do tenant e boCatalogoGlobal, restrito ao super-admin.
       const data = normalizeEquipamentoPayload(request.body);
-      const equipment = await prisma.equipamento.create({ data: { ...data, idCliente } });
+      const catalogoGlobal = request.body.boCatalogoGlobal === true;
+      if (catalogoGlobal && !request.user.superAdmin) {
+        return reply
+          .code(403)
+          .send({ message: 'Catalogo global: alteracao restrita ao administrador do sistema.' });
+      }
+      const equipment = await prisma.equipamento.create({
+        data: { ...data, idCliente: catalogoGlobal ? null : idCliente },
+      });
       return reply.code(201).send(equipment);
     } catch (error) {
       return reply.code(400).send({
@@ -105,11 +126,26 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Equipamento invalido.');
-      if (!(await findOwnedEquipment(id, idCliente))) {
+      const isSuperAdmin = request.user.superAdmin === true;
+      if (!(await findOwnedEquipment(id, idCliente, isSuperAdmin))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const data = normalizeEquipamentoPayload(request.body);
-      return prisma.equipamento.update({ where: { id }, data });
+      // Sem boCatalogoGlobal no body a posse fica como esta — so o super-admin
+      // move a linha entre o catalogo global e o proprio tenant.
+      const catalogoGlobal = request.body.boCatalogoGlobal;
+      if (typeof catalogoGlobal === 'boolean' && !isSuperAdmin) {
+        return reply
+          .code(403)
+          .send({ message: 'Catalogo global: alteracao restrita ao administrador do sistema.' });
+      }
+      return prisma.equipamento.update({
+        where: { id },
+        data:
+          typeof catalogoGlobal === 'boolean'
+            ? { ...data, idCliente: catalogoGlobal ? null : idCliente }
+            : data,
+      });
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao atualizar equipamento.'),
@@ -126,7 +162,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Equipamento invalido.');
-      if (!(await findOwnedEquipment(id, idCliente))) {
+      if (!(await findOwnedEquipment(id, idCliente, request.user.superAdmin === true))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const boInativo = toBool(request.body.boInativo);

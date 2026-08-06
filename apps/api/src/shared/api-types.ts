@@ -115,6 +115,9 @@ export type EquipamentoPayload = {
   nmEquipamento?: string;
   dtAquisicao?: string | null;
   boInativo?: boolean;
+  // Equipamento de CATALOGO (idCliente nulo), visivel a todos os clientes —
+  // usado pelos exercicios do catalogo global. So o super-admin pode definir.
+  boCatalogoGlobal?: boolean;
 };
 
 export type EquipamentoManutencaoPayload = {

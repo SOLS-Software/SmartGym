@@ -69,6 +69,12 @@ function tenantCompanyWhere(idCliente: number) {
   return { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] };
 }
 
+// Equipamento alcancavel pelo tenant: o proprio parque + os de idCliente nulo
+// (catalogo global / legado). Mesmo escopo de leitura de equipment/routes.ts.
+function equipmentVisibleWhere(idCliente: number) {
+  return { OR: [{ idCliente: null }, { idCliente }] };
+}
+
 async function exerciseBelongsToTenant(idCliente: number, idExercicio: number) {
   const exercise = await prisma.exercicio.findFirst({
     where: { id: idExercicio, ...tenantCompanyWhere(idCliente) },
@@ -79,9 +85,21 @@ async function exerciseBelongsToTenant(idCliente: number, idExercicio: number) {
 
 // Mutacao exige posse pelo tenant — nao casa idEmpresa nulo (evita editar
 // catalogo global/de outro tenant). Leitura continua usando exerciseBelongsToTenant.
-async function exerciseOwnedByTenant(idCliente: number, idExercicio: number) {
+//
+// Excecao: exercicio com idEmpresa nulo e catalogo GLOBAL (uma linha e a mesma
+// para todos os clientes), entao mante-lo e operacao cross-tenant e cabe so ao
+// super-admin (SOLS) — mesmo criterio das tabelas de dominio globais em
+// auxiliary/routes.ts (GLOBAL_DOMAIN_PATHS). Fora isso o super-admin continua
+// preso ao proprio tenant: nao alcanca exercicio de empresa de outro cliente.
+async function exerciseOwnedByTenant(
+  idCliente: number,
+  idExercicio: number,
+  isSuperAdmin = false,
+) {
   const exercise = await prisma.exercicio.findFirst({
-    where: { id: idExercicio, empresa: { idCliente } },
+    where: isSuperAdmin
+      ? { id: idExercicio, OR: [{ idEmpresa: null }, { empresa: { idCliente } }] }
+      : { id: idExercicio, empresa: { idCliente } },
     select: { id: true },
   });
   return Boolean(exercise);
@@ -216,7 +234,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Exercicio invalido.');
-      if (!(await exerciseOwnedByTenant(idCliente, id))) {
+      if (!(await exerciseOwnedByTenant(idCliente, id, request.user.superAdmin === true))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const data = normalizeExercisePayload(request.body);
@@ -243,7 +261,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       if (!parsedBody.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      if (!(await exerciseOwnedByTenant(idCliente, id))) {
+      if (!(await exerciseOwnedByTenant(idCliente, id, request.user.superAdmin === true))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const boInativo = toBool(parsedBody.data.boInativo);
@@ -385,7 +403,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(fileId, 'Arquivo invalido.');
 
-      if (!(await exerciseOwnedByTenant(idCliente, idExercicio))) {
+      if (!(await exerciseOwnedByTenant(idCliente, idExercicio, request.user.superAdmin === true))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
@@ -426,7 +444,13 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       return prisma.exercicioEquipamento.findMany({
-        where: { idExercicio, boInativo: false },
+        // O vinculo so e devolvido se o EQUIPAMENTO tambem for visivel ao
+        // tenant. Sem este filtro, um exercicio de catalogo (idEmpresa nulo,
+        // visivel a todos) exporia o parque de quem vinculou primeiro: o
+        // cliente A ve "Leg Press Serie 3 - Unidade Centro" do cliente B so por
+        // abrir o exercicio global. Equipamento de idCliente nulo (catalogo /
+        // legado) segue visivel, que e o caso de uso legitimo.
+        where: { idExercicio, boInativo: false, equipamento: equipmentVisibleWhere(idCliente) },
         include: { equipamento: true },
         orderBy: { dtCadastro: 'desc' },
         take: clampLimit(parsedQuery.data.limit),
@@ -455,6 +479,17 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
 
       if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+
+      // O equipamento tambem precisa ser alcancavel pelo tenant: sem isto da
+      // para vincular equipamento de OUTRO cliente so chutando o id, e o nome
+      // dele volta no 201 e na listagem.
+      const equipment = await prisma.equipamento.findFirst({
+        where: { id: idEquipamento, ...equipmentVisibleWhere(idCliente) },
+        select: { id: true },
+      });
+      if (!equipment) {
+        return reply.code(404).send({ message: 'Equipamento nao encontrado.' });
       }
 
       const existing = await prisma.exercicioEquipamento.findFirst({
@@ -489,7 +524,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(linkId, 'Vinculo invalido.');
 
-      if (!(await exerciseOwnedByTenant(idCliente, idExercicio))) {
+      if (!(await exerciseOwnedByTenant(idCliente, idExercicio, request.user.superAdmin === true))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
@@ -593,7 +628,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(linkId, 'Vinculo invalido.');
 
-      if (!(await exerciseOwnedByTenant(idCliente, idExercicio))) {
+      if (!(await exerciseOwnedByTenant(idCliente, idExercicio, request.user.superAdmin === true))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
