@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { apiUrl, getApiError, authFetch as fetch } from '../../lib/api/client';
+import { AjusteBiometria } from '../../lib/components/AjusteBiometria';
 import { Screen } from '../../lib/components/Screen';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { useTokens } from '../../lib/theme/tokens';
@@ -179,6 +180,10 @@ export default function PerfilScreen() {
         ) : (
           <Empty text="Nenhum acesso registrado." />
         )}
+      </Section>
+
+      <Section title="Segurança">
+        <AjusteBiometria />
       </Section>
 
       <Pressable

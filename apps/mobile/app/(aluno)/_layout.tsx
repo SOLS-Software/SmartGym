@@ -1,5 +1,6 @@
 import { Redirect, Tabs } from 'expo-router';
 import { Text } from 'react-native';
+import { TravaSessao } from '../../lib/components/TravaSessao';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { useTokens } from '../../lib/theme/tokens';
 
@@ -28,53 +29,55 @@ export default function AlunoLayout() {
   }
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: t.brand,
-        tabBarInactiveTintColor: t.textSubtle,
-        tabBarStyle: { backgroundColor: t.surface, borderTopColor: t.border },
-      }}
-    >
-      <Tabs.Screen
-        name="meu-treino"
-        options={{
-          title: 'Meu Treino',
-          tabBarIcon: ({ color }) => <TabIcon color={color} emoji="🏋️" />,
+    <TravaSessao>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: t.brand,
+          tabBarInactiveTintColor: t.textSubtle,
+          tabBarStyle: { backgroundColor: t.surface, borderTopColor: t.border },
         }}
-      />
-      <Tabs.Screen
-        name="exercicios"
-        options={{
-          title: 'Exercícios',
-          tabBarIcon: ({ color }) => <TabIcon color={color} emoji="💪" />,
-        }}
-      />
-      <Tabs.Screen
-        name="treino"
-        options={{
-          title: 'Treino',
-          tabBarIcon: ({ color }) => <TabIcon color={color} emoji="📋" />,
-        }}
-      />
-      <Tabs.Screen
-        name="atividades"
-        options={{
-          title: 'Atividades',
-          tabBarIcon: ({ color }) => <TabIcon color={color} emoji="📅" />,
-        }}
-      />
-      <Tabs.Screen
-        name="mais"
-        options={{
-          title: 'Mais',
-          tabBarIcon: ({ color }) => <TabIcon color={color} emoji="☰" />,
-        }}
-      />
-      {/* Telas secundárias — acessíveis pelo menu Mais, fora da barra de abas */}
-      <Tabs.Screen name="perfil" options={{ href: null }} />
-      <Tabs.Screen name="calendario-empresa" options={{ href: null }} />
-      <Tabs.Screen name="planos" options={{ href: null }} />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="meu-treino"
+          options={{
+            title: 'Meu Treino',
+            tabBarIcon: ({ color }) => <TabIcon color={color} emoji="🏋️" />,
+          }}
+        />
+        <Tabs.Screen
+          name="exercicios"
+          options={{
+            title: 'Exercícios',
+            tabBarIcon: ({ color }) => <TabIcon color={color} emoji="💪" />,
+          }}
+        />
+        <Tabs.Screen
+          name="treino"
+          options={{
+            title: 'Treino',
+            tabBarIcon: ({ color }) => <TabIcon color={color} emoji="📋" />,
+          }}
+        />
+        <Tabs.Screen
+          name="atividades"
+          options={{
+            title: 'Atividades',
+            tabBarIcon: ({ color }) => <TabIcon color={color} emoji="📅" />,
+          }}
+        />
+        <Tabs.Screen
+          name="mais"
+          options={{
+            title: 'Mais',
+            tabBarIcon: ({ color }) => <TabIcon color={color} emoji="☰" />,
+          }}
+        />
+        {/* Telas secundárias — acessíveis pelo menu Mais, fora da barra de abas */}
+        <Tabs.Screen name="perfil" options={{ href: null }} />
+        <Tabs.Screen name="calendario-empresa" options={{ href: null }} />
+        <Tabs.Screen name="planos" options={{ href: null }} />
+      </Tabs>
+    </TravaSessao>
   );
 }

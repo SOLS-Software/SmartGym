@@ -12,6 +12,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiUrl, setAuthToken } from '../lib/api/client';
+import {
+  lerPreferenciaBiometria,
+  limparInatividade,
+  verificarBiometria,
+} from '../lib/auth/travaSessao';
 import { useAuth } from '../lib/contexts/AuthContext';
 import { useTokens } from '../lib/theme/tokens';
 import type { AuthenticatedUser } from '../lib/types/auth';
@@ -63,7 +68,15 @@ export default function LoginScreen() {
         return;
       }
 
-      await setAuthToken(token ?? null);
+      // Reativa a trava biométrica se o usuário já a tinha escolhido: a
+      // preferência sobrevive ao logout, a proteção do token não. Se o
+      // aparelho perdeu o cadastro de biometria no meio tempo, entra sem
+      // proteção em vez de gravar um token que ninguém consegue reler.
+      const querBiometria = await lerPreferenciaBiometria();
+      const biometria = querBiometria ? await verificarBiometria() : null;
+      await setAuthToken(token ?? null, { protegido: Boolean(biometria?.disponivel) });
+      await limparInatividade();
+
       await signIn(user);
       router.replace('/meu-treino');
     } catch (error) {

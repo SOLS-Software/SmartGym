@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
-import { apiUrl, authFetch, setAuthToken } from '../api/client';
+import { apiUrl, authFetch, sessaoTrancada, setAuthToken } from '../api/client';
 import type { AuthenticatedUser } from '../types/auth';
 
 const STORAGE_KEY = '@smartgym:auth_user';
@@ -48,6 +48,17 @@ export function useAuthSession() {
         if (!stored) return;
 
         const parsed = JSON.parse(stored) as AuthenticatedUser;
+
+        // Sessão trancada pela biometria: o token existe, mas só sai do cofre
+        // depois do desbloqueio. Revalidar agora mandaria requisição sem
+        // Authorization, tomaria 401 e derrubaria o login — justamente o
+        // contrário do esperado. Mantém o perfil local e deixa a TravaSessao
+        // pedir a identificação; a revalidação acontece na primeira chamada
+        // depois disso.
+        if (await sessaoTrancada()) {
+          if (!cancelled) setUser(parsed);
+          return;
+        }
 
         // Revalida a sessão; se o token não for mais válido, derruba.
         // A identidade vem do JWT (Authorization) — o ?id= legado foi removido.
