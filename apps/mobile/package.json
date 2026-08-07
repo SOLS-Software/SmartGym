@@ -10,7 +10,18 @@
     "web": "expo start --web",
     "build": "expo export",
     "lint": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.js"
+    ],
+    "testTimeout": 20000,
+    "transformIgnorePatterns": [
+      "node_modules/(?!(?:jest-)?react-native|@react-native|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|@smartgym/.*)"
+    ]
   },
   "dependencies": {
     "@expo/metro-runtime": "^6.1.2",
@@ -21,6 +32,7 @@
     "expo-constants": "~18.0.0",
     "expo-document-picker": "~14.0.8",
     "expo-linking": "~8.0.0",
+    "expo-local-authentication": "~17.0.8",
     "expo-router": "~6.0.0",
     "expo-secure-store": "~15.0.8",
     "expo-status-bar": "~3.0.0",
@@ -30,8 +42,15 @@
     "react-native-screens": "~4.16.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.7",
     "@smartgym/config": "workspace:*",
+    "@testing-library/react-native": "^14.0.1",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.1.0",
+    "jest": "^29.7.0",
+    "jest-expo": "~54.0.17",
+    "react-dom": "19.1.0",
+    "react-native-web": "~0.21.2",
     "typescript": "^5.7.2"
   }
 }
