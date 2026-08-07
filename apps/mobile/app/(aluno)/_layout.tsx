@@ -12,7 +12,18 @@ export default function AlunoLayout() {
   const t = useTokens();
 
   // Guard de sessão: só entra quem for aluno.
-  if (isLoaded && !user?.idAluno) {
+  //
+  // Enquanto a sessão carrega não pode renderizar <Tabs>: as telas filhas
+  // montam junto e o useEffect delas dispara busca na API antes do redirect.
+  // Deslogado, 5 das 8 telas chamavam a API e levavam 401 — sem risco de
+  // vazamento, mas gastando requisição do limite de 300/min a cada abertura e
+  // podendo piscar "não foi possível carregar" antes de sair. No aparelho a
+  // janela é maior que no navegador: ler o token do SecureStore é I/O nativo.
+  if (!isLoaded) {
+    return null;
+  }
+
+  if (!user?.idAluno) {
     return <Redirect href="/login" />;
   }
 

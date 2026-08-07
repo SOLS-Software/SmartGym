@@ -68,6 +68,8 @@ export function ClientLoadScreen({
             {displayError || error || 'Erro desconhecido ao carregar cliente'}
           </Text>
           <Pressable
+            accessibilityLabel="Tentar novamente"
+            accessibilityRole="button"
             onPress={() => {
               setDisplayError(null);
               void reload(clientId);

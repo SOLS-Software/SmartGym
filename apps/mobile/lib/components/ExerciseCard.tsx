@@ -38,7 +38,13 @@ export function ExerciseCard({ exercise, meta }: ExerciseCardProps) {
           },
         ]}
       >
-        <View style={[styles.photo, { backgroundColor: t.brandTintFaint }]}>
+        <View
+          style={[
+            exercise.coverImageUrl ? styles.photo : styles.photoEmpty,
+            { backgroundColor: t.brandTintFaint },
+          ]}
+          testID="exercise-card-photo"
+        >
           {exercise.coverImageUrl ? (
             <Image
               accessibilityLabel={exercise.dsExercicio}
@@ -75,7 +81,11 @@ export function ExerciseCard({ exercise, meta }: ExerciseCardProps) {
           {/* Sem numberOfLines a instrucao completa (descricao + 5 ou 6 passos)
               estica o card por varias telas. O texto inteiro fica no detalhe. */}
           {exercise.dsInstrucao ? (
-            <Text numberOfLines={3} style={[styles.instruction, { color: t.textMuted }]}>
+            <Text
+              numberOfLines={3}
+              style={[styles.instruction, { color: t.textMuted }]}
+              testID="exercise-card-instruction"
+            >
               {exercise.dsInstrucao}
             </Text>
           ) : null}
@@ -95,18 +105,35 @@ export function ExerciseCard({ exercise, meta }: ExerciseCardProps) {
 }
 
 const styles = StyleSheet.create({
+  // Ilustracao em cima, ocupando a largura do card, e o texto embaixo — igual
+  // ao card do web. Antes era lado a lado com a foto em 96px de largura: com o
+  // catalogo sem capa nenhuma isso nunca apareceu, mas com a ilustracao (640x420,
+  // com titulo e legenda escritos) 96px deixava o desenho ilegivel.
   card: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     borderWidth: 1,
     overflow: 'hidden',
   },
+  // A View da foto PRECISA de altura propria. Sem ela, `height: '100%'` da
+  // Image nao tem de que tirar porcentagem, a Image cai para a altura
+  // intrinseca (420) e estica o card por meia tela — com resizeMode="cover"
+  // sobrava uma fatia vertical do meio do gif, que e quase toda branca.
+  // aspectRatio 3/2 e a proporcao do proprio gif, entao nao corta nada.
   photo: {
-    width: 96,
+    width: '100%',
+    aspectRatio: 3 / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Sem capa a moldura 3/2 seria um retangulo vazio grande; vira uma tarja.
+  photoEmpty: {
+    width: '100%',
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },
   photoImage: { width: '100%', height: '100%' },
-  photoFallback: { fontSize: 30 },
+  photoFallback: { fontSize: 20 },
   body: {
     flex: 1,
     padding: 12,

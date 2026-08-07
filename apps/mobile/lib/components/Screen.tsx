@@ -29,7 +29,13 @@ export function Screen({
   const header = (title || sectionLabel) ? (
     <View style={styles.header}>
       {onBack ? (
-        <Pressable hitSlop={10} onPress={onBack} style={styles.back}>
+        <Pressable
+          accessibilityLabel="Voltar"
+          accessibilityRole="button"
+          hitSlop={10}
+          onPress={onBack}
+          style={styles.back}
+        >
           <Text style={[styles.backChevron, { color: t.brand }]}>‹</Text>
         </Pressable>
       ) : null}

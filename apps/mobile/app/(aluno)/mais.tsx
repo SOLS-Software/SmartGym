@@ -31,6 +31,9 @@ export default function MaisScreen() {
         {MENU.map((item) => (
           <Pressable
             key={item.href}
+            accessibilityHint={item.subtitle}
+            accessibilityLabel={item.title}
+            accessibilityRole="button"
             onPress={() => router.push(item.href)}
             style={({ pressed }) => [
               styles.row,

@@ -244,6 +244,9 @@ export default function MeuTreinoScreen() {
                 return (
                   <Pressable
                     key={sequence.id}
+                    accessibilityLabel={`${training.treino?.dsTreino ?? 'Treino'}, sequência ${sequence.nrOrdem}`}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: active, checked: active }}
                     onPress={() => {
                       setSelectedSequenceId(String(sequence.id));
                       setSelectedStudentTraining(training);
@@ -265,6 +268,12 @@ export default function MeuTreinoScreen() {
         ) : null}
 
         <Pressable
+          accessibilityLabel="Iniciar treino"
+          accessibilityRole="button"
+          accessibilityState={{
+            disabled: !workoutStartTarget.sequence || isStartingWorkout,
+            busy: isStartingWorkout,
+          }}
           disabled={!workoutStartTarget.sequence || isStartingWorkout}
           onPress={() => void handleStartWorkout()}
           style={({ pressed }) => [
@@ -298,6 +307,9 @@ export default function MeuTreinoScreen() {
               return (
                 <Pressable
                   key={st.id}
+                  accessibilityLabel={`Treino ${st.treino?.dsTreino ?? 'sem nome'}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
                   onPress={() => handleSelectTraining(st)}
                   style={[
                     styles.trainingCard,

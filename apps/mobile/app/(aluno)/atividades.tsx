@@ -154,6 +154,9 @@ export default function AtividadesScreen() {
                 return (
                   <Pressable
                     key={schedule.id}
+                    accessibilityLabel={`${category}, das ${formatTime(schedule.dtInicial)} às ${formatTime(schedule.dtFinal)}${enrolled ? ', você já está inscrito' : isFull ? ', sem vagas' : ''}`}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: isSelected, disabled }}
                     disabled={disabled}
                     onPress={() => toggleSchedule(schedule.id)}
                     style={[
@@ -194,6 +197,9 @@ export default function AtividadesScreen() {
 
         {selectedScheduleIds.length > 0 ? (
           <Pressable
+            accessibilityLabel={`Inscrever nas aulas, ${selectedScheduleIds.length} selecionada(s)`}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
             disabled={isSubmitting}
             onPress={() => void handleEnroll()}
             style={({ pressed }) => [

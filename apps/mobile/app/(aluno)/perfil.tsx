@@ -182,6 +182,8 @@ export default function PerfilScreen() {
       </Section>
 
       <Pressable
+        accessibilityLabel="Sair da conta"
+        accessibilityRole="button"
         onPress={() => void handleLogout()}
         style={({ pressed }) => [
           styles.logoutBtn,

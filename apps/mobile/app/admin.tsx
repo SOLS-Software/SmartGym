@@ -404,13 +404,13 @@ function CompanyRegistration() {
           style={styles.searchInput}
           value={searchTerm}
         />
-        <Pressable onPress={handleNewCompany} style={[styles.newButton, { backgroundColor: dark, borderRadius: r }]}>
+        <Pressable accessibilityRole="button" onPress={handleNewCompany} style={[styles.newButton, { backgroundColor: dark, borderRadius: r }]}>
           <Text style={styles.newButtonText}>Nova empresa</Text>
         </Pressable>
 
         <View style={styles.productList}>
           {filteredCompanies.map((company) => (
-            <Pressable
+            <Pressable accessibilityRole="button"
               key={company.id}
               onPress={() => handleSelectCompany(company)}
               style={[
@@ -487,7 +487,7 @@ function CompanyRegistration() {
         />
 
         <Text style={styles.label}>Status</Text>
-        <Pressable
+        <Pressable accessibilityRole="button"
           disabled={!isFormEnabled}
           onPress={handleToggleStatus}
           style={[
@@ -508,14 +508,14 @@ function CompanyRegistration() {
         </Pressable>
 
         <View style={styles.formActions}>
-          <Pressable
+          <Pressable accessibilityRole="button"
             disabled={!isFormEnabled}
             onPress={clearForm}
             style={[styles.clearButton, !isFormEnabled && styles.disabledControl]}
           >
             <Text style={styles.clearButtonText}>Limpar</Text>
           </Pressable>
-          <Pressable
+          <Pressable accessibilityRole="button"
             disabled={!isFormEnabled}
             onPress={handleSaveCompany}
             style={[styles.saveButton, { backgroundColor: primary, borderRadius: r }, !isFormEnabled && styles.disabledControl]}
@@ -723,13 +723,13 @@ function ProductRegistration() {
           style={styles.searchInput}
           value={searchTerm}
         />
-        <Pressable onPress={handleNewProduct} style={[styles.newButton, { backgroundColor: dark, borderRadius: r }]}>
+        <Pressable accessibilityRole="button" onPress={handleNewProduct} style={[styles.newButton, { backgroundColor: dark, borderRadius: r }]}>
           <Text style={styles.newButtonText}>Novo produto</Text>
         </Pressable>
 
         <View style={styles.productList}>
           {filteredProducts.map((product) => (
-            <Pressable
+            <Pressable accessibilityRole="button"
               key={product.id}
               onPress={() => handleSelectProduct(product)}
               style={[
@@ -774,7 +774,7 @@ function ProductRegistration() {
 
         <Text style={styles.label}>Empresa</Text>
         <View style={styles.optionList}>
-          <Pressable
+          <Pressable accessibilityRole="button"
             disabled={!isFormEnabled}
             onPress={() => setSelectedCompanyId('')}
             style={[
@@ -794,7 +794,7 @@ function ProductRegistration() {
           </Pressable>
 
           {companies.map((company) => (
-            <Pressable
+            <Pressable accessibilityRole="button"
               disabled={!isFormEnabled}
               key={company.id}
               onPress={() => setSelectedCompanyId(String(company.id))}
@@ -841,7 +841,7 @@ function ProductRegistration() {
         />
 
         <Text style={styles.label}>Status</Text>
-        <Pressable
+        <Pressable accessibilityRole="button"
           disabled={!isFormEnabled}
           onPress={handleToggleStatus}
           style={[
@@ -862,14 +862,14 @@ function ProductRegistration() {
         </Pressable>
 
         <View style={styles.formActions}>
-          <Pressable
+          <Pressable accessibilityRole="button"
             disabled={!isFormEnabled}
             onPress={clearForm}
             style={[styles.clearButton, !isFormEnabled && styles.disabledControl]}
           >
             <Text style={styles.clearButtonText}>Limpar</Text>
           </Pressable>
-          <Pressable
+          <Pressable accessibilityRole="button"
             disabled={!isFormEnabled}
             onPress={handleSaveProduct}
             style={[styles.saveButton, { backgroundColor: primary, borderRadius: r }, !isFormEnabled && styles.disabledControl]}
@@ -1551,13 +1551,13 @@ function StudentRegistration() {
           style={styles.searchInput}
           value={searchTerm}
         />
-        <Pressable onPress={handleNewStudent} style={[styles.newButton, { backgroundColor: dark, borderRadius: r }]}>
+        <Pressable accessibilityRole="button" onPress={handleNewStudent} style={[styles.newButton, { backgroundColor: dark, borderRadius: r }]}>
           <Text style={styles.newButtonText}>Novo aluno</Text>
         </Pressable>
 
         <View style={styles.productList}>
           {filteredStudents.map((student) => (
-            <Pressable
+            <Pressable accessibilityRole="button"
               key={student.id}
               onPress={() => handleSelectStudent(student)}
               style={[
@@ -1658,7 +1658,7 @@ function StudentRegistration() {
         ) : null}
 
         <Text style={styles.label}>Data de nascimento *</Text>
-        <Pressable
+        <Pressable accessibilityRole="button"
           disabled={!isFormEnabled}
           onPress={openBirthCalendar}
           style={[
@@ -1692,7 +1692,7 @@ function StudentRegistration() {
           <View style={styles.calendarOverlay}>
             <View style={styles.calendarPanel}>
               <View style={styles.calendarHeader}>
-                <Pressable
+                <Pressable accessibilityRole="button"
                   onPress={() => moveBirthCalendarMonth(-1)}
                   style={styles.calendarNavButton}
                 >
@@ -1704,7 +1704,7 @@ function StudentRegistration() {
                     year: 'numeric',
                   })}
                 </Text>
-                <Pressable
+                <Pressable accessibilityRole="button"
                   onPress={() => moveBirthCalendarMonth(1)}
                   style={styles.calendarNavButton}
                 >
@@ -1731,7 +1731,7 @@ function StudentRegistration() {
                   const isFuture = date > today;
 
                   return (
-                    <Pressable
+                    <Pressable accessibilityRole="button"
                       key={date.toISOString()}
                       disabled={isFuture}
                       onPress={() => handleSelectBirthDate(date)}
@@ -1756,7 +1756,7 @@ function StudentRegistration() {
                 })}
               </View>
 
-              <Pressable
+              <Pressable accessibilityRole="button"
                 onPress={() => setIsBirthCalendarOpen(false)}
                 style={styles.calendarCloseButton}
               >
@@ -1858,7 +1858,7 @@ function StudentRegistration() {
         </View>
 
         <Text style={styles.label}>Status</Text>
-        <Pressable
+        <Pressable accessibilityRole="button"
           disabled={!isFormEnabled}
           onPress={handleToggleStatus}
           style={[
@@ -1879,14 +1879,14 @@ function StudentRegistration() {
         </Pressable>
 
         <View style={styles.formActions}>
-          <Pressable
+          <Pressable accessibilityRole="button"
             disabled={!isFormEnabled}
             onPress={clearForm}
             style={[styles.clearButton, !isFormEnabled && styles.disabledControl]}
           >
             <Text style={styles.clearButtonText}>Limpar</Text>
           </Pressable>
-          <Pressable
+          <Pressable accessibilityRole="button"
             disabled={!isFormEnabled}
             onPress={handleSaveStudent}
             style={[styles.saveButton, { backgroundColor: primary, borderRadius: r }, !isFormEnabled && styles.disabledControl]}
@@ -1909,7 +1909,7 @@ function StudentRegistration() {
         {fileFeedback ? <Text style={styles.formFeedback}>{fileFeedback}</Text> : null}
 
         <View style={styles.fileActionGroup}>
-          <Pressable
+          <Pressable accessibilityRole="button"
             disabled={!selectedStudentId || isUploadingFile}
             onPress={handlePickStudentFile}
             style={[
@@ -1922,7 +1922,7 @@ function StudentRegistration() {
             </Text>
           </Pressable>
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             disabled={!selectedStudentId || isUploadingFile}
             onPress={handleOpenCamera}
             style={[
@@ -1951,13 +1951,13 @@ function StudentRegistration() {
                 {file.anCaminho}
               </Text>
               <View style={styles.studentFileActions}>
-                <Pressable
+                <Pressable accessibilityRole="button"
                   onPress={() => void handleOpenStudentFile(file.id)}
                   style={styles.fileSecondaryButton}
                 >
                   <Text style={styles.fileSecondaryButtonText}>Abrir</Text>
                 </Pressable>
-                <Pressable
+                <Pressable accessibilityRole="button"
                   onPress={() => void handleRemoveStudentFile(file.id)}
                   style={styles.fileDangerButton}
                 >
@@ -1987,13 +1987,13 @@ function StudentRegistration() {
             style={styles.cameraPreview}
           />
           <View style={styles.cameraControls}>
-            <Pressable
+            <Pressable accessibilityRole="button"
               onPress={() => setIsCameraOpen(false)}
               style={styles.cameraControlButton}
             >
               <Text style={styles.cameraControlText}>Cancelar</Text>
             </Pressable>
-            <Pressable
+            <Pressable accessibilityRole="button"
               disabled={isTakingPhoto || isUploadingFile}
               onPress={handleTakeStudentPhoto}
               style={[
@@ -2005,7 +2005,7 @@ function StudentRegistration() {
                 {isTakingPhoto || isUploadingFile ? 'Salvando...' : 'Foto'}
               </Text>
             </Pressable>
-            <Pressable
+            <Pressable accessibilityRole="button"
               onPress={() =>
                 setCameraFacing((current) =>
                   current === 'back' ? 'front' : 'back',
@@ -2064,7 +2064,7 @@ export default function HomeScreen() {
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const [isLookingUpRegister, setIsLookingUpRegister] = useState(false);
   const passwordRequirements = [
-    { label: 'Pelo menos 1 numero', met: /\d/.test(registerPassword) },
+    { label: 'Pelo menos 1 número', met: /\d/.test(registerPassword) },
     { label: 'Pelo menos 3 letras', met: (registerPassword.match(/[a-zA-Z]/g) ?? []).length >= 3 },
     { label: 'Pelo menos 6 caracteres', met: registerPassword.length >= 6 },
     { label: 'No maximo 20 caracteres', met: registerPassword.length > 0 && registerPassword.length <= 20 },
@@ -2114,7 +2114,7 @@ export default function HomeScreen() {
             // entao o auto-cadastro nao pode prosseguir: o servidor recusa e o
             // aviso evita que a pessoa fique tentando sem entender o motivo.
             !data.emailMask
-            ? 'Seu cadastro nao tem email registrado. Procure a recepção da academia para concluir o acesso.'
+            ? 'Seu cadastro não tem e-mail registrado. Procure a recepção da academia para concluir o acesso.'
             : 'Cadastro encontrado. Confirme o email do cadastro e crie sua senha.',
       );
     } catch (error) {
@@ -2216,7 +2216,7 @@ export default function HomeScreen() {
       setAuthFeedback(data.message);
     } catch (error) {
       setAuthFeedback(
-        error instanceof Error ? error.message : 'Erro ao enviar email de redefinicao.',
+        error instanceof Error ? error.message : 'Erro ao enviar e-mail de redefinição.',
       );
     } finally {
       setIsSubmittingAuth(false);
@@ -2554,7 +2554,7 @@ export default function HomeScreen() {
             </Text>
             <View style={styles.productList}>
               {domainItems.map((domain) => (
-                <Pressable
+                <Pressable accessibilityRole="button"
                   key={domain}
                   onPress={() => setSelectedDomain(domain)}
                   style={[
@@ -2585,7 +2585,7 @@ export default function HomeScreen() {
                     style={styles.searchInput}
                     value={domainSearch}
                   />
-                  <Pressable onPress={handleNewDomainRecord} style={[styles.newButton, { backgroundColor: dark, borderRadius: r }]}>
+                  <Pressable accessibilityRole="button" onPress={handleNewDomainRecord} style={[styles.newButton, { backgroundColor: dark, borderRadius: r }]}>
                     <Text style={styles.newButtonText}>Novo</Text>
                   </Pressable>
 
@@ -2595,7 +2595,7 @@ export default function HomeScreen() {
                         record.name.toLowerCase().includes(domainSearch.toLowerCase()),
                       )
                       .map((record) => (
-                        <Pressable
+                        <Pressable accessibilityRole="button"
                           key={record.id}
                           onPress={() => handleSelectDomainRecord(record)}
                           style={[
@@ -2661,7 +2661,7 @@ export default function HomeScreen() {
                     </>
                   ) : null}
                   <Text style={styles.label}>Status</Text>
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     disabled={!isCreatingDomainRecord && !selectedDomainRecordId}
                     onPress={handleToggleDomainRecordStatus}
                     style={[
@@ -2683,7 +2683,7 @@ export default function HomeScreen() {
                     </View>
                   </Pressable>
                   <View style={styles.formActions}>
-                    <Pressable
+                    <Pressable accessibilityRole="button"
                       disabled={!isCreatingDomainRecord && !selectedDomainRecordId}
                       onPress={clearDomainForm}
                       style={[
@@ -2695,7 +2695,7 @@ export default function HomeScreen() {
                     >
                       <Text style={styles.clearButtonText}>Limpar</Text>
                     </Pressable>
-                    <Pressable
+                    <Pressable accessibilityRole="button"
                       disabled={!isCreatingDomainRecord && !selectedDomainRecordId}
                       onPress={handleSaveDomainRecord}
                       style={[
@@ -2751,7 +2751,7 @@ export default function HomeScreen() {
                   screen === 'Dominios';
 
                 return (
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     key={screen}
                     onPress={() => setActiveRegistration(screen)}
                     style={[
@@ -2795,7 +2795,7 @@ export default function HomeScreen() {
 
       return (
         <View style={styles.registrationScreen}>
-          <Pressable
+          <Pressable accessibilityRole="button"
             onPress={() => setActiveRegistration(null)}
             style={styles.backButton}
           >
@@ -2829,7 +2829,7 @@ export default function HomeScreen() {
             <View style={styles.selectLike}>
               <Text style={styles.selectLikeText}>{authUserRole}</Text>
             </View>
-            <Pressable
+            <Pressable accessibilityRole="button"
               onPress={async () => {
                 await setCurrentClient(null);
                 setIsLoggedIn(false);
@@ -2868,7 +2868,7 @@ export default function HomeScreen() {
 
             {loginMode !== 'forgot' ? (
               <View style={styles.loginModeToggle}>
-                <Pressable
+                <Pressable accessibilityRole="button"
                   onPress={() => {
                     setLoginMode('login');
                     setAuthFeedback('');
@@ -2878,7 +2878,7 @@ export default function HomeScreen() {
                 >
                   <Text style={[styles.loginModeText, loginMode === 'login' && styles.loginModeTextActive]}>Entrar</Text>
                 </Pressable>
-                <Pressable
+                <Pressable accessibilityRole="button"
                   onPress={() => {
                     setLoginMode('register');
                     setAuthFeedback('');
@@ -2922,7 +2922,7 @@ export default function HomeScreen() {
                     style={[styles.input, styles.passwordInput]}
                     value={loginPassword}
                   />
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     onPress={() => setShowLoginPassword((current) => !current)}
                     style={styles.passwordEyeButton}
                   >
@@ -2930,7 +2930,7 @@ export default function HomeScreen() {
                   </Pressable>
                 </View>
 
-                <Pressable
+                <Pressable accessibilityRole="button"
                   onPress={() => {
                     setLoginMode('forgot');
                     setAuthFeedback('');
@@ -2941,7 +2941,7 @@ export default function HomeScreen() {
                   <Text style={styles.forgotText}>Esqueci minha senha</Text>
                 </Pressable>
 
-                <Pressable
+                <Pressable accessibilityRole="button"
                   disabled={isSubmittingAuth}
                   onPress={() => void handleLogin()}
                   style={[styles.submitButton, { backgroundColor: primary, borderRadius: r }, isSubmittingAuth && styles.disabledControl]}
@@ -2975,15 +2975,15 @@ export default function HomeScreen() {
                   </>
                 ) : null}
 
-                <Pressable
+                <Pressable accessibilityRole="button"
                   disabled={isSubmittingAuth}
                   onPress={() => void handleForgotPassword()}
                   style={[styles.submitButton, { backgroundColor: primary, borderRadius: r }, isSubmittingAuth && styles.disabledControl]}
                 >
-                  <Text style={styles.submitText}>{isSubmittingAuth ? 'Enviando...' : 'Enviar email de redefinicao'}</Text>
+                  <Text style={styles.submitText}>{isSubmittingAuth ? 'Enviando...' : 'Enviar e-mail de redefinição'}</Text>
                 </Pressable>
 
-                <Pressable
+                <Pressable accessibilityRole="button"
                   onPress={() => {
                     setLoginMode('login');
                     setAuthFeedback('');
@@ -3017,13 +3017,13 @@ export default function HomeScreen() {
                 />
 
                 <View style={styles.loginModeToggle}>
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     onPress={() => handleChangeRegisterType('student')}
                     style={[styles.loginModeButton, registerType === 'student' && styles.loginModeButtonActive]}
                   >
                     <Text style={[styles.loginModeText, registerType === 'student' && styles.loginModeTextActive]}>Aluno</Text>
                   </Pressable>
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     onPress={() => handleChangeRegisterType('employee')}
                     style={[styles.loginModeButton, registerType === 'employee' && styles.loginModeButtonActive]}
                   >
@@ -3075,7 +3075,7 @@ export default function HomeScreen() {
                     style={[styles.input, styles.passwordInput]}
                     value={registerPassword}
                   />
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     onPress={() => setShowRegisterPassword((current) => !current)}
                     style={styles.passwordEyeButton}
                   >
@@ -3091,7 +3091,7 @@ export default function HomeScreen() {
                   ))}
                 </View>
 
-                <Pressable
+                <Pressable accessibilityRole="button"
                   disabled={isSubmittingAuth || isLookingUpRegister || !registerLookup || registerLookup.hasUser}
                   onPress={() => void handleRegister()}
                   style={[styles.submitButton, { backgroundColor: primary, borderRadius: r }, (isSubmittingAuth || isLookingUpRegister || !registerLookup || registerLookup?.hasUser) && styles.disabledControl]}
@@ -3114,7 +3114,7 @@ export default function HomeScreen() {
 
       <View style={styles.bottomNav}>
         {appTabs.map((tab) => (
-          <Pressable
+          <Pressable accessibilityRole="button"
             key={tab}
             onPress={() => {
               setActiveTab(tab);

@@ -82,6 +82,8 @@ export default function TreinoScreen() {
           ListHeaderComponent={
             <View style={styles.header}>
               <Pressable
+                accessibilityLabel="Voltar aos treinos"
+                accessibilityRole="button"
                 onPress={() => setSelectedTraining(null)}
                 style={[styles.backBtn, { borderColor: t.border, borderRadius: t.radius }]}
               >
@@ -135,6 +137,9 @@ export default function TreinoScreen() {
           const links = previews[item.id];
           return (
             <Pressable
+              accessibilityHint="Abre os exercícios deste treino"
+              accessibilityLabel={`Treino ${item.dsTreino}`}
+              accessibilityRole="button"
               onPress={() => void loadDetail(item)}
               style={[styles.card, { backgroundColor: t.surface, borderColor: t.border, borderRadius: t.radius }]}
             >

@@ -88,7 +88,9 @@ export default function LoginScreen() {
           <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border, borderRadius: t.radius }]}>
             <Text style={[styles.label, { color: t.textMuted }]}>CPF</Text>
             <TextInput
+              accessibilityLabel="CPF"
               autoCapitalize="none"
+              autoComplete="username"
               keyboardType="number-pad"
               onChangeText={(value) => setCpf(formatCpf(value))}
               placeholder="000.000.000-00"
@@ -100,7 +102,9 @@ export default function LoginScreen() {
             <Text style={[styles.label, { color: t.textMuted }]}>Senha</Text>
             <View style={styles.passwordRow}>
               <TextInput
+                accessibilityLabel="Senha"
                 autoCapitalize="none"
+                autoComplete="current-password"
                 onChangeText={setPassword}
                 placeholder="Sua senha"
                 placeholderTextColor={t.placeholder}
@@ -108,7 +112,13 @@ export default function LoginScreen() {
                 style={[styles.input, styles.passwordInput, { backgroundColor: t.inputBg, borderColor: t.border, borderRadius: t.radius, color: t.text }]}
                 value={password}
               />
-              <Pressable hitSlop={8} onPress={() => setShowPassword((v) => !v)} style={styles.eyeBtn}>
+              <Pressable
+                accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={() => setShowPassword((v) => !v)}
+                style={styles.eyeBtn}
+              >
                 <Text style={[styles.eyeText, { color: t.brand }]}>{showPassword ? 'Ocultar' : 'Mostrar'}</Text>
               </Pressable>
             </View>
@@ -116,6 +126,9 @@ export default function LoginScreen() {
             {feedback ? <Text style={[styles.feedback, { color: t.danger }]}>{feedback}</Text> : null}
 
             <Pressable
+              accessibilityLabel="Entrar"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
               disabled={isSubmitting}
               onPress={() => void handleLogin()}
               style={({ pressed }) => [

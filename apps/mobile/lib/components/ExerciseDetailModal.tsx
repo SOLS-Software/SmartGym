@@ -135,8 +135,10 @@ const styles = StyleSheet.create({
   },
   closeText: { fontSize: 15, fontWeight: '700' },
   content: { paddingHorizontal: 20, paddingVertical: 16, paddingBottom: 40, gap: 10 },
+  // 3/2 e a proporcao do gif da ilustracao: encaixa sem cortar e sem tarja.
   photo: {
-    aspectRatio: 4 / 3,
+    width: '100%',
+    aspectRatio: 3 / 2,
     borderWidth: 1,
     overflow: 'hidden',
     alignItems: 'center',
