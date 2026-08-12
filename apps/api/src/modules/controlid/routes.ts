@@ -870,6 +870,38 @@ export async function registerControlidRoutes(app: FastifyInstance) {
     },
   );
 
+  // Numeros de usuario que a catraca ja reportou e que NAO estao vinculados a
+  // nenhum aluno. E a lista que a tela de vinculo precisa: o operador cadastra a
+  // digital no equipamento, o numero aparece aqui no primeiro acesso, e ele so
+  // escolhe de quem e. Sem isso o vinculo depende de alguem ler o id na tela da
+  // catraca e digitar certo.
+  app.get('/controlid/usuarios-nao-vinculados', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+
+    const eventos = await prisma.catracaEvento.groupBy({
+      by: ['nrUsuarioCatraca'],
+      where: {
+        idAluno: null,
+        nrUsuarioCatraca: { not: null },
+        // "0" e o que o equipamento manda quando NAO identificou ninguem — nao
+        // e um usuario, e a ausencia de um.
+        NOT: { nrUsuarioCatraca: '0' },
+        catraca: { empresa: { idCliente } },
+      },
+      _count: { _all: true },
+      _max: { dtEvento: true },
+      orderBy: { _max: { dtEvento: 'desc' } },
+      take: 100,
+    });
+
+    return eventos.map((evento) => ({
+      nrUsuarioCatraca: evento.nrUsuarioCatraca,
+      qtEventos: evento._count._all,
+      dtUltimoEvento: evento._max.dtEvento,
+    }));
+  });
+
   // -------------------------------------------------------------------
   // Consulta de eventos recebidos.
   // -------------------------------------------------------------------

@@ -75,6 +75,17 @@ describe('isStudentAllowed (RBAC do aluno, deny-by-default)', () => {
     expect(isStudentAllowed('GET', '/auth/logout', ID)).toBe(false);
   });
 
+  it('aluno nao altera o proprio vinculo com a catraca', () => {
+    // `nrUsuarioCatraca` decide QUEM a catraca acha que o aluno e. Se o proprio
+    // aluno pudesse editar, bastaria apontar para um usuario do equipamento que
+    // esta sempre liberado para furar o bloqueio por inadimplencia — a regra de
+    // plano e pagamento viraria enfeite. Por isso o vinculo vive num PATCH em
+    // subrecurso, fora da allowlist, e nao no PUT do proprio cadastro.
+    expect(isStudentAllowed('PATCH', `/students/${ID}/usuario-catraca`, ID)).toBe(false);
+    expect(isStudentAllowed('PATCH', '/students/8/usuario-catraca', ID)).toBe(false);
+    expect(isStudentAllowed('PATCH', `/students/${ID}/status`, ID)).toBe(false);
+  });
+
   it('nega mutacoes nos catalogos (aluno so le)', () => {
     expect(isStudentAllowed('POST', '/activities', ID)).toBe(false);
     expect(isStudentAllowed('PUT', '/exercises/5', ID)).toBe(false);
