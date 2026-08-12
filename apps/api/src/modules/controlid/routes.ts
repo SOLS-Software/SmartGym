@@ -8,6 +8,15 @@ import {
   type ControlidDeviceInfo,
   type ControlidNormalizedEvent,
 } from './events.js';
+import { handleIdentificacaoOnline } from './online.js';
+import { enfileirar, proximoComando } from './fila.js';
+import {
+  comandoDeLeituraDeUsuarios,
+  marcarSyncIniciada,
+  reconciliarAcessos,
+  syncPendente,
+  type UsuarioNoEquipamento,
+} from './sincronizacao.js';
 import { clientErrorMessage } from '../../shared/errors.js';
 
 type CatracaPayload = {
@@ -130,6 +139,362 @@ function extractControlidToken(request: FastifyRequest): string {
 // equipamentos por vez, reivindicados no painel) continua funcionando e o abuso
 // para de crescer. Ajustavel por CONTROLID_MAX_PENDING_DEVICES.
 const MAX_PENDING_AUTOREGISTERED = Number(process.env.CONTROLID_MAX_PENDING_DEVICES ?? 50);
+
+// Intervalo minimo entre dois comandos `load_objects` para o MESMO device.
+//
+// O modo push da Control iD manda o equipamento executar o comando e voltar
+// imediatamente para pedir o proximo. Como a resposta do polling sempre trazia
+// um comando, o device entrava em loop fechado: medimos ~25 requisicoes por
+// SEGUNDO de um unico equipamento, o suficiente para estourar o rate limit
+// (429) e manter a API ocupada a toa. A doc e explicita: "quando nao houver
+// nada a fazer, o servidor deve enviar uma resposta vazia" — ai o equipamento
+// espera o proprio push_request_period antes de perguntar de novo.
+const COMMAND_INTERVAL_MS = Number(process.env.CONTROLID_COMMAND_INTERVAL_MS ?? 5_000);
+
+// Ultimo instante em que entregamos um comando a cada device. Em memoria de
+// proposito: e so um regulador de trafego, e perder o estado no restart custa
+// no maximo um comando extra.
+//
+// Marcado com performance.now() (relogio MONOTONICO), nunca com Date.now().
+// Visto em campo: o NTP corrigiu o relogio da maquina 9 minutos PARA TRAS e,
+// como a marca anterior tinha ficado "no futuro", `agora - ultimo` virou
+// negativo, a condicao nunca mais foi satisfeita e a API parou de pedir eventos
+// as catracas — silenciosamente, com o equipamento seguindo o polling normal.
+// Ajuste de horario de verao, sincronizacao de NTP ou acerto manual no servidor
+// causariam a mesma parada. O relogio monotonico nao anda para tras.
+const lastCommandByDevice = new Map<string, number>();
+
+function shouldIssueCommand(deviceId: string): boolean {
+  const interval = Number.isFinite(COMMAND_INTERVAL_MS) && COMMAND_INTERVAL_MS >= 0
+    ? COMMAND_INTERVAL_MS
+    : 5_000;
+  const now = performance.now();
+  const last = lastCommandByDevice.get(deviceId);
+  if (last !== undefined && now - last < interval) return false;
+  lastCommandByDevice.set(deviceId, now);
+  return true;
+}
+
+// -------------------------------------------------------------------
+// Bootstrap do modo online.
+//
+// Os parametros que ligam o modo online (`general.online`,
+// `general.local_identification`) NAO existem no menu do equipamento: so via
+// set_configuration da API. Como a catraca ja nos pergunta o que fazer a cada
+// ciclo de push, entregamos a configuracao por esse mesmo canal em vez de
+// depender de acesso manual ao aparelho.
+//
+// Dispara UMA vez por serial listado em CONTROLID_BOOTSTRAP_MODO_ONLINE
+// (separados por virgula) e some — nao fica reenviando a cada ciclo. Feito por
+// env de proposito: reconfigurar equipamento e operacao pontual e deliberada,
+// nao algo que deva ficar exposto numa rota generica de "execute este comando
+// na catraca".
+// Doc: https://www.controlid.com.br/docs/access-api-pt/modos-de-operacao/configurar-modo-online/
+// FILA de comandos por serial, e nao um comando so: o set_configuration da
+// Control iD e atomico e o firmware varia entre modelos. Na primeira tentativa
+// aqui, um unico parametro inexistente (`ihm_enterprise_mode`) fez o
+// equipamento recusar o pacote inteiro. Em fila, cada passo e pequeno e o erro
+// aponta o culpado, em vez de derrubar tudo junto.
+const bootstrapPendente = new Map<string, Record<string, unknown>[]>();
+
+for (const serial of (process.env.CONTROLID_BOOTSTRAP_MODO_ONLINE ?? '')
+  .split(',')
+  .map((valor) => valor.trim())
+  .filter((valor) => valor !== '')) {
+  bootstrapPendente.set(serial, []);
+}
+
+// O destino das requisicoes ONLINE vive na secao `online_client` e NAO herda o
+// servidor configurado para o push — sao dois canais independentes. Se ficar
+// sem preencher, a catraca entra em modo online e passa a perguntar para o
+// endereco default dela, que nao e a nossa API: toda identificacao daria
+// timeout e cairia na regra local.
+const ONLINE_HOST = (process.env.CONTROLID_ONLINE_HOST ?? '').trim();
+const ONLINE_PORT = (process.env.CONTROLID_ONLINE_PORT ?? process.env.API_PORT ?? '3333').trim();
+// Sem barra inicial: o equipamento monta <host>:<port>/<path>/new_user_identified.fcgi.
+const ONLINE_PATH = (process.env.CONTROLID_ONLINE_PATH ?? 'controlid').trim().replace(/^\/+|\/+$/g, '');
+
+function comando(endpoint: string, body: Record<string, unknown>) {
+  return { verb: 'POST', endpoint, contentType: 'application/json', queryString: '', body };
+}
+
+// Passo 1: descobrir o que ESTE firmware realmente tem. A resposta volta em
+// /result e sai no log, e so entao montamos o set_configuration com os nomes
+// que existem de fato.
+//
+// O get_configuration exige a LISTA de parametros desejados — secao com array
+// vazio devolve objeto vazio (foi o que aconteceu na primeira tentativa). Uma
+// secao por comando: se um nome nao existir, o erro identifica o culpado sem
+// derrubar a consulta da outra secao junto.
+function comandosDeDiagnostico() {
+  return [
+    comando('get_configuration', { general: ['online', 'local_identification'] }),
+    comando('get_configuration', {
+      online_client: ['hostname', 'port', 'path', 'request_timeout'],
+    }),
+  ];
+}
+
+// Sonda nomes candidatos no modulo online_client, um por comando. Parametro
+// inexistente responde com erro nomeando o caminho ("param[name=X]"), entao
+// cada tentativa e informativa: ou devolve o valor, ou confirma que o nome nao
+// existe neste firmware. E a unica forma de mapear o modulo — o
+// get_configuration com lista vazia devolve objeto vazio, sem enumerar nada.
+function comandosDeSondagem() {
+  const candidatos = [
+    'enabled',
+    'online',
+    'server_type',
+    'port',
+    'path',
+    'host',
+    'ip',
+    'server',
+    'url',
+    'device_id',
+    'timeout',
+    'server_port',
+  ];
+  return candidatos.map((nome) => comando('get_configuration', { online_client: [nome] }));
+}
+
+// Mapeamento do modelo de permissao do equipamento (Plano B: em vez de esperar
+// a catraca perguntar, mantemos nela a informacao de quem pode entrar).
+//
+// No modelo da Control iD o usuario ganha acesso por uma tabela de juncao
+// (user_access_rules) que o liga a uma regra; a regra, por sua vez, vale em
+// determinados horarios e portais. Bloquear um aluno inadimplente deve ser
+// remover essa ligacao — NUNCA apagar o usuario, que levaria a digital junto e
+// obrigaria a recadastrar quando ele quitasse.
+function comandosDeObjetos() {
+  return [
+    comando('load_objects', { object: 'users' }),
+    comando('load_objects', { object: 'access_rules' }),
+    comando('load_objects', { object: 'user_access_rules' }),
+    comando('load_objects', { object: 'time_zones' }),
+    comando('load_objects', { object: 'portals' }),
+    comando('load_objects', { object: 'portal_access_rules' }),
+    comando('load_objects', { object: 'groups' }),
+    comando('load_objects', { object: 'user_groups' }),
+  ];
+}
+
+// Identificacao do equipamento (modelo e versao de firmware). As divergencias
+// encontradas entre a doc publica e este aparelho sao provavelmente especificas
+// de versao, e sem o numero nao da para consultar a referencia certa. Nomes de
+// endpoint candidatos, um por comando: o que nao existir responde com erro e os
+// demais seguem.
+function comandosDeIdentificacao() {
+  return [
+    comando('system_information', {}),
+    comando('get_system_information', {}),
+    comando('device_info', {}),
+    comando('get_configuration', { general: ['device_name', 'model', 'firmware_version'] }),
+    comando('get_configuration', { general: ['model'] }),
+    comando('get_configuration', { general: ['firmware_version'] }),
+  ];
+}
+
+// Unica divergencia restante entre o que a doc do modo online prescreve e o que
+// este equipamento tem gravado: extract_template. A doc pede "0" (o equipamento
+// ja identificou localmente, nao precisa extrair template para mandar ao
+// servidor); a catraca veio com "1".
+function comandosDeAjuste() {
+  return [comando('set_configuration', { online_client: { extract_template: '0' } })];
+}
+
+// Le de volta o que ficou gravado depois da ativacao. Um parametro por comando:
+// o get_configuration tambem e atomico e um nome inexistente derruba a consulta
+// inteira, escondendo os que existem.
+function comandosDeVerificacao() {
+  return [
+    comando('get_configuration', { online_client: ['server_id'] }),
+    comando('get_configuration', { general: ['online', 'local_identification'] }),
+    comando('get_configuration', { online_client: ['request_timeout'] }),
+    comando('get_configuration', { online_client: ['max_request_attempts'] }),
+    comando('get_configuration', { online_client: ['extract_template'] }),
+  ];
+}
+
+// Passo 2: ativar. Fatiado em dois set_configuration para que a secao `general`
+// (o que liga o modo online) nao seja perdida caso algum parametro de
+// `online_client` nao exista neste firmware.
+// Endereco COMPLETO da nossa API como a catraca precisa enxergar. Vai inteiro
+// no campo `ip` do objeto `devices` — nao existe campo separado de porta ou
+// caminho nesse objeto.
+const ONLINE_SERVER_URL = (
+  process.env.CONTROLID_ONLINE_SERVER_URL ??
+  `http://${ONLINE_HOST}:${ONLINE_PORT}${ONLINE_PATH ? `/${ONLINE_PATH}` : ''}`
+).trim();
+
+// O destino das requisicoes online NAO e um parametro de endereco: e uma
+// referencia. Primeiro cria-se um objeto `devices` representando o servidor,
+// depois aponta-se `online_client.server_id` para o id retornado. Como o id so
+// existe depois da criacao, a sequencia e encadeada pelas RESPOSTAS do
+// equipamento (ver processarRespostaDeBootstrap), nao por uma lista fixa.
+// Doc: https://www.controlid.com.br/docs/access-api-pt/modos-de-operacao/configurar-modo-online/
+function comandosDeAtivacao() {
+  return [
+    // Antes de criar, olha o que ja existe: repetir o bootstrap nao pode
+    // encher o equipamento de servidores duplicados.
+    comando('load_objects', { object: 'devices' }),
+  ];
+}
+
+const BOOTSTRAP_MODE = (process.env.CONTROLID_BOOTSTRAP_ETAPA ?? 'diagnostico').trim();
+
+// Devices cuja sequencia ja comecou — impede recomecar do zero a cada ciclo
+// enquanto esperamos a proxima resposta do equipamento.
+const bootstrapIniciado = new Set<string>();
+
+function enfileirarBootstrap(deviceId: string, ...comandos: Record<string, unknown>[]) {
+  const fila = bootstrapPendente.get(deviceId);
+  if (!fila) return;
+  fila.push(...comandos);
+}
+
+function comandoDeBootstrap(deviceId: string) {
+  const fila = bootstrapPendente.get(deviceId);
+  if (!fila) return null;
+
+  if (fila.length === 0 && !bootstrapIniciado.has(deviceId)) {
+    bootstrapIniciado.add(deviceId);
+    if (BOOTSTRAP_MODE === 'ativar') {
+      if (!ONLINE_HOST) return null;
+      fila.push(...comandosDeAtivacao());
+    } else if (BOOTSTRAP_MODE === 'verificar') {
+      fila.push(...comandosDeVerificacao());
+    } else if (BOOTSTRAP_MODE === 'objetos') {
+      fila.push(...comandosDeObjetos());
+    } else if (BOOTSTRAP_MODE === 'identificar') {
+      fila.push(...comandosDeIdentificacao());
+    } else if (BOOTSTRAP_MODE === 'ajustar') {
+      fila.push(...comandosDeAjuste());
+    } else if (BOOTSTRAP_MODE === 'sondar') {
+      fila.push(...comandosDeSondagem());
+    } else {
+      fila.push(...comandosDeDiagnostico());
+    }
+  }
+
+  // Fila vazia com sequencia ja iniciada: aguardando a resposta do equipamento
+  // para decidir o proximo passo. Segue o fluxo normal de coleta de log.
+  return fila.shift() ?? null;
+}
+
+// Segundo passo da reconciliacao: chegou a lista de usuarios do equipamento,
+// entao comparamos com a situacao dos alunos e enfileiramos so as diferencas.
+async function processarRespostaDeSincronizacao(
+  request: FastifyRequest,
+  deviceId: string,
+  endpoint: string,
+  body: Record<string, unknown>,
+) {
+  if (endpoint !== 'load_objects') return;
+  const resposta = respostaDoResult(body);
+  const usuarios = resposta?.users;
+  if (!Array.isArray(usuarios)) return;
+
+  const catraca = await prisma.catraca.findFirst({
+    where: { caSerial: deviceId },
+    select: { id: true },
+  });
+  if (!catraca) return;
+
+  const resultado = await reconciliarAcessos({
+    idCatraca: catraca.id,
+    deviceId,
+    usuarios: usuarios as UsuarioNoEquipamento[],
+  });
+
+  // So registra quando houve mudanca — em regime, a reconciliacao e silenciosa.
+  if (resultado.liberados > 0 || resultado.bloqueados > 0) {
+    request.log.warn(
+      { deviceId, ...resultado },
+      'Sincronizacao de acesso: enviando alteracoes para a catraca.',
+    );
+  } else {
+    request.log.info({ deviceId, ...resultado }, 'Sincronizacao de acesso: nada a alterar.');
+  }
+}
+
+function respostaDoResult(body: Record<string, unknown>): Record<string, unknown> | null {
+  const bruto = body.response;
+  if (!bruto) return null;
+  if (typeof bruto === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(bruto);
+      return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  }
+  return typeof bruto === 'object' && !Array.isArray(bruto) ? (bruto as Record<string, unknown>) : null;
+}
+
+// Maquina de estados do bootstrap, dirigida pelas respostas da catraca:
+//   load_objects(devices) -> reusa o servidor existente OU cria um novo
+//   create_objects        -> pega o id criado
+//   set_configuration     -> conclui
+function processarRespostaDeBootstrap(
+  request: FastifyRequest,
+  deviceId: string,
+  endpoint: string,
+  body: Record<string, unknown>,
+) {
+  if (!bootstrapPendente.has(deviceId)) return;
+
+  const resposta = respostaDoResult(body);
+
+  if (endpoint === 'load_objects' && resposta && Array.isArray(resposta.devices)) {
+    const servidores = resposta.devices as Record<string, unknown>[];
+    const existente = servidores.find((servidor) => String(servidor.ip ?? '') === ONLINE_SERVER_URL);
+
+    if (existente?.id !== undefined) {
+      request.log.warn(
+        { deviceId, serverId: existente.id, url: ONLINE_SERVER_URL },
+        'Bootstrap: servidor online ja cadastrado na catraca — apenas referenciando.',
+      );
+      enfileirarBootstrap(
+        deviceId,
+        comando('set_configuration', { online_client: { server_id: String(existente.id) } }),
+      );
+      return;
+    }
+
+    request.log.warn(
+      { deviceId, url: ONLINE_SERVER_URL, jaCadastrados: servidores.length },
+      'Bootstrap: criando o servidor online na catraca.',
+    );
+    enfileirarBootstrap(
+      deviceId,
+      comando('create_objects', {
+        object: 'devices',
+        values: [{ name: 'SmartGym', ip: ONLINE_SERVER_URL, public_key: '' }],
+      }),
+    );
+    return;
+  }
+
+  if (endpoint === 'create_objects' && resposta && Array.isArray(resposta.ids)) {
+    const idCriado = (resposta.ids as unknown[])[0];
+    if (idCriado === undefined || idCriado === null) return;
+    request.log.warn({ deviceId, serverId: idCriado }, 'Bootstrap: servidor criado, referenciando.');
+    enfileirarBootstrap(
+      deviceId,
+      comando('set_configuration', { online_client: { server_id: String(idCriado) } }),
+    );
+    return;
+  }
+
+  if (endpoint === 'set_configuration') {
+    request.log.warn(
+      { deviceId },
+      'Bootstrap CONCLUIDO: catraca apontada para a nossa API no modo online.',
+    );
+    bootstrapPendente.delete(deviceId);
+  }
+}
 
 async function canAutoRegister(): Promise<boolean> {
   const limit = Number.isFinite(MAX_PENDING_AUTOREGISTERED) && MAX_PENDING_AUTOREGISTERED > 0
@@ -262,6 +627,65 @@ export async function registerControlidRoutes(app: FastifyInstance) {
   });
   app.post('/controlid/push/push', deviceRateLimit, async (request, reply) => {
     return handleControlidPushRequest(request, reply);
+  });
+
+  // Retorno do comando entregue no polling. O equipamento monta a URL como
+  // <servidor-configurado>/result, entao com "/controlid" configurado na catraca
+  // ele bate exatamente aqui.
+  app.post<{ Querystring: { deviceId?: string; uuid?: string } }>(
+    '/controlid/result',
+    deviceRateLimit,
+    async (request, reply) => {
+      return handleControlidResultRequest(request, reply);
+    },
+  );
+  app.post<{ Querystring: { deviceId?: string; uuid?: string } }>(
+    '/controlid/push/result',
+    deviceRateLimit,
+    async (request, reply) => {
+      return handleControlidResultRequest(request, reply);
+    },
+  );
+
+  // -------------------------------------------------------------------
+  // Modo de identificacao ONLINE (ver ./online.ts). A catraca pergunta antes
+  // de liberar; quem decide e o SmartGym, pela regra de plano/pagamento.
+  //
+  // Rate limit proprio e mais folgado: aqui cada requisicao e uma PESSOA na
+  // porta esperando a catraca destravar. Se o limite estourar, o equipamento
+  // nao recebe resposta e a fila para — o oposto do que o teto protege nas
+  // rotas de coleta de log.
+  // -------------------------------------------------------------------
+  const onlineRateLimit = { config: { rateLimit: { max: 600, timeWindow: '1 minute' } } };
+
+  app.post('/controlid/new_user_identified.fcgi', onlineRateLimit, async (request, reply) => {
+    return handleIdentificacaoOnline(request, reply, extractControlidToken);
+  });
+
+  // Mesmo endpoint na RAIZ. O caminho das requisicoes online vem de
+  // `online_client.path`, que pode estar vazio no equipamento; nesse caso ele
+  // posta em /new_user_identified.fcgi. Responder nos dois lugares evita perder
+  // a primeira identificacao por um detalhe de configuracao — e uma pessoa
+  // parada na catraca esperando.
+  app.post('/new_user_identified.fcgi', onlineRateLimit, async (request, reply) => {
+    return handleIdentificacaoOnline(request, reply, extractControlidToken);
+  });
+
+  // Identificacao por cartao: o vinculo cartao->aluno ainda nao existe no
+  // sistema, entao respondemos negado com motivo claro em vez de deixar o
+  // equipamento sem resposta (que o faria cair na regra local dele).
+  app.post('/controlid/new_card.fcgi', onlineRateLimit, async (request, reply) => {
+    request.log.warn(
+      { ip: request.ip },
+      'Identificacao por cartao recebida, mas o vinculo cartao->aluno nao esta implementado.',
+    );
+    return reply.code(200).send({ result: { event: 6, user_id: 0, portal_id: 1 } });
+  });
+
+  // Botoeira de saida (request to exit): nao ha o que decidir, so registrar.
+  app.post('/controlid/new_rex_log.fcgi', onlineRateLimit, async (request, reply) => {
+    request.log.info({ ip: request.ip }, 'Acionamento de botoeira recebido.');
+    return reply.code(200).send({ result: { event: 11, portal_id: 1 } });
   });
 
   // Endpoint para o equipamento testar conectividade.
@@ -426,12 +850,18 @@ export async function registerControlidRoutes(app: FastifyInstance) {
       return reply.code(400).send({ message: 'Parametros invalidos.' });
     }
     const idCatraca = parsedQuery.data.idCatraca ?? null;
+    const idAluno = parsedQuery.data.idAluno ?? null;
     const onlyGranted = parsedQuery.data.onlyGranted === 'true';
     const limit = Math.min(Math.max(parsedQuery.data.limit ?? 100, 1), 500);
 
     return prisma.catracaEvento.findMany({
       where: {
         ...(idCatraca ? { idCatraca } : {}),
+        // O filtro por aluno era aceito na query e descartado: quem pedisse
+        // ?idAluno=3 recebia os eventos de TODO mundo. Agora que o evento
+        // guarda o aluno resolvido, o filtro finalmente funciona — escopado
+        // pelo cliente logo abaixo, como os demais.
+        ...(idAluno ? { idAluno, aluno: { idCliente } } : {}),
         ...(onlyGranted ? { boAcessoLiberado: true } : {}),
         // Mesma regra da listagem de catracas: eventos de catracas ainda nao
         // vinculadas (idEmpresa null) ficam visiveis a todos os tenants ate a
@@ -447,9 +877,10 @@ export async function registerControlidRoutes(app: FastifyInstance) {
 }
 
 // Trata o GET periodico que a catraca faz pedindo comandos.
-// Em vez de devolver lista vazia, devolvemos um comando "load access_logs"
-// pedindo todos os eventos novos. A catraca executa o comando e POSTa o
-// resultado de volta no /controlid/push.
+// A cada COMMAND_INTERVAL_MS devolvemos um comando `load_objects` pedindo os
+// access_logs novos (id > ultimo que ja gravamos); nos ciclos intermediarios a
+// resposta e vazia. A catraca executa o comando contra a propria API local e
+// POSTa o resultado em /controlid/result.
 async function handleControlidPollRequest(
   request: FastifyRequest<{ Querystring: { deviceId?: string; uuid?: string } }>,
   reply: FastifyReply,
@@ -458,10 +889,47 @@ async function handleControlidPollRequest(
   const deviceId = (request.query.deviceId ?? '').trim();
   const uuid = (request.query.uuid ?? '').trim();
 
-  request.log.info(
+  request.log.debug(
     { url: request.url, ip: clientIp, deviceId, uuid },
     'Polling da Control iD recebido (GET).',
   );
+
+  // Sem deviceId nao ha como saber de quem sao os eventos: responde vazio.
+  if (!deviceId) {
+    return reply.code(200).send({});
+  }
+
+  // Comando ja enfileirado (sincronizacao de acesso) tem prioridade sobre a
+  // coleta de log: manter a catraca sabendo quem pode entrar vale mais do que
+  // buscar o historico alguns segundos antes.
+  const pendente = proximoComando(deviceId);
+  if (pendente) {
+    return reply.code(200).send(pendente);
+  }
+
+  // Hora de reconciliar? Pede a lista de usuarios do equipamento; a comparacao
+  // acontece quando a resposta chegar em /result.
+  if (syncPendente(deviceId)) {
+    marcarSyncIniciada(deviceId);
+    request.log.info({ deviceId }, 'Sincronizacao de acesso: lendo usuarios do equipamento.');
+    return reply.code(200).send(comandoDeLeituraDeUsuarios());
+  }
+
+  // Configuracao pendente tem prioridade sobre a coleta de log e ignora o
+  // regulador de trafego: e uma unica entrega.
+  const bootstrap = comandoDeBootstrap(deviceId);
+  if (bootstrap) {
+    request.log.warn(
+      { deviceId, ip: clientIp },
+      'Entregando set_configuration para ativar o MODO ONLINE na catraca.',
+    );
+    return reply.code(200).send(bootstrap);
+  }
+
+  // Nada a fazer neste ciclo -> resposta vazia (ver COMMAND_INTERVAL_MS).
+  if (!shouldIssueCommand(deviceId)) {
+    return reply.code(200).send({});
+  }
 
   // Localiza ou auto-registra a catraca usando o deviceId enviado.
   let catraca = null;
@@ -514,28 +982,139 @@ async function handleControlidPollRequest(
     }
   }
 
-  // Formato esperado pelo firmware Control iD 5.x: array de comandos.
-  // Sintaxe do "where" segue a REST API da Control iD: {coluna: [op, valor]}.
-  const commands = [
-    {
-      id: 1,
-      type: 'load',
+  // Formato do comando de push documentado pela Control iD: UM objeto JSON com
+  // os campos verb/endpoint/body/contentType/queryString (resposta vazia = nada
+  // a fazer). O equipamento executa esse comando contra a propria API local e
+  // devolve o resultado em POST /result.
+  //
+  // O que existia aqui era um ARRAY de comandos num formato inventado
+  // (`{id, type: 'load', object, where: {access_logs: {id: ['>', n]}}, limit}`).
+  // O firmware nao reconhece esse envelope: ele lia a resposta, nao achava
+  // `endpoint`, e simplesmente nao executava nada — por isso a catraca fazia o
+  // polling normalmente (dtUltimoPush atualizava) mas NUNCA devolvia um evento
+  // sequer. `where` tambem segue a sintaxe real do load_objects: lista de
+  // {object, field, operator, value}.
+  // Doc: https://www.controlid.com.br/docs/access-api-pt/modo-push/introducao-ao-push/
+  const command = {
+    verb: 'POST',
+    endpoint: 'load_objects',
+    contentType: 'application/json',
+    queryString: '',
+    body: {
       object: 'access_logs',
-      where: {
-        access_logs: {
-          id: ['>', lastEventId],
+      where: [
+        {
+          object: 'access_logs',
+          field: 'id',
+          operator: '>',
+          value: lastEventId,
         },
-      },
+      ],
       limit: 100,
     },
-  ];
+  };
 
   request.log.info(
-    { deviceId, lastEventId, commands },
-    'Polling: pedindo access_logs novos a catraca.',
+    { deviceId, uuid, lastEventId },
+    'Polling: pedindo access_logs novos a catraca (load_objects).',
   );
 
-  return reply.code(200).send(commands);
+  return reply.code(200).send(command);
+}
+
+// POST /controlid/result?deviceId=X — o equipamento devolve AQUI o resultado do
+// comando entregue no polling. Esta rota simplesmente nao existia: a catraca
+// executava o comando (quando o formato batia) e postava o resultado num 404.
+// Corpo documentado: { uuid, endpoint, response } — ou { uuid, endpoint, error }
+// quando o comando falhou no equipamento.
+async function handleControlidResultRequest(
+  request: FastifyRequest<{ Querystring: { deviceId?: string; uuid?: string; endpoint?: string } }>,
+  reply: FastifyReply,
+) {
+  const clientIp = getClientIp(request);
+  const deviceId = (request.query.deviceId ?? '').trim();
+  // O equipamento informa qual comando executou na QUERY STRING
+  // (?endpoint=load_objects), nao no corpo — o corpo traz so `response`/`error`.
+  const endpointExecutado =
+    (request.query.endpoint ?? '').trim() ||
+    (typeof (request.body as Record<string, unknown> | null)?.endpoint === 'string'
+      ? String((request.body as Record<string, unknown>).endpoint)
+      : '');
+  const body = (typeof request.body === 'object' && request.body !== null
+    ? request.body
+    : {}) as Record<string, unknown>;
+
+  // O corpo do /result carrega a resposta da API local da catraca (incluindo
+  // get_configuration). So vai para o log com CONTROLID_DEBUG_BODY ligado: em
+  // operacao normal esse corpo traz identificacao de pessoa, que e PII.
+  if (process.env.CONTROLID_DEBUG_BODY === 'true') {
+    request.log.info(
+      { deviceId, endpoint: endpointExecutado, corpo: body },
+      'Result da Control iD: corpo cru (debug).',
+    );
+  }
+
+  processarRespostaDeBootstrap(request, deviceId, endpointExecutado, body);
+  await processarRespostaDeSincronizacao(request, deviceId, endpointExecutado, body);
+
+  const deviceError = typeof body.error === 'string' ? body.error : '';
+  if (deviceError) {
+    request.log.warn(
+      { deviceId, ip: clientIp, endpoint: endpointExecutado, error: deviceError },
+      'Catraca respondeu o comando de push com erro.',
+    );
+    return reply.code(200).send({ ok: true });
+  }
+
+  const catraca = deviceId ? await prisma.catraca.findFirst({ where: { caSerial: deviceId } }) : null;
+
+  // Mesma regra de token do /push: se a catraca ja tem token provisionado, o
+  // resultado precisa vir autenticado, senao qualquer um injeta "eventos de
+  // acesso" na trilha de auditoria.
+  const expectedToken = (catraca?.caToken ?? '').trim();
+  if (expectedToken) {
+    if (extractControlidToken(request) !== expectedToken) {
+      request.log.warn({ deviceId, ip: clientIp }, 'Result da Control iD recusado: token invalido.');
+      return reply.code(401).send({ ok: false, error: 'token_invalido' });
+    }
+  } else if (process.env.CONTROLID_REQUIRE_TOKEN === 'true') {
+    request.log.warn({ deviceId, ip: clientIp }, 'Result da Control iD recusado: token requerido.');
+    return reply.code(401).send({ ok: false, error: 'token_requerido' });
+  }
+
+  const { events } = parseControlidPush(body);
+
+  request.log.info(
+    {
+      deviceId,
+      ip: clientIp,
+      idCatraca: catraca?.id ?? null,
+      endpoint: endpointExecutado,
+      recebidos: events.length,
+    },
+    'Result da Control iD recebido.',
+  );
+
+  if (!catraca) {
+    request.log.warn(
+      { deviceId, ip: clientIp },
+      'Result recebido de deviceId sem catraca cadastrada — eventos descartados.',
+    );
+    return reply.code(200).send({ ok: true, received: events.length, persisted: 0 });
+  }
+
+  await prisma.catraca.update({
+    where: { id: catraca.id },
+    data: { dtUltimoPush: new Date(), anIp: clientIp || catraca.anIp },
+  });
+
+  const persisted = await persistEvents({
+    events,
+    idCatraca: catraca.id,
+    anIpOrigem: clientIp,
+  });
+
+  return reply.code(200).send({ ok: true, received: events.length, persisted });
 }
 
 async function handleControlidPushRequest(request: FastifyRequest, reply: FastifyReply) {
@@ -644,6 +1223,44 @@ async function handleControlidPushRequest(request: FastifyRequest, reply: Fastif
   }
 }
 
+// Traduz os `user_id` reportados pela catraca em alunos do SmartGym.
+//
+// A busca e SEMPRE escopada pelo cliente dono da catraca (catraca -> empresa ->
+// cliente). Era exatamente esse escopo que faltava no `resolveAlunoId` removido
+// daqui: uma busca por id solta permitiria que o evento de uma catraca do
+// cliente A apontasse para um aluno do cliente B. Catraca ainda nao vinculada a
+// uma empresa (idEmpresa null) nao resolve ninguem — sem dono, sem escopo.
+async function resolveAlunosPorUsuarioCatraca(
+  idCatraca: number,
+  numerosUsuario: string[],
+): Promise<Map<string, number>> {
+  const mapa = new Map<string, number>();
+
+  const numeros = [...new Set(numerosUsuario)]
+    .map((valor) => Number(valor))
+    .filter((valor) => Number.isInteger(valor) && valor > 0);
+  if (numeros.length === 0) return mapa;
+
+  const catraca = await prisma.catraca.findUnique({
+    where: { id: idCatraca },
+    select: { empresa: { select: { idCliente: true } } },
+  });
+  const idCliente = catraca?.empresa?.idCliente;
+  if (!idCliente) return mapa;
+
+  const alunos = await prisma.aluno.findMany({
+    where: { idCliente, nrUsuarioCatraca: { in: numeros }, boInativo: false },
+    select: { id: true, nrUsuarioCatraca: true },
+  });
+
+  for (const aluno of alunos) {
+    if (aluno.nrUsuarioCatraca !== null) {
+      mapa.set(String(aluno.nrUsuarioCatraca), aluno.id);
+    }
+  }
+  return mapa;
+}
+
 async function persistEvents(params: {
   events: ControlidNormalizedEvent[];
   idCatraca: number | null;
@@ -655,6 +1272,11 @@ async function persistEvents(params: {
     return 0;
   }
 
+  const alunoPorUsuario = await resolveAlunosPorUsuarioCatraca(
+    idCatraca,
+    events.map((event) => event.nrUsuarioCatraca ?? '').filter((valor) => valor !== ''),
+  );
+
   // Era um `for` com `await prisma.create()` por evento: N round trips
   // sequenciais. O comando de poll pede `limit: 100`, entao um unico push podia
   // custar 100 idas ao Postgres. Em Neon (serverless, latencia de rede por
@@ -664,6 +1286,9 @@ async function persistEvents(params: {
   const result = await prisma.catracaEvento.createMany({
     data: events.map((event) => ({
       idCatraca,
+      idAluno: event.nrUsuarioCatraca
+        ? alunoPorUsuario.get(event.nrUsuarioCatraca) ?? null
+        : null,
       idEventoDispositivo: event.idEventoDispositivo,
       nrUsuarioCatraca: event.nrUsuarioCatraca,
       nrTipoEvento: event.nrTipoEvento,
