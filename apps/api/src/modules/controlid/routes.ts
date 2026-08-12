@@ -26,6 +26,7 @@ type CatracaPayload = {
   dsModelo?: string;
   caSerial?: string;
   anIp?: string;
+  anIpPermitido?: string;
   anMac?: string;
   caToken?: string;
   boInativo?: number;
@@ -39,6 +40,7 @@ function normalizeCatracaPayload(payload: CatracaPayload) {
     dsModelo: (payload.dsModelo ?? '').trim(),
     caSerial: (payload.caSerial ?? '').trim(),
     anIp: (payload.anIp ?? '').trim(),
+    anIpPermitido: (payload.anIpPermitido ?? '').trim(),
     anMac: (payload.anMac ?? '').trim().toUpperCase(),
     caToken: (payload.caToken ?? '').trim(),
     boInativo: toBool(payload.boInativo),
@@ -91,6 +93,7 @@ const catracaBodySchema = z.object({
   dsModelo: catracaTextField,
   caSerial: catracaTextField,
   anIp: catracaTextField,
+  anIpPermitido: catracaTextField,
   anMac: catracaTextField,
   caToken: catracaTextField,
   boInativo: z.preprocess((value) => toBool(value), z.boolean()),
@@ -112,6 +115,22 @@ function getClientIp(request: FastifyRequest): string {
 //   2) campo `token` / `push_token` no corpo JSON (fallback para firmwares que
 //      nao permitem header customizado).
 // Retorna string vazia quando nenhum token e enviado.
+// Autenticacao do equipamento por IP de origem.
+//
+// As rotas de device sao publicas (o firmware nao manda JWT) e a defesa
+// prevista, `caToken`, e inalcancavel neste firmware: a tela de push so tem
+// endereco do servidor e periodo, sem campo de token. Entao, quando o operador
+// preenche `anIpPermitido`, passamos a exigir que a requisicao venha daquele IP.
+// Vazio = sem restricao (equipamento ainda em provisionamento).
+export function ipDoDeviceAutorizado(
+  catraca: { anIpPermitido?: string | null } | null,
+  clientIp: string,
+): boolean {
+  const permitido = (catraca?.anIpPermitido ?? '').trim();
+  if (!permitido) return true;
+  return permitido === clientIp.trim();
+}
+
 function extractControlidToken(request: FastifyRequest): string {
   const headerToken = request.headers['x-controlid-token'];
   if (typeof headerToken === 'string' && headerToken.trim() !== '') {
@@ -706,7 +725,14 @@ export async function registerControlidRoutes(app: FastifyInstance) {
       const includeInactive = parsedQuery.data.includeInactive === 'true';
       const idEmpresa = parsedQuery.data.idEmpresa ?? null;
       const take = Math.min(Math.max(parsedQuery.data.limit ?? 1000, 1), 1000);
-      return prisma.catraca.findMany({
+      // Janela para considerar a catraca "viva". O equipamento faz polling a
+      // cada poucos segundos; alguns minutos sem contato ja indicam problema.
+      // Nao havia NENHUMA forma de perceber que a integracao parou — aconteceu
+      // duas vezes durante a implantacao e so foi notado porque alguem estava
+      // olhando o log. Com o acesso sincronizado, uma parada silenciosa vai
+      // barrando aluno conforme as validades expiram.
+      const limiteOnline = Number(process.env.CONTROLID_ONLINE_TIMEOUT_MS ?? 120_000);
+      const catracas = await prisma.catraca.findMany({
         where: {
           ...(includeInactive ? {} : { boInativo: false }),
           // Catracas auto-registradas chegam sem idEmpresa e precisam aparecer
@@ -724,6 +750,18 @@ export async function registerControlidRoutes(app: FastifyInstance) {
         orderBy: { dtCadastro: 'desc' },
         take,
       });
+
+      const agora = Date.now();
+      const janela = Number.isFinite(limiteOnline) && limiteOnline > 0 ? limiteOnline : 120_000;
+      return catracas.map((catraca) => ({
+        ...catraca,
+        boOnline:
+          catraca.dtUltimoPush !== null && agora - catraca.dtUltimoPush.getTime() <= janela,
+        nrSegundosSemContato:
+          catraca.dtUltimoPush === null
+            ? null
+            : Math.round((agora - catraca.dtUltimoPush.getTime()) / 1000),
+      }));
     },
   );
 
@@ -899,6 +937,20 @@ async function handleControlidPollRequest(
     return reply.code(200).send({});
   }
 
+  // Origem nao autorizada nao recebe comando: a fila carrega a sincronizacao de
+  // acesso, que expoe numeros de usuario da catraca.
+  const cadastrada = await prisma.catraca.findFirst({
+    where: { caSerial: deviceId },
+    select: { anIpPermitido: true },
+  });
+  if (!ipDoDeviceAutorizado(cadastrada, clientIp)) {
+    request.log.warn(
+      { deviceId, ip: clientIp },
+      'Polling recusado: origem diferente do IP permitido da catraca.',
+    );
+    return reply.code(403).send({ ok: false, error: 'ip_nao_autorizado' });
+  }
+
   // Comando ja enfileirado (sincronizacao de acesso) tem prioridade sobre a
   // coleta de log: manter a catraca sabendo quem pode entrar vale mais do que
   // buscar o historico alguns segundos antes.
@@ -1068,6 +1120,14 @@ async function handleControlidResultRequest(
 
   const catraca = deviceId ? await prisma.catraca.findFirst({ where: { caSerial: deviceId } }) : null;
 
+  if (!ipDoDeviceAutorizado(catraca, clientIp)) {
+    request.log.warn(
+      { deviceId, ip: clientIp },
+      'Result recusado: origem diferente do IP permitido da catraca.',
+    );
+    return reply.code(403).send({ ok: false, error: 'ip_nao_autorizado' });
+  }
+
   // Mesma regra de token do /push: se a catraca ja tem token provisionado, o
   // resultado precisa vir autenticado, senao qualquer um injeta "eventos de
   // acesso" na trilha de auditoria.
@@ -1162,6 +1222,14 @@ async function handleControlidPushRequest(request: FastifyRequest, reply: Fastif
     //
     // O corpo da resposta segue o mesmo formato ({ ok: false, error }) que os
     // demais caminhos deste handler ja devolvem para a catraca.
+    if (!ipDoDeviceAutorizado(catraca, clientIp)) {
+      request.log.warn(
+        { serial: device.caSerial, idCatraca: catraca?.id, ip: clientIp },
+        'Push recusado: origem diferente do IP permitido da catraca.',
+      );
+      return reply.code(403).send({ ok: false, error: 'ip_nao_autorizado' });
+    }
+
     const requireTokenGlobally = process.env.CONTROLID_REQUIRE_TOKEN === 'true';
     const expectedToken = (catraca?.caToken ?? '').trim();
     if (expectedToken) {
@@ -1283,7 +1351,11 @@ async function persistEvents(params: {
   // query) isso e ~2-5s de handler segurando uma conexao do pool — com varias
   // catracas em polling simultaneo, o pool esgota e a API inteira degrada.
   // createMany insere o lote em UM comando.
+  // skipDuplicates apoiado no unique (idCatraca, idEventoDispositivo): um lote
+  // reenviado pelo equipamento e ignorado em vez de derrubar o push inteiro com
+  // erro de constraint — a catraca receberia falha e tentaria de novo em loop.
   const result = await prisma.catracaEvento.createMany({
+    skipDuplicates: true,
     data: events.map((event) => ({
       idCatraca,
       idAluno: event.nrUsuarioCatraca

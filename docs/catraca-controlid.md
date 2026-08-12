@@ -33,6 +33,37 @@ Também validados: conversão de fuso do horário do equipamento
 (`CONTROLID_DEVICE_UTC_OFFSET_MINUTES`), decisão por plano/pagamento via
 `getStudentAccessStatus` e criação de `AlunoCheckIn`.
 
+## Bloqueio por plano e pagamento: sincronização de validade
+
+**Este é o mecanismo em produção.** Como o modo online não engata neste firmware
+(seção seguinte), o bloqueio não depende de a catraca perguntar: o SmartGym
+mantém, dentro do equipamento, a janela de validade de cada aluno
+(`users.begin_time` / `users.end_time`), que a catraca respeita sozinha.
+
+A cada `CONTROLID_SYNC_INTERVALO_MS` (padrão 5 min) a API pede a lista de
+usuários do equipamento, compara com `getStudentAccessStatus` de cada aluno
+vinculado e envia `modify_objects` **apenas para quem divergiu**:
+
+- Em dia → `end_time` renovado para agora + `CONTROLID_SYNC_JANELA_MINUTOS`
+  (padrão 48h).
+- Inadimplente / plano encerrado → `end_time` no passado, bloqueio imediato.
+
+A biometria nunca é tocada: o usuário não é apagado, então o aluno volta a
+entrar com a mesma digital assim que quitar, sem recadastro.
+
+Validado em campo (eventos 71 a 73 em `tb_CatracaEventos`): inadimplente barrado
+com `event: 6`, pagamento quitado no sistema, e o mesmo dedo liberado com
+`event: 7` no ciclo seguinte.
+
+Duas propriedades que o modo online não teria:
+
+- **Falha fechado.** Se a API parar, as validades expiram e o acesso fecha
+  sozinho. No modo online, com a regra local "Sempre Liberado" que este
+  equipamento tem, API fora do ar liberaria todo mundo.
+- **Funciona com a rede caída** — a catraca decide localmente, com dado correto.
+
+O custo é a latência: entre quitar o pagamento e a catraca saber, passa um ciclo.
+
 ## O que NÃO funciona: modo online
 
 **Objetivo:** a catraca perguntar ao SmartGym a cada identificação
@@ -115,15 +146,26 @@ consultar o servidor a cada identificação?** Especificamente:
 
 ## Pendências da integração (independentes do suporte)
 
-- [ ] Catraca sem `caToken` — as rotas de device são públicas por necessidade;
-      sem token, qualquer máquina na rede injeta evento (e, no modo online,
-      destrava o giro).
-- [ ] Alerta de catraca offline usando `Catraca.dtUltimoPush`. Hoje a integração
-      pode parar e ninguém percebe — aconteceu duas vezes durante a implantação.
+- [x] ~~Índice único em `(idCatraca, idEventoDispositivo)`~~ — feito. A migration
+      removeu 114 duplicatas existentes (189 linhas para ~73 acessos reais) e
+      agora o banco recusa repetição; `createMany` usa `skipDuplicates`.
+- [x] ~~Autenticação do equipamento~~ — **o `caToken` é inviável neste
+      firmware**: a tela de push tem apenas endereço do servidor e período, sem
+      campo de token. Em vez disso, `Catraca.anIpPermitido` restringe as rotas de
+      device ao IP do equipamento. Vazio = sem restrição (padrão).
+      **Ainda não ativado neste equipamento**: ele está com DHCP e o IP pode
+      mudar. Garanta IP fixo ou reserva de DHCP antes de preencher o campo.
+- [~] Alerta de catraca offline. `GET /controlid/catracas` já devolve `boOnline`
+      e `nrSegundosSemContato` (janela em `CONTROLID_ONLINE_TIMEOUT_MS`), então o
+      painel consegue mostrar. Falta o alerta ativo — hoje ninguém é avisado, e
+      com o acesso sincronizado uma parada silenciosa vai barrando aluno conforme
+      as validades expiram.
 - [ ] Horário "sempre liberado" configurado no equipamento é a regra que vale
-      quando a API não responde. Com ele, queda de rede = catraca liberando todos.
-- [ ] Índice único em `(idCatraca, idEventoDispositivo)` para impedir evento
-      duplicado.
+      quando a API não responde. Com a sincronização de validade isso deixa de
+      ser buraco (a validade vence sozinha), mas vale revisar.
+- [ ] Usuários da catraca **sem vínculo** com aluno não são gerenciados pela
+      sincronização. Um usuário sem prazo (`end_time = 0`) entra para sempre.
+      Decidir: bloquear os não vinculados ou manter (funcionários, personais).
 - [ ] Sem tela no web para vincular aluno ↔ usuário da catraca (hoje só no banco).
 - [ ] `new_card.fcgi` responde negado: não existe vínculo cartão → aluno.
 - [ ] Catraca #1 (`0G0200/005B6D`) no banco é resíduo de um teste manual; a real

@@ -252,6 +252,7 @@ export async function handleIdentificacaoOnline(
         select: {
           id: true,
           caToken: true,
+          anIpPermitido: true,
           boInativo: true,
           idEmpresa: true,
           empresa: { select: { idCliente: true } },
@@ -265,6 +266,19 @@ export async function handleIdentificacaoOnline(
     request.log.warn(
       { deviceId, ip: clientIp, userId },
       'Identificacao online de equipamento nao cadastrado — acesso negado.',
+    );
+    return reply.code(200).send({
+      result: { event: EVENTO_ACESSO_NEGADO, user_id: userId ?? 0, portal_id: portalId },
+    });
+  }
+
+  // Origem diferente do IP permitido: nega. Aqui a consequencia e fisica —
+  // aceitar significaria destravar o giro para quem forjou a requisicao.
+  const ipPermitido = (catraca.anIpPermitido ?? '').trim();
+  if (ipPermitido && ipPermitido !== clientIp.trim()) {
+    request.log.warn(
+      { deviceId, idCatraca: catraca.id, ip: clientIp },
+      'Identificacao online recusada: origem diferente do IP permitido.',
     );
     return reply.code(200).send({
       result: { event: EVENTO_ACESSO_NEGADO, user_id: userId ?? 0, portal_id: portalId },

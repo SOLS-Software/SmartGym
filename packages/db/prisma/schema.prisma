@@ -1279,6 +1279,10 @@ model Catraca {
   dsModelo           String    @default("") @db.VarChar(50)
   caSerial           String    @default("") @db.VarChar(100)
   anIp               String    @default("") @db.VarChar(45)
+  // IP do qual as requisicoes desta catraca SAO ACEITAS. Diferente de `anIp`,
+  // que e apenas o ultimo IP observado e se auto-atualiza: este e definido pelo
+  // operador e nao muda sozinho. Vazio = sem restricao.
+  anIpPermitido      String    @default("") @db.VarChar(45)
   anMac              String    @default("") @db.VarChar(17)
   caToken            String    @default("") @db.VarChar(100)
   dtUltimoPush       DateTime?
@@ -1331,6 +1335,11 @@ model CatracaEvento {
   catraca Catraca @relation(fields: [idCatraca], references: [id])
   aluno   Aluno?  @relation(fields: [idAluno], references: [id])
 
+  // Um id de log do equipamento so pode existir uma vez por catraca. Sem isso,
+  // dois ciclos de coleta em voo gravam o mesmo acesso duas vezes e inflam a
+  // frequencia do aluno. NULL nao conflita: as decisoes tomadas pelo SmartGym
+  // no modo online nao tem id de log do equipamento.
+  @@unique([idCatraca, idEventoDispositivo])
   @@index([idCatraca, dtEvento])
   @@index([dtEvento])
   @@index([idAluno, dtEvento])

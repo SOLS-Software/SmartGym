@@ -1,0 +1,18 @@
+-- Autenticacao do equipamento por IP de origem.
+--
+-- As rotas de device (/controlid/push, /result e os endpoints de identificacao
+-- online) sao publicas por necessidade: o firmware nao envia JWT. A defesa
+-- prevista era o `caToken`, mas o firmware 5.13.2 deste equipamento nao tem
+-- campo de token na configuracao de push — so endereco do servidor e periodo.
+-- Sem alternativa, qualquer maquina na rede pode hoje injetar evento de acesso
+-- na trilha de auditoria (e, com o modo online ativo, destravar o giro).
+--
+-- `anIpPermitido` fecha isso: quando preenchido, so requisicoes vindas daquele
+-- IP valem para aquela catraca. Vazio mantem o comportamento atual, para nao
+-- derrubar equipamento ja em campo no momento do deploy.
+--
+-- NOTA OPERACIONAL: so ative depois de garantir IP fixo (ou reserva de DHCP)
+-- para o equipamento. Este aqui esta com DHCP habilitado; se o IP mudar, a
+-- catraca para de ser aceita — falha fechado, mas o motivo precisa estar claro
+-- para quem for diagnosticar.
+ALTER TABLE "tb_Catracas" ADD COLUMN "anIpPermitido" VARCHAR(45) NOT NULL DEFAULT '';
