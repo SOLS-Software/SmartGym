@@ -940,6 +940,10 @@ export async function registerControlidRoutes(app: FastifyInstance) {
         // entao nenhum evento de aluno de outro tenant vaza aqui.
         catraca: { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
       },
+      // O nome do aluno vem junto: a tela de acessos precisa dizer "Gustavo
+      // entrou", nao "usuario 1000013 entrou". Sem isso o front teria que buscar
+      // aluno por aluno.
+      include: { aluno: { select: { id: true, nmAluno: true } } },
       orderBy: { dtEvento: 'desc' },
       take: limit,
     });

@@ -1,0 +1,156 @@
+/* Monitor de catracas: situacao dos equipamentos, vinculo aluno-usuario e
+   ultimos acessos. Segue as variaveis de tema de globals.css para acompanhar o
+   modo claro/escuro sem cor fixa. */
+
+.catraca-monitor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+.catraca-monitor-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.catraca-monitor-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text, #1a1a1a);
+}
+
+.catraca-monitor-header p {
+  margin-top: 0.25rem;
+  max-width: 60ch;
+  font-size: 0.875rem;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.catraca-monitor-header button,
+.catraca-monitor-tabela button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border, #d8e0da);
+  background: var(--color-surface, #fff);
+  font-size: 0.8125rem;
+  color: var(--color-text, #1a1a1a);
+  cursor: pointer;
+}
+
+.catraca-monitor-header button:hover:not(:disabled),
+.catraca-monitor-tabela button:hover:not(:disabled) {
+  background: var(--color-primary-bg, #e8f4ed);
+  border-color: var(--color-primary, #1f7a53);
+}
+
+.catraca-monitor-header button:disabled,
+.catraca-monitor-tabela button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.catraca-monitor-section {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #d8e0da);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  /* Tabela larga rola dentro do proprio bloco: a pagina nunca rola na
+     horizontal, que quebraria o layout no celular. */
+  overflow-x: auto;
+}
+
+.catraca-monitor-section h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--color-text, #1a1a1a);
+}
+
+.catraca-monitor-section h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 1.5rem 0 0.5rem;
+  color: var(--color-text, #1a1a1a);
+}
+
+.catraca-monitor-ajuda {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #6b7280);
+  margin-bottom: 0.75rem;
+  max-width: 70ch;
+}
+
+.catraca-monitor-vazio {
+  font-size: 0.875rem;
+  color: var(--color-text-muted, #6b7280);
+  padding: 0.5rem 0;
+}
+
+.catraca-monitor-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.catraca-monitor-tabela th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border, #d8e0da);
+  white-space: nowrap;
+}
+
+.catraca-monitor-tabela td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--color-border-subtle, #eef2ef);
+  color: var(--color-text, #1a1a1a);
+  vertical-align: middle;
+}
+
+.catraca-monitor-tabela small {
+  color: var(--color-text-muted, #6b7280);
+}
+
+.catraca-monitor-tabela select {
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-border, #d8e0da);
+  background: var(--color-surface, #fff);
+  color: var(--color-text, #1a1a1a);
+  font-size: 0.8125rem;
+  min-width: 12rem;
+}
+
+/* Situacao do equipamento e resultado do acesso usam o mesmo par de estados:
+   verde para "esta como deveria", vermelho para "exige atencao". */
+.catraca-status {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.catraca-status.is-online {
+  background: var(--color-primary-bg, #e8f4ed);
+  color: var(--color-primary-dark, #186542);
+}
+
+.catraca-status.is-offline {
+  background: #fdeaea;
+  color: #a32020;
+}
+
+html.dark .catraca-status.is-offline {
+  background: #3a1c1c;
+  color: #f7b4b4;
+}
