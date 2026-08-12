@@ -152,20 +152,29 @@ consultar o servidor a cada identificação?** Especificamente:
 - [x] ~~Autenticação do equipamento~~ — **o `caToken` é inviável neste
       firmware**: a tela de push tem apenas endereço do servidor e período, sem
       campo de token. Em vez disso, `Catraca.anIpPermitido` restringe as rotas de
-      device ao IP do equipamento. Vazio = sem restrição (padrão).
-      **Ainda não ativado neste equipamento**: ele está com DHCP e o IP pode
-      mudar. Garanta IP fixo ou reserva de DHCP antes de preencher o campo.
-- [~] Alerta de catraca offline. `GET /controlid/catracas` já devolve `boOnline`
-      e `nrSegundosSemContato` (janela em `CONTROLID_ONLINE_TIMEOUT_MS`), então o
-      painel consegue mostrar. Falta o alerta ativo — hoje ninguém é avisado, e
-      com o acesso sincronizado uma parada silenciosa vai barrando aluno conforme
-      as validades expiram.
+      device ao IP do equipamento. **Ativado** neste equipamento
+      (`192.168.15.40`), validado em campo: requisições aceitas, zero recusas.
+      **ATENÇÃO: o equipamento está com DHCP.** Se o IP mudar, ele para de ser
+      aceito (falha fechado) e os alunos vão sendo barrados conforme as validades
+      expiram. Faça reserva de DHCP no roteador para `192.168.15.40`. Para
+      desativar a restrição enquanto isso, basta esvaziar `anIpPermitido`.
+- [x] ~~Alerta de catraca offline~~ — feito. `GET /controlid/alertas` devolve as
+      catracas ativas sem contato (janela em `CONTROLID_ONLINE_TIMEOUT_MS`), e o
+      painel de funcionários e gestores exibe o aviso, verificando a cada 60s.
+      Catraca inativa não alerta (está desligada de propósito), então a catraca
+      real precisa estar com `boInativo = false` — foi ativada.
+- [x] ~~Usuários da catraca sem vínculo~~ — passam a ser **bloqueados** pela
+      reconciliação. Consequência operacional: quem for cadastrado direto no
+      equipamento (funcionário, personal) é barrado no ciclo seguinte até ser
+      vinculado a um aluno pela tela de catracas. `CONTROLID_BLOQUEAR_NAO_VINCULADOS="false"`
+      volta ao comportamento anterior.
+      *Nota: no equipamento atual o único não vinculado (`1000009`) já estava com
+      validade vencida desde 2024, então o caminho de bloqueio não chegou a
+      escrever comando — ele usa exatamente o mesmo `modify_objects` já validado
+      no bloqueio por inadimplência.*
 - [ ] Horário "sempre liberado" configurado no equipamento é a regra que vale
       quando a API não responde. Com a sincronização de validade isso deixa de
       ser buraco (a validade vence sozinha), mas vale revisar.
-- [ ] Usuários da catraca **sem vínculo** com aluno não são gerenciados pela
-      sincronização. Um usuário sem prazo (`end_time = 0`) entra para sempre.
-      Decidir: bloquear os não vinculados ou manter (funcionários, personais).
 - [ ] Sem tela no web para vincular aluno ↔ usuário da catraca (hoje só no banco).
 - [ ] `new_card.fcgi` responde negado: não existe vínculo cartão → aluno.
 - [ ] Catraca #1 (`0G0200/005B6D`) no banco é resíduo de um teste manual; a real

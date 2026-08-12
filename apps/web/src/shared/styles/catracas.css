@@ -2,6 +2,44 @@
    ultimos acessos. Segue as variaveis de tema de globals.css para acompanhar o
    modo claro/escuro sem cor fixa. */
 
+/* Aviso de catraca parada no painel do funcionario. Amarelo de atencao, nao
+   vermelho de erro: o sistema esta funcionando, o equipamento e que sumiu. */
+.catraca-alerta {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #f0c36d;
+  background: #fdf6e3;
+  color: #6b4e12;
+}
+
+.catraca-alerta strong {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.catraca-alerta p {
+  margin-top: 0.125rem;
+  font-size: 0.8125rem;
+}
+
+.catraca-alerta small {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+html.dark .catraca-alerta {
+  border-color: #6b551f;
+  background: #322a14;
+  color: #f2dfa8;
+}
+
 .catraca-monitor {
   display: flex;
   flex-direction: column;

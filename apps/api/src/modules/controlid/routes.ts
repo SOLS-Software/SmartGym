@@ -427,7 +427,7 @@ async function processarRespostaDeSincronizacao(
   });
 
   // So registra quando houve mudanca — em regime, a reconciliacao e silenciosa.
-  if (resultado.liberados > 0 || resultado.bloqueados > 0) {
+  if (resultado.liberados > 0 || resultado.bloqueados > 0 || resultado.bloqueadosSemVinculo > 0) {
     request.log.warn(
       { deviceId, ...resultado },
       'Sincronizacao de acesso: enviando alteracoes para a catraca.',
@@ -869,6 +869,52 @@ export async function registerControlidRoutes(app: FastifyInstance) {
       }
     },
   );
+
+  // Catracas ATIVAS que pararam de falar com a API.
+  //
+  // Endpoint proprio, enxuto e barato, porque e consultado em intervalo curto
+  // pelo painel de todo funcionario logado — a listagem completa devolveria
+  // serial, IP e token de todos os equipamentos a cada ciclo, sem necessidade.
+  //
+  // Silencio de catraca nao e falha inofensiva: com o acesso sincronizado, uma
+  // parada vai barrando aluno conforme as validades expiram, e sem aviso a
+  // academia so descobre pela fila na porta. Aconteceu duas vezes na implantacao
+  // e so foi notado porque alguem olhava o log do servidor.
+  app.get('/controlid/alertas', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+
+    const limite = Number(process.env.CONTROLID_ONLINE_TIMEOUT_MS ?? 120_000);
+    const janela = Number.isFinite(limite) && limite > 0 ? limite : 120_000;
+    const desde = new Date(Date.now() - janela);
+
+    const offline = await prisma.catraca.findMany({
+      where: {
+        // Catraca inativa esta desligada de proposito: nao alerta.
+        boInativo: false,
+        empresa: { idCliente },
+        OR: [{ dtUltimoPush: null }, { dtUltimoPush: { lt: desde } }],
+      },
+      select: { id: true, dsCatraca: true, caSerial: true, dtUltimoPush: true },
+      orderBy: { dtUltimoPush: 'desc' },
+      take: 20,
+    });
+
+    const agora = Date.now();
+    return {
+      qtOffline: offline.length,
+      catracas: offline.map((catraca) => ({
+        id: catraca.id,
+        dsCatraca: catraca.dsCatraca,
+        caSerial: catraca.caSerial,
+        dtUltimoPush: catraca.dtUltimoPush,
+        nrSegundosSemContato:
+          catraca.dtUltimoPush === null
+            ? null
+            : Math.round((agora - catraca.dtUltimoPush.getTime()) / 1000),
+      })),
+    };
+  });
 
   // Numeros de usuario que a catraca ja reportou e que NAO estao vinculados a
   // nenhum aluno. E a lista que a tela de vinculo precisa: o operador cadastra a

@@ -29,6 +29,7 @@ import { EmployeeRegistration } from '../../features/employees/EmployeeRegistrat
 import { TrainingRegistration } from '../../features/trainings/TrainingRegistration';
 import { EquipmentRegistration } from '../../features/equipment/EquipmentRegistration';
 import { CatracaMonitor } from '../../features/catracas/CatracaMonitor';
+import { CatracaAlerta } from '../../features/catracas/CatracaAlerta';
 import { LocalityRegistration } from '../../features/localities/LocalityRegistration';
 import { PointsRegistration } from '../../features/points/PointsRegistration';
 import { StudentPointsView } from '../../features/points/StudentPointsView';
@@ -1135,10 +1136,15 @@ export default function HomePage() {
                 onNavigate={setActiveItem}
               />
             ) : (
-              <EmployeeDashboard
-                employeeName={authUserName}
-                onNavigate={setActiveItem}
-              />
+              <>
+                {/* Aviso de catraca parada: so para funcionario/gestor. O aluno
+                    nao opera equipamento e nao tem o que fazer com isso. */}
+                <CatracaAlerta />
+                <EmployeeDashboard
+                  employeeName={authUserName}
+                  onNavigate={setActiveItem}
+                />
+              </>
             )
           ) : activeItem === 'Relatórios' ? (
             <ReportsView />

@@ -74,6 +74,8 @@ export type ResultadoSync = {
   avaliados: number;
   liberados: number;
   bloqueados: number;
+  /** Usuarios do equipamento que nao pertencem a nenhum aluno. */
+  bloqueadosSemVinculo: number;
   semAlteracao: number;
   naoGerenciados: number;
 };
@@ -97,6 +99,7 @@ export async function reconciliarAcessos(params: {
     avaliados: 0,
     liberados: 0,
     bloqueados: 0,
+    bloqueadosSemVinculo: 0,
     semAlteracao: 0,
     naoGerenciados: 0,
   };
@@ -181,6 +184,41 @@ export async function reconciliarAcessos(params: {
       }),
     );
     resultado.bloqueados += 1;
+  }
+
+  // Usuarios que existem NO EQUIPAMENTO e nao pertencem a nenhum aluno.
+  //
+  // Ficavam de fora da reconciliacao, e um usuario sem prazo (`end_time = 0`)
+  // entrava para sempre — cadastro antigo, ex-funcionario, teste esquecido: todos
+  // com acesso vitalicio que o SmartGym nao controla. Passam a ser bloqueados.
+  //
+  // CONSEQUENCIA OPERACIONAL: quem for cadastrado direto na catraca (funcionario,
+  // personal) e barrado no ciclo seguinte ate ser vinculado a um aluno pela tela
+  // de catracas. E o comportamento escolhido — "so entra quem o sistema conhece".
+  // CONTROLID_BLOQUEAR_NAO_VINCULADOS="false" volta ao comportamento anterior.
+  const bloquearNaoVinculados = process.env.CONTROLID_BLOQUEAR_NAO_VINCULADOS !== 'false';
+  if (bloquearNaoVinculados) {
+    const numerosDeAlunos = new Set(
+      alunos.map((aluno) => aluno.nrUsuarioCatraca).filter((numero): numero is number => numero !== null),
+    );
+
+    for (const [idUsuario, fimAtual] of validadePorUsuario) {
+      if (numerosDeAlunos.has(idUsuario)) continue;
+      const jaBloqueado =
+        fimAtual !== null && fimAtual !== SEM_PRAZO && fimAtual <= agoraNoEquipamento;
+      if (jaBloqueado) {
+        resultado.semAlteracao += 1;
+        continue;
+      }
+      comandos.push(
+        comando('modify_objects', {
+          object: 'users',
+          values: { end_time: agoraNoEquipamento - 1 },
+          where: { users: { id: idUsuario } },
+        }),
+      );
+      resultado.bloqueadosSemVinculo += 1;
+    }
   }
 
   enfileirar(deviceId, ...comandos);
