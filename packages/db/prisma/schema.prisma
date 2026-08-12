@@ -342,6 +342,10 @@ model Aluno {
   anBairro           String    @default("") @db.VarChar(100)
   nrEndereco         String?   @db.VarChar(10)
   idCliente          Int
+  // Id do usuario correspondente NO EQUIPAMENTO (Control iD). E o numero que a
+  // catraca reporta em `user_id` ao liberar o acesso; sem ele o evento chega
+  // como "usuario 1000013 entrou" e nao ha como dizer QUEM entrou.
+  nrUsuarioCatraca   Int?
   dtCadastro         DateTime  @default(now())
   dtAlteracao        DateTime  @updatedAt
   idUsuarioCadastro  Int?
@@ -359,9 +363,13 @@ model Aluno {
   alunoArquivos         AlunoArquivo[]
   usuarios              Usuario[]
   alunobiometriafacial  AlunoBiometriaFacial[]
+  catracaEventos        CatracaEvento[]
   cliente               Cliente                @relation(fields: [idCliente], references: [id])
 
   @@unique([idCliente, caCPFHash])
+  // Um numero de usuario da catraca so pode apontar para UM aluno dentro do
+  // mesmo cliente — senao dois alunos disputam o mesmo acesso liberado.
+  @@unique([idCliente, nrUsuarioCatraca])
   // Login/register-lookup/forgot-password buscam por CPF sem idCliente — o
   // unique composto (idCliente lider) nao cobre esse acesso.
   @@index([caCPFHash])
@@ -1292,6 +1300,10 @@ model Catraca {
 model CatracaEvento {
   id                  Int      @id @default(autoincrement())
   idCatraca           Int
+  // Aluno resolvido a partir de `nrUsuarioCatraca` no momento em que o evento
+  // chegou (ver Aluno.nrUsuarioCatraca). Fica nulo quando o numero nao esta
+  // vinculado a ninguem — acesso de funcionario, visitante ou vinculo pendente.
+  idAluno             Int?
   idEventoDispositivo BigInt?
   nrUsuarioCatraca    String?  @db.VarChar(50)
   nrTipoEvento        Int?
@@ -1302,14 +1314,26 @@ model CatracaEvento {
   dsPortal            String   @default("") @db.VarChar(20)
   dsDirecao           String   @default("") @db.VarChar(20)
   anIpOrigem          String   @default("") @db.VarChar(45)
+  // Motivo em pt-BR quando o SmartGym nega o acesso ("Pagamento em atraso.",
+  // "Aluno nao possui plano ativo."). Vazio nos eventos vindos do log do
+  // equipamento, que nao carregam justificativa.
+  dsMotivo            String   @default("") @db.VarChar(200)
+  // true = decisao tomada pelo SmartGym no modo online (a catraca perguntou e
+  // nos respondemos). false = registro coletado do log do proprio equipamento.
+  // Uma mesma passagem gera os dois: a decisao na hora e, depois, o log que a
+  // catraca guardou. Esta flag e o que permite separar um do outro no relatorio
+  // em vez de parecerem acessos duplicados.
+  boDecisaoOnline     Boolean  @default(false)
   dtEvento            DateTime
   jsPayload           Json?
   dtCadastro          DateTime @default(now())
 
   catraca Catraca @relation(fields: [idCatraca], references: [id])
+  aluno   Aluno?  @relation(fields: [idAluno], references: [id])
 
   @@index([idCatraca, dtEvento])
   @@index([dtEvento])
+  @@index([idAluno, dtEvento])
   @@map("tb_CatracaEventos")
 }
 
