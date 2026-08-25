@@ -318,6 +318,62 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     }
   });
 
+  // Vinculo entre o aluno e o usuario cadastrado NA CATRACA.
+  //
+  // Rota propria, fora do PUT /students/:id, de proposito: o RBAC do aluno
+  // libera o PUT no proprio cadastro, e `nrUsuarioCatraca` e campo de
+  // PRIVILEGIO, nao de perfil. Se entrasse no payload geral, um aluno bloqueado
+  // por inadimplencia poderia se apontar para um usuario da catraca que esta
+  // sempre liberado e entrar assim mesmo. Aqui, por ser PATCH em subrecurso
+  // fora da allowlist, o papel aluno e recusado por construcao.
+  app.patch<{
+    Params: { id: string };
+    Body: { nrUsuarioCatraca?: number | string | null };
+  }>('/students/:id/usuario-catraca', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    try {
+      const id = Number(request.params.id);
+      assertValidId(id, 'Aluno invalido.');
+      const current = await findTenantStudent(id, idCliente);
+      if (!current) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+
+      const bruto = request.body?.nrUsuarioCatraca;
+      // Vazio/null desvincula — e o que o operador faz quando o aluno sai ou
+      // quando o numero foi digitado errado.
+      const desvincular = bruto === null || bruto === undefined || bruto === '';
+      let numero: number | null = null;
+      if (!desvincular) {
+        numero = Number(bruto);
+        if (!Number.isInteger(numero) || numero <= 0) {
+          return reply
+            .code(400)
+            .send({ message: 'Numero de usuario da catraca invalido.' });
+        }
+      }
+
+      const updated = await prisma.aluno.update({
+        where: { id },
+        data: { nrUsuarioCatraca: numero },
+        select: { id: true, nmAluno: true, nrUsuarioCatraca: true },
+      });
+      return updated;
+    } catch (error) {
+      const codigo =
+        error instanceof Error && 'code' in error ? (error as { code: string }).code : '';
+      if (codigo === 'P2002') {
+        return reply.code(409).send({
+          message: 'Este numero de usuario da catraca ja esta vinculado a outro aluno.',
+        });
+      }
+      return reply.code(400).send({
+        message: clientErrorMessage(error, 'Erro ao vincular usuario da catraca.'),
+      });
+    }
+  });
+
   app.patch<{
     Params: { id: string };
     Body: { boInativo?: number };

@@ -28,6 +28,8 @@ import { StudentActivitiesView } from '../../features/activities/StudentActiviti
 import { EmployeeRegistration } from '../../features/employees/EmployeeRegistration';
 import { TrainingRegistration } from '../../features/trainings/TrainingRegistration';
 import { EquipmentRegistration } from '../../features/equipment/EquipmentRegistration';
+import { CatracaMonitor } from '../../features/catracas/CatracaMonitor';
+import { CatracaAlerta } from '../../features/catracas/CatracaAlerta';
 import { LocalityRegistration } from '../../features/localities/LocalityRegistration';
 import { PointsRegistration } from '../../features/points/PointsRegistration';
 import { StudentPointsView } from '../../features/points/StudentPointsView';
@@ -61,6 +63,7 @@ import {
   CalendarRange,
   ClipboardList,
   CreditCard,
+  DoorOpen,
   Dumbbell,
   FilePlus,
   Globe,
@@ -104,6 +107,7 @@ const menuItemIcons: Record<string, LucideIcon> = {
   'Profissionais': Users,
   'Domínios': Globe,
   'Equipamentos': Wrench,
+  'Catracas': DoorOpen,
   'Localidades': MapPin,
   'Pontuações': Star,
   'Relatórios': BarChart3,
@@ -132,7 +136,7 @@ const menuGroups = [
   },
   {
     title: 'EQUIPAMENTOS',
-    items: ['Equipamentos', 'Localidades'],
+    items: ['Equipamentos', 'Localidades', 'Catracas'],
   },
   {
     title: 'ALUNOS',
@@ -1132,10 +1136,15 @@ export default function HomePage() {
                 onNavigate={setActiveItem}
               />
             ) : (
-              <EmployeeDashboard
-                employeeName={authUserName}
-                onNavigate={setActiveItem}
-              />
+              <>
+                {/* Aviso de catraca parada: so para funcionario/gestor. O aluno
+                    nao opera equipamento e nao tem o que fazer com isso. */}
+                <CatracaAlerta />
+                <EmployeeDashboard
+                  employeeName={authUserName}
+                  onNavigate={setActiveItem}
+                />
+              </>
             )
           ) : activeItem === 'Relatórios' ? (
             <ReportsView />
@@ -1205,6 +1214,8 @@ export default function HomePage() {
             <EmployeeRegistration />
           ) : activeItem === 'Equipamentos' ? (
             <EquipmentRegistration readOnly={authUserType === 'student'} />
+          ) : activeItem === 'Catracas' ? (
+            <CatracaMonitor />
           ) : activeItem === 'Localidades' ? (
             <LocalityRegistration readOnly={authUserType === 'student'} />
           ) : activeItem === 'Domínios' ? (

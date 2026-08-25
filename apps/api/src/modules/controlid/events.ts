@@ -35,28 +35,24 @@ export type ControlidPushPayload = {
   events: ControlidNormalizedEvent[];
 };
 
-// Codigos de evento conhecidos do firmware Control iD 5.x.
-// Quando o codigo nao for reconhecido apenas devolvemos o numero cru no `dsTipoEvento`.
+// Codigos do campo `event` do objeto access_logs.
+//
+// So mapeamos os codigos que a Control iD DOCUMENTA (ver "Eventos de
+// Identificacao Online": 3 = nao identificado, 6 = acesso negado, 7 = acesso
+// concedido). A tabela anterior aqui era inventada — dizia que 1..6 eram tipos
+// de identificacao ("biometria", "cartao"...) e tratava TODOS como acesso
+// liberado. Consequencia pratica: um acesso NEGADO (6) e uma tentativa NAO
+// IDENTIFICADA (3) entravam no banco com boAcessoLiberado = true, ou seja, o
+// relatorio de acessos da academia registrava entrada de quem a catraca barrou.
+// Codigo desconhecido cai no rotulo generico `evento_N` e conta como negado.
+// Doc: https://www.controlid.com.br/docs/access-api-pt/modos-de-operacao/eventos-de-identificacao-online/
 const KNOWN_EVENT_TYPES: Record<number, string> = {
-  1: 'identificacao_biometria',
-  2: 'identificacao_cartao',
-  3: 'identificacao_senha',
-  4: 'identificacao_facial',
-  5: 'identificacao_qrcode',
-  6: 'identificacao_bluetooth',
+  3: 'nao_identificado',
+  6: 'acesso_negado',
   7: 'acesso_liberado',
-  8: 'acesso_negado',
-  9: 'tentativa_invalida',
-  10: 'usuario_desconhecido',
-  11: 'horario_invalido',
-  12: 'antipassback',
-  13: 'reset_dispositivo',
-  14: 'tamper_alarme',
-  15: 'porta_aberta_forcada',
-  16: 'porta_aberta_tempo_excedido',
 };
 
-const GRANTED_ACCESS_TYPES = new Set<number>([1, 2, 3, 4, 5, 6, 7]);
+const GRANTED_ACCESS_TYPES = new Set<number>([7]);
 
 function pickArray(value: unknown): unknown[] | null {
   if (Array.isArray(value)) {
@@ -100,13 +96,36 @@ function asBigInt(value: unknown): bigint | null {
   return null;
 }
 
+// Fuso horario configurado NO EQUIPAMENTO, em minutos de diferenca para UTC
+// (Brasilia = -180). Medido em campo: a catraca carimba o log com a hora LOCAL
+// dela e manda esse valor como se fosse epoch UTC. Um acesso as 11:07 de
+// Brasilia chegava como 11:07 UTC, ou seja, 3h no passado — o relatorio de
+// frequencia da academia inteiro sairia deslocado. Deixe 0 se o equipamento
+// estiver configurado para enviar UTC de verdade.
+const DEVICE_UTC_OFFSET_MINUTES = Number(process.env.CONTROLID_DEVICE_UTC_OFFSET_MINUTES ?? 0);
+
+function offsetDoEquipamento(): number {
+  return Number.isFinite(DEVICE_UTC_OFFSET_MINUTES) ? DEVICE_UTC_OFFSET_MINUTES : 0;
+}
+
+// Converte um instante real para o "epoch ingenuo" que o equipamento usa: ele
+// grava e devolve a hora LOCAL dele como se fosse UTC. Necessario ao ESCREVER
+// campos de tempo na catraca (ex.: `users.end_time`) — mandar epoch UTC de
+// verdade deslocaria a validade do aluno em 3 horas.
+export function paraHoraDoEquipamento(data: Date): number {
+  return Math.floor((data.getTime() + offsetDoEquipamento() * 60_000) / 1000);
+}
+
 function parseTime(value: unknown): Date {
   if (value instanceof Date) return value;
   if (typeof value === 'number' && Number.isFinite(value)) {
     // Control iD envia timestamp em segundos. Se vier em milissegundos
     // (numero muito grande) tratamos tambem.
     const ms = value > 1e12 ? value : value * 1000;
-    return new Date(ms);
+    // Hora local do equipamento -> UTC real. Com offset -180, 11:07 "UTC"
+    // reportado vira 14:07 UTC, que e 11:07 em Brasilia.
+    const offset = Number.isFinite(DEVICE_UTC_OFFSET_MINUTES) ? DEVICE_UTC_OFFSET_MINUTES : 0;
+    return new Date(ms - offset * 60_000);
   }
   if (typeof value === 'string' && value.trim()) {
     const parsed = new Date(value);
@@ -124,7 +143,44 @@ export function extractDeviceInfo(body: Record<string, unknown>): ControlidDevic
   };
 }
 
+// O POST /result do modo push embrulha a resposta do equipamento em
+// `{ uuid, endpoint, response }`, onde `response` e o corpo devolvido pela API
+// LOCAL da catraca (ex.: `{"access_logs": [...]}`). Alguns firmwares mandam esse
+// `response` como STRING com o JSON dentro. Sem desembrulhar isso, os eventos
+// ficavam invisiveis para o extrator e todo push chegava com 0 eventos.
+function unwrapResponseEnvelope(body: Record<string, unknown>): Record<string, unknown> | null {
+  const response = body.response ?? body.result;
+  if (!response) return null;
+  if (typeof response === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(response);
+      return typeof parsed === 'object' && parsed !== null
+        ? (parsed as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof response === 'object' && !Array.isArray(response)) {
+    return response as Record<string, unknown>;
+  }
+  return null;
+}
+
 export function extractRawEvents(body: Record<string, unknown>): ControlidRawEvent[] {
+  // Body inteiro pode ser um array (checado antes das chaves porque Array
+  // tambem e `object` e nao tem nenhuma das chaves abaixo).
+  if (Array.isArray(body)) {
+    return body as ControlidRawEvent[];
+  }
+
+  // Envelope do /result: os eventos estao um nivel abaixo, dentro de `response`.
+  const envelope = unwrapResponseEnvelope(body);
+  if (envelope) {
+    const nested = extractRawEvents(envelope);
+    if (nested.length > 0) return nested;
+  }
+
   // Caminhos possiveis em diferentes firmwares.
   const candidates = [
     body.events,
@@ -145,11 +201,6 @@ export function extractRawEvents(body: Record<string, unknown>): ControlidRawEve
   if (object && typeof object === 'object') {
     const arr = pickArray((object as Record<string, unknown>).values);
     if (arr) return arr as ControlidRawEvent[];
-  }
-
-  // Body inteiro pode ser um array.
-  if (Array.isArray(body)) {
-    return body as ControlidRawEvent[];
   }
 
   return [];

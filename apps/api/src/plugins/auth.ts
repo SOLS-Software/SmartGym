@@ -43,6 +43,16 @@ const PUBLIC_ROUTES = new Set([
   '/controlid',
   '/controlid/push',
   '/controlid/push/push',
+  // Retorno do comando de push (o equipamento posta o resultado em /result).
+  '/controlid/result',
+  '/controlid/push/result',
+  // Modo online: a catraca consulta estes endpoints a cada identificacao, antes
+  // de liberar a passagem. Autenticacao e por device (caToken), nao por JWT.
+  '/controlid/new_user_identified.fcgi',
+  '/controlid/new_card.fcgi',
+  '/controlid/new_rex_log.fcgi',
+  // Mesmo endpoint na raiz: `online_client.path` pode estar vazio no equipamento.
+  '/new_user_identified.fcgi',
   '/controlid/health',
 ]);
 
