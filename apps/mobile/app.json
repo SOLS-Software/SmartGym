@@ -38,10 +38,10 @@
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.anonymous.smartgym"
+      "package": "com.smartgym"
     },
     "ios": {
-      "bundleIdentifier": "com.anonymous.smartgym"
+      "bundleIdentifier": "com.smartgym"
     }
   }
 }

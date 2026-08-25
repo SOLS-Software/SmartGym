@@ -11,3 +11,16 @@ build
 *.tsbuildinfo
 .claude
 /generated/prisma
+
+# Projeto nativo do mobile: gerado pelo prebuild a partir de app.json, nunca
+# versionado. Versionado, ele vira a fonte da verdade do build e SILENCIA o
+# app.json — foi o que aconteceu aqui: o android/ commitado era o scaffold
+# padrao do React Native, sem as permissoes, sem o scheme smartgym:// e com o
+# release assinado pelo debug.keystore.
+apps/mobile/android
+apps/mobile/ios
+
+# EAS Build infere o gerenciador de pacotes pelo lock file. Este repo usa pnpm
+# (pnpm-workspace.yaml + node-linker=hoisted); um package-lock.json faz o EAS
+# escolher npm, que nao entende workspace:* e destroi a arvore de dependencias.
+package-lock.json
