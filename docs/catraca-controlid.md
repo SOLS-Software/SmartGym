@@ -64,6 +64,78 @@ Duas propriedades que o modo online não teria:
 
 O custo é a latência: entre quitar o pagamento e a catraca saber, passa um ciclo.
 
+## Cadastro de digital pelo painel (a validar em campo)
+
+O canal de push **não é** um canal de "coletar log": é um RPC genérico para
+dentro do equipamento. O servidor enfileira `{endpoint, body}`, a catraca
+executa contra a própria API local e devolve o resultado em
+`/controlid/result`. O bootstrap do modo online já usava isso para *criar
+objetos* na catraca (`create_objects` em `devices`) — o mesmo mecanismo cria o
+usuário e dispara o enrolamento da biometria.
+
+Consequência: **cadastrar digital não exige app desktop nem estar na rede da
+catraca.** O comando sai do painel web, de onde quer que ele esteja rodando. A
+única presença física necessária é a do dedo no leitor.
+
+Implementação em `apps/api/src/modules/controlid/cadastro.ts`, tela em
+`apps/web/src/features/catracas/CatracaMonitor.tsx` ("Cadastrar digital").
+
+### Fluxo de uma sessão
+
+| Etapa | Comando enviado | O que confirma |
+|---|---|---|
+| `criando_usuario` | `create_objects` em `users` | `ids` → grava `Aluno.nrUsuarioCatraca` |
+| `lendo_digitais` | `load_objects` em `templates` | linha de base (só para aluno que já tem número) |
+| `aguardando_dedo` | `remote_enroll` | equipamento entra em modo de captura |
+| `concluido` | `load_objects` em `templates` a cada ~3s | contagem **subiu** → digital gravada |
+
+Duas decisões que valem registrar:
+
+- **O usuário nasce bloqueado** (`end_time` no passado) e quem o libera é a
+  reconciliação, se o aluno estiver em dia. O caminho oposto daria passagem
+  livre a um inadimplente até o ciclo seguinte — e o cadastro de digital é
+  exatamente o momento em que a pessoa está na recepção querendo entrar.
+- **A confirmação compara contagens**, não presença. Para um aluno que já tem
+  digital, "existe um template" daria sucesso imediato mesmo com o leitor
+  desligado; só um template A MAIS prova que a digital nova entrou.
+
+O vínculo aluno↔número passa a nascer pronto, em vez de depender de garimpar o
+número na lista de não vinculados depois da primeira passada. A tela de vínculo
+continua existindo para digitais cadastradas direto no equipamento.
+
+### O que ainda não foi provado neste firmware
+
+`create_objects` está validado (o bootstrap o usa). **`remote_enroll` e
+`load_objects` em `templates` nunca foram exercitados aqui.** Como o modo online
+também era "suportado" pela documentação e nunca engatou, cada passo trata erro
+do equipamento como resposta legítima e leva a mensagem do firmware inteira para
+a tela — é ela que vai dizer se o endpoint existe.
+
+**Roteiro do teste em campo:**
+
+1. Painel → Catracas → Cadastrar digital. Escolha um aluno de teste e a catraca.
+2. Acompanhe o log da API (`Cadastro de digital: sessao avancou`) e a tela.
+3. Encoste o dedo no leitor quando a tela pedir.
+
+Os três desfechos possíveis:
+
+- **Concluído** — funciona ponta a ponta; não há app desktop a construir.
+- **Erro no `remote_enroll`** (ex.: `Node or attribute not found`) — o endpoint
+  não existe neste firmware. Aí sim o desktop entra em discussão.
+- **Fica em "aguardando" e expira** — o comando foi aceito mas a captura não
+  aconteceu, ou a consulta de `templates` não existe (a tela avisa quando é o
+  segundo caso). Tente `CONTROLID_ENROLL_SYNC=true`: nesse modo o equipamento
+  segura a resposta até o dedo encostar e a própria resposta é o resultado,
+  dispensando a consulta de templates.
+
+### Variáveis de ambiente
+
+```
+CONTROLID_CADASTRO_TIMEOUT_MS     = 120000  tempo máximo da sessão
+CONTROLID_CADASTRO_VERIFICACAO_MS = 3000    intervalo entre confirmações
+CONTROLID_ENROLL_SYNC             = false   true = remote_enroll bloqueante
+```
+
 ## O que NÃO funciona: modo online
 
 **Objetivo:** a catraca perguntar ao SmartGym a cada identificação

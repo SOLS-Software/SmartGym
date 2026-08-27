@@ -167,6 +167,115 @@ html.dark .catraca-alerta {
   min-width: 12rem;
 }
 
+/* Cadastro de digital: seletores em linha que viram coluna no celular — a
+   recepcao usa esta tela no telefone com a pessoa parada na frente da catraca. */
+.catraca-cadastro-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.catraca-cadastro-form select {
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-border, #d8e0da);
+  background: var(--color-surface, #fff);
+  color: var(--color-text, #1a1a1a);
+  font-size: 0.8125rem;
+  min-width: 12rem;
+  flex: 1 1 12rem;
+}
+
+.catraca-cadastro-form button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border, #d8e0da);
+  background: var(--color-surface, #fff);
+  font-size: 0.8125rem;
+  color: var(--color-text, #1a1a1a);
+  cursor: pointer;
+}
+
+.catraca-cadastro-form button:hover:not(:disabled) {
+  background: var(--color-primary-bg, #e8f4ed);
+  border-color: var(--color-primary, #1f7a53);
+}
+
+.catraca-cadastro-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Andamento do cadastro. A borda lateral carrega o estado: o operador olha de
+   longe, com a pessoa na frente do equipamento, e precisa saber se ja pode
+   liberar sem parar para ler o texto. */
+.catraca-cadastro-status {
+  margin-top: 0.875rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border, #d8e0da);
+  border-left-width: 3px;
+  background: var(--color-surface-subtle, #f7faf8);
+}
+
+.catraca-cadastro-status strong {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text, #1a1a1a);
+}
+
+.catraca-cadastro-status p {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.catraca-cadastro-status small {
+  display: block;
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.catraca-cadastro-status button {
+  margin-top: 0.625rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-border, #d8e0da);
+  background: var(--color-surface, #fff);
+  font-size: 0.75rem;
+  color: var(--color-text, #1a1a1a);
+  cursor: pointer;
+}
+
+.catraca-cadastro-status.is-ativo {
+  border-left-color: var(--color-primary, #1f7a53);
+}
+
+.catraca-cadastro-status.is-ok {
+  border-left-color: var(--color-primary, #1f7a53);
+  background: var(--color-primary-bg, #e8f4ed);
+}
+
+.catraca-cadastro-status.is-falha {
+  border-left-color: #a32020;
+  background: #fdeaea;
+}
+
+html.dark .catraca-cadastro-status.is-falha {
+  background: #3a1c1c;
+}
+
+html.dark .catraca-cadastro-status.is-falha strong,
+html.dark .catraca-cadastro-status.is-falha p {
+  color: #f7b4b4;
+}
+
 /* Situacao do equipamento e resultado do acesso usam o mesmo par de estados:
    verde para "esta como deveria", vermelho para "exige atencao". */
 .catraca-status {

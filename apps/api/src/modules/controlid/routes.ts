@@ -11,6 +11,14 @@ import {
 import { handleIdentificacaoOnline } from './online.js';
 import { enfileirar, proximoComando } from './fila.js';
 import {
+  cancelarCadastro,
+  comandoDeVerificacaoPendente,
+  iniciarCadastro,
+  processarRespostaDeCadastro,
+  sessaoAtiva,
+  sessaoDoDevice,
+} from './cadastro.js';
+import {
   comandoDeLeituraDeUsuarios,
   marcarSyncIniciada,
   reconciliarAcessos,
@@ -949,6 +957,162 @@ export async function registerControlidRoutes(app: FastifyInstance) {
   });
 
   // -------------------------------------------------------------------
+  // Cadastro de digital pelo painel.
+  // -------------------------------------------------------------------
+  //
+  // Por que isso funciona sem app desktop e sem estar na rede da catraca: o
+  // canal de push e um RPC para DENTRO do equipamento (ver cadastro.ts). Quem
+  // dispara o enrolamento e o servidor, de onde quer que ele esteja; a unica
+  // presenca fisica necessaria e a do dedo no leitor.
+
+  // Catraca elegivel para receber comandos. Cada recusa aqui evita um cadastro
+  // que ficaria "carregando" ate o timeout: fila e por serial, equipamento sem
+  // contato nunca vem buscar o comando, e catraca sem empresa nao tem escopo de
+  // aluno nenhum.
+  async function catracaParaComando(idCatraca: number, idCliente: number) {
+    const catraca = await prisma.catraca.findFirst({
+      where: { id: idCatraca, empresa: { idCliente } },
+      select: { id: true, dsCatraca: true, caSerial: true, boInativo: true, dtUltimoPush: true },
+    });
+    if (!catraca) {
+      throw new Error('Catraca nao encontrada ou ainda nao vinculada a uma empresa do seu cliente.');
+    }
+    const serial = catraca.caSerial.trim();
+    if (!serial) {
+      throw new Error('Catraca sem numero de serie: nao ha como enderecar comandos a ela.');
+    }
+    return { ...catraca, caSerial: serial };
+  }
+
+  function catracaEstaViva(dtUltimoPush: Date | null): boolean {
+    const limite = Number(process.env.CONTROLID_ONLINE_TIMEOUT_MS ?? 120_000);
+    const janela = Number.isFinite(limite) && limite > 0 ? limite : 120_000;
+    return dtUltimoPush !== null && Date.now() - dtUltimoPush.getTime() <= janela;
+  }
+
+  const cadastroDigitalBodySchema = z.object({
+    idCatraca: z.coerce.number({ invalid_type_error: 'Catraca invalida.' }).int().positive('Catraca invalida.'),
+    idAluno: z.coerce.number({ invalid_type_error: 'Aluno invalido.' }).int().positive('Aluno invalido.'),
+  });
+
+  const cadastroDigitalQuerySchema = z.object({
+    idCatraca: z.coerce.number({ invalid_type_error: 'Catraca invalida.' }).int().positive('Catraca invalida.'),
+  });
+
+  app.post<{ Body: { idCatraca?: number | string; idAluno?: number | string } }>(
+    '/controlid/cadastro-digital',
+    async (request, reply) => {
+      const idCliente = request.user.idCliente;
+      if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+      try {
+        const parsed = cadastroDigitalBodySchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+          throw new Error(parsed.error.issues[0]?.message ?? 'Dados invalidos.');
+        }
+        const { idCatraca, idAluno } = parsed.data;
+
+        const catraca = await catracaParaComando(idCatraca, idCliente);
+        if (catraca.boInativo) {
+          throw new Error('Catraca inativa. Ative o equipamento no painel antes de cadastrar digitais.');
+        }
+        if (!catracaEstaViva(catraca.dtUltimoPush)) {
+          throw new Error(
+            'A catraca esta sem contato com o sistema. O comando so seria entregue quando ela voltar — verifique o equipamento e tente de novo.',
+          );
+        }
+        // Reconfiguracao de modo online em andamento neste equipamento. Os dois
+        // fluxos criam objetos na catraca e o /result nao diz QUAL objeto o
+        // `ids` da resposta pertence: rodar juntos trocaria o id do servidor
+        // pelo id do usuario e vincularia o aluno a um numero que nao existe.
+        if (bootstrapPendente.has(catraca.caSerial)) {
+          throw new Error(
+            'Esta catraca esta em reconfiguracao (bootstrap do modo online). Aguarde terminar antes de cadastrar digitais.',
+          );
+        }
+        if (sessaoAtiva(catraca.caSerial)) {
+          return reply.code(409).send({
+            message: 'Ja existe um cadastro de digital em andamento nesta catraca.',
+            sessao: sessaoDoDevice(catraca.caSerial),
+          });
+        }
+
+        const aluno = await prisma.aluno.findFirst({
+          where: { id: idAluno, idCliente, boInativo: false },
+          select: { id: true, nmAluno: true, nrUsuarioCatraca: true },
+        });
+        if (!aluno) return reply.code(404).send({ message: 'Aluno nao encontrado.' });
+
+        const sessao = iniciarCadastro({
+          deviceId: catraca.caSerial,
+          idCatraca: catraca.id,
+          idAluno: aluno.id,
+          nmAluno: aluno.nmAluno,
+          nrUsuarioCatraca: aluno.nrUsuarioCatraca,
+        });
+
+        request.log.warn(
+          {
+            deviceId: catraca.caSerial,
+            idCatraca: catraca.id,
+            idAluno: aluno.id,
+            nrUsuarioCatraca: aluno.nrUsuarioCatraca,
+          },
+          'Cadastro de digital iniciado pelo painel.',
+        );
+
+        return reply.code(202).send(sessao);
+      } catch (error) {
+        return reply.code(400).send({
+          message: clientErrorMessage(error, 'Erro ao iniciar o cadastro de digital.'),
+        });
+      }
+    },
+  );
+
+  // Estado da sessao. A tela consulta em intervalo curto enquanto a pessoa esta
+  // com o dedo no leitor — por isso devolve so a sessao, sem tocar no banco
+  // alem da conferencia de posse da catraca.
+  app.get<{ Querystring: { idCatraca?: string } }>(
+    '/controlid/cadastro-digital',
+    async (request, reply) => {
+      const idCliente = request.user.idCliente;
+      if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+      try {
+        const parsed = cadastroDigitalQuerySchema.safeParse(request.query ?? {});
+        if (!parsed.success) {
+          throw new Error(parsed.error.issues[0]?.message ?? 'Parametros invalidos.');
+        }
+        const catraca = await catracaParaComando(parsed.data.idCatraca, idCliente);
+        return { sessao: sessaoDoDevice(catraca.caSerial) };
+      } catch (error) {
+        return reply.code(400).send({
+          message: clientErrorMessage(error, 'Erro ao consultar o cadastro de digital.'),
+        });
+      }
+    },
+  );
+
+  app.delete<{ Querystring: { idCatraca?: string } }>(
+    '/controlid/cadastro-digital',
+    async (request, reply) => {
+      const idCliente = request.user.idCliente;
+      if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+      try {
+        const parsed = cadastroDigitalQuerySchema.safeParse(request.query ?? {});
+        if (!parsed.success) {
+          throw new Error(parsed.error.issues[0]?.message ?? 'Parametros invalidos.');
+        }
+        const catraca = await catracaParaComando(parsed.data.idCatraca, idCliente);
+        return { sessao: cancelarCadastro(catraca.caSerial) };
+      } catch (error) {
+        return reply.code(400).send({
+          message: clientErrorMessage(error, 'Erro ao cancelar o cadastro de digital.'),
+        });
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------
   // Consulta de eventos recebidos.
   // -------------------------------------------------------------------
   app.get<{
@@ -1039,6 +1203,15 @@ async function handleControlidPollRequest(
   const pendente = proximoComando(deviceId);
   if (pendente) {
     return reply.code(200).send(pendente);
+  }
+
+  // Cadastro de digital em andamento: a confirmacao (contagem de digitais do
+  // usuario) vem antes da reconciliacao periodica. Ha alguem parado na frente do
+  // equipamento esperando a tela dizer "pronto" — cinco minutos de fila atras de
+  // uma sincronizacao de rotina seria a diferenca entre confirmar e desistir.
+  const verificacaoDeCadastro = comandoDeVerificacaoPendente(deviceId);
+  if (verificacaoDeCadastro) {
+    return reply.code(200).send(verificacaoDeCadastro);
   }
 
   // Hora de reconciliar? Pede a lista de usuarios do equipamento; a comparacao
@@ -1192,6 +1365,30 @@ async function handleControlidResultRequest(
   await processarRespostaDeSincronizacao(request, deviceId, endpointExecutado, body);
 
   const deviceError = typeof body.error === 'string' ? body.error : '';
+
+  // O cadastro de digital precisa enxergar TAMBEM as respostas de erro: "este
+  // endpoint nao existe neste firmware" e a informacao mais importante que a
+  // sessao pode receber, e o retorno antecipado logo abaixo a descartaria,
+  // deixando o operador olhando uma tela girando ate o timeout.
+  const sessaoDeCadastro = await processarRespostaDeCadastro(
+    deviceId,
+    endpointExecutado,
+    respostaDoResult(body),
+    deviceError,
+  );
+  if (sessaoDeCadastro) {
+    request.log.info(
+      {
+        deviceId,
+        endpoint: endpointExecutado,
+        etapa: sessaoDeCadastro.etapa,
+        idAluno: sessaoDeCadastro.idAluno,
+        nrUsuarioCatraca: sessaoDeCadastro.nrUsuarioCatraca,
+      },
+      'Cadastro de digital: sessao avancou.',
+    );
+  }
+
   if (deviceError) {
     request.log.warn(
       { deviceId, ip: clientIp, endpoint: endpointExecutado, error: deviceError },

@@ -48,6 +48,16 @@ export function marcarSyncIniciada(deviceId: string) {
   ultimaSync.set(deviceId, performance.now());
 }
 
+// Faz o proximo push ja pedir a lista de usuarios, sem esperar o intervalo.
+//
+// Usado pelo cadastro de digital: um usuario recem-criado nasce bloqueado e so
+// e liberado pela reconciliacao. Sem forcar o ciclo, o aluno que acabou de
+// cadastrar a digital esperaria ate CONTROLID_SYNC_INTERVALO_MS (5 min) para a
+// catraca aceitar o dedo dele — e testaria o equipamento bem antes disso.
+export function forcarSync(deviceId: string) {
+  ultimaSync.delete(deviceId);
+}
+
 // Passo 1 da reconciliacao: pedir a catraca a lista de usuarios com as validades
 // que ELA tem hoje. Sem isso a gente reescreveria todo mundo a cada ciclo.
 export function comandoDeLeituraDeUsuarios(): ComandoControlid {

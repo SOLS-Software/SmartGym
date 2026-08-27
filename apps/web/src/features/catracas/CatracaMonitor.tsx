@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link2, RefreshCw, Unlink } from 'lucide-react';
+import { Fingerprint, Link2, RefreshCw, Unlink } from 'lucide-react';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { useToast } from '../../shared/components/Toast';
 
@@ -43,8 +43,65 @@ type AlunoResumo = {
   nrUsuarioCatraca: number | null;
 };
 
+type EtapaCadastro =
+  | 'criando_usuario'
+  | 'lendo_digitais'
+  | 'aguardando_dedo'
+  | 'concluido'
+  | 'cancelado'
+  | 'erro'
+  | 'expirado';
+
+type SessaoCadastro = {
+  deviceId: string;
+  idCatraca: number;
+  idAluno: number;
+  nmAluno: string;
+  nrUsuarioCatraca: number | null;
+  etapa: EtapaCadastro;
+  dsMensagem: string;
+  qtDigitaisAntes: number;
+  qtDigitaisAgora: number;
+  boVerificacaoIndisponivel: boolean;
+  dtInicio: string;
+  dtAtualizacao: string;
+};
+
 // A catraca reporta "0" quando NAO identificou ninguem — nao e um usuario.
 const USUARIO_NAO_IDENTIFICADO = '0';
+
+// Etapas em que ainda ha algo acontecendo no equipamento: enquanto durarem, a
+// tela pergunta o estado a cada poucos segundos.
+const ETAPAS_ATIVAS: EtapaCadastro[] = ['criando_usuario', 'lendo_digitais', 'aguardando_dedo'];
+
+// Intervalo do acompanhamento do cadastro. Bem mais curto que o refresh geral
+// da tela (30s): aqui tem uma pessoa com o dedo no leitor esperando resposta.
+const INTERVALO_CADASTRO_MS = 2_000;
+
+function estadoDaEtapa(etapa: EtapaCadastro): 'ativo' | 'ok' | 'falha' {
+  if (etapa === 'concluido') return 'ok';
+  if (etapa === 'erro' || etapa === 'expirado' || etapa === 'cancelado') return 'falha';
+  return 'ativo';
+}
+
+function tituloDaEtapa(etapa: EtapaCadastro, nmAluno: string): string {
+  switch (etapa) {
+    case 'criando_usuario':
+      return `Criando ${nmAluno} na catraca...`;
+    case 'lendo_digitais':
+      return `Consultando as digitais de ${nmAluno}...`;
+    case 'aguardando_dedo':
+      return `Aguardando a digital de ${nmAluno}`;
+    case 'concluido':
+      return `Digital de ${nmAluno} cadastrada`;
+    case 'cancelado':
+      return 'Cadastro cancelado';
+    case 'expirado':
+      return 'Tempo esgotado';
+    default:
+      return 'Não foi possível cadastrar';
+  }
+}
 
 function tempoDecorrido(segundos: number | null): string {
   if (segundos === null) return 'nunca';
@@ -70,6 +127,10 @@ export function CatracaMonitor() {
   const [carregando, setCarregando] = useState(true);
   const [vinculando, setVinculando] = useState<string | null>(null);
   const [alunoEscolhido, setAlunoEscolhido] = useState<Record<string, string>>({});
+  const [cadastroCatraca, setCadastroCatraca] = useState('');
+  const [cadastroAluno, setCadastroAluno] = useState('');
+  const [sessao, setSessao] = useState<SessaoCadastro | null>(null);
+  const [iniciandoCadastro, setIniciandoCadastro] = useState(false);
 
   const carregar = useCallback(async () => {
     try {
@@ -114,6 +175,46 @@ export function CatracaMonitor() {
     [alunos],
   );
 
+  // So oferece equipamento que consegue receber o comando AGORA. A fila e por
+  // serial e uma catraca sem contato nunca vem busca-la: o cadastro ficaria
+  // "carregando" ate estourar o tempo, sem nada acontecendo do outro lado.
+  const catracasDisponiveis = useMemo(
+    () => catracas.filter((catraca) => !catraca.boInativo && catraca.boOnline && catraca.caSerial),
+    [catracas],
+  );
+
+  const cadastroAtivo = sessao !== null && ETAPAS_ATIVAS.includes(sessao.etapa);
+  const idCatracaDaSessao = sessao?.idCatraca ?? null;
+  const etapaDaSessao = sessao?.etapa ?? null;
+
+  // Acompanhamento do cadastro em andamento. Sai de cena assim que a sessao
+  // termina — nao ha por que continuar perguntando sobre um cadastro concluido.
+  useEffect(() => {
+    if (!cadastroAtivo || idCatracaDaSessao === null) return;
+    const timer = window.setInterval(() => {
+      void (async () => {
+        try {
+          const resposta = await fetch(
+            `${apiUrl}/controlid/cadastro-digital?idCatraca=${idCatracaDaSessao}`,
+          );
+          if (!resposta.ok) return;
+          const dados = (await resposta.json()) as { sessao: SessaoCadastro | null };
+          if (dados.sessao) setSessao(dados.sessao);
+        } catch {
+          // Falha de rede num ciclo nao invalida o cadastro: o proximo tenta de
+          // novo, e o tempo limite de verdade e o da sessao no servidor.
+        }
+      })();
+    }, INTERVALO_CADASTRO_MS);
+    return () => window.clearInterval(timer);
+  }, [cadastroAtivo, idCatracaDaSessao]);
+
+  // Cadastro concluido cria (ou reaproveita) o usuario na catraca e grava o
+  // vinculo: as listas de alunos e de pendentes ficaram desatualizadas.
+  useEffect(() => {
+    if (etapaDaSessao === 'concluido') void carregar();
+  }, [etapaDaSessao, carregar]);
+
   async function vincular(nrUsuarioCatraca: string) {
     const idAluno = alunoEscolhido[nrUsuarioCatraca];
     if (!idAluno) {
@@ -157,6 +258,48 @@ export function CatracaMonitor() {
       showToast(error instanceof Error ? error.message : 'Erro ao desvincular.', 'error');
     } finally {
       setVinculando(null);
+    }
+  }
+
+  async function cadastrarDigital() {
+    if (!cadastroCatraca || !cadastroAluno) {
+      showToast('Escolha a catraca e o aluno.', 'error');
+      return;
+    }
+    setIniciandoCadastro(true);
+    try {
+      const resposta = await fetch(`${apiUrl}/controlid/cadastro-digital`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idCatraca: Number(cadastroCatraca),
+          idAluno: Number(cadastroAluno),
+        }),
+      });
+      if (!resposta.ok) await getApiError(resposta, 'Não foi possível iniciar o cadastro.');
+      setSessao((await resposta.json()) as SessaoCadastro);
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : 'Erro ao iniciar o cadastro de digital.',
+        'error',
+      );
+    } finally {
+      setIniciandoCadastro(false);
+    }
+  }
+
+  async function cancelarCadastro() {
+    if (!sessao) return;
+    try {
+      const resposta = await fetch(
+        `${apiUrl}/controlid/cadastro-digital?idCatraca=${sessao.idCatraca}`,
+        { method: 'DELETE' },
+      );
+      if (!resposta.ok) await getApiError(resposta, 'Não foi possível cancelar.');
+      const dados = (await resposta.json()) as { sessao: SessaoCadastro | null };
+      setSessao(dados.sessao);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Erro ao cancelar o cadastro.', 'error');
     }
   }
 
@@ -218,10 +361,82 @@ export function CatracaMonitor() {
       </section>
 
       <section className="catraca-monitor-section">
+        <h3>Cadastrar digital</h3>
+        <p className="catraca-monitor-ajuda">
+          O comando sai daqui e a catraca executa: escolha o aluno, clique em cadastrar e peça para
+          ele encostar o dedo no leitor. Não é preciso estar na rede do equipamento — quem precisa
+          estar na frente dele é a pessoa.
+        </p>
+
+        {catracasDisponiveis.length === 0 ? (
+          <p className="catraca-monitor-vazio">
+            Nenhuma catraca ativa em contato com o sistema. O cadastro precisa de um equipamento
+            comunicando agora.
+          </p>
+        ) : (
+          <div className="catraca-cadastro-form">
+            <select
+              value={cadastroCatraca}
+              onChange={(evento) => setCadastroCatraca(evento.target.value)}
+              disabled={cadastroAtivo}
+            >
+              <option value="">Catraca...</option>
+              {catracasDisponiveis.map((catraca) => (
+                <option key={catraca.id} value={catraca.id}>
+                  {catraca.dsCatraca || catraca.caSerial}
+                </option>
+              ))}
+            </select>
+            <select
+              value={cadastroAluno}
+              onChange={(evento) => setCadastroAluno(evento.target.value)}
+              disabled={cadastroAtivo}
+            >
+              <option value="">Aluno...</option>
+              {alunos.map((aluno) => (
+                <option key={aluno.id} value={aluno.id}>
+                  {aluno.nmAluno}
+                  {aluno.nrUsuarioCatraca !== null ? ' (já tem digital)' : ''}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => void cadastrarDigital()}
+              disabled={iniciandoCadastro || cadastroAtivo}
+            >
+              <Fingerprint size={14} /> Cadastrar digital
+            </button>
+          </div>
+        )}
+
+        {sessao ? (
+          <div className={`catraca-cadastro-status is-${estadoDaEtapa(sessao.etapa)}`}>
+            <strong>{tituloDaEtapa(sessao.etapa, sessao.nmAluno)}</strong>
+            <p>{sessao.dsMensagem}</p>
+            {sessao.nrUsuarioCatraca !== null ? (
+              <small>
+                Usuário {sessao.nrUsuarioCatraca} na catraca
+                {sessao.boVerificacaoIndisponivel
+                  ? ' · sem confirmação automática neste equipamento'
+                  : ` · ${sessao.qtDigitaisAgora} digital(is) cadastrada(s)`}
+              </small>
+            ) : null}
+            {cadastroAtivo ? (
+              <button type="button" onClick={() => void cancelarCadastro()}>
+                Cancelar
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
+
+      <section className="catraca-monitor-section">
         <h3>Vincular usuário da catraca a um aluno</h3>
         <p className="catraca-monitor-ajuda">
-          Cadastre a digital no equipamento e peça para a pessoa passar uma vez. O número aparece
-          aqui e basta escolher de quem é. Sem vínculo, o acesso não é controlado pelo plano.
+          Para digitais cadastradas direto no equipamento, sem passar pelo sistema: peça para a
+          pessoa passar uma vez, o número aparece aqui e basta escolher de quem é. Sem vínculo, o
+          acesso não é controlado pelo plano.
         </p>
         {naoVinculados.length === 0 ? (
           <p className="catraca-monitor-vazio">Nenhum usuário pendente de vínculo.</p>
