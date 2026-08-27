@@ -2,6 +2,7 @@ import jwt from '@fastify/jwt';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { prisma } from '../shared/prisma.js';
 import { isStudentAllowed } from './studentRbac.js';
+import { isEmployeeAllowed } from './permissions.js';
 
 export type AuthRole = 'student' | 'employee' | 'gestor';
 
@@ -26,6 +27,15 @@ declare module '@fastify/jwt' {
   }
 }
 
+declare module 'fastify' {
+  interface FastifyRequest {
+    // Permissoes efetivas do funcionario neste request (vazio para aluno,
+    // gestor e super admin, que nao passam pelo RBAC de perfil). Preenchido
+    // pelo hook onRequest para o handler nao precisar reconsultar o perfil.
+    employeePermissions?: ReadonlySet<string>;
+  }
+}
+
 // Rotas alcancaveis sem token (match exato do pathname, sem query string).
 // Nunca usar startsWith aqui: '/auth/login-x' nao pode herdar a isencao.
 const PUBLIC_ROUTES = new Set([
@@ -37,6 +47,11 @@ const PUBLIC_ROUTES = new Set([
   '/auth/forgot-password',
   '/auth/reset-password',
   '/auth/theme',
+  // Formulario de interesse do site: quem o preenche por definicao ainda nao
+  // tem conta. E a unica rota de NEGOCIO sem token, e por isso a mais
+  // defendida do modulo — rate limit proprio e tenant resolvido pelo dominio,
+  // nunca pelo corpo da requisicao. Ver modules/leads/routes.ts.
+  '/public/leads',
   // Endpoints consumidos pelas catracas Control iD — os devices nao enviam
   // JWT; a validacao deles e feita por device (serial/IP) no proprio modulo.
   // A rota de gestao /controlid/catracas continua protegida.
@@ -55,6 +70,19 @@ const PUBLIC_ROUTES = new Set([
   '/new_user_identified.fcgi',
   '/controlid/health',
 ]);
+
+// Rotas publicas cujo caminho carrega um valor variavel — o Set acima so faz
+// match exato e nao serve para elas.
+//
+// O padrao e FECHADO de proposito (tamanho e alfabeto do token, ancorado nas
+// duas pontas): e a mesma disciplina do Set, so que expressa em regex. Um
+// `startsWith('/webhooks')` isentaria qualquer sub-rota futura de autenticacao
+// sem ninguem perceber.
+const PUBLIC_ROUTE_PATTERNS: RegExp[] = [
+  // Webhook de pagamento. A defesa esta no modulo: token na URL, token no
+  // header conferido em tempo constante, e confirmacao de volta no provedor.
+  /^\/webhooks\/payments\/[A-Za-z0-9_-]{16,64}$/,
+];
 
 // Tokens de sessao: 12h para web (o cookie do proxy acompanha) e 30d para o
 // app mobile (guardado no SecureStore do dispositivo).
@@ -75,6 +103,7 @@ export async function registerAuthPlugin(app: FastifyInstance) {
   app.addHook('onRequest', async (request, reply) => {
     const pathname = request.url.split('?')[0] ?? request.url;
     if (PUBLIC_ROUTES.has(pathname)) return;
+    if (PUBLIC_ROUTE_PATTERNS.some((padrao) => padrao.test(pathname))) return;
 
     try {
       await request.jwtVerify();
@@ -86,9 +115,23 @@ export async function registerAuthPlugin(app: FastifyInstance) {
     // cada request. O token so vale se a conta segue ativa E a versao de sessao
     // do token (tv) bate com a atual. Logout / reset de senha incrementam a
     // versao, derrubando na hora qualquer token vivo (inclusive um vazado).
+    // As permissoes do perfil vem NESTE mesmo SELECT, e nao do token, de
+    // proposito: um perfil editado (ou um funcionario movido de perfil) passa
+    // a valer no request seguinte. Se viajassem no JWT, tirar o acesso de
+    // alguem so surtiria efeito no proximo login — ate 30 dias no app.
     const account = await prisma.usuario.findUnique({
       where: { id: request.user.sub },
-      select: { boInativo: true, nrTokenVersion: true },
+      select: {
+        boInativo: true,
+        nrTokenVersion: true,
+        funcionario: {
+          select: {
+            perfilAcesso: {
+              select: { boInativo: true, permissoes: { select: { cnPermissao: true } } },
+            },
+          },
+        },
+      },
     });
     if (!account || account.boInativo || account.nrTokenVersion !== (request.user.tv ?? 0)) {
       return reply.code(401).send({ message: 'Sessao invalida ou expirada.' });
@@ -99,6 +142,23 @@ export async function registerAuthPlugin(app: FastifyInstance) {
       !isStudentAllowed(request.method, pathname, request.user.idAluno)
     ) {
       return reply.code(403).send({ message: 'Acesso nao autorizado.' });
+    }
+
+    // RBAC do funcionario. Gestor e super admin passam direto: o gestor e o
+    // dono da operacao (login proprio, multi-tenant) e o super admin e a
+    // operacao interna. Perfil inativo vale como perfil ausente.
+    if (request.user.role === 'employee' && !request.user.superAdmin) {
+      const profile = account.funcionario?.perfilAcesso;
+      const granted = new Set(
+        profile && !profile.boInativo ? profile.permissoes.map((item) => item.cnPermissao) : [],
+      );
+      request.employeePermissions = granted;
+
+      if (!isEmployeeAllowed(request.method, pathname, granted)) {
+        return reply.code(403).send({
+          message: 'Seu perfil de acesso nao permite esta acao.',
+        });
+      }
     }
   });
 }

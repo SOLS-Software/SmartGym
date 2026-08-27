@@ -56,6 +56,8 @@ export function ProductRegistration() {
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [productName, setProductName] = useState('');
   const [productStock, setProductStock] = useState('');
+  const [productPrice, setProductPrice] = useState('');
+  const [productPoints, setProductPoints] = useState('');
   const [isProductActive, setIsProductActive] = useState(false);
   const [feedback, setFeedback] = useState('');
   const selectedRelatedTable = 'files';
@@ -241,6 +243,8 @@ export function ProductRegistration() {
     setSelectedCompanyId('');
     setProductName('');
     setProductStock('');
+    setProductPrice('');
+    setProductPoints('');
     setIsProductActive(false);
     setFeedback('');
     setRelatedRecords([]);
@@ -270,6 +274,10 @@ export function ProductRegistration() {
     setSelectedCompanyId(product.idEmpresa ? String(product.idEmpresa) : '');
     setProductName(product.dsProduto);
     setProductStock(String(product.qtEstoque));
+    setProductPrice(
+      product.vlVenda === null || product.vlVenda === undefined ? '' : String(product.vlVenda),
+    );
+    setProductPoints(product.qtPontosResgate ? String(product.qtPontosResgate) : '');
     setIsProductActive(product.boInativo === false);
     setFeedback('');
     setRelatedFeedback('');
@@ -366,6 +374,9 @@ export function ProductRegistration() {
         idEmpresa: Number(selectedCompanyId),
         dsProduto: productName,
         qtEstoque: Number(productStock || 0),
+        vlVenda: productPrice === '' ? null : Number(productPrice),
+        // Vazio = produto nao entra no resgate por pontos.
+        qtPontosResgate: productPoints === '' ? null : Number(productPoints),
         boInativo: isProductActive ? false : true,
       };
       const response = await fetch(
@@ -593,6 +604,20 @@ export function ProductRegistration() {
             columns={[
               { label: 'Produto', render: (p) => p.dsProduto, sortValue: (p) => p.dsProduto },
               { label: 'Estoque', render: (p) => p.qtEstoque },
+              {
+                label: 'Venda',
+                render: (p) =>
+                  p.vlVenda === null || p.vlVenda === undefined
+                    ? '-'
+                    : Number(p.vlVenda).toLocaleString('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL',
+                      }),
+              },
+              {
+                label: 'Pontos',
+                render: (p) => (p.qtPontosResgate ? `${p.qtPontosResgate} pts` : '-'),
+              },
               { label: 'Status', render: (p) => <span className={`status-badge ${p.boInativo === false ? 'active' : 'inactive'}`}>{p.boInativo === false ? 'Ativo' : 'Inativo'}</span>, sortValue: (p) => (p.boInativo === false ? 0 : 1) },
             ]}
             records={paginatedProducts}
@@ -648,6 +673,12 @@ export function ProductRegistration() {
               </RegistrationField>
               <RegistrationField htmlFor="dsProduto" label="Produto" size="full">
                 <input disabled={!isFormEnabled} id="dsProduto" maxLength={255} onChange={(event) => setProductName(event.target.value)} placeholder="Ex.: Whey Protein 900g" ref={productNameInputRef} type="text" value={productName} />
+              </RegistrationField>
+              <RegistrationField hint="Preenche a venda automaticamente; o operador ainda pode ajustar na hora." htmlFor="vlVenda" label="Preço de venda" size="sm">
+                <input disabled={!isFormEnabled} id="vlVenda" min="0" onChange={(event) => setProductPrice(event.target.value)} placeholder="0,00" step="0.01" type="number" value={productPrice} />
+              </RegistrationField>
+              <RegistrationField hint="Vazio = não pode ser resgatado com pontos." htmlFor="qtPontosResgate" label="Preço em pontos" size="sm">
+                <input disabled={!isFormEnabled} id="qtPontosResgate" min="1" onChange={(event) => setProductPoints(event.target.value)} placeholder="-" type="number" value={productPoints} />
               </RegistrationField>
               <RegistrationField htmlFor="qtEstoque" label="Estoque" size="sm">
                 <input disabled={!isFormEnabled} id="qtEstoque" min="0" onChange={(event) => setProductStock(event.target.value)} placeholder="0" type="number" value={productStock} />

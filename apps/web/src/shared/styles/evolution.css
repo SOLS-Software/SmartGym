@@ -1,0 +1,228 @@
+/* Tela "Minha Evolução" do aluno: resumo das últimas medidas, curva ao longo
+   do tempo e histórico. Cores vêm das variáveis de globals.css para acompanhar
+   o modo claro/escuro. */
+
+.evolution-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.evolution-empty {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.evolution-empty-state {
+  border: 1px dashed var(--color-border);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  text-align: center;
+  background: var(--color-surface-alt);
+}
+
+.evolution-empty-state strong {
+  display: block;
+  font-size: 1rem;
+  color: var(--color-text);
+}
+
+.evolution-empty-state p {
+  margin-top: 0.375rem;
+  font-size: 0.875rem;
+  color: var(--color-muted);
+  max-width: 46ch;
+  margin-inline: auto;
+}
+
+/* Resumo: última medição de cada indicador, com a variação desde a primeira. */
+.evolution-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem;
+}
+
+.evolution-card {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+  padding: 0.875rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.evolution-card-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+}
+
+.evolution-card-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.evolution-card-delta {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+/* Verde/vermelho aqui não é bom/ruim moral: é a direção que o próprio
+   indicador considera progresso (massa magra subindo, cintura descendo). Peso
+   e IMC ficam neutros de propósito — subir não é necessariamente pior. */
+.evolution-card-delta.up {
+  color: var(--color-gain);
+}
+
+.evolution-card-delta.down {
+  color: var(--color-loss);
+}
+
+.evolution-chart-card {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+  padding: 1rem;
+}
+
+.evolution-chart-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.evolution-chart-head strong {
+  font-size: 1.0625rem;
+  color: var(--color-text);
+}
+
+/* O gráfico rola sozinho em telas estreitas — a página nunca rola de lado. */
+.evolution-chart-scroll {
+  overflow-x: auto;
+}
+
+.evolution-chart {
+  width: 100%;
+  min-width: 20rem;
+  height: auto;
+}
+
+.evolution-chart-axis {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.evolution-chart-line {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.evolution-chart-area {
+  fill: var(--color-primary);
+  opacity: 0.08;
+  stroke: none;
+}
+
+.evolution-chart-dot {
+  fill: var(--color-surface);
+  stroke: var(--color-primary);
+  stroke-width: 2;
+}
+
+.evolution-chart-dot.last {
+  fill: var(--color-primary);
+}
+
+.evolution-chart-label {
+  fill: var(--color-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+.evolution-chart-axis-label {
+  fill: var(--color-muted);
+  font-size: 0.6875rem;
+}
+
+.evolution-chart-axis-label.end {
+  text-anchor: end;
+}
+
+.evolution-history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.evolution-entry {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+  padding: 0.875rem 1rem;
+}
+
+.evolution-entry-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.evolution-entry-head strong {
+  font-size: 0.9375rem;
+  color: var(--color-text);
+}
+
+.evolution-entry-head span {
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+}
+
+.evolution-entry-measures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+.evolution-entry-measures dt {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+}
+
+.evolution-entry-measures dd {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.evolution-entry-note {
+  margin-top: 0.625rem;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--color-border-subtle);
+  font-size: 0.875rem;
+  color: var(--color-muted-strong);
+}
+
+.evolution-entry-photo {
+  margin-top: 0.75rem;
+  max-width: 12rem;
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+}

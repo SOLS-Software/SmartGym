@@ -63,6 +63,10 @@ export function StudentRegistration() {
   const [isCreatingStudentRelated, setIsCreatingStudentRelated] = useState(false);
   const [studentRelatedFormValues, setStudentRelatedFormValues] = useState<Record<string, string>>({});
   const [isStudentRelatedActive, setIsStudentRelatedActive] = useState(true);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [cancelReasons, setCancelReasons] = useState<Array<{ id: number; dsMotivoCancelamento: string }>>([]);
+  const [cancelReasonId, setCancelReasonId] = useState('');
+  const [cancelReasonNote, setCancelReasonNote] = useState('');
   const [studentRelatedFeedback, setStudentRelatedFeedback] = useState('');
   const [studentRelatedLookups, setStudentRelatedLookups] = useState<Record<string, LookupRecord[]>>({});
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
@@ -660,15 +664,48 @@ export function StudentRegistration() {
     }
   }
 
+  // Lista de motivos, carregada uma vez. Se falhar, o cancelamento ainda
+  // acontece — só sem a escolha guiada, que é melhor do que travar a operação.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await fetch(`${apiUrl}/cancellation-reasons`);
+        if (!response.ok) return;
+        setCancelReasons(
+          (await response.json()) as Array<{ id: number; dsMotivoCancelamento: string }>,
+        );
+      } catch {
+        // silencioso de propósito — ver comentário acima
+      }
+    })();
+  }, []);
+
   async function handleToggleStudentRelatedStatus() {
     if (!studentRelatedConfig || studentRelatedConfig.key === 'files') {
       return;
     }
 
     const nextActive = !isStudentRelatedActive;
+
+    // Cancelar plano pergunta o porquê antes de gravar. É a única chance de
+    // capturar esse dado: depois que o aluno some, ninguém sabe mais.
+    if (!nextActive && studentRelatedConfig.endpoint === 'plans') {
+      setCancelReasonId('');
+      setCancelReasonNote('');
+      setIsCancelDialogOpen(true);
+      return;
+    }
+
+    await applyRelatedStatus(nextActive);
+  }
+
+  async function applyRelatedStatus(
+    nextActive: boolean,
+    motivo?: { idMotivoCancelamento: number | null; dsMotivoCancelamento: string | null },
+  ) {
     setIsStudentRelatedActive(nextActive);
 
-    if (!selectedStudentId || !selectedStudentRelatedRecordId) {
+    if (!selectedStudentId || !selectedStudentRelatedRecordId || !studentRelatedConfig) {
       return;
     }
 
@@ -682,6 +719,7 @@ export function StudentRegistration() {
           },
           body: JSON.stringify({
             boInativo: nextActive ? false : true,
+            ...(motivo ?? {}),
           }),
         },
       );
@@ -1161,6 +1199,65 @@ export function StudentRegistration() {
         </RegistrationDrawer>
       </div>
     </div>
+    <RegistrationDrawer
+      isOpen={isCancelDialogOpen}
+      title="Cancelar plano"
+      onClose={() => setIsCancelDialogOpen(false)}
+    >
+      <form
+        className="drawer-fields"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setIsCancelDialogOpen(false);
+          void applyRelatedStatus(false, {
+            idMotivoCancelamento: cancelReasonId ? Number(cancelReasonId) : null,
+            dsMotivoCancelamento: cancelReasonNote.trim() || null,
+          });
+        }}
+      >
+        <RegistrationField
+          hint="Escolher da lista é o que permite somar depois: sete motivos iguais viram um número, sete frases diferentes não."
+          htmlFor="cancelMotivo"
+          label="Motivo da saída"
+          size="full"
+        >
+          <select
+            id="cancelMotivo"
+            onChange={(event) => setCancelReasonId(event.target.value)}
+            value={cancelReasonId}
+          >
+            <option value="">Não informar</option>
+            {cancelReasons.map((reason) => (
+              <option key={reason.id} value={String(reason.id)}>
+                {reason.dsMotivoCancelamento}
+              </option>
+            ))}
+          </select>
+        </RegistrationField>
+
+        <RegistrationField htmlFor="cancelObs" label="Observação (opcional)" size="full">
+          <input
+            id="cancelObs"
+            maxLength={255}
+            onChange={(event) => setCancelReasonNote(event.target.value)}
+            placeholder="O que o aluno disse, nas palavras dele"
+            type="text"
+            value={cancelReasonNote}
+          />
+        </RegistrationField>
+
+        <div className="form-actions" style={{ flex: '1 1 100%' }}>
+          <button
+            className="secondary-button"
+            onClick={() => setIsCancelDialogOpen(false)}
+            type="button"
+          >
+            Voltar
+          </button>
+          <button type="submit">Cancelar plano</button>
+        </div>
+      </form>
+    </RegistrationDrawer>
     <ConfirmDialog
       open={confirmToggle}
       title={isStudentActive ? 'Inativar aluno?' : 'Ativar aluno?'}

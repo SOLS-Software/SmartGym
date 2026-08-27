@@ -28,6 +28,13 @@ export type AuthenticatedUser = {
   idCliente?: number | null;
   name: string;
   type: AuthUserType;
+  /**
+   * Permissões do perfil de acesso do funcionário, devolvidas pelo login e
+   * revalidadas no /auth/verify. Servem só para montar o menu — a autorização
+   * de verdade é do servidor, que confere a cada request. Aluno vem vazio.
+   */
+  permissions?: string[];
+  perfilAcesso?: { id: number; dsPerfil: string } | null;
 };
 
 export type StoredSession = {

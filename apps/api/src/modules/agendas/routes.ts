@@ -5,6 +5,7 @@ import { prisma } from '../../shared/prisma.js';
 import { assertValidId } from '../../shared/normalize.js';
 import { decryptCpfValue } from '../../shared/pii.js';
 import { clientErrorMessage } from '../../shared/errors.js';
+import { creditCheckInPointsSafe } from '../../shared/loyalty.js';
 
 // Data ISO (YYYY-MM-DD) em querystring; string vazia e tratada como ausente.
 const isoDateParam = z.union([
@@ -385,14 +386,29 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
 
       if (existing) return reply.code(409).send({ message: 'Presença já registrada para este aluno.' });
 
+      const idEmpresaPresenca = request.body.idEmpresa
+        ? Number(request.body.idEmpresa)
+        : session.idEmpresa;
+
       const checkIn = await prisma.alunoCheckIn.create({
         data: {
           idAtividadeAgenda: idAgenda,
           idAluno,
-          idEmpresa: request.body.idEmpresa ? Number(request.body.idEmpresa) : session.idEmpresa,
+          idEmpresa: idEmpresaPresenca,
           boInativo: false,
         },
       });
+
+      // Presenca em aula tambem pontua. Fora da transacao e em modo tolerante:
+      // a chamada ja esta registrada e nao pode ser desfeita porque a regra de
+      // fidelidade falhou — o professor esta com a turma na frente dele.
+      if (idEmpresaPresenca) {
+        await creditCheckInPointsSafe(
+          prisma,
+          { idAluno, idEmpresa: idEmpresaPresenca, idAlunoCheckIn: checkIn.id },
+          (error) => request.log.warn({ error }, 'Falha ao creditar pontos da presenca'),
+        );
+      }
 
       return reply.code(201).send(checkIn);
     } catch (error) {

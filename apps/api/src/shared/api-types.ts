@@ -2,6 +2,8 @@ export type ProductPayload = {
   idEmpresa?: number | null;
   dsProduto?: string;
   qtEstoque?: number;
+  vlVenda?: number | string | null;
+  qtPontosResgate?: number | string | null;
   boInativo?: boolean;
 };
 
@@ -139,6 +141,7 @@ export type LocalidadePayload = {
 export type EmployeePayload = {
   idEmpresa?: number | string | null;
   idCargo?: number | string | null;
+  idPerfilAcesso?: number | string | null;
   nmFuncionario?: string;
   caCPF?: string;
   dtNascimento?: string | null;
@@ -194,6 +197,7 @@ export type CompanyChildResource =
   | 'purchases'
   | 'company-files'
   | 'student-check-ins'
+  | 'sales'
   | 'points'
   | 'themes';
 

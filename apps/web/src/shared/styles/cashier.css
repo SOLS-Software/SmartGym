@@ -1,0 +1,214 @@
+/* Caixa: confirmar recebimento.
+   -------------------------------------------------------------------------- */
+
+.cashier {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cashier-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.cashier-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
+  font-size: 0.8125rem;
+  color: var(--color-text);
+  cursor: pointer;
+  padding-bottom: 0.5rem;
+}
+
+.cashier-check input {
+  width: auto;
+  margin: 0;
+}
+
+.cashier-counters {
+  display: flex;
+  gap: 1.25rem;
+  margin-left: auto;
+}
+
+.cashier-counters > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.cashier-counters strong {
+  font-size: 1.125rem;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.cashier-counters span {
+  font-size: 0.6875rem;
+  color: var(--color-muted);
+}
+
+/* Vencidas em cor de perda, não na cor da marca: o tema por cliente repinta a
+   marca, e num tenant vermelho o número normal e o alarmante se confundiriam. */
+.cashier-overdue strong {
+  color: var(--color-loss);
+}
+
+.cashier-undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--color-gain);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  font-size: 0.8125rem;
+  color: var(--color-text);
+}
+
+.cashier-undo button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3125rem 0.6875rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.4375rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.cashier-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border-input);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  color: var(--color-muted);
+}
+
+.cashier-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  color: var(--color-text);
+}
+
+.cashier-empty {
+  margin: 0;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.cashier-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.cashier-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+}
+
+.cashier-row.vencida {
+  border-left-color: var(--color-loss);
+}
+
+.cashier-who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cashier-who strong {
+  font-size: 0.875rem;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cashier-who span {
+  font-size: 0.6875rem;
+  color: var(--color-muted);
+}
+
+.cashier-when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.cashier-when strong {
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.cashier-when span {
+  font-size: 0.6875rem;
+  color: var(--color-muted);
+}
+
+.cashier-settle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.4375rem 0.875rem;
+  border: none;
+  border-radius: 0.4375rem;
+  background: var(--color-gain);
+  color: #fff;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cashier-settle:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+@media (max-width: 40rem) {
+  .cashier-row {
+    grid-template-columns: 1fr auto;
+    gap: 0.5rem;
+  }
+
+  .cashier-settle {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  .cashier-counters {
+    margin-left: 0;
+  }
+}

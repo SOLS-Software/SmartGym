@@ -19,6 +19,7 @@
 // Doc: https://www.controlid.com.br/docs/access-api-pt/modos-de-operacao/eventos-de-identificacao-online/
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
+import { creditCheckInPointsSafe } from '../../shared/loyalty.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 
 // Codigos de evento da resposta (subconjunto que usamos).
@@ -220,7 +221,7 @@ async function registrarCheckIn(params: {
     select: { id: true },
   });
 
-  await prisma.alunoCheckIn.create({
+  const checkIn = await prisma.alunoCheckIn.create({
     data: {
       idEmpresa,
       idAluno,
@@ -228,6 +229,16 @@ async function registrarCheckIn(params: {
       idTipoCheckIn: tipoCatraca?.id ?? null,
     },
   });
+
+  // Pontua a entrada pela catraca. Tolerante a erro de proposito: este caminho
+  // roda com a pessoa parada na roleta esperando a liberacao — fidelidade nunca
+  // pode ser motivo de a catraca nao girar.
+  await creditCheckInPointsSafe(prisma, {
+    idAluno,
+    idEmpresa,
+    idAlunoCheckIn: checkIn.id,
+  });
+
   return true;
 }
 

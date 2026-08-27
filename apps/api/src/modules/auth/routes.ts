@@ -9,8 +9,9 @@ import {
   normalizeRegisterPassword,
 } from '../../shared/normalize.js';
 import { HASH_TYPE_BCRYPT, dummyVerify, hashPassword, verifyPassword } from '../../shared/passwords.js';
-import { cpfHash } from '../../shared/pii.js';
+import { cpfHash, decryptCpfValue } from '../../shared/pii.js';
 import { TOKEN_EXPIRY_MOBILE, TOKEN_EXPIRY_WEB } from '../../plugins/auth.js';
+import { ALL_PERMISSIONS } from '../../plugins/permissions.js';
 import { getSupabaseClient, getSupabaseConfig, getClientSupabaseConfig } from '../../shared/supabase.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 import type {
@@ -22,6 +23,7 @@ import type {
   VerifySessionQuery,
 } from '../../shared/api-types.js';
 import { clientErrorMessage } from '../../shared/errors.js';
+import { isExpoPushToken } from '../../shared/push.js';
 
 // Mascara o email cadastrado para exibicao no auto-cadastro: mostra o
 // suficiente para o titular reconhecer a propria caixa ("jo***@gm***.com")
@@ -39,6 +41,24 @@ export function maskEmail(email: string | null | undefined): string {
   const tld = dot > 0 ? domain.slice(dot) : '';
   const keep = (text: string) => (text.length <= 2 ? text.slice(0, 1) : text.slice(0, 2));
   return `${keep(local)}***@${keep(domainName)}***${tld}`;
+}
+
+type ProfileWithPermissions = {
+  id: number;
+  dsPerfil: string;
+  boInativo: boolean;
+  permissoes: { cnPermissao: string }[];
+};
+
+// Permissoes concedidas pelo perfil do funcionario. Perfil ausente ou inativo
+// = lista vazia, exatamente o que o hook de auth aplica no servidor.
+function employeePermissions(profile: ProfileWithPermissions | null): string[] {
+  if (!profile || profile.boInativo) return [];
+  return profile.permissoes.map((item) => item.cnPermissao);
+}
+
+function describeProfile(profile: ProfileWithPermissions | null) {
+  return profile ? { id: profile.id, dsPerfil: profile.dsPerfil, boInativo: profile.boInativo } : null;
 }
 
 export async function registerAuthRoutes(app: FastifyInstance) {
@@ -65,7 +85,19 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         },
         include: {
           aluno: true,
-          funcionario: { include: { empresa: { select: { idCliente: true } } } },
+          funcionario: {
+            include: {
+              empresa: { select: { idCliente: true } },
+              perfilAcesso: {
+                select: {
+                  id: true,
+                  dsPerfil: true,
+                  boInativo: true,
+                  permissoes: { select: { cnPermissao: true } },
+                },
+              },
+            },
+          },
         },
       });
 
@@ -130,6 +162,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         login: user.dsLogin,
         name: user.aluno?.nmAluno ?? user.funcionario?.nmFuncionario ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',
+        // Permissoes efetivas do perfil. O web usa para montar o menu; a
+        // AUTORIZACAO de verdade continua no servidor, a cada request (o hook
+        // de auth le do banco). Aluno nao tem perfil: lista vazia.
+        perfilAcesso: describeProfile(user.funcionario?.perfilAcesso ?? null),
+        permissions: employeePermissions(user.funcionario?.perfilAcesso ?? null),
         // Informational only — login itself is not blocked by plan/payment
         // status; the frontend decides how to react (banner, restrict screens).
         studentAccess: user.idAluno ? await getStudentAccessStatus(prisma, user.idAluno) : null,
@@ -585,10 +622,143 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         type: 'employee' as const,
         idCliente,
         empresas,
+        // O gestor nao passa pelo RBAC de perfil (o hook o deixa passar): a
+        // lista completa aqui existe para o menu do web nao esconder nada dele.
+        perfilAcesso: null,
+        permissions: [...ALL_PERMISSIONS],
       };
     } catch (error) {
       request.log.warn(error);
       return reply.code(401).send({ message: 'Usuario ou senha invalidos.' });
+    }
+  });
+
+  // Dados da PROPRIA conta, para a tela "Minha conta".
+  //
+  // Existe separado de /employees/:id porque aquele exige employees.read — um
+  // professor sem permissao de RH nao consegue ler o proprio cadastro por la, o
+  // que seria absurdo. Aqui a identidade vem do token e so devolve o dono.
+  app.get('/auth/me', async (request, reply) => {
+    try {
+      const user = await prisma.usuario.findFirst({
+        where: { id: request.user.sub, boInativo: false },
+        include: {
+          aluno: { select: { id: true, nmAluno: true, anEmail: true, caCPF: true, dtNascimento: true } },
+          funcionario: {
+            select: {
+              id: true,
+              nmFuncionario: true,
+              anEmail: true,
+              caCPF: true,
+              dtNascimento: true,
+              dtAdmissao: true,
+              nrDDD: true,
+              nrContato: true,
+              cargo: { select: { id: true, dsCargo: true } },
+              empresa: { select: { id: true, dsEmpresa: true, idCliente: true } },
+              perfilAcesso: {
+                select: {
+                  id: true,
+                  dsPerfil: true,
+                  boInativo: true,
+                  permissoes: { select: { cnPermissao: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!user) return reply.code(401).send({ message: 'Usuario inativo ou nao encontrado.' });
+
+      const funcionario = user.funcionario;
+      const aluno = user.aluno;
+
+      return {
+        id: user.id,
+        login: user.dsLogin,
+        type: user.idAluno ? ('student' as const) : ('employee' as const),
+        dtUltimoAcesso: user.dtUltimoAcesso,
+        name: aluno?.nmAluno ?? funcionario?.nmFuncionario ?? user.dsLogin,
+        // CPF descriptografado apenas para o proprio titular.
+        caCPF: decryptCpfValue(aluno?.caCPF ?? funcionario?.caCPF ?? ''),
+        anEmail: aluno?.anEmail ?? funcionario?.anEmail ?? '',
+        dtNascimento: aluno?.dtNascimento ?? funcionario?.dtNascimento ?? null,
+        funcionario: funcionario
+          ? {
+              id: funcionario.id,
+              dtAdmissao: funcionario.dtAdmissao,
+              nrDDD: funcionario.nrDDD,
+              nrContato: funcionario.nrContato,
+              cargo: funcionario.cargo,
+              empresa: funcionario.empresa
+                ? { id: funcionario.empresa.id, dsEmpresa: funcionario.empresa.dsEmpresa }
+                : null,
+              perfilAcesso: describeProfile(funcionario.perfilAcesso ?? null),
+              permissions: employeePermissions(funcionario.perfilAcesso ?? null),
+            }
+          : null,
+      };
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({ message: 'Erro ao carregar seus dados.' });
+    }
+  });
+
+  // Troca de senha pelo proprio usuario, com a senha atual como prova.
+  //
+  // Diferente do reset por email (que prova a posse da caixa), aqui a prova e
+  // saber a senha vigente — por isso a atual e obrigatoria mesmo o usuario ja
+  // estando autenticado: um token esquecido aberto num computador emprestado
+  // nao pode virar troca de senha.
+  app.post<{
+    Body: { currentPassword?: string; newPassword?: string };
+  }>('/auth/change-password', authRateLimit, async (request, reply) => {
+    try {
+      const currentPassword = request.body?.currentPassword ?? '';
+      const newPassword = normalizeRegisterPassword(request.body?.newPassword ?? '');
+
+      const senhaAtual = await prisma.senha.findFirst({
+        where: { idUsuario: request.user.sub, boInativo: false },
+        orderBy: { dtCadastro: 'desc' },
+      });
+
+      const { valid } = await verifyPassword(currentPassword, senhaAtual);
+      if (!valid) {
+        return reply.code(400).send({ message: 'Senha atual incorreta.' });
+      }
+
+      if (currentPassword === newPassword) {
+        return reply.code(400).send({ message: 'A nova senha deve ser diferente da atual.' });
+      }
+
+      const hashed = await hashPassword(newPassword);
+      await prisma.$transaction([
+        prisma.senha.updateMany({
+          where: { idUsuario: request.user.sub, boInativo: false },
+          data: { boInativo: true },
+        }),
+        prisma.senha.create({
+          data: {
+            idUsuario: request.user.sub,
+            dsSenha: hashed,
+            cnTipoHash: HASH_TYPE_BCRYPT,
+            boTrocaObrigatoria: false,
+          },
+        }),
+        // Mesma revogacao do reset: trocar a senha derruba as outras sessoes,
+        // inclusive a que estava aberta em outro lugar.
+        prisma.usuario.update({
+          where: { id: request.user.sub },
+          data: { nrTokenVersion: { increment: 1 } },
+        }),
+      ]);
+
+      return { message: 'Senha alterada. Entre novamente com a nova senha.' };
+    } catch (error) {
+      return reply.code(400).send({
+        message: clientErrorMessage(error, 'Erro ao alterar a senha.'),
+      });
     }
   });
 
@@ -604,7 +774,19 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         where: { id, boInativo: false },
         include: {
           aluno: true,
-          funcionario: { include: { empresa: { select: { idCliente: true } } } },
+          funcionario: {
+            include: {
+              empresa: { select: { idCliente: true } },
+              perfilAcesso: {
+                select: {
+                  id: true,
+                  dsPerfil: true,
+                  boInativo: true,
+                  permissoes: { select: { cnPermissao: true } },
+                },
+              },
+            },
+          },
         },
       });
 
@@ -626,6 +808,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         idCliente: user.funcionario?.empresa?.idCliente ?? user.aluno?.idCliente ?? null,
         name: user.aluno?.nmAluno ?? user.funcionario?.nmFuncionario ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',
+        perfilAcesso: describeProfile(user.funcionario?.perfilAcesso ?? null),
+        // Reavaliado a cada verify: se o gerente mudou o perfil enquanto a
+        // sessao estava aberta, o menu acompanha na proxima revalidacao.
+        permissions: employeePermissions(user.funcionario?.perfilAcesso ?? null),
         studentAccess: user.idAluno ? await getStudentAccessStatus(prisma, user.idAluno) : null,
       };
     } catch (error) {
@@ -646,6 +832,74 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       await prisma.usuario.update({
         where: { id: request.user.sub },
         data: { nrTokenVersion: { increment: 1 } },
+      });
+    } catch (error) {
+      request.log.warn(error);
+    }
+    return reply.code(204).send();
+  });
+
+  // Registro do aparelho para push.
+  //
+  // Rota de SESSAO, nao de modulo de negocio (ver ALWAYS_ALLOWED em
+  // plugins/permissions.ts): o token identifica o telefone de quem ja esta
+  // logado, e negar isso por permissao deixaria o aluno sem aviso nenhum.
+  //
+  // O upsert pelo token e o que trata a troca de dono do aparelho: quem
+  // instala o app, faz login com outra conta e registra o mesmo token MOVE o
+  // aparelho — sem isso, o dono anterior continuaria recebendo os avisos de
+  // quem usa o telefone hoje.
+  app.post<{ Body: { token?: unknown; platform?: unknown } }>(
+    '/auth/push-token',
+    async (request, reply) => {
+      const token = typeof request.body?.token === 'string' ? request.body.token.trim() : '';
+      if (!isExpoPushToken(token)) {
+        return reply.code(400).send({ message: 'Token de push invalido.' });
+      }
+
+      const plataforma =
+        typeof request.body?.platform === 'string'
+          ? request.body.platform.trim().slice(0, 20)
+          : '';
+
+      try {
+        await prisma.usuarioDispositivo.upsert({
+          where: { caTokenPush: token },
+          create: {
+            idUsuario: request.user.sub,
+            caTokenPush: token,
+            dsPlataforma: plataforma,
+          },
+          update: {
+            idUsuario: request.user.sub,
+            dsPlataforma: plataforma,
+            dtUltimoUso: new Date(),
+            // Reativa um aparelho que tinha sido marcado como morto: reinstalar
+            // o app gera um token novo, mas restaurar backup pode devolver o
+            // mesmo, e ai ele voltou a valer.
+            boInativo: false,
+          },
+        });
+        return reply.code(204).send();
+      } catch (error) {
+        request.log.error(error);
+        return reply.code(400).send({ message: 'Erro ao registrar o aparelho.' });
+      }
+    },
+  );
+
+  // Descadastro do aparelho. Chamado no logout do app: sem isto, o telefone
+  // continuaria recebendo aviso de uma conta que ja saiu dele.
+  app.delete<{ Body: { token?: unknown } }>('/auth/push-token', async (request, reply) => {
+    const token = typeof request.body?.token === 'string' ? request.body.token.trim() : '';
+    if (!token) return reply.code(204).send();
+
+    try {
+      await prisma.usuarioDispositivo.updateMany({
+        // So o proprio aparelho: sem o filtro por usuario, qualquer autenticado
+        // silenciaria o push de outra pessoa mandando o token dela.
+        where: { caTokenPush: token, idUsuario: request.user.sub },
+        data: { boInativo: true },
       });
     } catch (error) {
       request.log.warn(error);

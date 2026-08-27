@@ -20,6 +20,16 @@ type MyTrainingProps = {
     studentName: string;
 };
 
+/** O que o aluno registrou ter feito num exercício da sessão de hoje. */
+type Execution = {
+    id: number;
+    idTreinoExercicio: number;
+    nrSeriesFeitas: number;
+    nrRepeticoes: number;
+    vlCarga: string | number | null;
+    boConcluido: boolean;
+};
+
 type StudentCheckIn = {
     id: number;
     dtCadastro: string;
@@ -49,9 +59,21 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
     const [isStartingWorkout, setIsStartingWorkout] = useState(false);
     const [feedback, setFeedback] = useState('');
     const exercisesAbortRef = useRef<AbortController | null>(null);
+    const [executions, setExecutions] = useState<Record<number, Execution>>({});
+    const [savingExerciseId, setSavingExerciseId] = useState<number | null>(null);
     const lastCheckIn = checkIns[0] ?? null;
     const lastCheckInSequenceId = lastCheckIn?.idAlunoTreinosSequencia ?? null;
     const lastCheckInSequenceOrder = lastCheckIn?.alunoTreinoSequencia?.nrOrdem ?? null;
+
+    // Sessão de hoje: o check-in mais recente, se for de hoje. É nele que as
+    // execuções são penduradas — sem sessão aberta não há o que registrar, e o
+    // aluno vê o botão de iniciar treino em vez dos campos.
+    const todaySession = (() => {
+        if (!lastCheckIn) return null;
+        const inicioDoDia = new Date();
+        inicioDoDia.setHours(0, 0, 0, 0);
+        return new Date(lastCheckIn.dtCadastro) >= inicioDoDia ? lastCheckIn : null;
+    })();
 
     const activeTrainings = studentTrainings
         .filter((st) => st.boInativo === false)
@@ -200,6 +222,17 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
         void loadCheckIns();
     }, [studentId]);
 
+    // Carrega o que já foi registrado na sessão de hoje, para o aluno reabrir a
+    // tela no meio do treino e encontrar as séries que já marcou.
+    useEffect(() => {
+        if (!todaySession) {
+            setExecutions({});
+            return;
+        }
+        void loadExecutions(todaySession.id);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [todaySession?.id]);
+
     useEffect(() => {
         if (selectedStudentTraining || activeTrainings.length === 0) return;
         if (isLoadingTrainings || isLoadingCheckIns) return;
@@ -212,6 +245,60 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
         );
         void loadExercises(firstTraining.idTreino);
     }, [activeTrainings, selectedStudentTraining, isLoadingTrainings, isLoadingCheckIns]);
+
+    async function loadExecutions(checkInId: number) {
+        if (!studentId) return;
+        try {
+            const response = await fetch(
+                `/api/proxy/students/${studentId}/related/executions?idAlunoCheckIn=${checkInId}`,
+            );
+            if (!response.ok) return;
+            const data = (await response.json()) as Execution[];
+            setExecutions(Object.fromEntries(data.map((item) => [item.idTreinoExercicio, item])));
+        } catch {
+            // O registro é um extra da tela; falhar aqui não pode esconder o treino.
+        }
+    }
+
+    /**
+     * Grava o que foi feito num exercício. A rota é upsert por (sessão,
+     * exercício), então reenviar corrige em vez de duplicar — é o que permite o
+     * aluno ajustar a carga depois de já ter marcado.
+     */
+    async function saveExecution(
+        idTreinoExercicio: number,
+        patch: Partial<Pick<Execution, 'nrSeriesFeitas' | 'vlCarga' | 'boConcluido'>>,
+    ) {
+        if (!studentId || !todaySession) return;
+        const atual = executions[idTreinoExercicio];
+        const proximo = {
+            nrSeriesFeitas: patch.nrSeriesFeitas ?? atual?.nrSeriesFeitas ?? 0,
+            vlCarga: patch.vlCarga ?? atual?.vlCarga ?? null,
+            boConcluido: patch.boConcluido ?? atual?.boConcluido ?? false,
+        };
+
+        try {
+            setSavingExerciseId(idTreinoExercicio);
+            const response = await fetch(`/api/proxy/students/${studentId}/related/executions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    idAlunoCheckIn: todaySession.id,
+                    idTreinoExercicio,
+                    nrSeriesFeitas: proximo.nrSeriesFeitas,
+                    vlCarga: proximo.vlCarga === null || proximo.vlCarga === '' ? null : Number(proximo.vlCarga),
+                    boConcluido: proximo.boConcluido,
+                }),
+            });
+            if (!response.ok) await getApiError(response, 'Não foi possível registrar.');
+            const saved = (await response.json()) as Execution;
+            setExecutions((current) => ({ ...current, [idTreinoExercicio]: saved }));
+        } catch (error) {
+            setFeedback(error instanceof Error ? error.message : 'Erro ao registrar execução.');
+        } finally {
+            setSavingExerciseId(null);
+        }
+    }
 
     function handleSelectTraining(st: StudentTraining) {
         setSelectedStudentTraining(st);
@@ -411,6 +498,87 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
                                     <ExerciseCard exercise={te.exercicio!} key={te.id} meta={formatExerciseMeta(te)} />
                                 ))}
                         </div>
+                    ) : null}
+
+                    {/* Registro do que foi feito. Só aparece com treino iniciado
+                        hoje: fora da sessão não há onde pendurar o dado, e pedir
+                        carga para quem não está treinando é ruído. */}
+                    {!isLoadingExercises && todaySession && selectedTrainingExercises.length > 0 ? (
+                        <section className="workout-log" aria-label="Registro do treino de hoje">
+                            <div className="workout-log-head">
+                                <p className="section-label">Registro de hoje</p>
+                                <span>
+                                    {Object.values(executions).filter((e) => e.boConcluido).length} de{' '}
+                                    {selectedTrainingExercises.length} concluídos
+                                </span>
+                            </div>
+
+                            <ul className="workout-log-list">
+                                {selectedTrainingExercises
+                                    .filter((te) => te.exercicio)
+                                    .map((te) => {
+                                        const execucao = executions[te.id];
+                                        const concluido = execucao?.boConcluido ?? false;
+                                        return (
+                                            <li
+                                                className={`workout-log-item ${concluido ? 'done' : ''}`}
+                                                key={te.id}
+                                            >
+                                                <div className="workout-log-name">
+                                                    <strong>{te.exercicio!.dsExercicio}</strong>
+                                                    <span>Prescrito: {formatExerciseMeta(te) || '-'}</span>
+                                                </div>
+
+                                                <label className="workout-log-field">
+                                                    <span>Séries</span>
+                                                    <input
+                                                        defaultValue={execucao?.nrSeriesFeitas ?? ''}
+                                                        min="0"
+                                                        onBlur={(event) =>
+                                                            void saveExecution(te.id, {
+                                                                nrSeriesFeitas: Number(event.target.value || 0),
+                                                            })
+                                                        }
+                                                        placeholder={String(te.nrSeries ?? 0)}
+                                                        type="number"
+                                                    />
+                                                </label>
+
+                                                <label className="workout-log-field">
+                                                    <span>Carga</span>
+                                                    <input
+                                                        defaultValue={
+                                                            execucao?.vlCarga === null || execucao?.vlCarga === undefined
+                                                                ? ''
+                                                                : String(execucao.vlCarga)
+                                                        }
+                                                        min="0"
+                                                        onBlur={(event) =>
+                                                            void saveExecution(te.id, {
+                                                                vlCarga: event.target.value === '' ? null : event.target.value,
+                                                            })
+                                                        }
+                                                        placeholder={String(te.qtPeso ?? 0)}
+                                                        step="0.5"
+                                                        type="number"
+                                                    />
+                                                </label>
+
+                                                <button
+                                                    className={`workout-log-done ${concluido ? 'active' : ''}`}
+                                                    disabled={savingExerciseId === te.id}
+                                                    onClick={() =>
+                                                        void saveExecution(te.id, { boConcluido: !concluido })
+                                                    }
+                                                    type="button"
+                                                >
+                                                    {concluido ? 'Feito' : 'Marcar'}
+                                                </button>
+                                            </li>
+                                        );
+                                    })}
+                            </ul>
+                        </section>
                     ) : null}
                 </section>
             ) : null}

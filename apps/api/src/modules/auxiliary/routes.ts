@@ -78,6 +78,11 @@ const checkInTypeBodySchema = z.object({
   boInativo: boInativoField,
 });
 
+const cancellationReasonBodySchema = z.object({
+  dsMotivoCancelamento: textField('Informe o motivo de cancelamento.'),
+  boInativo: boInativoField,
+});
+
 const levelBodySchema = z.object({
   dsNivel: textField('Informe o nivel.'),
   boInativo: boInativoField,
@@ -363,6 +368,53 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status da frequencia.' });
+    }
+  });
+
+  // Motivos de cancelamento de matricula. Tabela de dominio global, como os
+  // tipos de check-in: a lista so serve para comparar entre si, e comparar exige
+  // que todo mundo escolha da mesma lista.
+  app.get('/cancellation-reasons', async (request, reply) => {
+    const take = parseTake(request.query);
+    if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
+    return prisma.motivoCancelamento.findMany({
+      take,
+      where: { boInativo: false },
+      orderBy: { dsMotivoCancelamento: 'asc' },
+    });
+  });
+
+  app.post<{ Body: { dsMotivoCancelamento?: string; boInativo?: number } }>('/cancellation-reasons', async (request, reply) => {
+    try {
+      const { dsMotivoCancelamento, boInativo } = parseBody(cancellationReasonBodySchema, request.body);
+      return reply.code(201).send(
+        await prisma.motivoCancelamento.create({ data: { dsMotivoCancelamento, boInativo } }),
+      );
+    } catch (error) {
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar motivo de cancelamento.') });
+    }
+  });
+
+  app.put<{ Params: { id: string }; Body: { dsMotivoCancelamento?: string; boInativo?: number } }>('/cancellation-reasons/:id', async (request, reply) => {
+    try {
+      const { dsMotivoCancelamento, boInativo } = parseBody(cancellationReasonBodySchema, request.body);
+      return await prisma.motivoCancelamento.update({
+        where: { id: parseId(request.params.id) },
+        data: { dsMotivoCancelamento, boInativo },
+      });
+    } catch (error) {
+      return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao atualizar motivo de cancelamento.') });
+    }
+  });
+
+  app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/cancellation-reasons/:id/status', async (request, reply) => {
+    try {
+      return await prisma.motivoCancelamento.update({
+        where: { id: parseId(request.params.id) },
+        data: { boInativo: toBool(request.body.boInativo) },
+      });
+    } catch {
+      return reply.code(400).send({ message: 'Erro ao alterar status do motivo de cancelamento.' });
     }
   });
 

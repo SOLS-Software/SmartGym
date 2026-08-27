@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 import { apiUrl, authFetch, sessaoTrancada, setAuthToken } from '../api/client';
+import { desregistrarPush, registrarPush } from '../push/registrarPush';
 import type { AuthenticatedUser } from '../types/auth';
 
 const STORAGE_KEY = '@smartgym:auth_user';
@@ -13,6 +14,12 @@ export function useAuthSession() {
   const [isLoaded, setIsLoaded] = useState(false);
 
   const signOut = useCallback(async () => {
+    // Descadastra o aparelho ANTES de revogar o token: o servidor exige que o
+    // aparelho seja do próprio usuário, e depois do logout não haveria mais
+    // sessão para provar isso. Sem esta chamada o telefone continuaria
+    // recebendo aviso de uma conta que já saiu dele.
+    await desregistrarPush();
+
     // Revoga o token no servidor antes de descartá-lo (best-effort): mata a
     // sessão de verdade, não só apaga a credencial local. Enviado enquanto o
     // token ainda está no SecureStore (authFetch o injeta).
@@ -37,6 +44,10 @@ export function useAuthSession() {
       console.error('Erro ao salvar sessão:', error);
     }
     setUser(nextUser);
+    // Registra o aparelho para push. Nunca lança e não é aguardado: a entrada
+    // no app não pode esperar o diálogo de permissão do sistema, e o aviso
+    // continua saindo por e-mail se o registro falhar.
+    void registrarPush();
   }, []);
 
   useEffect(() => {
@@ -71,6 +82,11 @@ export function useAuthSession() {
           }
           const verified = (await response.json()) as AuthenticatedUser;
           if (!cancelled) setUser(verified);
+          // Reregistra a cada boot com sessão válida: o token do aparelho muda
+          // ao reinstalar o app e é invalidado pelo Expo depois de um tempo
+          // sem uso. Registrar só no login deixaria quem nunca desloga sem
+          // push depois da primeira troca.
+          void registrarPush();
         } catch {
           // Offline / API indisponível: mantém a sessão local para não travar o app.
           if (!cancelled) setUser(parsed);

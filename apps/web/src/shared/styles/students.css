@@ -1698,3 +1698,205 @@ html.dark .ghost-button.success {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* Solicitacao de cancelamento/renovacao na tela de matricula do aluno. */
+.membership-requests {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+  padding: 1rem 1.125rem;
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.membership-request-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.membership-request-note {
+  flex: 1 1 16rem;
+}
+
+.membership-request-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.membership-request-pending {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--color-primary-bg);
+  color: var(--color-muted-strong);
+  font-size: 0.875rem;
+}
+
+.membership-request-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.membership-request-history {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.membership-request-history li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+}
+
+.membership-request-history strong {
+  text-transform: capitalize;
+}
+
+.membership-request-history strong.ok {
+  color: var(--color-gain);
+}
+
+.membership-request-history strong.refused {
+  color: var(--color-loss);
+}
+
+.membership-request-history em {
+  color: var(--color-muted-strong);
+}
+
+/* Pix copia e cola da parcela.
+   --------------------------------------------------------------------------
+   Aparece embaixo da linha da cobrança, só quando o aluno pede. Cada código
+   embute a chave da academia — gerar para todas as linhas de uma vez
+   espalharia isso sem ninguém ter pedido. */
+
+.pix-button {
+  margin-left: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.1875rem 0.5rem;
+  border: 1px solid var(--color-primary);
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--color-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pix-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  margin: 0 0 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.625rem;
+  background: var(--color-surface-alt);
+}
+
+.pix-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.pix-head strong {
+  display: block;
+  font-size: 1.125rem;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.pix-head span {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.pix-copy {
+  padding: 0.4375rem 0.875rem;
+  border: none;
+  border-radius: 0.4375rem;
+  background: var(--color-primary);
+  color: #fff;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Monoespaçado e quebrando em qualquer ponto: é uma cadeia longa sem espaços,
+   e o aluno precisa conseguir conferir o começo e o fim ao copiar à mão. */
+.pix-code {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--color-border-input);
+  border-radius: 0.4375rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  resize: vertical;
+  word-break: break-all;
+}
+
+.pix-status {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+}
+
+.pix-error {
+  color: var(--color-danger);
+}
+
+.pix-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+/* Pedido de troca de plano, na vitrine.
+   -------------------------------------------------------------------------- */
+
+.student-plan-request {
+  align-self: flex-start;
+  padding: 0.4375rem 0.875rem;
+  border: 1px solid var(--color-primary);
+  border-radius: 0.4375rem;
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.student-plan-request:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.student-plan-pending {
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--color-warning);
+  border-radius: 0.5rem;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  font-size: 0.8125rem;
+}

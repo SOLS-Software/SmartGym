@@ -101,3 +101,29 @@ html.dark .chip {
 @import './onboarding.css';
 @import './reports.css';
 @import './catracas.css';
+@import './access-profiles.css';
+@import './evolution.css';
+@import './sales.css';
+@import './points.css';
+@import './reception.css';
+@import './interest.css';
+@import './leads.css';
+@import './timeclock.css';
+@import './billing.css';
+@import './cashier.css';
+@import './account.css';
+
+/* --- cores semanticas de variacao (independentes da marca do cliente) ---
+   Definidas aqui, e nao derivadas de --color-primary, porque o tema por
+   cliente repinta a marca: uma academia com identidade vermelha faria
+   "ganhou pontos" e "gastou pontos" ficarem da mesma cor. */
+:root {
+  --color-gain: #1a7f4f;
+  --color-loss: #b0372c;
+}
+
+html.dark {
+  --color-gain: #4fc08d;
+  --color-loss: #e58274;
+}
+

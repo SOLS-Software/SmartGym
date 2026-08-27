@@ -1,0 +1,91 @@
+/* Matriz de permissoes da tela de Perfis de Acesso. Segue as variaveis de tema
+   de globals.css para acompanhar o modo claro/escuro sem cor fixa. */
+
+.permission-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.permission-matrix-hint {
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+  margin-bottom: 0.25rem;
+}
+
+/* Um bloco por dominio de permissao. A borda separa areas de trabalho — sem
+   ela a lista de ~16 dominios vira uma parede de caixas de selecao. */
+.permission-domain {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface-alt);
+  padding: 0.75rem 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.permission-domain-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.permission-domain-head strong {
+  display: block;
+  font-size: 0.9375rem;
+  color: var(--color-text);
+}
+
+.permission-domain-description {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--color-muted);
+  max-width: 46ch;
+}
+
+.permission-domain-toggle {
+  flex: none;
+  border: 1px solid var(--color-border-input);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  color: var(--color-muted-strong);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.625rem;
+  cursor: pointer;
+}
+
+.permission-domain-toggle:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.permission-domain-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+
+.permission-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-label);
+  cursor: pointer;
+}
+
+.permission-checkbox input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+html.dark .permission-domain {
+  background: var(--color-surface);
+}

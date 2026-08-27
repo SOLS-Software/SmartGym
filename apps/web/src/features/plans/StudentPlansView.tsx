@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatDateDisplay } from '../../shared/registration/registrationHelpers';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useToast } from '../../shared/components/Toast';
 
 type StudentPlansViewProps = {
   studentId: number | null;
@@ -33,6 +34,13 @@ type StudentPlanLink = {
   boInativo: boolean;
 };
 
+type PlanRequest = {
+  id: number;
+  cnTipo: 'cancelamento' | 'renovacao' | 'troca';
+  cnStatus: 'pendente' | 'aprovada' | 'recusada';
+  planoDesejado: { id: number; dsPlano: string } | null;
+};
+
 function getText(record: NamedRecord | null | undefined, key: string, fallback = '-') {
   const value = record?.[key];
   return value === null || value === undefined || value === '' ? fallback : String(value);
@@ -53,8 +61,18 @@ function uniqueNames(names: string[]) {
 export function StudentPlansView({ studentId }: StudentPlansViewProps) {
   const [academyPlans, setAcademyPlans] = useState<AcademyPlan[]>([]);
   const [studentPlans, setStudentPlans] = useState<StudentPlanLink[]>([]);
+  const [requests, setRequests] = useState<PlanRequest[]>([]);
+  const [requestingPlanId, setRequestingPlanId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
+
+  const { showToast } = useToast();
+
+  // Um pedido de troca por vez: enquanto a academia não responde, o aluno vê o
+  // estado em vez de um botão que abriria um segundo pedido igual.
+  const pendingChange = requests.find(
+    (request) => request.cnTipo === 'troca' && request.cnStatus === 'pendente',
+  ) ?? null;
 
   const studentPlanByPlanId = useMemo(() => {
     const links = new Map<number, StudentPlanLink>();
@@ -107,10 +125,48 @@ export function StudentPlansView({ studentId }: StudentPlansViewProps) {
       setAcademyPlans((await plansResponse.json()) as AcademyPlan[]);
       setStudentPlans((await studentPlansResponse.json()) as StudentPlanLink[]);
       setFeedback('');
+
+      // Pedidos: falham em silêncio de propósito — sem eles a vitrine continua
+      // funcionando, que é a função principal da tela.
+      try {
+        const requestsResponse = await fetch(
+          `${apiUrl}/students/${studentId}/related/plan-requests`,
+        );
+        if (requestsResponse.ok) setRequests((await requestsResponse.json()) as PlanRequest[]);
+      } catch {
+        // silencioso de propósito — ver comentário acima
+      }
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao carregar planos.');
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function requestPlan(plan: AcademyPlan) {
+    if (!studentId) return;
+    try {
+      setRequestingPlanId(plan.id);
+      // A matrícula atual vai junto quando existe: aprovar encerra ela e abre a
+      // nova. Quem ainda não tem plano manda sem, e a aprovação só matricula.
+      const atual = studentPlans.find((link) => link.boInativo === false) ?? null;
+      const response = await fetch(`${apiUrl}/students/${studentId}/related/plan-requests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cnTipo: 'troca',
+          idPlanoDesejado: plan.id,
+          idAlunoPlano: atual?.id ?? null,
+        }),
+      });
+      if (!response.ok) await getApiError(response, 'Não foi possível enviar o pedido.');
+
+      await loadPlans();
+      showToast('Pedido enviado. A academia vai responder em breve.');
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Erro ao enviar o pedido.');
+    } finally {
+      setRequestingPlanId(null);
     }
   }
 
@@ -134,6 +190,14 @@ export function StudentPlansView({ studentId }: StudentPlansViewProps) {
     </header>
     <div className="form-view student-plans-view">
       <p className="form-hint">Veja os planos disponíveis e identifique com destaque o plano vinculado à sua matrícula.</p>
+
+      {pendingChange ? (
+        <div className="student-plan-pending" role="status">
+          Você já pediu
+          {pendingChange.planoDesejado ? ` o ${pendingChange.planoDesejado.dsPlano}` : ' um plano'}
+          . A academia está avaliando — assim que aprovarem, as parcelas aparecem em Matrícula.
+        </div>
+      ) : null}
 
       {feedback ? <div className="form-feedback">{feedback}</div> : null}
 
@@ -176,6 +240,21 @@ export function StudentPlansView({ studentId }: StudentPlansViewProps) {
                   {myPlan ? 'Pertence a você' : 'Disponível'}
                 </span>
               </div>
+
+              {/* Só no plano que o aluno NÃO tem, e só quando não há pedido
+                  pendente. O botão abre um pedido — não contrata: sem baixa
+                  automática, contratar direto faria o aluno virar devedor no
+                  mesmo instante, e alguém teria que limpar depois. */}
+              {!myPlan && !pendingChange ? (
+                <button
+                  className="student-plan-request"
+                  disabled={requestingPlanId === plan.id}
+                  onClick={() => void requestPlan(plan)}
+                  type="button"
+                >
+                  {requestingPlanId === plan.id ? 'Enviando...' : 'Quero este plano'}
+                </button>
+              ) : null}
 
               <div className="student-plan-summary">
                 <div>

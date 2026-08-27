@@ -10,7 +10,7 @@ import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { useToast } from '../../shared/components/Toast';
 
 const _employeeTabIcons = { files: FileText };
-import type { Company, CompanyChildRecord, CompanyChildTable, Employee, LookupRecord, Role } from '../../shared/registration/registrationTypes';
+import type { AccessProfileOption, Company, CompanyChildRecord, CompanyChildTable, Employee, LookupRecord, Role } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 type EmployeeValidationField =
   | 'name'
@@ -85,12 +85,14 @@ export function EmployeeRegistration() {
   const [employeesPage, setEmployeesPage] = useState(1);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [accessProfiles, setAccessProfiles] = useState<AccessProfileOption[]>([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [selectedRoleId, setSelectedRoleId] = useState('');
+  const [selectedAccessProfileId, setSelectedAccessProfileId] = useState('');
   const [employeeName, setEmployeeName] = useState('');
   const [employeeCpf, setEmployeeCpf] = useState('');
   const [employeeBirthDate, setEmployeeBirthDate] = useState('');
@@ -166,9 +168,10 @@ export function EmployeeRegistration() {
 
   async function loadLookups() {
     try {
-      const [companiesResponse, rolesResponse] = await Promise.all([
+      const [companiesResponse, rolesResponse, profilesResponse] = await Promise.all([
         fetch(`${apiUrl}/companies`),
         fetch(`${apiUrl}/roles`),
+        fetch(`${apiUrl}/access-profiles`),
       ]);
 
       const failedLookup = [companiesResponse, rolesResponse].find((r) => !r.ok);
@@ -180,6 +183,14 @@ export function EmployeeRegistration() {
       const rolesData = (await rolesResponse.json()) as Role[];
       setCompanies(companiesData.filter((company) => company.boInativo === false));
       setRoles(rolesData.filter((role) => role.boInativo === false));
+
+      // Quem não tem permissão de ver perfis (profiles.read) recebe 403 aqui e
+      // segue editando o resto do cadastro: o seletor some, o vínculo atual do
+      // funcionário fica como está. Não é motivo para derrubar a tela toda.
+      if (profilesResponse.ok) {
+        const profilesData = (await profilesResponse.json()) as AccessProfileOption[];
+        setAccessProfiles(profilesData.filter((profile) => profile.boInativo === false));
+      }
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao carregar listas.');
     }
@@ -340,6 +351,7 @@ export function EmployeeRegistration() {
     setIsCreating(false);
     setSelectedCompanyId(employee.idEmpresa ? String(employee.idEmpresa) : '');
     setSelectedRoleId(employee.idCargo ? String(employee.idCargo) : '');
+    setSelectedAccessProfileId(employee.idPerfilAcesso ? String(employee.idPerfilAcesso) : '');
     setEmployeeName(employee.nmFuncionario);
     setEmployeeCpf(formatCpf(employee.caCPF));
     setEmployeeBirthDate(formatDateInput(employee.dtNascimento));
@@ -551,6 +563,7 @@ export function EmployeeRegistration() {
       const payload = {
         idEmpresa: Number(selectedCompanyId),
         idCargo: selectedRoleId ? Number(selectedRoleId) : null,
+        idPerfilAcesso: selectedAccessProfileId ? Number(selectedAccessProfileId) : null,
         nmFuncionario: employeeName.trim(),
         caCPF: onlyDigits(employeeCpf),
         dtNascimento: employeeBirthDate || null,
@@ -795,6 +808,7 @@ export function EmployeeRegistration() {
             columns={[
               { label: 'Funcionário', render: (e) => e.nmFuncionario, sortValue: (e) => e.nmFuncionario },
               { label: 'Cargo', render: (e) => getRoleLabel(e.idCargo) },
+              { label: 'Perfil de acesso', render: (e) => e.perfilAcesso?.dsPerfil ?? 'Sem acesso' },
               { label: 'Status', render: (e) => <span className={`status-badge ${e.boInativo === false ? 'active' : 'inactive'}`}>{e.boInativo === false ? 'Ativo' : 'Inativo'}</span>, sortValue: (e) => (e.boInativo === false ? 0 : 1) },
             ]}
             records={paginatedEmployees}
@@ -861,6 +875,12 @@ export function EmployeeRegistration() {
                 <select id="employeeRole" onChange={(event) => setSelectedRoleId(event.target.value)} value={selectedRoleId}>
                   <option value="">Selecione</option>
                   {roles.map((role) => (<option key={role.id} value={role.id}>{role.dsCargo}</option>))}
+                </select>
+              </RegistrationField>
+              <RegistrationField hint="Define o que a pessoa acessa no sistema. Sem perfil, ela entra e não vê nenhuma tela." htmlFor="employeeAccessProfile" label="Perfil de acesso" size="md">
+                <select id="employeeAccessProfile" onChange={(event) => setSelectedAccessProfileId(event.target.value)} value={selectedAccessProfileId}>
+                  <option value="">Sem acesso</option>
+                  {accessProfiles.map((profile) => (<option key={profile.id} value={profile.id}>{profile.dsPerfil}</option>))}
                 </select>
               </RegistrationField>
               <RegistrationField error={employeeErrors.birthDate} htmlFor="employeeBirthDate" label="Nascimento" size="sm" touched={touchedEmployeeFields.birthDate}>

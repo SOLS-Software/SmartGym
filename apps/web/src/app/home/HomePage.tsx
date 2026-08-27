@@ -14,10 +14,12 @@ import { StudentRegistration } from '../../features/students/StudentRegistration
 import { DomainRegistration } from '../../features/domains/DomainRegistration';
 import { ProductRegistration } from '../../features/products/ProductRegistration';
 import { SupplierRegistration } from '../../features/suppliers/SupplierRegistration';
+import { SaleRegistration } from '../../features/purchases/SaleRegistration';
 import { PurchaseRegistration } from '../../features/purchases/PurchaseRegistration';
 import { PromotionRegistration } from '../../features/promotions/PromotionRegistration';
 import { StudentPromotionsView } from '../../features/promotions/StudentPromotionsView';
 import { ExerciseRegistration } from '../../features/exercises/ExerciseRegistration';
+import { StudentEvolutionView } from '../../features/students/StudentEvolutionView';
 import { StudentExercisesView } from '../../features/exercises/StudentExercisesView';
 import { StudentTrainingsView } from '../../features/trainings/StudentTrainingsView';
 import { ActivityRegistration } from '../../features/activities/ActivityRegistration';
@@ -25,6 +27,8 @@ import { ScheduleRegistration } from '../../features/activities/ScheduleRegistra
 import { AgendaView } from '../../features/activities/AgendaView';
 import { ActivityScheduleAssembly } from '../../features/activities/ActivityScheduleAssembly';
 import { StudentActivitiesView } from '../../features/activities/StudentActivitiesView';
+import { AccessProfileRegistration } from '../../features/employees/AccessProfileRegistration';
+import { MyAccount } from '../../features/employees/MyAccount';
 import { EmployeeRegistration } from '../../features/employees/EmployeeRegistration';
 import { TrainingRegistration } from '../../features/trainings/TrainingRegistration';
 import { EquipmentRegistration } from '../../features/equipment/EquipmentRegistration';
@@ -42,6 +46,11 @@ import { GlobalSearch } from '../../shared/components/GlobalSearch';
 import { OnboardingWizard, shouldShowOnboarding, markOnboardingDone } from '../../shared/components/OnboardingWizard';
 import { EmployeeDashboard } from '../../features/dashboard/EmployeeDashboard';
 import { StudentDashboard } from '../../features/dashboard/StudentDashboard';
+import { ReceptionDesk } from '../../features/reception/ReceptionDesk';
+import { LeadFunnel } from '../../features/leads/LeadFunnel';
+import { TimeClock } from '../../features/timeclock/TimeClock';
+import { PaymentAccountRegistration } from '../../features/billing/PaymentAccountRegistration';
+import { CashierDesk } from '../../features/cashier/CashierDesk';
 import { ReportsView } from '../../features/reports/ReportsView';
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 import {
@@ -78,6 +87,15 @@ import {
   Sun,
   Tag,
   Truck,
+  ConciergeBell,
+  Clock,
+  Landmark,
+  Wallet,
+  IdCard,
+  UserSearch,
+  Receipt,
+  ShieldCheck,
+  TrendingUp,
   UserCheck,
   Users,
   Wrench,
@@ -86,6 +104,7 @@ import type { LucideIcon } from 'lucide-react';
 
 const menuItemIcons: Record<string, LucideIcon> = {
   'Painel': LayoutDashboard,
+  'Recepção': ConciergeBell,
   'Clientes': Briefcase,
   'Empresas': Building2,
   'Tema': Palette,
@@ -96,31 +115,39 @@ const menuItemIcons: Record<string, LucideIcon> = {
   'Montar Treino': FilePlus,
   'Montagem de Agenda': CalendarPlus,
   'Meu Treino': UserCheck,
+  'Evolução': TrendingUp,
   'Calendário': Calendar,
   'Calendário Empresa': CalendarRange,
   'Produtos': Package,
   'Fornecedores': Truck,
   'Compras': ShoppingCart,
+  'Vendas': Receipt,
   'Matrículas': BadgeCheck,
   'Planos': CreditCard,
   'Promoções': Tag,
   'Profissionais': Users,
+  'Perfis de Acesso': ShieldCheck,
+  'Minha Conta': IdCard,
   'Domínios': Globe,
   'Equipamentos': Wrench,
   'Catracas': DoorOpen,
   'Localidades': MapPin,
   'Pontuações': Star,
   'Relatórios': BarChart3,
+  'Interessados': UserSearch,
+  'Ponto': Clock,
+  'Contas de Recebimento': Landmark,
+  'Caixa': Wallet,
 };
 
 const menuGroups = [
   {
     title: 'INÍCIO',
-    items: ['Painel', 'Relatórios'],
+    items: ['Painel', 'Recepção', 'Caixa', 'Relatórios'],
   },
   {
     title: 'EMPRESA',
-    items: ['Clientes', 'Empresas'],
+    items: ['Clientes', 'Empresas', 'Contas de Recebimento'],
   },
   {
     title: 'ATIVIDADE',
@@ -128,11 +155,11 @@ const menuGroups = [
   },
   {
     title: 'TREINO',
-    items: ['Exercícios', 'Treino', 'Montar Treino', 'Meu Treino'],
+    items: ['Exercícios', 'Treino', 'Montar Treino', 'Meu Treino', 'Evolução'],
   },
   {
     title: 'ESTOQUE',
-    items: ['Produtos', 'Fornecedores', 'Compras'],
+    items: ['Produtos', 'Fornecedores', 'Compras', 'Vendas'],
   },
   {
     title: 'EQUIPAMENTOS',
@@ -140,17 +167,78 @@ const menuGroups = [
   },
   {
     title: 'ALUNOS',
-    items: ['Matrículas', 'Planos', 'Promoções', 'Pontuações'],
+    items: ['Matrículas', 'Interessados', 'Planos', 'Promoções', 'Pontuações'],
   },
   {
     title: 'RH',
-    items: ['Profissionais'],
+    items: ['Profissionais', 'Ponto', 'Perfis de Acesso', 'Minha Conta'],
   },
   {
     title: 'DOMÍNIOS',
     items: ['Domínios'],
   },
 ];
+
+// Permissao exigida por item de menu. A chave e o item; o valor e a permissao
+// que o SERVIDOR exige nas rotas daquela tela (apps/api/src/plugins/
+// permissions.ts). Item ausente do mapa = visivel para qualquer funcionario.
+//
+// Isto e ergonomia, nao seguranca: esconder o item evita que a pessoa clique e
+// tome 403, mas quem forjar a navegacao continua barrado na API. Se algum dia
+// os dois discordarem, quem manda e a API.
+const menuItemPermissions: Record<string, string> = {
+  'Recepção': 'checkins.write',
+  'Caixa': 'payments.read',
+  'Relatórios': 'reports.read',
+  'Clientes': 'companies.read',
+  'Empresas': 'companies.read',
+  // Dominio proprio (billing), nao 'payments': quem da baixa numa parcela nao
+  // deve poder trocar a conta que recebe o dinheiro dos alunos.
+  'Contas de Recebimento': 'billing.read',
+  'Atividades': 'activities.read',
+  'Agendas': 'activities.read',
+  'Montagem de Agenda': 'activities.write',
+  'Calendário Empresa': 'activities.read',
+  'Exercícios': 'trainings.read',
+  'Treino': 'trainings.read',
+  'Montar Treino': 'trainings.write',
+  'Produtos': 'products.read',
+  'Fornecedores': 'products.read',
+  'Compras': 'products.write',
+  'Vendas': 'sales.read',
+  'Matrículas': 'students.read',
+  'Interessados': 'students.read',
+  // 'Ponto' nao aparece aqui de proposito: bater o proprio ponto e da sessao,
+  // como 'Minha Conta'. Esconder o item de quem nao tem employees.read
+  // deixaria o funcionario sem onde registrar que chegou. A metade da tela que
+  // mostra o espelho da EQUIPE se esconde sozinha, por falhar em silencio.
+  'Planos': 'plans.read',
+  'Promoções': 'plans.read',
+  'Pontuações': 'points.read',
+  'Profissionais': 'employees.read',
+  'Perfis de Acesso': 'profiles.read',
+  'Equipamentos': 'equipment.read',
+  'Localidades': 'equipment.read',
+  'Catracas': 'turnstiles.read',
+  'Domínios': 'domains.write',
+};
+
+// Grupos visiveis para o usuario. O aluno segue com a lista inteira (o RBAC
+// dele e outro, por rota, e as telas ja se adaptam por authUserType); o filtro
+// vale para funcionario. Grupo que fica sem nenhum item some junto.
+function getVisibleMenuGroups(userType: AuthUserType, permissions: string[]) {
+  if (userType === 'student') return menuGroups;
+  const granted = new Set(permissions);
+  return menuGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        const required = menuItemPermissions[item];
+        return !required || granted.has(required);
+      }),
+    }))
+    .filter((group) => group.items.length > 0);
+}
 
 function getMenuItemLabel(item: string, userType: AuthUserType) {
   if (item === 'Matrículas' && userType === 'student') return 'Matrícula';
@@ -323,6 +411,7 @@ export default function HomePage() {
   const [authUserStudentId, setAuthUserStudentId] = useState<number | null>(null);
   const [authUserId, setAuthUserId] = useState<number | null>(null);
   const [authUserPhotoUrl, setAuthUserPhotoUrl] = useState<string | null>(null);
+  const [authUserPermissions, setAuthUserPermissions] = useState<string[]>([]);
   const [loginMode, setLoginMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [loginCpf, setLoginCpf] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -436,9 +525,22 @@ export default function HomePage() {
             if (!verifyResponse.ok) {
               localStorage.removeItem(SESSION_KEY);
             } else {
+              // As permissoes vem do verify, nao da sessao guardada: se o
+              // gerente mudou o perfil enquanto a aba estava aberta, o menu
+              // acompanha ao recarregar em vez de ficar preso no que foi
+              // salvo no login.
+              const verified = (await verifyResponse.json()) as {
+                permissions?: string[];
+                perfilAcesso?: { dsPerfil: string } | null;
+              };
+              setAuthUserPermissions(verified.permissions ?? user.permissions ?? []);
               setAuthUserId(user.id);
               setAuthUserName(user.name);
-              setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
+              setAuthUserRole(
+                user.type === 'student'
+                  ? 'Aluno'
+                  : verified.perfilAcesso?.dsPerfil ?? 'Funcionário',
+              );
               setAuthUserType(user.type);
               setAuthUserEmployeeId(user.idFuncionario);
               setAuthUserStudentId(user.idAluno);
@@ -653,11 +755,14 @@ export default function HomePage() {
     setPendingFacialUser(null);
     setAuthFeedback('');
     setAuthUserName(user.name);
-    setAuthUserRole(user.type === 'student' ? 'Aluno' : 'Funcionário');
+    setAuthUserRole(
+      user.type === 'student' ? 'Aluno' : user.perfilAcesso?.dsPerfil ?? 'Funcionário',
+    );
     setAuthUserId(user.id);
     setAuthUserType(user.type);
     setAuthUserEmployeeId(user.idFuncionario);
     setAuthUserStudentId(user.idAluno);
+    setAuthUserPermissions(user.permissions ?? []);
     setActiveItem(nextActiveItem);
     setIsLoggedIn(true);
     if (shouldShowOnboarding(user.id)) {
@@ -954,17 +1059,29 @@ export default function HomePage() {
   if (isLoggedIn) {
     const visibleMenuGroups =
       authUserType === 'employee'
-        ? menuGroups.map((group) => ({
-            ...group,
-            items: group.items.filter((item) => item !== 'Meu Treino'),
-          }))
+        ? getVisibleMenuGroups('employee', authUserPermissions)
+            .map((group) => ({
+              ...group,
+              items: group.items.filter((item) => item !== 'Meu Treino' && item !== 'Evolução'),
+            }))
+            .filter((group) => group.items.length > 0)
         : menuGroups
           .filter((group) => group.title === 'INÍCIO' || group.title === 'TREINO' || group.title === 'ALUNOS' || group.title === 'ATIVIDADE')
           .map((group) => ({
             ...group,
             title: getMenuGroupLabel(group.title, 'student'),
-            items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda' && item !== 'Calendário Empresa' && item !== 'Treino' && item !== 'Relatórios'),
+            items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda' && item !== 'Calendário Empresa' && item !== 'Treino' && item !== 'Relatórios' && item !== 'Recepção' && item !== 'Minha Conta' && item !== 'Interessados' && item !== 'Caixa'),
           }));
+
+    // Rede de seguranca da navegacao: a sessao guarda o ultimo item aberto, e a
+    // barra inferior do mobile tem atalhos fixos — os dois podem apontar para
+    // uma tela que o perfil atual nao alcanca. Melhor explicar do que deixar a
+    // tela carregar e encher de 403.
+    const requiredForActive = menuItemPermissions[activeItem];
+    const isActiveItemBlocked =
+      authUserType === 'employee' &&
+      requiredForActive !== undefined &&
+      !authUserPermissions.includes(requiredForActive);
 
     const activeGroup = getMenuGroupLabel(
       menuGroups.find((g) => g.items.includes(activeItem))?.title ?? '',
@@ -1128,7 +1245,18 @@ export default function HomePage() {
         </aside>
 
         <main className="home-content" id="conteudo-principal" tabIndex={-1}>
-          {activeItem === 'Painel' ? (
+          {isActiveItemBlocked ? (
+            <div className="welcome">
+              <p className="section-label">Acesso restrito</p>
+              <h2 className="module-page-title">
+                {getMenuItemLabel(activeItem, authUserType).toUpperCase()}
+              </h2>
+              <p>
+                Seu perfil de acesso não inclui esta tela. Peça a quem administra o sistema
+                para liberar em RH &rsaquo; Perfis de Acesso.
+              </p>
+            </div>
+          ) : activeItem === 'Painel' ? (
             authUserType === 'student' ? (
               <StudentDashboard
                 studentId={authUserStudentId}
@@ -1146,6 +1274,8 @@ export default function HomePage() {
                 />
               </>
             )
+          ) : activeItem === 'Recepção' ? (
+            <ReceptionDesk />
           ) : activeItem === 'Relatórios' ? (
             <ReportsView />
           ) : activeItem === 'Clientes' ? (
@@ -1186,6 +1316,8 @@ export default function HomePage() {
             <SupplierRegistration />
           ) : activeItem === 'Compras' ? (
             <PurchaseRegistration />
+          ) : activeItem === 'Vendas' ? (
+            <SaleRegistration />
           ) : activeItem === 'Matrículas' ? (
             authUserType === 'student' ? (
               <StudentMembershipView
@@ -1212,6 +1344,18 @@ export default function HomePage() {
             )
           ) : activeItem === 'Profissionais' ? (
             <EmployeeRegistration />
+          ) : activeItem === 'Perfis de Acesso' ? (
+            <AccessProfileRegistration />
+          ) : activeItem === 'Minha Conta' ? (
+            <MyAccount />
+          ) : activeItem === 'Interessados' ? (
+            <LeadFunnel />
+          ) : activeItem === 'Ponto' ? (
+            <TimeClock />
+          ) : activeItem === 'Contas de Recebimento' ? (
+            <PaymentAccountRegistration />
+          ) : activeItem === 'Caixa' ? (
+            <CashierDesk />
           ) : activeItem === 'Equipamentos' ? (
             <EquipmentRegistration readOnly={authUserType === 'student'} />
           ) : activeItem === 'Catracas' ? (
@@ -1222,10 +1366,18 @@ export default function HomePage() {
             <DomainRegistration />
           ) : activeItem === 'Pontuações' ? (
             authUserType === 'student' ? (
-              <StudentPointsView />
+              <StudentPointsView
+                studentId={authUserStudentId}
+                studentName={authUserName}
+              />
             ) : (
               <PointsRegistration />
             )
+          ) : activeItem === 'Evolução' ? (
+            <StudentEvolutionView
+              studentId={authUserStudentId}
+              studentName={authUserName}
+            />
           ) : activeItem === 'Meu Treino' ? (
             <MyTraining
               studentId={authUserStudentId}

@@ -10,6 +10,12 @@
     "plugins": [
       "expo-router",
       [
+        "expo-notifications",
+        {
+          "color": "#1f7a53"
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Permitir que o SmartGym use a camera para anexar fotos ao cadastro do aluno."
@@ -33,7 +39,8 @@
     },
     "android": {
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"

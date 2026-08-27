@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useToast } from '../../shared/components/Toast';
 import {
   formatCpf,
   formatDateDisplay,
@@ -9,6 +10,16 @@ import {
 import type { Student, StudentFile } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { formatPhone } from '@smartgym/shared';
+
+type PixCharge = {
+  codigo: string;
+  valor: number;
+  dtVencimento: string | null;
+  beneficiario: string;
+  // 'provedor' = a confirmação é automática; 'pix_proprio' = a recepção confirma.
+  origem: 'pix_proprio' | 'provedor';
+  instrucao: string;
+};
 
 type StudentMembershipViewProps = {
   studentId: number | null;
@@ -90,14 +101,47 @@ function getText(record: NamedRecord | null | undefined, key: string, fallback =
   return value === null || value === undefined || value === '' ? fallback : String(value);
 }
 
+type PlanRequest = {
+  id: number;
+  cnTipo: 'cancelamento' | 'renovacao';
+  cnStatus: 'pendente' | 'aprovada' | 'recusada';
+  dsObservacao: string | null;
+  dsResposta: string | null;
+  dtCadastro: string;
+};
+
+type CancellationReason = { id: number; dsMotivoCancelamento: string };
+
 export function StudentMembershipView({ studentId, studentName }: StudentMembershipViewProps) {
+  const { showToast } = useToast();
   const [student, setStudent] = useState<Student | null>(null);
+  const [requests, setRequests] = useState<PlanRequest[]>([]);
+  const [reasons, setReasons] = useState<CancellationReason[]>([]);
+  const [requestType, setRequestType] = useState<'cancelamento' | 'renovacao' | null>(null);
+  const [requestReasonId, setRequestReasonId] = useState('');
+  const [requestNote, setRequestNote] = useState('');
+  const [isRequesting, setIsRequesting] = useState(false);
+  const [requestFeedback, setRequestFeedback] = useState('');
   const [plans, setPlans] = useState<StudentPlanView[]>([]);
   const [payments, setPayments] = useState<StudentPaymentView[]>([]);
   const [files, setFiles] = useState<StudentFile[]>([]);
   const [identificationUrl, setIdentificationUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
+
+  // Pix da parcela: só existe depois que alguém pede, e some ao trocar de
+  // parcela. Não pré-carregamos para todas as linhas porque cada código embute
+  // a chave da academia — gerar em massa espalharia isso sem ninguém pedir.
+  const [pixPaymentId, setPixPaymentId] = useState<number | null>(null);
+  const [pix, setPix] = useState<PixCharge | null>(null);
+  const [isLoadingPix, setIsLoadingPix] = useState(false);
+  const [pixError, setPixError] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  // Um pedido pendente por vez: enquanto a academia não responde, o aluno vê o
+  // estado em vez de um botão que abriria um segundo pedido igual.
+  const pendingRequest = requests.find((request) => request.cnStatus === 'pendente') ?? null;
+  const resolvedRequests = requests.filter((request) => request.cnStatus !== 'pendente');
 
   const activePlan = useMemo(
     () => plans.find((plan) => plan.boInativo === false) ?? plans[0] ?? null,
@@ -117,6 +161,53 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
   const pendingPaymentsCount = payments.filter((payment) => !isPaidStatus(payment)).length;
   const overduePaymentsCount = payments.filter(isOverdue).length;
 
+  async function loadPix(paymentId: number) {
+    if (!studentId) return;
+    // Segundo clique na mesma parcela fecha o painel.
+    if (pixPaymentId === paymentId) {
+      setPixPaymentId(null);
+      setPix(null);
+      setPixError('');
+      return;
+    }
+
+    setPixPaymentId(paymentId);
+    setPix(null);
+    setPixError('');
+    setCopied(false);
+    setIsLoadingPix(true);
+    try {
+      // POST porque, em conta de gateway, gerar o código CRIA a cobrança no
+      // provedor. É idempotente: pedir de novo devolve a mesma cobrança.
+      const response = await fetch(
+        `${apiUrl}/students/${studentId}/related/payments/${paymentId}/charge`,
+        { method: 'POST' },
+      );
+      if (!response.ok) await getApiError(response, 'Não foi possível gerar o código Pix.');
+      setPix((await response.json()) as PixCharge);
+    } catch (error) {
+      // O erro fica no painel da parcela, não no topo da tela: é sobre aquela
+      // cobrança, e no topo o aluno não saberia de qual.
+      setPixError(error instanceof Error ? error.message : 'Erro ao gerar o código Pix.');
+    } finally {
+      setIsLoadingPix(false);
+    }
+  }
+
+  async function copyPix() {
+    if (!pix) return;
+    try {
+      await navigator.clipboard.writeText(pix.codigo);
+      setCopied(true);
+      showToast('Código Pix copiado.');
+    } catch {
+      // Clipboard bloqueado (http sem localhost, permissão negada): o código
+      // continua na tela para copiar à mão, então não é erro de verdade.
+      setCopied(false);
+      setPixError('Não foi possível copiar automaticamente. Selecione o código e copie.');
+    }
+  }
+
   useEffect(() => {
     if (!studentId) {
       setStudent(null);
@@ -128,7 +219,66 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
     }
 
     void loadMembership();
+    void loadRequests();
+    void loadReasons();
   }, [studentId]);
+
+  async function loadRequests() {
+    if (!studentId) return;
+    try {
+      const response = await fetch(`${apiUrl}/students/${studentId}/related/plan-requests`);
+      if (!response.ok) return;
+      setRequests((await response.json()) as PlanRequest[]);
+    } catch {
+      // A solicitação é um extra da tela; falhar aqui não pode esconder a
+      // matrícula, que é o conteúdo principal.
+    }
+  }
+
+  async function loadReasons() {
+    try {
+      const response = await fetch(`${apiUrl}/cancellation-reasons`);
+      if (!response.ok) return;
+      setReasons((await response.json()) as CancellationReason[]);
+    } catch {
+      // idem: sem a lista, o pedido ainda pode ser aberto sem motivo escolhido
+    }
+  }
+
+  async function submitRequest(cnTipo: 'cancelamento' | 'renovacao') {
+    const plano = activePlan;
+    if (!studentId || !plano) return;
+
+    try {
+      setIsRequesting(true);
+      const response = await fetch(`${apiUrl}/students/${studentId}/related/plan-requests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idAlunoPlano: plano.id,
+          cnTipo,
+          idMotivoCancelamento:
+            cnTipo === 'cancelamento' && requestReasonId ? Number(requestReasonId) : null,
+          dsObservacao: requestNote.trim() || null,
+        }),
+      });
+      if (!response.ok) await getApiError(response, 'Não foi possível enviar a solicitação.');
+
+      setRequestType(null);
+      setRequestReasonId('');
+      setRequestNote('');
+      await loadRequests();
+      showToast(
+        cnTipo === 'cancelamento'
+          ? 'Pedido de cancelamento enviado. A academia vai responder.'
+          : 'Pedido de renovação enviado. A academia vai responder.',
+      );
+    } catch (error) {
+      setRequestFeedback(error instanceof Error ? error.message : 'Erro ao enviar solicitação.');
+    } finally {
+      setIsRequesting(false);
+    }
+  }
 
   async function loadMembership() {
     if (!studentId) return;
@@ -337,6 +487,111 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
         </div>
       </section>
 
+      {activePlan ? (
+        <section className="membership-requests" aria-label="Solicitações">
+          <p className="section-label">Cancelamento e renovação</p>
+
+          {pendingRequest ? (
+            <p className="membership-request-pending">
+              Você já tem um pedido de{' '}
+              <strong>
+                {pendingRequest.cnTipo === 'cancelamento' ? 'cancelamento' : 'renovação'}
+              </strong>{' '}
+              aguardando resposta da academia.
+            </p>
+          ) : requestType ? (
+            <div className="membership-request-form">
+              {requestType === 'cancelamento' ? (
+                <label className="search-field">
+                  <span>Motivo</span>
+                  <select
+                    onChange={(event) => setRequestReasonId(event.target.value)}
+                    value={requestReasonId}
+                  >
+                    <option value="">Prefiro não informar</option>
+                    {reasons.map((reason) => (
+                      <option key={reason.id} value={String(reason.id)}>
+                        {reason.dsMotivoCancelamento}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+
+              <label className="search-field membership-request-note">
+                <span>Observação (opcional)</span>
+                <input
+                  maxLength={500}
+                  onChange={(event) => setRequestNote(event.target.value)}
+                  placeholder={
+                    requestType === 'cancelamento'
+                      ? 'Algo que a academia deveria saber'
+                      : 'Alguma preferência para a renovação'
+                  }
+                  type="text"
+                  value={requestNote}
+                />
+              </label>
+
+              <div className="membership-request-actions">
+                <button
+                  className="secondary-button"
+                  onClick={() => setRequestType(null)}
+                  type="button"
+                >
+                  Voltar
+                </button>
+                <button
+                  disabled={isRequesting}
+                  onClick={() => void submitRequest(requestType)}
+                  type="button"
+                >
+                  {isRequesting ? 'Enviando...' : 'Enviar pedido'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="membership-request-actions">
+              <button onClick={() => setRequestType('renovacao')} type="button">
+                Quero renovar
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => setRequestType('cancelamento')}
+                type="button"
+              >
+                Quero cancelar
+              </button>
+            </div>
+          )}
+
+          {requestFeedback ? <div className="form-feedback">{requestFeedback}</div> : null}
+
+          {/* O pedido não cancela sozinho: quem encerra a matrícula é a
+              academia, porque prazo e multa são regras do contrato dela. */}
+          <p className="membership-request-hint">
+            O pedido vai para a recepção responder. Nada muda na sua matrícula até lá.
+          </p>
+
+          {resolvedRequests.length > 0 ? (
+            <ul className="membership-request-history">
+              {resolvedRequests.map((request) => (
+                <li key={request.id}>
+                  <span>
+                    {request.cnTipo === 'cancelamento' ? 'Cancelamento' : 'Renovação'} ·{' '}
+                    {new Date(request.dtCadastro).toLocaleDateString('pt-BR')}
+                  </span>
+                  <strong className={request.cnStatus === 'aprovada' ? 'ok' : 'refused'}>
+                    {request.cnStatus}
+                  </strong>
+                  {request.dsResposta ? <em>{request.dsResposta}</em> : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
+
       <section className="membership-payments-panel">
         <div className="membership-plan-header">
           <div>
@@ -371,7 +626,8 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
               const paid = isPaidStatus(payment);
               const overdue = isOverdue(payment);
               return (
-                <div className="membership-payments-row" key={payment.id} role="row">
+                <div key={payment.id}>
+                <div className="membership-payments-row" role="row">
                   <span role="cell">{payment.alunoPlano?.plano?.dsPlano ?? '-'}</span>
                   <span role="cell">
                     {payment.dtVencimento ? formatDateDisplay(payment.dtVencimento) : 'A definir'}
@@ -388,7 +644,71 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
                     <span className={`status-badge ${paid ? 'success' : overdue ? 'danger' : 'pending'}`}>
                       {overdue ? 'Vencido' : payment.statusPagamento?.dsStatusPagamento ?? '-'}
                     </span>
+                    {/* Só em cobrança aberta: gerar Pix de parcela quitada
+                        convidaria ao pagamento em dobro, e estorno de Pix
+                        depende da boa vontade de quem recebeu. */}
+                    {!paid ? (
+                      <button
+                        className="pix-button"
+                        onClick={() => void loadPix(payment.id)}
+                        type="button"
+                      >
+                        {pixPaymentId === payment.id ? 'Fechar' : 'Pagar com Pix'}
+                      </button>
+                    ) : null}
                   </span>
+                </div>
+
+                {pixPaymentId === payment.id ? (
+                  <div className="pix-panel">
+                    {isLoadingPix ? (
+                      <p className="pix-status">Gerando código...</p>
+                    ) : pix ? (
+                      /* O código vem ANTES do erro de propósito. Falha ao
+                         copiar é um aviso ao lado do código, não no lugar
+                         dele — a mensagem pede para selecionar e copiar à
+                         mão, e some-lo tornaria a instrução impossível. */
+                      <>
+                        <div className="pix-head">
+                          <div>
+                            <strong>{formatMoney(pix.valor)}</strong>
+                            <span>para {pix.beneficiario}</span>
+                          </div>
+                          <button className="pix-copy" onClick={() => void copyPix()} type="button">
+                            {copied ? 'Copiado' : 'Copiar código'}
+                          </button>
+                        </div>
+                        {/* readOnly e não disabled: o aluno precisa conseguir
+                            selecionar o texto quando o clipboard não funciona. */}
+                        <textarea
+                          className="pix-code"
+                          onFocus={(event) => event.target.select()}
+                          readOnly
+                          rows={3}
+                          value={pix.codigo}
+                        />
+                        {pixError ? (
+                          <p className="pix-status pix-error" role="alert">
+                            {pixError}
+                          </p>
+                        ) : null}
+                        <p className="pix-hint">
+                          {pix.instrucao}
+                          {pix.origem === 'provedor' ? (
+                            /* Dito ao aluno porque muda o que ele deve esperar:
+                               com gateway o acesso libera sozinho; sem, ele pode
+                               precisar avisar a recepção. */
+                            <strong> Não precisa avisar ninguém.</strong>
+                          ) : null}
+                        </p>
+                      </>
+                    ) : pixError ? (
+                      <p className="pix-status pix-error" role="alert">
+                        {pixError}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
                 </div>
               );
             })}

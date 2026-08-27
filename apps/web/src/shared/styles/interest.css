@@ -1,0 +1,142 @@
+/* Formulário público de interesse.
+   --------------------------------------------------------------------------
+   Estilo próprio e independente do resto: esta é a única tela que roda sem
+   sessão, então ela não pode depender de nenhum token que o tema carregado
+   após o login define. As cores vêm do :root global, e a da marca é
+   sobrescrita em runtime quando /auth/theme responde. */
+
+.interest-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: var(--color-surface-alt);
+}
+
+.interest-card {
+  width: 100%;
+  max-width: 26rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.interest-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  text-align: center;
+}
+
+.interest-logo {
+  max-height: 3.5rem;
+  max-width: 60%;
+  object-fit: contain;
+  margin: 0 auto 0.5rem;
+}
+
+.interest-header h1 {
+  margin: 0;
+  font-size: 1.375rem;
+  line-height: 1.2;
+  color: var(--color-text);
+}
+
+.interest-header p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-muted);
+}
+
+.interest-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.interest-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3125rem;
+}
+
+.interest-form label span {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.interest-form input,
+.interest-form textarea {
+  font: inherit;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-border-input);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  resize: vertical;
+}
+
+.interest-form input:focus-visible,
+.interest-form textarea:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.interest-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--color-primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.interest-submit:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.interest-error {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-danger);
+}
+
+.interest-note {
+  margin: 0;
+  font-size: 0.6875rem;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.interest-done {
+  align-items: center;
+  text-align: center;
+  color: var(--color-gain);
+}
+
+.interest-done h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--color-text);
+}
+
+.interest-done p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-muted);
+}

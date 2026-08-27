@@ -35,6 +35,7 @@ const domainItems = [
   'Categoria',
   'Area Corporal',
   'Tipo de Check-In',
+  'Motivo de Cancelamento',
 ];
 
 const domainConfig: DomainConfigMap = {
@@ -86,6 +87,7 @@ const domainConfig: DomainConfigMap = {
   },
   "Area Corporal": { endpoint: 'body-areas', field: 'dsAreaCorporal', label: 'Área corporal', saveLabel: 'Salvar área' },
   "Tipo de Check-In": { endpoint: 'check-in-types', field: 'dsTipoCheckIn', label: 'Tipo de check-in', saveLabel: 'Salvar tipo' },
+  "Motivo de Cancelamento": { endpoint: 'cancellation-reasons', field: 'dsMotivoCancelamento', label: 'Motivo de cancelamento', saveLabel: 'Salvar motivo' },
 };
 
 /** Column shown in the grid for an extra field (name column is handled apart). */

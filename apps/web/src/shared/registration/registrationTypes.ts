@@ -20,6 +20,10 @@ export type Product = {
   idEmpresa: number | null;
   dsProduto: string;
   qtEstoque: number;
+  /** Preço sugerido da venda no balcão. Nulo = sem preço cadastrado. */
+  vlVenda?: string | number | null;
+  /** Preço em pontos. Nulo = produto não resgatável por fidelidade. */
+  qtPontosResgate?: number | null;
   boInativo: boolean;
 };
 
@@ -169,10 +173,20 @@ export type Plan = {
   boInativo: boolean;
 };
 
+/** Perfil de acesso disponível para vincular a um funcionário. */
+export type AccessProfileOption = {
+  id: number;
+  dsPerfil: string;
+  boInativo: boolean;
+};
+
 export type Employee = {
   id: number;
   idEmpresa: number | null;
   idCargo: number | null;
+  /** Perfil de ACESSO (permissões) — distinto de idCargo, que é o cargo de RH. */
+  idPerfilAcesso?: number | null;
+  perfilAcesso?: { id: number; dsPerfil: string } | null;
   nmFuncionario: string;
   caCPF: string;
   dtNascimento: string | null;

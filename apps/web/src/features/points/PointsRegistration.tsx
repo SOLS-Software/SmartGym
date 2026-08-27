@@ -15,7 +15,22 @@ type Pontuacao = {
   idEmpresa: number;
   dsPontuacao: string;
   qtPontos: number;
+  /** Regra que credita sozinha a cada check-in. No máximo uma por empresa. */
+  boPadrao: boolean;
   boInativo: boolean;
+};
+
+type Student = { id: number; nmAluno: string; boInativo: boolean };
+
+type PointsEntry = {
+  id: number;
+  qtPontos: number;
+  qtDisponivel: number;
+  dsHistorico: string | null;
+  dtCadastro: string;
+  pontuacao: { id: number; dsPontuacao: string } | null;
+  produtoMovimentacao: { id: number; produto: { dsProduto: string } | null } | null;
+  alunoCheckIn: { id: number } | null;
 };
 
 export function PointsRegistration() {
@@ -34,8 +49,19 @@ export function PointsRegistration() {
   const [dsPontuacao, setDsPontuacao] = useState('');
   const [qtPontos, setQtPontos] = useState('');
   const [isActive, setIsActive] = useState(false);
+  const [isDefaultRule, setIsDefaultRule] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Painel de extrato: consulta e lançamento manual para um aluno.
+  const [students, setStudents] = useState<Student[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [entries, setEntries] = useState<PointsEntry[]>([]);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [entryPoints, setEntryPoints] = useState('');
+  const [entryNote, setEntryNote] = useState('');
+  const [isPosting, setIsPosting] = useState(false);
+  const [entryFeedback, setEntryFeedback] = useState('');
 
   const isFormEnabled = selectedPointId !== null || isCreating;
   const filteredPoints = points.filter((point) =>
@@ -72,9 +98,82 @@ export function PointsRegistration() {
     }
   }
 
+  async function loadStudents() {
+    try {
+      const response = await fetch(`${apiUrl}/students`);
+      if (!response.ok) return;
+      const data = (await response.json()) as Student[];
+      setStudents(data.filter((student) => student.boInativo === false));
+    } catch {
+      // Lista de alunos é do painel de extrato; falhar aqui não pode derrubar
+      // o cadastro de regras, que é a função principal da tela.
+    }
+  }
+
+  async function loadEntries(studentId = selectedStudentId) {
+    if (!studentId || !selectedCompanyId) {
+      setEntries([]);
+      setBalance(null);
+      return;
+    }
+    try {
+      const response = await fetch(`${apiUrl}/students/${studentId}/related/points`);
+      if (!response.ok) await getApiError(response, 'Não foi possível carregar o extrato.');
+      const data = (await response.json()) as {
+        saldos: Array<{ idEmpresa: number; qtDisponivel: number }>;
+        lancamentos: Array<PointsEntry & { idEmpresa: number }>;
+      };
+      // A tela trabalha uma filial por vez; o extrato acompanha a seleção.
+      setEntries(data.lancamentos.filter((item) => item.idEmpresa === selectedCompanyId));
+      setBalance(
+        data.saldos.find((item) => item.idEmpresa === selectedCompanyId)?.qtDisponivel ?? 0,
+      );
+      setEntryFeedback('');
+    } catch (error) {
+      setEntryFeedback(error instanceof Error ? error.message : 'Erro ao carregar extrato.');
+    }
+  }
+
+  async function handlePostEntry() {
+    const pontos = Number(entryPoints);
+    if (!selectedStudentId || !selectedCompanyId || !pontos) {
+      setEntryFeedback('Escolha o aluno e informe a quantidade de pontos.');
+      return;
+    }
+
+    try {
+      setIsPosting(true);
+      const response = await fetch(`${apiUrl}/students/${selectedStudentId}/related/points`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idEmpresa: selectedCompanyId,
+          qtPontos: pontos,
+          dsHistorico: entryNote.trim() || null,
+        }),
+      });
+      if (!response.ok) await getApiError(response, 'Não foi possível lançar os pontos.');
+
+      setEntryPoints('');
+      setEntryNote('');
+      await loadEntries();
+      showToast(pontos > 0 ? 'Pontos creditados.' : 'Pontos resgatados.');
+    } catch (error) {
+      setEntryFeedback(error instanceof Error ? error.message : 'Erro ao lançar pontos.');
+    } finally {
+      setIsPosting(false);
+    }
+  }
+
   useEffect(() => {
     void loadCompanies();
+    void loadStudents();
   }, []);
+
+  useEffect(() => {
+    void loadEntries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStudentId, selectedCompanyId]);
 
   useEffect(() => {
     setSelectedPointId(null);
@@ -93,6 +192,7 @@ export function PointsRegistration() {
     setDsPontuacao('');
     setQtPontos('');
     setIsActive(true);
+    setIsDefaultRule(false);
     setFeedback('');
     setIsDrawerOpen(true);
     setTimeout(() => nameInputRef.current?.focus(), 0);
@@ -104,6 +204,7 @@ export function PointsRegistration() {
     setDsPontuacao(point.dsPontuacao);
     setQtPontos(String(point.qtPontos ?? 0));
     setIsActive(point.boInativo === false);
+    setIsDefaultRule(point.boPadrao === true);
     setFeedback('');
     setIsDrawerOpen(true);
   }
@@ -142,6 +243,7 @@ export function PointsRegistration() {
       const payload = {
         dsPontuacao: dsPontuacao.trim(),
         qtPontos: qtPontos ? Number(qtPontos) : 0,
+        boPadrao: isDefaultRule,
         boInativo: isActive ? false : true,
       };
 
@@ -162,10 +264,9 @@ export function PointsRegistration() {
       }
 
       const saved = (await response.json()) as Pontuacao;
-      setPoints((current) => {
-        if (selectedPointId) return current.map((item) => (item.id === saved.id ? saved : item));
-        return [...current, saved].sort((a, b) => a.dsPontuacao.localeCompare(b.dsPontuacao));
-      });
+      // Recarrega tudo: marcar esta como padrão desmarca a anterior no
+      // servidor, e remendar só o item salvo deixaria duas "Padrão" na grid.
+      await loadPoints();
       setSelectedPointId(saved.id);
       setIsCreating(false);
       showToast('Pontuação salva com sucesso.');
@@ -216,6 +317,12 @@ export function PointsRegistration() {
               { label: 'Descrição', render: (r) => r.dsPontuacao, sortValue: (r) => r.dsPontuacao },
               { label: 'Pontos', render: (r) => String(r.qtPontos ?? 0) },
               {
+                label: 'Automática',
+                render: (r) =>
+                  r.boPadrao ? <span className="status-badge active">Padrão</span> : '-',
+                sortValue: (r) => (r.boPadrao ? 0 : 1),
+              },
+              {
                 label: 'Status',
                 render: (r) => (
                   <span className={`status-badge ${r.boInativo === false ? 'active' : 'inactive'}`}>
@@ -243,6 +350,107 @@ export function PointsRegistration() {
           />
         </section>
 
+        <section className="points-ledger" aria-label="Extrato de pontos do aluno">
+          <div className="points-ledger-head">
+            <div>
+              <p className="section-label">Extrato do aluno</p>
+              <strong>Consulta e lançamento manual</strong>
+            </div>
+            <label className="search-field">
+              <span>Aluno</span>
+              <select
+                disabled={!selectedCompanyId}
+                onChange={(event) => setSelectedStudentId(event.target.value)}
+                value={selectedStudentId}
+              >
+                <option value="">Selecione o aluno</option>
+                {students.map((student) => (
+                  <option key={student.id} value={String(student.id)}>
+                    {student.nmAluno}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {entryFeedback ? <div className="form-feedback">{entryFeedback}</div> : null}
+
+          {!selectedStudentId ? (
+            <p className="points-empty">
+              Escolha um aluno para ver o saldo dele nesta filial e lançar créditos ou resgates.
+            </p>
+          ) : (
+            <>
+              <div className="points-ledger-balance">
+                Saldo nesta filial: <strong>{balance ?? 0} pts</strong>
+              </div>
+
+              <div className="points-ledger-form">
+                <label className="search-field">
+                  <span>Pontos</span>
+                  <input
+                    onChange={(event) => setEntryPoints(event.target.value)}
+                    placeholder="10 ou -10"
+                    type="number"
+                    value={entryPoints}
+                  />
+                </label>
+                <label className="search-field points-ledger-note">
+                  <span>Histórico</span>
+                  <input
+                    maxLength={255}
+                    onChange={(event) => setEntryNote(event.target.value)}
+                    placeholder="Ex.: bônus de indicação"
+                    type="text"
+                    value={entryNote}
+                  />
+                </label>
+                <button
+                  disabled={isPosting || !entryPoints}
+                  onClick={() => void handlePostEntry()}
+                  type="button"
+                >
+                  {isPosting ? 'Lançando...' : 'Lançar'}
+                </button>
+              </div>
+              <p className="points-ledger-hint">
+                Valor negativo resgata. O extrato não é editável: para corrigir, lance o
+                contrário.
+              </p>
+
+              {entries.length === 0 ? (
+                <p className="points-empty">Nenhum lançamento nesta filial ainda.</p>
+              ) : (
+                <ul className="points-entries">
+                  {entries.map((entry) => (
+                    <li className="points-entry" key={entry.id}>
+                      <div className="points-entry-main">
+                        <strong>
+                          {entry.produtoMovimentacao
+                            ? `Resgate: ${entry.produtoMovimentacao.produto?.dsProduto ?? 'produto'}`
+                            : entry.alunoCheckIn
+                              ? entry.pontuacao?.dsPontuacao ?? 'Check-in'
+                              : entry.dsHistorico ?? 'Lançamento manual'}
+                        </strong>
+                        <span>{new Date(entry.dtCadastro).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                      <div className="points-entry-values">
+                        <span
+                          className={`points-entry-delta ${entry.qtPontos < 0 ? 'debit' : 'credit'}`}
+                        >
+                          {entry.qtPontos > 0 ? '+' : ''}
+                          {entry.qtPontos}
+                        </span>
+                        <span className="points-entry-balance">saldo {entry.qtDisponivel}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </section>
+
         <RegistrationDrawer
           isOpen={isDrawerOpen}
           title={isCreating ? 'Nova Pontuação' : 'Editar Pontuação'}
@@ -250,6 +458,23 @@ export function PointsRegistration() {
         >
           <form className="drawer-fields" onSubmit={handleSave}>
             {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
+            <RegistrationField
+              hint="A regra padrão credita sozinha a cada check-in do aluno. Marcar esta desmarca a anterior."
+              htmlFor="pontuacaoPadrao"
+              label="Crédito automático"
+              size="full"
+            >
+              <button
+                aria-pressed={isDefaultRule}
+                className={`status-toggle ${isDefaultRule ? 'active' : ''}`}
+                disabled={!isFormEnabled}
+                id="pontuacaoPadrao"
+                onClick={() => setIsDefaultRule((current) => !current)}
+                type="button"
+              >
+                {isDefaultRule ? 'Regra padrão do check-in' : 'Somente manual'}
+              </button>
+            </RegistrationField>
             <RegistrationField htmlFor="pontuacaoDescricao" label="Descrição" size="full">
               <input
                 disabled={!isFormEnabled}

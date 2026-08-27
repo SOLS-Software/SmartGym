@@ -92,9 +92,15 @@ export function computeDueDate(base: Date, nrDiaPagamento: number, monthOffset: 
   let year = base.getFullYear();
   let month = base.getMonth() + monthOffset;
 
-  // When the payment day has already passed in the base month, push to next month
-  // so the first installment is never before the admission date.
-  if (monthOffset === 0 && clampedDay < base.getDate()) {
+  // Quando o dia de pagamento ja passou no mes da admissao, o ciclo inteiro
+  // anda um mes — nao so a primeira parcela.
+  //
+  // Antes o empurrao valia so para `monthOffset === 0`, e as parcelas 0 e 1
+  // caiam NO MESMO DIA: admissao em 16/07 com pagamento no dia 1 gerava duas
+  // cobrancas para 01/08. O aluno pagava o primeiro mes em dobro, e o erro so
+  // aparecia em matricula feita depois do dia de vencimento — ou seja, na
+  // maioria delas.
+  if (clampedDay < base.getDate()) {
     month += 1;
   }
 

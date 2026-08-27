@@ -6,6 +6,7 @@ import { assertValidId, optionalNumber, requiredText, optionalText, getMultipart
 import { getClientSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { assertAllowedUploadType, assertUploadBuffer, getClientFilePath } from '../../shared/files.js';
 import { clientErrorMessage } from '../../shared/errors.js';
+import { ensureDefaultProfiles } from '../../shared/accessProfiles.js';
 
 // Paginacao de listagens: aceita ?limit= com clamp em 1..1000 (default 1000).
 const limitQuery = z.coerce
@@ -97,6 +98,10 @@ export async function registerClientRoutes(app: FastifyInstance) {
       const cliente = await prisma.cliente.create({
         data: { dsCliente, caCNPJ: optionalText(request.body.caCNPJ) || null, boInativo: false },
       });
+      // Cliente novo ja nasce com os perfis de acesso padrao: sem eles, o
+      // primeiro funcionario cadastrado nao teria perfil algum para receber e
+      // o RBAC (deny-by-default) o deixaria sem nenhuma tela.
+      await ensureDefaultProfiles(prisma, cliente.id);
       return reply.code(201).send(cliente);
     } catch (error) {
       return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar cliente.') });
@@ -111,7 +116,18 @@ export async function registerClientRoutes(app: FastifyInstance) {
       const dsCliente = requiredText(request.body.dsCliente, 'Informe o nome do cliente.');
       return prisma.cliente.update({
         where: { id },
-        data: { dsCliente, caCNPJ: optionalText(request.body.caCNPJ) || null, boInativo: toBool(request.body.boInativo) },
+        data: {
+          dsCliente,
+          caCNPJ: optionalText(request.body.caCNPJ) || null,
+          boInativo: toBool(request.body.boInativo),
+          // Corte do alerta de evasao. Fora da faixa 1-365 nao e configuracao,
+          // e engano: 0 alertaria sobre quem treinou hoje de manha.
+          ...(request.body.nrDiasSemCheckIn !== undefined &&
+          Number(request.body.nrDiasSemCheckIn) >= 1 &&
+          Number(request.body.nrDiasSemCheckIn) <= 365
+            ? { nrDiasSemCheckIn: Number(request.body.nrDiasSemCheckIn) }
+            : {}),
+        },
       });
     } catch (error) {
       return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao atualizar cliente.') });

@@ -1,6 +1,7 @@
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import * as Notifications from 'expo-notifications';
+import { useEffect, useState } from 'react';
 import { AuthProvider } from '../lib/contexts/AuthContext';
 import { ThemeProvider } from '../lib/contexts/ThemeContext';
 import type { ClientTheme } from '../lib/types/client';
@@ -11,6 +12,24 @@ export default function RootLayout() {
   const { clientId, isLoaded, clearClient } = useCurrentClient();
   const [clientReady, setClientReady] = useState(false);
   const [theme, setTheme] = useState<ClientTheme | null>(null);
+
+  // Toque na notificação leva à tela de avisos.
+  //
+  // Sem isto o push abriria o app na home e o aluno teria que caçar o que a
+  // academia queria dizer — o que anula boa parte do motivo de existir do
+  // push, que é encurtar o caminho entre o aviso e a ação.
+  //
+  // Fica no layout RAIZ porque o toque pode chegar com o app fechado: o
+  // listener precisa existir antes de qualquer tela montar. O guard de sessão
+  // de (aluno)/_layout continua valendo — quem não está logado é redirecionado
+  // para o login em vez de ver a tela.
+  useEffect(() => {
+    const inscricao = Notifications.addNotificationResponseReceivedListener((resposta) => {
+      const dados = resposta.notification.request.content.data as { tipo?: string } | undefined;
+      if (dados?.tipo === 'aviso') router.push('/avisos');
+    });
+    return () => inscricao.remove();
+  }, []);
 
   if (!isLoaded) {
     return <StatusBar style="dark" />;

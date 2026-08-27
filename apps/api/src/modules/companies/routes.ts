@@ -17,6 +17,8 @@ import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 import { assertAllowedUploadType, assertUploadBuffer, getCompanyFilePath, getPromotionFilePath } from '../../shared/files.js';
 import type { CompanyChildPayload, CompanyChildResource, CompanyPayload } from '../../shared/api-types.js';
 import { clientErrorMessage } from '../../shared/errors.js';
+import { getStatusIdByName } from '../../shared/payments.js';
+import { creditCheckInPoints, registerPointsEntry } from '../../shared/loyalty.js';
 
 // ---------------------------------------------------------------------------
 // Company child resource config
@@ -197,6 +199,43 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
       };
     },
   },
+  // Venda no balcao: o mesmo ProdutoMovimentacao das compras, do outro lado do
+  // estoque. Compra tem idFornecedor e SOMA; venda tem idAluno e SUBTRAI — e e
+  // assim que as duas listagens se separam (getWhere).
+  sales: {
+    delegate: asCrudDelegate(prisma.produtoMovimentacao),
+    orderBy: { dtCadastro: 'desc' },
+    companyField: 'idEmpresa',
+    include: {
+      produto: true,
+      aluno: { select: { id: true, nmAluno: true } },
+      pagamentos: { select: { id: true, vlPrevisto: true, vlPago: true, idStatusPagamento: true } },
+      alunoPontuacoes: { select: { id: true, qtPontos: true } },
+    },
+    getWhere(companyId: number) {
+      return { idEmpresa: companyId, idAluno: { not: null } };
+    },
+    normalize(companyId: number, payload: CompanyChildPayload) {
+      const idProduto = optionalNumber(payload.idProduto);
+      if (!idProduto) throw new Error('Selecione o produto.');
+      const idAluno = optionalNumber(payload.idAluno);
+      if (!idAluno) throw new Error('Selecione o aluno.');
+      const qtMovimentada = Number(payload.qtMovimentada ?? 0);
+      if (!Number.isInteger(qtMovimentada) || qtMovimentada <= 0) {
+        throw new Error('Informe uma quantidade valida.');
+      }
+      return {
+        idEmpresa: companyId,
+        idProduto,
+        idAluno,
+        idFornecedor: null,
+        qtMovimentada,
+        vlUnitario: Number(payload.vlUnitario ?? 0),
+        qtDisponivel: 0,
+        boInativo: toBool(payload.boInativo),
+      };
+    },
+  },
   'company-files': {
     delegate: asCrudDelegate(prisma.empresaArquivo),
     orderBy: { dtCadastro: 'desc' },
@@ -237,6 +276,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
         idEmpresa: companyId,
         dsPontuacao: requiredText(payload.dsPontuacao, 'Informe a descricao da pontuacao.'),
         qtPontos: Number(payload.qtPontos ?? 0),
+        boPadrao: toBool(payload.boPadrao),
         boInativo: toBool(payload.boInativo),
       };
     },
@@ -348,6 +388,139 @@ async function childBelongsToCompany(config: ChildResourceConfig, companyId: num
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
+
+// Registra a venda de um produto para um aluno.
+//
+// Tudo numa transacao porque os tres efeitos so fazem sentido juntos: sai do
+// estoque, gera a cobranca (ou debita os pontos) e fica rastreavel. Se a
+// cobranca falhar depois do estoque baixado, o produto some do sistema sem
+// ninguem dever nada por ele.
+//
+// Duas formas de pagar, decididas por `boResgatePontos`:
+//   dinheiro -> cria um Pagamento ligado a movimentacao (quitado ou pendente);
+//   pontos   -> debita o extrato de fidelidade e NAO cria cobranca.
+// Regra padrao e uma so por filial: marcar uma desmarca a anterior. Duas
+// regras padrao fariam o credito automatico depender de qual o banco devolve
+// primeiro — comportamento que ninguem consegue explicar depois.
+async function clearDefaultPointRule(companyId: number, exceptId?: number) {
+  await prisma.pontuacao.updateMany({
+    where: {
+      idEmpresa: companyId,
+      boPadrao: true,
+      ...(exceptId ? { NOT: { id: exceptId } } : {}),
+    },
+    data: { boPadrao: false },
+  });
+}
+
+async function createSale(params: {
+  companyId: number;
+  idCliente: number;
+  data: Record<string, unknown>;
+  payload: CompanyChildPayload;
+  include?: Record<string, unknown>;
+}) {
+  const { companyId, idCliente, data, payload, include } = params;
+  const idProduto = Number(data.idProduto);
+  const idAluno = Number(data.idAluno);
+  const quantidade = Number(data.qtMovimentada);
+
+  // Aluno e produto tem que ser deste cliente: ids sao sequenciais e adivinhar
+  // o de outro tenant nao pode virar uma venda cruzada.
+  const aluno = await prisma.aluno.findFirst({
+    where: { id: idAluno, idCliente },
+    select: { id: true },
+  });
+  if (!aluno) throw new Error('Aluno invalido.');
+
+  const produto = await prisma.produto.findFirst({
+    where: {
+      id: idProduto,
+      // idEmpresa nulo = produto compartilhado pela rede (convencao do projeto).
+      OR: [{ empresa: { idCliente } }, { idEmpresa: null }],
+    },
+    select: { id: true, dsProduto: true, qtEstoque: true, vlVenda: true, qtPontosResgate: true },
+  });
+  if (!produto) throw new Error('Produto invalido.');
+
+  if (produto.qtEstoque < quantidade) {
+    throw new Error(
+      `Estoque insuficiente: ha ${produto.qtEstoque} unidade(s) de ${produto.dsProduto}.`,
+    );
+  }
+
+  const resgateEmPontos = toBool(payload.boResgatePontos);
+
+  if (resgateEmPontos && !produto.qtPontosResgate) {
+    throw new Error('Este produto nao tem preco em pontos definido.');
+  }
+
+  // Preco: o que o operador digitou; na ausencia, o preco sugerido do cadastro.
+  const vlUnitario = Number(data.vlUnitario) || Number(produto.vlVenda ?? 0);
+  const total = vlUnitario * quantidade;
+
+  const idStatusPagamento = resgateEmPontos
+    ? null
+    : optionalNumber(payload.idStatusPagamento);
+  const pago = toBool(payload.boPago);
+
+  return prisma.$transaction(async (transaction) => {
+    const movimentacao = await transaction.produtoMovimentacao.create({
+      data: { ...data, vlUnitario } as never,
+    });
+
+    const atualizado = await transaction.produto.update({
+      where: { id: idProduto },
+      data: { qtEstoque: { decrement: quantidade } },
+    });
+
+    // qtDisponivel guarda o estoque DEPOIS do movimento, como nas compras.
+    await transaction.produtoMovimentacao.update({
+      where: { id: movimentacao.id },
+      data: { qtDisponivel: atualizado.qtEstoque },
+    });
+
+    if (resgateEmPontos) {
+      await registerPointsEntry(transaction, {
+        idAluno,
+        idEmpresa: companyId,
+        idProdutoMovimentacao: movimentacao.id,
+        qtPontos: -(produto.qtPontosResgate ?? 0) * quantidade,
+        dsHistorico: `Resgate: ${produto.dsProduto}`,
+      });
+    } else if (total > 0) {
+      const status =
+        idStatusPagamento ??
+        (pago
+          ? await getStatusIdByName(transaction, 'Pago')
+          : await getStatusIdByName(transaction, 'Pendente'));
+      if (!status) throw new Error('Status de pagamento nao configurado.');
+
+      await transaction.pagamento.create({
+        data: {
+          idEmpresa: companyId,
+          idProdutoMovimentacao: movimentacao.id,
+          idStatusPagamento: status,
+          idFormaPagamento: optionalNumber(payload.idFormaPagamento),
+          vlPrevisto: total,
+          // Venda fiada entra com valor pago zerado: o que ficou devendo
+          // aparece junto das mensalidades em atraso, que e onde a recepcao
+          // ja olha.
+          vlPago: pago ? total : 0,
+          dtVencimento: optionalDate(payload.dtVencimento) ?? new Date(),
+          dtCompetencia: new Date(),
+          dtPagamento: pago ? new Date() : null,
+          boInativo: false,
+        },
+      });
+    }
+
+    return transaction.produtoMovimentacao.findUniqueOrThrow({
+      where: { id: movimentacao.id },
+      include: include as never,
+    });
+  });
+}
 
 export async function registerCompanyRoutes(app: FastifyInstance) {
   app.get<{
@@ -810,6 +983,52 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
   });
 
   // ---------------------------------------------------------------------------
+  // Movimento do dia na filial: quem entrou, a que horas e por qual via.
+  //
+  // NAO e "quem esta na academia agora" — a catraca registra entrada e nao
+  // saida, entao esse numero nao existe no banco. Chamar de "movimento de hoje"
+  // e o que os dados sustentam; inventar uma contagem de presentes seria mostrar
+  // um numero que ninguem consegue conferir.
+  app.get<{
+    Params: { companyId: string };
+  }>('/companies/:companyId/reception', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    try {
+      const companyId = Number(request.params.companyId);
+      assertValidId(companyId, 'Empresa invalida.');
+      if (!(await companyBelongsToTenant(companyId, idCliente))) {
+        return reply.code(404).send({ message: 'Empresa nao encontrada.' });
+      }
+
+      const inicioDoDia = new Date();
+      inicioDoDia.setHours(0, 0, 0, 0);
+
+      const checkIns = await prisma.alunoCheckIn.findMany({
+        where: { idEmpresa: companyId, boInativo: false, dtCadastro: { gte: inicioDoDia } },
+        take: 500,
+        include: {
+          aluno: { select: { id: true, nmAluno: true } },
+          tipoCheckIn: { select: { id: true, dsTipoCheckIn: true } },
+          atividadeAgenda: { select: { id: true, atividade: { select: { dsAtividade: true } } } },
+        },
+        orderBy: { dtCadastro: 'desc' },
+      });
+
+      return {
+        dia: inicioDoDia,
+        total: checkIns.length,
+        // Pessoas distintas: quem entrou, saiu e voltou conta uma vez.
+        alunosDistintos: new Set(checkIns.map((item) => item.idAluno)).size,
+        checkIns,
+      };
+    } catch (error) {
+      return reply.code(400).send({
+        message: clientErrorMessage(error, 'Erro ao carregar o movimento do dia.'),
+      });
+    }
+  });
+
   // Custom theme
   // ---------------------------------------------------------------------------
 
@@ -944,6 +1163,19 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         if (!access.canAccess) {
           throw new Error(access.reason ?? 'Aluno sem acesso liberado para check-in.');
         }
+
+        // Mesmo par check-in + credito da ficha do aluno, na mesma transacao.
+        const created = await prisma.$transaction(async (transaction) => {
+          const checkIn = await transaction.alunoCheckIn.create({ data: data as never });
+          await creditCheckInPoints(transaction, {
+            idAluno: Number(data.idAluno),
+            idEmpresa: companyId,
+            idAlunoCheckIn: checkIn.id,
+            idPontuacaoEscolhida: data.idPontuacao ? Number(data.idPontuacao) : null,
+          });
+          return checkIn;
+        });
+        return reply.code(201).send(created);
       }
       if (request.params.resource === 'purchases') {
         // Fornecedor e da rede (Fornecedor.idCliente): impede referenciar por
@@ -966,6 +1198,20 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
           });
         });
         return reply.code(201).send(created);
+      }
+      if (request.params.resource === 'points' && data.boPadrao === true) {
+        await clearDefaultPointRule(companyId);
+      }
+      if (request.params.resource === 'sales') {
+        return reply.code(201).send(
+          await createSale({
+            companyId,
+            idCliente,
+            data,
+            payload: request.body,
+            include: config.include,
+          }),
+        );
       }
       return reply.code(201).send(await config.delegate.create({ data }));
     } catch (error) {
@@ -997,6 +1243,21 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         return reply.code(400).send({ message: 'Dados invalidos.' });
       }
       const data = config.normalize(companyId, request.body) as Record<string, unknown>;
+
+      // Venda mexeu em tres lugares ao nascer (estoque, cobranca, pontos).
+      // Editar exigiria desfazer e refazer os tres com o dinheiro possivelmente
+      // ja recebido no meio. Cancelar e lancar de novo e a operacao correta —
+      // e a que o cancelamento abaixo ja sabe reverter.
+      if (request.params.resource === 'sales') {
+        throw new Error(
+          'Venda nao pode ser editada. Cancele a venda e registre uma nova.',
+        );
+      }
+
+      if (request.params.resource === 'points' && data.boPadrao === true) {
+        await clearDefaultPointRule(companyId, childId);
+      }
+
       if (request.params.resource === 'purchases') {
         const existing = await prisma.produtoMovimentacao.findUnique({ where: { id: childId } });
         if (!existing) throw new Error('Compra nao encontrada.');
@@ -1060,6 +1321,69 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       const body = statusBodySchema.safeParse(request.body);
       if (!body.success) return reply.code(400).send({ message: 'Dados invalidos.' });
       const nextInativo = toBool(body.data.boInativo);
+
+      // Cancelar a venda desfaz os tres efeitos: produto volta para o estoque,
+      // a cobranca e inativada e os pontos resgatados voltam para o aluno. Sem
+      // isso, cancelar deixaria o aluno sem o produto E sem os pontos.
+      if (request.params.resource === 'sales') {
+        const existing = await prisma.produtoMovimentacao.findUnique({
+          where: { id: childId },
+          include: { alunoPontuacoes: { where: { boInativo: false } } },
+        });
+        if (!existing) throw new Error('Venda nao encontrada.');
+        if (existing.boInativo === nextInativo) {
+          return await config.delegate.update({
+            where: { id: childId },
+            data: { boInativo: nextInativo },
+          });
+        }
+
+        const produto = await prisma.produto.findUnique({
+          where: { id: existing.idProduto },
+          select: { qtEstoque: true, dsProduto: true },
+        });
+        if (!produto) throw new Error('Produto da venda nao encontrado.');
+
+        // Reativar so e possivel se o estoque comportar a saida de novo.
+        if (!nextInativo && produto.qtEstoque < existing.qtMovimentada) {
+          throw new Error(
+            `Estoque insuficiente para reativar: ha ${produto.qtEstoque} unidade(s) de ${produto.dsProduto}.`,
+          );
+        }
+
+        return await prisma.$transaction(async (tx) => {
+          await tx.produto.update({
+            where: { id: existing.idProduto },
+            // Cancelar devolve ao estoque; reativar tira de novo.
+            data: { qtEstoque: { increment: nextInativo ? existing.qtMovimentada : -existing.qtMovimentada } },
+          });
+
+          await tx.pagamento.updateMany({
+            where: { idProdutoMovimentacao: childId },
+            data: { boInativo: nextInativo },
+          });
+
+          // Estorno dos pontos: um lancamento novo de sinal contrario, nunca
+          // apagando o original — o extrato e append-only (ver loyalty.ts).
+          for (const lancamento of existing.alunoPontuacoes) {
+            if (!nextInativo) continue;
+            await registerPointsEntry(tx, {
+              idAluno: existing.idAluno as number,
+              idEmpresa: existing.idEmpresa,
+              idProdutoMovimentacao: childId,
+              qtPontos: -lancamento.qtPontos,
+              dsHistorico: `Estorno de resgate: ${produto.dsProduto}`,
+            });
+          }
+
+          return tx.produtoMovimentacao.update({
+            where: { id: childId },
+            data: { boInativo: nextInativo },
+            include: config.include,
+          });
+        });
+      }
+
       if (request.params.resource === 'purchases') {
         const existing = await prisma.produtoMovimentacao.findUnique({ where: { id: childId } });
         if (!existing) throw new Error('Compra nao encontrada.');

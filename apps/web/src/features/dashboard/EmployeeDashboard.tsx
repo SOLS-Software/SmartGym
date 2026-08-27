@@ -1,13 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Activity, BadgeCheck, CalendarPlus, CreditCard, Dumbbell, UserCheck, Users } from 'lucide-react';
+import { Activity, BadgeCheck, CalendarPlus, ClipboardCheck, CreditCard, Dumbbell, UserCheck, Users } from 'lucide-react';
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 
 type DashboardStats = {
+  activeEnrollments: number | null;
   activeStudents: number;
   inactiveStudents: number;
   catalogPlans: number;
+  /** Nulo quando o painel nao conseguiu o panorama agregado (ver loadStats). */
+  checkInsToday: number | null;
 };
 
 type QuickAction = {
@@ -40,6 +43,33 @@ export function EmployeeDashboard({ employeeName, onNavigate }: EmployeeDashboar
   async function loadStats() {
     try {
       setIsLoading(true);
+
+      // Caminho feliz: /reports/overview traz tudo somado no banco, inclusive
+      // os check-ins de hoje — o dado que fez o card "Check-ins hoje" ser
+      // removido daqui, porque marcava zero todos os dias por nao existir rota
+      // agregada nenhuma.
+      const overviewRes = await fetch(`${apiUrl}/reports/overview`);
+      if (overviewRes.ok) {
+        const overview = (await overviewRes.json()) as {
+          alunos: { ativos: number; inativos: number };
+          matriculas: { vigentes: number };
+          planosNoCatalogo: number;
+          checkIns: { hoje: number };
+        };
+        setStats({
+          activeEnrollments: overview.matriculas.vigentes,
+          activeStudents: overview.alunos.ativos,
+          inactiveStudents: overview.alunos.inativos,
+          catalogPlans: overview.planosNoCatalogo,
+          checkInsToday: overview.checkIns.hoje,
+        });
+        return;
+      }
+
+      // O panorama exige `reports.read`. Um perfil de recepcao pode nao ter —
+      // e o painel de entrada nao pode ficar vazio por causa disso. Aqui ele
+      // volta a contar o que qualquer perfil ja enxerga, sem os numeros que
+      // dependem da agregacao.
       const [studentsRes, plansRes] = await Promise.all([
         fetch(`${apiUrl}/students`),
         fetch(`${apiUrl}/plans`),
@@ -50,12 +80,20 @@ export function EmployeeDashboard({ employeeName, onNavigate }: EmployeeDashboar
 
       const active = students.filter((s) => s.boInativo === false).length;
       setStats({
+        activeEnrollments: null,
         activeStudents: active,
         inactiveStudents: students.length - active,
         catalogPlans: plans.filter((p) => p.boInativo === false).length,
+        checkInsToday: null,
       });
     } catch {
-      setStats({ activeStudents: 0, inactiveStudents: 0, catalogPlans: 0 });
+      setStats({
+        activeEnrollments: null,
+        activeStudents: 0,
+        inactiveStudents: 0,
+        catalogPlans: 0,
+        checkInsToday: null,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -99,9 +137,7 @@ export function EmployeeDashboard({ employeeName, onNavigate }: EmployeeDashboar
           {/* Era "Planos ativos", contando /plans — o catalogo da academia, nao
               as matriculas. Com 7 alunos o painel dizia "9 planos ativos" e
               contradizia o Relatorio ("Matriculas ativas: 6") a um clique dali.
-              O numero esta certo, o rotulo e que mentia. Nao virou contagem de
-              matriculas porque nao existe rota agregada — o Relatorio precisa
-              buscar aluno a aluno, caro demais para a tela de entrada. */}
+              O numero esta certo, o rotulo e que mentia. */}
           <StatCard
             icon={CreditCard}
             label={stats?.catalogPlans === 1 ? 'Plano no catálogo' : 'Planos no catálogo'}
@@ -109,11 +145,31 @@ export function EmployeeDashboard({ employeeName, onNavigate }: EmployeeDashboar
             onClick={() => onNavigate('Planos')}
             value={stats?.catalogPlans}
           />
-          {/* O card "Check-ins hoje" foi removido: `todayCheckIns` era fixado em
-              0 no loadStats() (nao existe endpoint agregado de check-ins), entao
-              o painel afirmava todo dia que ninguem treinou. Um KPI errado e
-              pior que KPI nenhum — o gestor toma decisao em cima dele. Volta
-              assim que a API expuser GET /check-ins?date=. */}
+          {/* A contagem de MATRICULAS vigentes que faltava aqui: nao existia
+              rota agregada e buscar aluno a aluno era caro demais para a tela de
+              entrada. Agora sai do /reports/overview. Some para quem nao tem
+              permissao de relatorio, em vez de mostrar um numero pela metade. */}
+          {stats?.activeEnrollments !== null && stats?.activeEnrollments !== undefined ? (
+            <StatCard
+              icon={ClipboardCheck}
+              label={stats.activeEnrollments === 1 ? 'Matrícula ativa' : 'Matrículas ativas'}
+              loading={isLoading}
+              onClick={() => onNavigate('Matrículas')}
+              value={stats.activeEnrollments}
+            />
+          ) : null}
+          {/* O card voltou. Antes `todayCheckIns` era fixado em 0 no loadStats()
+              — nao existia endpoint agregado de check-in — e o painel afirmava
+              todo dia que ninguem treinou. Um KPI errado e pior que KPI nenhum,
+              entao ele so aparece quando ha numero de verdade por tras. */}
+          {stats?.checkInsToday !== null && stats?.checkInsToday !== undefined ? (
+            <StatCard
+              icon={Activity}
+              label={stats.checkInsToday === 1 ? 'Check-in hoje' : 'Check-ins hoje'}
+              loading={isLoading}
+              value={stats.checkInsToday}
+            />
+          ) : null}
         </section>
 
         <section className="dashboard-quick-actions" aria-label="Ações rápidas">

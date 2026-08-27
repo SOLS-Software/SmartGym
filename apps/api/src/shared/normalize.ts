@@ -207,10 +207,23 @@ export function normalizeProductPayload(payload: ProductPayload) {
   if (dsProduto.length > 255) {
     throw new Error('O nome do produto deve ter no maximo 255 caracteres.');
   }
+  const vlVenda = optionalNumber(payload.vlVenda);
+  if (vlVenda !== null && vlVenda < 0) {
+    throw new Error('O preco de venda nao pode ser negativo.');
+  }
+
+  const qtPontosResgate = optionalNumber(payload.qtPontosResgate);
+  if (qtPontosResgate !== null && qtPontosResgate <= 0) {
+    throw new Error('O preco em pontos deve ser maior que zero.');
+  }
+
   return {
     idEmpresa: payload.idEmpresa ?? null,
     dsProduto,
     qtEstoque: Number(payload.qtEstoque ?? 0),
+    vlVenda,
+    // Nulo = produto nao resgatavel por pontos.
+    qtPontosResgate,
     boInativo: toBool(payload.boInativo),
   };
 }
@@ -425,6 +438,10 @@ export function normalizeEmployeePayload(payload: EmployeePayload) {
   return {
     idEmpresa: optionalNumber(payload.idEmpresa),
     idCargo: optionalNumber(payload.idCargo),
+    // Perfil de ACESSO (permissoes), distinto de idCargo (cargo de RH). Nulo e
+    // aceito: funcionario sem perfil existe no cadastro e nao alcanca nada
+    // alem da propria sessao — deny-by-default do RBAC.
+    idPerfilAcesso: optionalNumber(payload.idPerfilAcesso),
     nmFuncionario,
     caCPF,
     dtNascimento,

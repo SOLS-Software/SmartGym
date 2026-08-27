@@ -16,12 +16,10 @@ import {
   addComprefaceSubjectExample,
 } from '../../shared/compreface.js';
 import { assertAllowedUploadType, assertUploadBuffer, getStudentFilePath } from '../../shared/files.js';
-import {
-  generateInitialPayments,
-  generateNextRecurringPayment,
-  isRecurringFrequency,
-} from '../../shared/payments.js';
+import { generateNextRecurringPayment } from '../../shared/payments.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
+import { syncStudentNotifications } from '../../shared/notifications.js';
+import { creditCheckInPoints, getPointsBalance, registerPointsEntry } from '../../shared/loyalty.js';
 import {
   cpfHash,
   decryptCpfValue,
@@ -37,13 +35,32 @@ import type {
   StudentPayload,
 } from '../../shared/api-types.js';
 import { clientErrorMessage } from '../../shared/errors.js';
+import { buildChargeForPayment } from '../../shared/pixCharge.js';
+import { getStatusIdByName } from '../../shared/payments.js';
+import { enrollStudentInPlan } from '../../shared/enrollment.js';
+
+// Extrato de pontos e append-only: cada linha guarda o saldo que existia
+// depois dela, entao alterar ou apagar uma linha antiga tornaria mentira o
+// saldo de todas as seguintes. Correcao se faz com um lancamento de sinal
+// contrario — o mesmo que qualquer livro-caixa faz.
+// Execucao nao tem PUT proprio: o POST ja e upsert por (sessao, exercicio),
+// entao corrigir a carga e reenviar o mesmo POST. Duas portas para a mesma
+// escrita so criariam divergencia de validacao entre elas.
+const EXECUCAO_VIA_POST =
+  'Para corrigir uma execucao, envie o registro de novo pela mesma rota de criacao.';
+
+const EXTRATO_IMUTAVEL =
+  'Lancamento de pontos nao pode ser alterado. Faca um lancamento de correcao com o sinal contrario.';
 
 function getStudentChildResourceConfig(resource: string) {
   if (
     resource !== 'plans' &&
     resource !== 'payments' &&
     resource !== 'check-ins' &&
-    resource !== 'trainings'
+    resource !== 'trainings' &&
+    resource !== 'evolutions' &&
+    resource !== 'points' &&
+    resource !== 'executions'
   ) {
     throw new Error('Tabela relacionada invalida.');
   }
@@ -65,6 +82,10 @@ const listLimitQuerySchema = z.object({
   limit: z.coerce.number().int().optional(),
 });
 
+const executionQuerySchema = listLimitQuerySchema.extend({
+  idAlunoCheckIn: z.coerce.number().int().optional(),
+});
+
 const calendarQuerySchema = z.object({
   month: z
     .string()
@@ -72,7 +93,13 @@ const calendarQuerySchema = z.object({
     .optional(),
 });
 
-const statusBodySchema = z.object({ boInativo: boolLike });
+const statusBodySchema = z.object({
+  boInativo: boolLike,
+  // Cancelamento de plano: por que o aluno saiu. Opcional para nao travar
+  // fluxos antigos, mas a tela pergunta.
+  idMotivoCancelamento: numberLike,
+  dsMotivoCancelamento: z.string().max(255).nullish(),
+});
 
 const facialBiometricEnrollBodySchema = z.object({
   idAlunoArquivo: numberLike,
@@ -101,6 +128,30 @@ const childResourceBodySchema = z.object({
   idAlunoTreinosSequencia: numberLike,
   idPontuacao: numberLike,
   idTipoCheckIn: numberLike,
+  // Avaliacao fisica (resource 'evolutions').
+  idAlunoArquivo: numberLike,
+  dtAvaliacao: dateLike,
+  vlAltura: numberLike,
+  vlPeso: numberLike,
+  vlPercentualGordura: numberLike,
+  vlMassaMagra: numberLike,
+  vlCircPeitoral: numberLike,
+  vlCircCintura: numberLike,
+  vlCircQuadril: numberLike,
+  vlCircBraco: numberLike,
+  vlCircCoxa: numberLike,
+  dsObservacao: z.string().max(1000).nullish(),
+  // Lancamento manual de pontos (resource 'points').
+  qtPontos: numberLike,
+  dsHistorico: z.string().max(255).nullish(),
+  // Execucao do treino (resource 'executions').
+  idAlunoCheckIn: numberLike,
+  idTreinoExercicio: numberLike,
+  nrSeriesFeitas: numberLike,
+  nrRepeticoes: numberLike,
+  vlCarga: numberLike,
+  idUnidadeMedida: numberLike,
+  boConcluido: boolLike,
   boInativo: boolLike,
 });
 
@@ -246,7 +297,13 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      return withDecryptedCpf(student);
+      // "Esse aluno pode treinar hoje?" acompanha a ficha: e a pergunta que a
+      // recepcao faz antes de qualquer outra, e vem da MESMA funcao que a
+      // catraca usa — a tela nunca discorda da porta.
+      return {
+        ...withDecryptedCpf(student),
+        studentAccess: await getStudentAccessStatus(prisma, id),
+      };
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao carregar aluno.'),
@@ -809,6 +866,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         where: { idAluno },
         take: clampLimit(parsedQuery.data.limit),
         include: {
+          motivoCancelamento: { select: { id: true, dsMotivoCancelamento: true } },
           plano: {
             include: {
               frequencia: true,
@@ -878,6 +936,113 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     }
   });
 
+  // Codigo de pagamento de UMA parcela.
+  //
+  // E POST porque, em conta de gateway, gerar o codigo CRIA uma cobranca no
+  // provedor — escrita, nao leitura. A conta Pix propria nao grava nada, mas o
+  // verbo segue o caso mais forte: um GET que as vezes escreve e a pior das
+  // duas coisas.
+  //
+  // Fica sob /students/:id/ de proposito: assim o RBAC ja resolve os dois
+  // papeis sem regra nova — o aluno alcanca o proprio caminho, e o funcionario
+  // cai na regra de `payments` que ja existe para /related/payments.
+  //
+  // SOBRE A CHAVE PIX APARECER NO CODIGO: e o proposito dela — chave Pix existe
+  // para ser entregue a quem vai pagar. A mascara do cadastro protege contra
+  // leitura casual e enumeracao; isto e uma entrega deliberada, por cobranca, a
+  // quem ja tem a cobranca.
+  app.post<{
+    Params: { id: string; paymentId: string };
+  }>('/students/:id/related/payments/:paymentId/charge', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+
+    try {
+      const idAluno = Number(request.params.id);
+      const idPagamento = Number(request.params.paymentId);
+      assertValidId(idAluno, 'Aluno invalido.');
+      assertValidId(idPagamento, 'Pagamento invalido.');
+
+      const aluno = await prisma.aluno.findFirst({
+        where: { id: idAluno, idCliente },
+        select: { id: true, nmAluno: true, caCPF: true, anEmail: true, nrDDD: true, nrContato: true },
+      });
+      if (!aluno) return reply.code(404).send({ message: 'Registro nao encontrado.' });
+
+      // A parcela tem que ser DESTE aluno — mensalidade ou compra no balcao.
+      const pagamento = await prisma.pagamento.findFirst({
+        where: {
+          id: idPagamento,
+          boInativo: false,
+          OR: [{ alunoPlano: { idAluno } }, { produtoMovimentacao: { idAluno } }],
+        },
+        select: {
+          id: true,
+          idEmpresa: true,
+          idStatusPagamento: true,
+          idContaRecebimento: true,
+          caTransacaoExterna: true,
+          vlPrevisto: true,
+          dtVencimento: true,
+        },
+      });
+      if (!pagamento) return reply.code(404).send({ message: 'Cobranca nao encontrada.' });
+
+      // Parcela quitada nao gera codigo. Sem esta trava, o aluno abriria a
+      // tela, veria um Pix valido e pagaria de novo — e o estorno de Pix
+      // depende de boa vontade de quem recebeu.
+      const idPago = await getStatusIdByName(prisma, 'Pago');
+      if (idPago !== null && pagamento.idStatusPagamento === idPago) {
+        return reply.code(409).send({ message: 'Esta cobranca ja esta paga.' });
+      }
+
+      // Conta a usar: a que ja estiver amarrada a cobranca; senao a padrao da
+      // filial; senao a padrao da rede. Nesta ordem porque o especifico manda
+      // sobre o geral.
+      const conta =
+        (pagamento.idContaRecebimento
+          ? await prisma.contaRecebimento.findFirst({
+              where: { id: pagamento.idContaRecebimento, idCliente, boInativo: false },
+            })
+          : null) ??
+        (await prisma.contaRecebimento.findFirst({
+          where: {
+            idCliente,
+            boInativo: false,
+            boPadrao: true,
+            OR: [{ idEmpresa: pagamento.idEmpresa }, { idEmpresa: null }],
+          },
+          // Filial antes da rede: `nulls: 'last'` inverte o padrao do Postgres,
+          // que traria a conta geral primeiro.
+          orderBy: { idEmpresa: { sort: 'desc', nulls: 'last' } },
+        }));
+
+      if (!conta) {
+        return reply.code(400).send({
+          message:
+            'Nenhuma conta de recebimento configurada para esta cobranca. Cadastre em Contas de Recebimento.',
+        });
+      }
+
+      const cobranca = await buildChargeForPayment(prisma, conta, pagamento, aluno);
+      if (!cobranca.codigo) {
+        return reply.code(502).send({
+          message: 'O provedor nao devolveu o codigo de pagamento. Tente novamente.',
+        });
+      }
+      return cobranca;
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(400).send({
+        message: clientErrorMessage(error, 'Erro ao gerar a cobranca.'),
+      });
+    }
+  });
+
+  // Avisos do aluno. A geracao e a deduplicacao moram em shared/notifications.ts
+  // — aqui so sincronizamos e devolvemos o que esta valendo, ja com o estado de
+  // leitura. Sincronizar na leitura mantem a tela correta mesmo se o despacho
+  // por email ainda nao rodou hoje.
   app.get<{
     Params: { id: string };
   }>('/students/:id/notifications', async (request, reply) => {
@@ -892,107 +1057,60 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const notifications: { type: 'danger' | 'warning' | 'info'; title: string; message: string }[] = [];
+      const stored = await syncStudentNotifications(prisma, idAluno);
 
-      const access = await getStudentAccessStatus(prisma, idAluno);
-
-      if (access.paymentOverdue) {
-        notifications.push({
-          type: 'danger',
-          title: 'Pagamento em atraso',
-          message: 'Você possui um pagamento vencido. Regularize para manter seu acesso.',
-        });
-      }
-
-      if (access.paymentCancelled) {
-        notifications.push({
-          type: 'danger',
-          title: 'Pagamento cancelado',
-          message: 'O pagamento do seu plano foi cancelado. Entre em contato com a academia.',
-        });
-      }
-
-      if (!access.hasPlan) {
-        notifications.push({
-          type: 'warning',
-          title: 'Sem plano ativo',
-          message: 'Você ainda não possui um plano. Consulte os planos disponíveis.',
-        });
-      } else if (!access.planActive) {
-        notifications.push({
-          type: 'warning',
-          title: 'Plano encerrado',
-          message: 'Seu plano expirou. Renove para continuar treinando.',
-        });
-      }
-
-      if (access.hasPlan && access.idAlunoPlano) {
-        const now = new Date();
-        const inSevenDays = new Date(now);
-        inSevenDays.setDate(inSevenDays.getDate() + 7);
-
-        const { getStatusIdByName } = await import('../../shared/payments.js');
-        const idPendente = await getStatusIdByName(prisma, 'Pendente');
-
-        if (idPendente !== null) {
-          const upcoming = await prisma.pagamento.findFirst({
-            where: {
-              idAlunoPlano: access.idAlunoPlano,
-              boInativo: false,
-              idStatusPagamento: idPendente,
-              dtVencimento: { gte: now, lte: inSevenDays },
-            },
-            orderBy: { dtVencimento: 'asc' },
-          });
-
-          if (upcoming?.dtVencimento) {
-            const diffDays = Math.ceil(
-              (upcoming.dtVencimento.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-            );
-            notifications.push({
-              type: 'warning',
-              title: 'Pagamento próximo',
-              message:
-                diffDays <= 1
-                  ? 'Seu pagamento vence amanhã.'
-                  : `Seu próximo pagamento vence em ${diffDays} dias.`,
-            });
-          }
-        }
-      }
-
-      const lastCheckIn = await prisma.alunoCheckIn.findFirst({
-        where: { alunoPlano: { idAluno, boInativo: false } },
-        orderBy: { dtCadastro: 'desc' },
-        select: { dtCadastro: true },
-      });
-
-      if (lastCheckIn) {
-        const daysSince = Math.floor(
-          (Date.now() - new Date(lastCheckIn.dtCadastro).getTime()) / (1000 * 60 * 60 * 24),
-        );
-        if (daysSince >= 7) {
-          notifications.push({
-            type: 'info',
-            title: 'Sentimos sua falta!',
-            message:
-              daysSince >= 14
-                ? `Faz ${daysSince} dias desde seu último treino. Que tal voltar hoje?`
-                : `Faz ${daysSince} dias desde seu último treino. Bora manter o ritmo!`,
-          });
-        }
-      } else if (access.hasPlan) {
-        notifications.push({
-          type: 'info',
-          title: 'Primeiro treino',
-          message: 'Você ainda não fez nenhum check-in. Comece hoje!',
-        });
-      }
-
-      return notifications;
+      // Formato compativel com quem ja consumia esta rota (type/title/message),
+      // acrescido de id e leitura — assim o painel do aluno nao quebra.
+      return stored.map((item) => ({
+        id: item.id,
+        type: item.cnSeveridade as 'danger' | 'warning' | 'info',
+        title: item.dsTitulo,
+        message: item.dsMensagem,
+        cnTipo: item.cnTipo,
+        dtLeitura: item.dtLeitura,
+        dtCadastro: item.dtCadastro,
+      }));
     } catch (error) {
       return reply.code(400).send({
-        message: clientErrorMessage(error, 'Erro ao buscar notificações.'),
+        message: clientErrorMessage(error, 'Erro ao carregar avisos.'),
+      });
+    }
+  });
+
+  // Marcar um aviso como lido. O aluno faz isso na propria tela; o RBAC dele
+  // libera exatamente esta rota.
+  app.post<{
+    Params: { id: string; notificationId: string };
+  }>('/students/:id/notifications/:notificationId/read', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    try {
+      const idAluno = Number(request.params.id);
+      const idNotificacao = Number(request.params.notificationId);
+      assertValidId(idAluno, 'Aluno invalido.');
+      assertValidId(idNotificacao, 'Aviso invalido.');
+
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) return reply.code(404).send({ message: 'Registro nao encontrado.' });
+
+      // A posse vem do proprio filtro: aviso de outro aluno nao e encontrado.
+      const aviso = await prisma.notificacao.findFirst({
+        where: { id: idNotificacao, idAluno },
+        select: { id: true, dtLeitura: true },
+      });
+      if (!aviso) return reply.code(404).send({ message: 'Aviso nao encontrado.' });
+
+      // Ja lido continua com a data original: reler nao reescreve quando foi a
+      // primeira vez.
+      if (aviso.dtLeitura) return aviso;
+
+      return prisma.notificacao.update({
+        where: { id: idNotificacao },
+        data: { dtLeitura: new Date() },
+      });
+    } catch (error) {
+      return reply.code(400).send({
+        message: clientErrorMessage(error, 'Erro ao marcar o aviso como lido.'),
       });
     }
   });
@@ -1280,6 +1398,233 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     }
   });
 
+  // Monta e valida os dados de uma avaliacao fisica. Usado no create e no
+  // update para as duas rotas conferirem exatamente as mesmas posses — o
+  // profissional e a foto precisam ser DESTE cliente e DESTE aluno.
+  async function buildEvolutionData(
+    body: CompanyChildPayload,
+    idAluno: number,
+    idCliente: number,
+  ) {
+    const idFuncionario = optionalNumber(body.idFuncionario);
+    if (idFuncionario) {
+      const employee = await prisma.funcionario.findFirst({
+        where: { id: idFuncionario, empresa: { idCliente } },
+        select: { id: true },
+      });
+      if (!employee) throw new Error('Profissional invalido.');
+    }
+
+    const idAlunoArquivo = optionalNumber(body.idAlunoArquivo);
+    if (idAlunoArquivo) {
+      // A foto tem que ser um arquivo DO PROPRIO ALUNO: sem esta conferencia,
+      // apontar a avaliacao para o arquivo de outro aluno exibiria a foto dele
+      // na tela de evolucao deste.
+      const file = await prisma.alunoArquivo.findFirst({
+        where: { id: idAlunoArquivo, idAluno },
+        select: { id: true },
+      });
+      if (!file) throw new Error('Foto invalida para este aluno.');
+    }
+
+    const observacao = typeof body.dsObservacao === 'string' ? body.dsObservacao.trim() : '';
+
+    return {
+      idFuncionario,
+      idAlunoArquivo,
+      // Sem data informada vale hoje: a serie temporal ordena por esta coluna e
+      // uma medicao sem data ficaria fora do grafico.
+      dtAvaliacao: optionalDate(body.dtAvaliacao) ?? new Date(),
+      vlAltura: optionalNumber(body.vlAltura),
+      vlPeso: optionalNumber(body.vlPeso),
+      vlPercentualGordura: optionalNumber(body.vlPercentualGordura),
+      vlMassaMagra: optionalNumber(body.vlMassaMagra),
+      vlCircPeitoral: optionalNumber(body.vlCircPeitoral),
+      vlCircCintura: optionalNumber(body.vlCircCintura),
+      vlCircQuadril: optionalNumber(body.vlCircQuadril),
+      vlCircBraco: optionalNumber(body.vlCircBraco),
+      vlCircCoxa: optionalNumber(body.vlCircCoxa),
+      dsObservacao: observacao || null,
+      boInativo: toBool(body.boInativo),
+    };
+  }
+
+  // O que o aluno de fato executou. Aceita ?idAlunoCheckIn= para a tela do
+  // treino em andamento pedir so a sessao aberta; sem o filtro devolve o
+  // historico, que e o que o professor le na ficha.
+  app.get<{
+    Params: { id: string };
+    Querystring: { limit?: string; idAlunoCheckIn?: string };
+  }>('/students/:id/related/executions', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    try {
+      const idAluno = Number(request.params.id);
+      assertValidId(idAluno, 'Aluno invalido.');
+      const parsedQuery = executionQuerySchema.safeParse(request.query);
+      if (!parsedQuery.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+
+      const idAlunoCheckIn = parsedQuery.data.idAlunoCheckIn;
+
+      return prisma.treinoExecucao.findMany({
+        where: {
+          boInativo: false,
+          // A posse vem pelo check-in: so sessoes DESTE aluno entram, mesmo se
+          // alguem passar um idAlunoCheckIn de outra pessoa.
+          alunoCheckIn: { idAluno, ...(idAlunoCheckIn ? { id: idAlunoCheckIn } : {}) },
+        },
+        take: clampLimit(parsedQuery.data.limit),
+        include: {
+          unidadeMedida: true,
+          alunoCheckIn: { select: { id: true, dtCadastro: true } },
+          treinoExercicio: {
+            select: {
+              id: true,
+              nrOrdem: true,
+              nrSeries: true,
+              nrRepeticoes: true,
+              qtPeso: true,
+              exercicio: { select: { id: true, dsExercicio: true } },
+            },
+          },
+        },
+        orderBy: [{ dtCadastro: 'desc' }],
+      });
+    } catch (error) {
+      return reply.code(400).send({
+        message: clientErrorMessage(error, 'Erro ao listar execucoes do treino.'),
+      });
+    }
+  });
+
+  // Motivo do cancelamento, validado contra a lookup. Reativacao limpa os dois
+  // campos, entao o helper devolve nulos nesse caso.
+  async function resolveCancellationReason(
+    body: { idMotivoCancelamento?: unknown; dsMotivoCancelamento?: unknown },
+    cancelando: boolean,
+  ) {
+    if (!cancelando) return { idMotivoCancelamento: null, dsMotivoCancelamento: null };
+
+    const idMotivoCancelamento = optionalNumber(body.idMotivoCancelamento);
+    if (idMotivoCancelamento) {
+      const motivo = await prisma.motivoCancelamento.findUnique({
+        where: { id: idMotivoCancelamento },
+        select: { id: true },
+      });
+      if (!motivo) throw new Error('Motivo de cancelamento invalido.');
+    }
+
+    const dsMotivoCancelamento =
+      typeof body.dsMotivoCancelamento === 'string' ? body.dsMotivoCancelamento.trim() : '';
+
+    return {
+      idMotivoCancelamento,
+      dsMotivoCancelamento: dsMotivoCancelamento || null,
+    };
+  }
+
+  // Extrato de fidelidade do aluno: saldo por filial + lancamentos.
+  //
+  // Devolve objeto (e nao array como os irmaos) porque saldo e extrato sao
+  // duas leituras diferentes da mesma coisa e a tela precisa das duas. O saldo
+  // e por EMPRESA — ver o racional em shared/loyalty.ts.
+  app.get<{
+    Params: { id: string };
+  }>('/students/:id/related/points', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    try {
+      const idAluno = Number(request.params.id);
+      assertValidId(idAluno, 'Aluno invalido.');
+      const parsedQuery = listLimitQuerySchema.safeParse(request.query);
+      if (!parsedQuery.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+
+      const lancamentos = await prisma.alunoPontuacao.findMany({
+        where: { idAluno, boInativo: false },
+        take: clampLimit(parsedQuery.data.limit),
+        include: {
+          empresa: { select: { id: true, dsEmpresa: true } },
+          pontuacao: { select: { id: true, dsPontuacao: true } },
+          produtoMovimentacao: {
+            select: { id: true, produto: { select: { id: true, dsProduto: true } } },
+          },
+          alunoCheckIn: { select: { id: true, dtCadastro: true } },
+        },
+        orderBy: [{ dtCadastro: 'desc' }, { id: 'desc' }],
+      });
+
+      // Saldo = qtDisponivel do lancamento mais recente de cada filial. Como a
+      // lista ja vem da mais nova para a mais antiga, o primeiro que aparecer
+      // de cada empresa e o saldo dela.
+      const saldos: Array<{ idEmpresa: number; dsEmpresa: string; qtDisponivel: number }> = [];
+      const vistos = new Set<number>();
+      for (const lancamento of lancamentos) {
+        if (vistos.has(lancamento.idEmpresa)) continue;
+        vistos.add(lancamento.idEmpresa);
+        saldos.push({
+          idEmpresa: lancamento.idEmpresa,
+          dsEmpresa: lancamento.empresa?.dsEmpresa ?? '',
+          qtDisponivel: lancamento.qtDisponivel,
+        });
+      }
+
+      return { saldos, lancamentos };
+    } catch (error) {
+      return reply.code(400).send({
+        message: clientErrorMessage(error, 'Erro ao listar pontos do aluno.'),
+      });
+    }
+  });
+
+  // Avaliacoes fisicas do aluno, da mais recente para a mais antiga. E a fonte
+  // tanto da aba do professor quanto da tela de evolucao do aluno — o RBAC do
+  // aluno ja libera GET sob o proprio /students/:id.
+  app.get<{
+    Params: { id: string };
+  }>('/students/:id/related/evolutions', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    try {
+      const idAluno = Number(request.params.id);
+      assertValidId(idAluno, 'Aluno invalido.');
+      const parsedQuery = listLimitQuerySchema.safeParse(request.query);
+      if (!parsedQuery.success) {
+        return reply.code(400).send({ message: 'Parametros invalidos.' });
+      }
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+      return prisma.alunoEvolucao.findMany({
+        where: { idAluno },
+        take: clampLimit(parsedQuery.data.limit),
+        include: {
+          funcionario: { select: { id: true, nmFuncionario: true } },
+          alunoArquivo: { select: { id: true, dsArquivo: true, anCaminho: true } },
+        },
+        // dtAvaliacao e a data da MEDICAO; dtCadastro desempata lancamentos
+        // feitos no mesmo dia.
+        orderBy: [{ dtAvaliacao: 'desc' }, { dtCadastro: 'desc' }],
+      });
+    } catch (error) {
+      return reply.code(400).send({
+        message: clientErrorMessage(error, 'Erro ao listar avaliacoes do aluno.'),
+      });
+    }
+  });
+
   app.get<{
     Params: { id: string };
   }>('/students/:id/related/trainings', async (request, reply) => {
@@ -1338,73 +1683,23 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         const idPlano = optionalNumber(request.body.idPlano);
         if (!idPlano) throw new Error('Selecione o plano.');
 
-        const plano = await prisma.plano.findUnique({
-          where: { id: idPlano },
-          include: {
-            frequencia: true,
-            planoValores: { where: { boInativo: false }, orderBy: { dtCadastro: 'desc' } },
-          },
-        });
-        if (!plano) throw new Error('Plano invalido.');
-
-        const nrDiaPagamento = Number(request.body.nrDiaPagamento ?? 1);
-        const admissao = optionalDate(request.body.dtAdmissao) ?? new Date();
-        const requestedEmpresa = optionalNumber(request.body.idEmpresa);
-        const idEmpresa =
-          requestedEmpresa ??
-          plano.planoValores.find((value) => value.idEmpresa)?.idEmpresa ??
-          null;
-        if (!idEmpresa) throw new Error('Informe a empresa para gerar os pagamentos.');
-        await assertTenantEmpresa(idEmpresa, idCliente);
-
-        const empresaValue =
-          plano.planoValores.find((value) => value.idEmpresa === idEmpresa) ??
-          plano.planoValores[0] ??
-          null;
-        const vlParcela = Number(empresaValue?.vlVenda ?? 0);
-
-        const recurring = isRecurringFrequency(plano.frequencia);
-        const qtParcelas = recurring ? 1 : Math.max(1, optionalNumber(request.body.qtParcelas) ?? 1);
-
-        const idPromocaoPlano = optionalNumber(request.body.idPromocaoPlano);
-        const promocaoPlano = idPromocaoPlano
-          ? await prisma.promocaoPlano.findFirst({
-              where: {
-                id: idPromocaoPlano,
-                OR: [{ idEmpresa: null }, { empresa: { idCliente } }],
-              },
-              include: { promocao: true },
-            })
-          : null;
-        if (idPromocaoPlano && !promocaoPlano) throw new Error('Promocao invalida para este cliente.');
-
-        const record = await prisma.$transaction(async (transaction) => {
-          const created = await transaction.alunoPlano.create({
-            data: {
-              idAluno,
-              idPlano,
-              idPromocaoPlano,
-              nrDiaPagamento,
-              qtParcelas,
-              dtAdmissao: admissao,
-              boInativo: toBool(request.body.boInativo),
-            },
-          });
-
-          await generateInitialPayments({
-            db: transaction,
-            idAlunoPlano: created.id,
-            idEmpresa,
-            nrDiaPagamento,
-            qtParcelas,
-            vlParcela,
-            admissao,
-            freq: plano.frequencia,
-            promo: promocaoPlano?.promocao ?? null,
-          });
-
-          return created;
-        });
+        // A matricula em si mora em shared/enrollment.ts: a mesma rotina serve
+        // a ficha, a aprovacao de renovacao e a de troca de plano. Duplicar as
+        // regras de valor, empresa e promocao aqui faria as tres divergirem.
+        const record = await prisma.$transaction((transaction) =>
+          enrollStudentInPlan({
+            transaction,
+            idCliente,
+            idAluno,
+            idPlano,
+            idEmpresa: optionalNumber(request.body.idEmpresa),
+            nrDiaPagamento: Number(request.body.nrDiaPagamento ?? 1),
+            qtParcelas: optionalNumber(request.body.qtParcelas),
+            idPromocaoPlano: optionalNumber(request.body.idPromocaoPlano),
+            dtAdmissao: optionalDate(request.body.dtAdmissao),
+            boInativo: toBool(request.body.boInativo),
+          }),
+        );
 
         return reply.code(201).send(record);
       }
@@ -1457,6 +1752,104 @@ export async function registerStudentRoutes(app: FastifyInstance) {
           });
         });
 
+        return reply.code(201).send(record);
+      }
+
+      if (resource === 'executions') {
+        const idAlunoCheckIn = optionalNumber(request.body.idAlunoCheckIn);
+        const idTreinoExercicio = optionalNumber(request.body.idTreinoExercicio);
+        if (!idAlunoCheckIn) throw new Error('Informe a sessao de treino.');
+        if (!idTreinoExercicio) throw new Error('Informe o exercicio.');
+
+        // A sessao tem que ser DESTE aluno.
+        const sessao = await prisma.alunoCheckIn.findFirst({
+          where: { id: idAlunoCheckIn, idAluno },
+          select: { id: true },
+        });
+        if (!sessao) throw new Error('Sessao de treino invalida.');
+
+        // E o exercicio tem que pertencer a um treino visivel para o cliente.
+        const exercicio = await prisma.treinoExercicio.findFirst({
+          where: {
+            id: idTreinoExercicio,
+            OR: [
+              { empresa: { idCliente } },
+              { idEmpresa: null },
+            ],
+          },
+          select: { id: true },
+        });
+        if (!exercicio) throw new Error('Exercicio invalido.');
+
+        const dados = {
+          nrSeriesFeitas: optionalNumber(request.body.nrSeriesFeitas) ?? 0,
+          nrRepeticoes: optionalNumber(request.body.nrRepeticoes) ?? 0,
+          vlCarga: optionalNumber(request.body.vlCarga),
+          idUnidadeMedida: optionalNumber(request.body.idUnidadeMedida),
+          boConcluido: toBool(request.body.boConcluido),
+          dsObservacao:
+            typeof request.body.dsObservacao === 'string'
+              ? request.body.dsObservacao.trim() || null
+              : null,
+          boInativo: toBool(request.body.boInativo),
+        };
+
+        // Upsert e nao create: marcar a mesma serie de novo (dois toques no
+        // botao, ou o aluno corrigindo a carga) atualiza a linha em vez de
+        // empilhar duplicata. O unique no banco garante a mesma regra.
+        const record = await prisma.treinoExecucao.upsert({
+          where: {
+            idAlunoCheckIn_idTreinoExercicio: { idAlunoCheckIn, idTreinoExercicio },
+          },
+          create: { idAlunoCheckIn, idTreinoExercicio, ...dados },
+          update: dados,
+          include: {
+            unidadeMedida: true,
+            treinoExercicio: {
+              select: { id: true, exercicio: { select: { id: true, dsExercicio: true } } },
+            },
+          },
+        });
+        return reply.code(201).send(record);
+      }
+
+      if (resource === 'points') {
+        const qtPontos = optionalNumber(request.body.qtPontos);
+        if (!qtPontos) throw new Error('Informe a quantidade de pontos (use negativo para resgatar).');
+
+        const idEmpresaPontos = optionalNumber(request.body.idEmpresa);
+        if (!idEmpresaPontos) throw new Error('Informe a empresa do lancamento.');
+        await assertTenantEmpresa(idEmpresaPontos, idCliente);
+
+        const idPontuacaoLancamento = optionalNumber(request.body.idPontuacao);
+        if (idPontuacaoLancamento) {
+          const rule = await prisma.pontuacao.findFirst({
+            where: { id: idPontuacaoLancamento, idEmpresa: idEmpresaPontos },
+            select: { id: true },
+          });
+          if (!rule) throw new Error('Pontuacao invalida para esta empresa.');
+        }
+
+        const record = await registerPointsEntry(prisma, {
+          idAluno,
+          idEmpresa: idEmpresaPontos,
+          idPontuacao: idPontuacaoLancamento,
+          qtPontos,
+          dsHistorico:
+            typeof request.body.dsHistorico === 'string' ? request.body.dsHistorico : null,
+        });
+        return reply.code(201).send(record);
+      }
+
+      if (resource === 'evolutions') {
+        const data = await buildEvolutionData(request.body, idAluno, idCliente);
+        const record = await prisma.alunoEvolucao.create({
+          data: { idAluno, ...data },
+          include: {
+            funcionario: { select: { id: true, nmFuncionario: true } },
+            alunoArquivo: { select: { id: true, dsArquivo: true, anCaminho: true } },
+          },
+        });
         return reply.code(201).send(record);
       }
 
@@ -1555,29 +1948,46 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         if (!pontuacao) throw new Error('Pontuacao invalida para este cliente.');
       }
 
-      const record = await prisma.alunoCheckIn.create({
-        data: {
-          idEmpresa: idEmpresaCheckIn,
+      // Check-in e credito de pontos na MESMA transacao: ou o aluno entra e
+      // pontua, ou nenhum dos dois acontece. Metade gravada aqui viraria
+      // divergencia entre a frequencia e o extrato.
+      const record = await prisma.$transaction(async (transaction) => {
+        const created = await transaction.alunoCheckIn.create({
+          data: {
+            idEmpresa: idEmpresaCheckIn,
+            idAluno,
+            idAlunoPlano,
+            idAlunoTreinosSequencia,
+            idPontuacao,
+            idTipoCheckIn: optionalNumber(request.body.idTipoCheckIn),
+            boInativo: toBool(request.body.boInativo),
+          },
+        });
+
+        await creditCheckInPoints(transaction, {
           idAluno,
-          idAlunoPlano,
-          idAlunoTreinosSequencia,
-          idPontuacao,
-          idTipoCheckIn: optionalNumber(request.body.idTipoCheckIn),
-          boInativo: toBool(request.body.boInativo),
-        },
-        include: {
-          alunoPlano: { include: { plano: true } },
-          alunoTreinoSequencia: {
-            include: {
-              alunoTreino: {
-                include: {
-                  treino: true,
-                  funcionario: true,
+          idEmpresa: idEmpresaCheckIn,
+          idAlunoCheckIn: created.id,
+          // Regra escolhida na tela vence a padrao da empresa.
+          idPontuacaoEscolhida: idPontuacao,
+        });
+
+        return transaction.alunoCheckIn.findUniqueOrThrow({
+          where: { id: created.id },
+          include: {
+            alunoPlano: { include: { plano: true } },
+            alunoTreinoSequencia: {
+              include: {
+                alunoTreino: {
+                  include: {
+                    treino: true,
+                    funcionario: true,
+                  },
                 },
               },
             },
           },
-        },
+        });
       });
       return reply.code(201).send(record);
     } catch (error) {
@@ -1705,6 +2115,27 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         });
       }
 
+      if (resource === 'points') throw new Error(EXTRATO_IMUTAVEL);
+      if (resource === 'executions') throw new Error(EXECUCAO_VIA_POST);
+
+      if (resource === 'evolutions') {
+        const current = await prisma.alunoEvolucao.findFirst({
+          where: { id: childId, idAluno },
+          select: { id: true },
+        });
+        if (!current) throw new Error('Avaliacao invalida.');
+
+        const data = await buildEvolutionData(request.body, idAluno, idCliente);
+        return prisma.alunoEvolucao.update({
+          where: { id: childId },
+          data,
+          include: {
+            funcionario: { select: { id: true, nmFuncionario: true } },
+            alunoArquivo: { select: { id: true, dsArquivo: true, anCaminho: true } },
+          },
+        });
+      }
+
       const idAlunoPlano = optionalNumber(request.body.idAlunoPlano);
       if (!idAlunoPlano) throw new Error('Selecione um plano do aluno.');
 
@@ -1817,7 +2248,13 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
   app.patch<{
     Params: { id: string; resource: string; childId: string };
-    Body: { boInativo?: number };
+    // O motivo so se aplica ao cancelamento de plano; os outros recursos
+    // ignoram os campos extras.
+    Body: {
+      boInativo?: number;
+      idMotivoCancelamento?: number | string | null;
+      dsMotivoCancelamento?: string | null;
+    };
   }>('/students/:id/related/:resource/:childId/status', async (request, reply) => {
     const idCliente = request.user.idCliente;
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
@@ -1841,11 +2278,19 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       if (resource === 'plans') {
         const current = await prisma.alunoPlano.findFirst({ where: { id: childId, idAluno }, select: { id: true } });
         if (!current) throw new Error('Plano do aluno invalido.');
-        // Cancelling a plan records the cancellation date in dtEncerramento;
-        // reactivating clears it.
+
+        const motivo = await resolveCancellationReason(request.body, boInativo);
+
+        // Cancelar grava a data e o MOTIVO; reativar limpa os dois — um motivo
+        // pendurado num plano ativo diria que o aluno saiu quando ele voltou.
         return prisma.alunoPlano.update({
           where: { id: childId },
-          data: { boInativo, dtEncerramento: boInativo ? new Date() : null },
+          data: {
+            boInativo,
+            dtEncerramento: boInativo ? new Date() : null,
+            idMotivoCancelamento: motivo.idMotivoCancelamento,
+            dsMotivoCancelamento: motivo.dsMotivoCancelamento,
+          },
         });
       }
 
@@ -1861,6 +2306,18 @@ export async function registerStudentRoutes(app: FastifyInstance) {
             alunoTreinosSequencias: { where: { boInativo: false }, orderBy: { nrOrdem: 'asc' } },
           },
         });
+      }
+
+      if (resource === 'points') throw new Error(EXTRATO_IMUTAVEL);
+      if (resource === 'executions') throw new Error(EXECUCAO_VIA_POST);
+
+      if (resource === 'evolutions') {
+        const current = await prisma.alunoEvolucao.findFirst({
+          where: { id: childId, idAluno },
+          select: { id: true },
+        });
+        if (!current) throw new Error('Avaliacao invalida.');
+        return prisma.alunoEvolucao.update({ where: { id: childId }, data: { boInativo } });
       }
 
       if (resource === 'payments') {

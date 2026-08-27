@@ -24,6 +24,11 @@ export const STUDENT_GET_ALLOW: RegExp[] = [
   // idCliente na rota); nao expoem nenhum dado de outro aluno.
   /^\/companies$/,
   /^\/companies\/\d+\/children\/points$/,
+  // Motivos de cancelamento: o aluno escolhe um ao pedir para sair. E catalogo
+  // da academia, sem dado de ninguem — e sem ele o formulario de cancelamento
+  // abriria vazio, perdendo justamente o dado que a solicitacao existe para
+  // capturar.
+  /^\/cancellation-reasons$/,
 ];
 
 // RBAC v1 para o papel aluno: deny-by-default.
@@ -38,6 +43,16 @@ export function isStudentAllowed(
   if (pathname === '/auth/verify') return true;
   // Encerrar a propria sessao (revoga o token no servidor) e sempre permitido.
   if (pathname === '/auth/logout' && method === 'POST') return true;
+  // Dados e senha da PROPRIA conta. O aluno tambem e dono de uma conta: sem
+  // isto ele nao consegue nem ver o proprio cadastro nem trocar a senha.
+  if (pathname === '/auth/me' && method === 'GET') return true;
+  if (pathname === '/auth/change-password' && method === 'POST') return true;
+  // Registro e descadastro do aparelho para push. O app do aluno E o app que
+  // recebe push: sem isto o aluno nunca conseguiria registrar o telefone e a
+  // feature inteira ficaria inerte justamente para quem ela existe. O aparelho
+  // e amarrado ao usuario do token, e o DELETE so alcanca aparelho do proprio
+  // usuario (ver modules/auth/routes.ts).
+  if (pathname === '/auth/push-token' && (method === 'POST' || method === 'DELETE')) return true;
 
   const studentMatch = pathname.match(/^\/students\/(\d+)(\/|$)/);
   if (studentMatch) {
@@ -45,6 +60,21 @@ export function isStudentAllowed(
     if (method === 'GET') return true;
     return (
       (method === 'POST' && /^\/students\/\d+\/activity-schedules\/enroll$/.test(pathname)) ||
+      // Registro de execucao do treino: quem levanta o peso e o aluno, entao e
+      // ele quem grava o que fez. A rota e upsert por (sessao, exercicio) e a
+      // posse da sessao e conferida no handler; aqui basta o caminho ser o dele
+      // (o \d+ ja foi comparado com o idAluno do token acima).
+      (method === 'POST' && /^\/students\/\d+\/related\/executions$/.test(pathname)) ||
+      // Pedir cancelamento ou renovacao da propria matricula. Quem resolve e a
+      // equipe (ver modules/planRequests) — aqui o aluno so abre o pedido.
+      (method === 'POST' && /^\/students\/\d+\/related\/plan-requests$/.test(pathname)) ||
+      // Marcar o proprio aviso como lido.
+      (method === 'POST' && /^\/students\/\d+\/notifications\/\d+\/read$/.test(pathname)) ||
+      // Gerar o codigo de pagamento da PROPRIA parcela. E POST porque, em conta
+      // de gateway, isso cria a cobranca no provedor. A posse da parcela e
+      // conferida no handler; aqui basta o caminho ser o dele.
+      (method === 'POST' &&
+        /^\/students\/\d+\/related\/payments\/\d+\/charge$/.test(pathname)) ||
       (method === 'PUT' && /^\/students\/\d+$/.test(pathname))
     );
   }

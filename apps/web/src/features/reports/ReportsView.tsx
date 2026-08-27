@@ -1,78 +1,32 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, PieChart, TrendingUp, Users } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { BarChart3, CalendarCheck, PieChart, TrendingUp, Users } from 'lucide-react';
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 
-type Student = {
-  id: number;
-  nmAluno: string;
-  boInativo: boolean;
-  dtCadastro: string;
+/**
+ * Panorama vindo AGREGADO de /reports/overview.
+ *
+ * Esta tela montava tudo no browser: baixava a lista de alunos e, para cada um,
+ * buscava check-ins e matriculas — parando nos 120 primeiros para nao derrubar
+ * o navegador. Numa rede de 800 alunos, os graficos descreviam 15% da casa. Nao
+ * ha mais amostra: cada numero abaixo e uma soma feita no banco sobre a base
+ * inteira.
+ */
+type Overview = {
+  alunos: { cadastrados: number; ativos: number; inativos: number };
+  matriculas: { vigentes: number; novasNoMes: number; encerradasNoMes: number };
+  planosNoCatalogo: number;
+  checkIns: { hoje: number; noPeriodo: number; semanasNoPeriodo: number };
+  /** `taxa` e nula quando nao havia base no inicio do mes — mes sem denominador. */
+  retencao: { baseInicial: number; encerradas: number; taxa: number | null };
+  series: {
+    checkInsSemanal: Array<{ label: string; value: number }>;
+    checkInsMensal: Array<{ label: string; value: number }>;
+    novosAlunosMensal: Array<{ label: string; value: number }>;
+  };
+  porPlano: Array<{ id: number; dsPlano: string; quantidade: number }>;
 };
-
-type StudentPlan = {
-  id: number;
-  idAluno: number;
-  boInativo: boolean;
-  plano?: { id: number; dsPlano?: string } | null;
-};
-
-type CheckIn = {
-  id: number;
-  dtCadastro: string;
-};
-
-type PlanRecord = {
-  id: number;
-  dsPlano: string;
-  boInativo: boolean;
-};
-
-type ReportData = {
-  students: Student[];
-  plans: PlanRecord[];
-  allStudentPlans: StudentPlan[];
-  allCheckIns: CheckIn[];
-  /** Quantos alunos ativos entraram na amostra de check-ins/planos. */
-  sampledStudents: number;
-  /** Total de alunos ativos — se for maior que a amostra, o relatorio avisa. */
-  totalActiveStudents: number;
-};
-
-function getWeekLabel(date: Date): string {
-  const start = new Date(date);
-  start.setDate(start.getDate() - start.getDay() + 1);
-  return `${start.getDate().toString().padStart(2, '0')}/${(start.getMonth() + 1).toString().padStart(2, '0')}`;
-}
-
-function getLast12Weeks(): { label: string; start: Date; end: Date }[] {
-  const weeks: { label: string; start: Date; end: Date }[] = [];
-  const today = new Date();
-  today.setHours(23, 59, 59, 999);
-
-  for (let i = 11; i >= 0; i--) {
-    const end = new Date(today);
-    end.setDate(end.getDate() - i * 7);
-    const start = new Date(end);
-    start.setDate(start.getDate() - 6);
-    start.setHours(0, 0, 0, 0);
-    weeks.push({ label: getWeekLabel(start), start, end });
-  }
-  return weeks;
-}
-
-function getLast6Months(): { label: string; start: Date; end: Date }[] {
-  const months: { label: string; start: Date; end: Date }[] = [];
-  const now = new Date();
-  for (let i = 5; i >= 0; i--) {
-    const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
-    const label = start.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
-    months.push({ label, start, end });
-  }
-  return months;
-}
 
 type BarChartProps = {
   data: { label: string; value: number }[];
@@ -234,214 +188,92 @@ function DonutChartCanvas({ data, size = 180 }: DonutChartProps) {
 
 const PLAN_COLORS = ['#1f7a53', '#2563eb', '#7c3aed', '#d97706', '#db2777', '#059669', '#dc2626', '#6366f1'];
 
-type TimeWindow = { label: string; start: Date; end: Date };
+type Financial = {
+  periodo: { inicio: string; fim: string };
+  recebido: {
+    total: number;
+    mensalidades: number;
+    balcao: number;
+    quantidade: number;
+    qtMensalidades: number;
+    qtBalcao: number;
+    ticketMedioMensalidade: number;
+    ticketMedioBalcao: number;
+  };
+  /** Nulo quando o relatorio esta filtrado por filial ou nao ha base ativa. */
+  arpu: { valor: number; matriculasVigentes: number } | null;
+  aReceber: { total: number; quantidade: number };
+  inadimplencia: { total: number; quantidade: number; alunos: number };
+};
 
-/**
- * Conta quantos itens caem em cada janela de tempo em UMA passada.
- *
- * As janelas (semanas/meses) sao contiguas e ordenadas, entao basta localizar
- * por busca binaria a que contem cada ponto — O(N log W) em vez do O(N*W) de
- * varrer a colecao inteira por bucket. Cada registro tem a data convertida uma
- * unica vez, o que era a maior fonte de lixo do render (12N+6N objetos Date).
- *
- * Funcao pura em escopo de modulo: nao depende de nada do componente e nao
- * precisa ser recriada a cada recalculo do memo.
- */
-function bucketize<T>(items: T[], getDate: (item: T) => string, windows: TimeWindow[]) {
-  const counts = new Array<number>(windows.length).fill(0);
+type Cancellations = {
+  total: number;
+  porMotivo: Array<{ motivo: string; quantidade: number }>;
+};
 
-  for (const item of items) {
-    const time = new Date(getDate(item)).getTime();
-    if (Number.isNaN(time)) continue;
+type InactiveStudent = {
+  idAluno: number;
+  nmAluno: string;
+  anEmail: string;
+  nrDDD: number | null;
+  nrContato: string | null;
+  plano: string | null;
+  dtUltimoCheckIn: string | null;
+  diasSemVir: number | null;
+  visitas90Dias: number;
+  nuncaVeio: boolean;
+};
 
-    let low = 0;
-    let high = windows.length - 1;
-    while (low <= high) {
-      const mid = (low + high) >> 1;
-      const window = windows[mid]!;
-      if (time < window.start.getTime()) high = mid - 1;
-      else if (time > window.end.getTime()) low = mid + 1;
-      else {
-        counts[mid] = (counts[mid] ?? 0) + 1;
-        break;
-      }
-    }
-  }
+type Inactivity = {
+  diasSemCheckIn: number;
+  total: number;
+  comHistorico: number;
+  nuncaVieram: number;
+  alunos: InactiveStudent[];
+};
 
-  return windows.map((window, index) => ({ label: window.label, value: counts[index] ?? 0 }));
-}
+const brl = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export function ReportsView() {
-  const [data, setData] = useState<ReportData | null>(null);
+  const [overview, setOverview] = useState<Overview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [financial, setFinancial] = useState<Financial | null>(null);
+  const [cancellations, setCancellations] = useState<Cancellations | null>(null);
+  const [inactivity, setInactivity] = useState<Inactivity | null>(null);
   const [checkInView, setCheckInView] = useState<'weekly' | 'monthly'>('weekly');
 
+  // TUDO nesta tela vem agregado do servidor.
+  //
+  // O panorama comanda o estado de carregamento. Os outros tres blocos falham
+  // em silencio de proposito: dependem de permissoes distintas (financeiro,
+  // avisos) e o resto do relatorio continua util para quem nao as tem.
   useEffect(() => {
-    void loadData();
-  }, []);
-
-  // Quantos alunos o relatorio agrega por vez. O codigo anterior usava
-  // `.slice(0, 50)` fixo e SEM avisar: uma academia com 500 alunos via um
-  // relatorio construido sobre 10% da base, apresentado como se fosse o total.
-  // Aqui o teto continua existindo (protege o browser), mas e explicito e a UI
-  // informa quando a amostra e parcial.
-  const REPORT_STUDENT_LIMIT = 120;
-  const FETCH_CONCURRENCY = 6;
-
-  async function loadData() {
-    try {
-      setIsLoading(true);
-      const [studentsRes, plansRes] = await Promise.all([
-        fetch(`${apiUrl}/students`),
-        fetch(`${apiUrl}/plans`),
-      ]);
-
-      const students: Student[] = studentsRes.ok ? await studentsRes.json() : [];
-      const plans: PlanRecord[] = plansRes.ok ? await plansRes.json() : [];
-
-      const activeStudents = students.filter((s) => !s.boInativo);
-      const sampled = activeStudents.slice(0, REPORT_STUDENT_LIMIT);
-
-      // Antes: 50 fetches de check-ins + 50 de planos disparados de uma vez
-      // (100 requisicoes simultaneas). O browser so abre ~6 conexoes por host,
-      // entao as 100 viravam ~17 ondas serializadas — e cada uma passava pelo
-      // proxy Next (decripta -> encaminha -> recripta). Com um pool de
-      // concorrencia fixo o navegador para de enfileirar e o servidor para de
-      // receber rajadas.
-      async function fetchInPool<T>(
-        items: Student[],
-        task: (student: Student) => Promise<T[]>,
-      ): Promise<T[]> {
-        const results: T[][] = new Array(items.length);
-        let cursor = 0;
-        async function worker() {
-          while (cursor < items.length) {
-            const index = cursor;
-            cursor += 1;
-            const student = items[index];
-            if (!student) continue;
-            try {
-              results[index] = await task(student);
-            } catch {
-              results[index] = [];
-            }
-          }
+    void (async () => {
+      try {
+        const [overviewResponse, financialResponse, cancellationsResponse, inactivityResponse] =
+          await Promise.all([
+            fetch(`${apiUrl}/reports/overview`),
+            fetch(`${apiUrl}/reports/financial`),
+            fetch(`${apiUrl}/reports/cancellations`),
+            // Sem `days`: vale o corte configurado no cliente.
+            fetch(`${apiUrl}/reports/inactive-students`),
+          ]);
+        if (overviewResponse.ok) setOverview((await overviewResponse.json()) as Overview);
+        if (financialResponse.ok) setFinancial((await financialResponse.json()) as Financial);
+        if (cancellationsResponse.ok) {
+          setCancellations((await cancellationsResponse.json()) as Cancellations);
         }
-        await Promise.all(
-          Array.from({ length: Math.min(FETCH_CONCURRENCY, items.length) }, worker),
-        );
-        return results.flat().filter(Boolean) as T[];
+        if (inactivityResponse.ok) {
+          setInactivity((await inactivityResponse.json()) as Inactivity);
+        }
+      } catch {
+        // silencioso de proposito — ver comentario acima
+      } finally {
+        setIsLoading(false);
       }
-
-      const [allCheckIns, allStudentPlans] = await Promise.all([
-        fetchInPool<CheckIn>(sampled, async (student) => {
-          const res = await fetch(`${apiUrl}/students/${student.id}/related/check-ins`);
-          return res.ok ? ((await res.json()) as CheckIn[]) : [];
-        }),
-        fetchInPool<StudentPlan>(sampled, async (student) => {
-          const res = await fetch(`${apiUrl}/students/${student.id}/related/plans`);
-          if (!res.ok) return [];
-          return ((await res.json()) as StudentPlan[]).map((plan) => ({ ...plan, idAluno: student.id }));
-        }),
-      ]);
-
-      setData({
-        students,
-        plans,
-        allStudentPlans,
-        allCheckIns,
-        sampledStudents: sampled.length,
-        totalActiveStudents: activeStudents.length,
-      });
-    } catch {
-      setData({
-        students: [],
-        plans: [],
-        allStudentPlans: [],
-        allCheckIns: [],
-        sampledStudents: 0,
-        totalActiveStudents: 0,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  // Toda a agregacao roda em useMemo e em UMA passada por colecao.
-  //
-  // Antes: para cada um dos 12 buckets semanais o codigo varria a lista inteira
-  // de check-ins e construia um `new Date()` por item — O(N*W) em tempo e 12N
-  // objetos Date descartaveis. Somando semanas + meses + novos alunos dava
-  // ~90 mil alocacoes de Date por render, e nada disso era memoizado: alternar
-  // o grafico entre "semanal" e "mensal" recomputava tudo.
-  //
-  // Agora cada registro e visitado uma vez, tem a data convertida uma vez e cai
-  // no bucket por busca binaria sobre janelas ordenadas: O(N log W + W).
-  //
-  // IMPORTANTE: este hook fica ANTES dos early returns de loading/sem-dados.
-  // Hook depois de `return` condicional muda a quantidade de hooks entre um
-  // render e outro e o React quebra ("change in the order of Hooks"). Por isso
-  // o memo trata `data === null` internamente em vez de depender do guard.
-  const metrics = useMemo(() => {
-    const weeks = getLast12Weeks();
-    const months = getLast6Months();
-
-    if (!data) {
-      const empty = (windows: Array<{ label: string }>) =>
-        windows.map((window) => ({ label: window.label, value: 0 }));
-      return {
-        activeStudents: 0,
-        inactiveStudents: 0,
-        activePlans: 0,
-        totalCheckIns: 0,
-        weeklyCheckIns: empty(weeks),
-        monthlyCheckIns: empty(months),
-        newStudentsMonthly: empty(months),
-        planDistribution: [] as Array<{ label: string; value: number; color: string }>,
-      };
-    }
-
-    // Distribuicao por plano: era O(P*S) (um filter da lista inteira de
-    // matriculas por plano). Um Map indexado por idPlano resolve em O(S+P).
-    const activeByPlanId = new Map<number, number>();
-    for (const studentPlan of data.allStudentPlans) {
-      if (studentPlan.boInativo) continue;
-      const planId = studentPlan.plano?.id;
-      if (planId === undefined) continue;
-      activeByPlanId.set(planId, (activeByPlanId.get(planId) ?? 0) + 1);
-    }
-
-    let activeStudentsCount = 0;
-    let inactiveStudentsCount = 0;
-    for (const student of data.students) {
-      if (student.boInativo) inactiveStudentsCount += 1;
-      else activeStudentsCount += 1;
-    }
-
-    let activePlansCount = 0;
-    for (const studentPlan of data.allStudentPlans) {
-      if (!studentPlan.boInativo) activePlansCount += 1;
-    }
-
-    return {
-      activeStudents: activeStudentsCount,
-      inactiveStudents: inactiveStudentsCount,
-      activePlans: activePlansCount,
-      totalCheckIns: data.allCheckIns.length,
-      weeklyCheckIns: bucketize(data.allCheckIns, (checkIn) => checkIn.dtCadastro, weeks),
-      monthlyCheckIns: bucketize(data.allCheckIns, (checkIn) => checkIn.dtCadastro, months),
-      newStudentsMonthly: bucketize(data.students, (student) => student.dtCadastro, months),
-      planDistribution: data.plans
-        .filter((plan) => !plan.boInativo)
-        .map((plan, index) => ({
-          label: plan.dsPlano,
-          value: activeByPlanId.get(plan.id) ?? 0,
-          color: PLAN_COLORS[index % PLAN_COLORS.length]!,
-        }))
-        .filter((entry) => entry.value > 0)
-        .sort((a, b) => b.value - a.value),
-    };
-  }, [data]);
+    })();
+  }, []);
 
   if (isLoading) {
     return (
@@ -455,18 +287,20 @@ export function ReportsView() {
     );
   }
 
-  if (!data) return null;
+  if (!overview) return null;
 
-  const {
-    activeStudents,
-    inactiveStudents,
-    activePlans,
-    totalCheckIns,
-    weeklyCheckIns,
-    monthlyCheckIns,
-    newStudentsMonthly,
-    planDistribution,
-  } = metrics;
+  const { alunos, matriculas, checkIns, retencao, series } = overview;
+
+  // Retencao sem base no inicio do mes nao e 100%: e indefinida. Um numero
+  // redondo inventado seria lido como excelencia.
+  const retencaoLabel =
+    retencao.taxa === null ? '—' : `${Math.round(retencao.taxa * 100)}%`;
+
+  const planDistribution = overview.porPlano.map((plano, index) => ({
+    label: plano.dsPlano,
+    value: plano.quantidade,
+    color: PLAN_COLORS[index % PLAN_COLORS.length]!,
+  }));
 
   return (
     <>
@@ -476,57 +310,199 @@ export function ReportsView() {
       </header>
 
       <div className="reports-content">
-        {/* O relatorio sempre agregou uma amostra (era `.slice(0, 50)` fixo e
-            invisivel). Manter o teto e legitimo — buscar check-ins de 5000
-            alunos pelo browser nao escala — mas o gestor precisa saber que os
-            numeros de check-in e matricula cobrem parte da base, senao decide
-            em cima de um dado que parece total e nao e. */}
-        {data.totalActiveStudents > data.sampledStudents ? (
-          <div className="form-hint" role="status">
-            Check-ins e matrículas calculados sobre os {data.sampledStudents} primeiros de{' '}
-            {data.totalActiveStudents} alunos ativos. Os indicadores de alunos e planos
-            consideram a base completa.
-          </div>
-        ) : null}
-
         <section className="reports-kpis" aria-label="Indicadores">
+          {/* Matricula VIGENTE, nao a flag da linha: contrato que ja comecou e
+              ainda nao foi encerrado. Vem primeiro porque e a base sobre a qual
+              todo o resto da tela e calculado. */}
           <div className="reports-kpi">
             <div className="reports-kpi-icon" style={{ background: 'var(--color-primary-bg)', color: 'var(--color-primary)' }}>
-              <Users size={20} />
-            </div>
-            <div>
-              <span className="reports-kpi-value">{activeStudents}</span>
-              <span className="reports-kpi-label">Alunos ativos</span>
-            </div>
-          </div>
-          <div className="reports-kpi">
-            <div className="reports-kpi-icon icon-danger">
-              <Users size={20} />
-            </div>
-            <div>
-              <span className="reports-kpi-value">{inactiveStudents}</span>
-              <span className="reports-kpi-label">Alunos inativos</span>
-            </div>
-          </div>
-          <div className="reports-kpi">
-            <div className="reports-kpi-icon icon-blue">
               <TrendingUp size={20} />
             </div>
             <div>
-              <span className="reports-kpi-value">{activePlans}</span>
+              <span className="reports-kpi-value">{matriculas.vigentes}</span>
               <span className="reports-kpi-label">Matrículas ativas</span>
+              <span className="reports-kpi-hint">
+                {matriculas.novasNoMes} nova(s) e {matriculas.encerradasNoMes} encerrada(s) no mês
+              </span>
             </div>
           </div>
+          {/* Cadastro e outra pergunta — e o card diz qual. Antes os dois
+              numeros apareciam lado a lado com nomes parecidos e ninguem sabia
+              por que discordavam. */}
           <div className="reports-kpi">
-            <div className="reports-kpi-icon icon-amber">
-              <BarChart3 size={20} />
+            <div className="reports-kpi-icon icon-blue">
+              <Users size={20} />
             </div>
             <div>
-              <span className="reports-kpi-value">{totalCheckIns}</span>
-              <span className="reports-kpi-label">Check-ins total</span>
+              <span className="reports-kpi-value">{alunos.cadastrados}</span>
+              <span className="reports-kpi-label">Alunos cadastrados</span>
+              <span className="reports-kpi-hint">
+                {alunos.ativos} ativo(s) · {alunos.inativos} inativo(s)
+              </span>
+            </div>
+          </div>
+          {/* Retencao de verdade: da base que existia no dia 1o, quanto
+              continua. A tela antes mostrava `ativos ÷ total cadastrado`, que
+              mede quanto da HISTORIA da academia ainda esta ativa. */}
+          <div className="reports-kpi">
+            <div className="reports-kpi-icon" style={{ background: 'var(--color-primary-bg)', color: 'var(--color-primary)' }}>
+              <PieChart size={20} />
+            </div>
+            <div>
+              <span className="reports-kpi-value">{retencaoLabel}</span>
+              <span className="reports-kpi-label">Retenção no mês</span>
+              <span className="reports-kpi-hint">
+                {retencao.baseInicial > 0
+                  ? `${retencao.encerradas} saíram de ${retencao.baseInicial} no início do mês`
+                  : 'sem base no início do mês para comparar'}
+              </span>
+            </div>
+          </div>
+          {/* O card antigo somava "check-ins de sempre" dos alunos amostrados:
+              so crescia e nao comparava com nada. Hoje = o numero que a recepcao
+              usa; o periodo = o mesmo do grafico logo abaixo. */}
+          <div className="reports-kpi">
+            <div className="reports-kpi-icon icon-amber">
+              <CalendarCheck size={20} />
+            </div>
+            <div>
+              <span className="reports-kpi-value">{checkIns.hoje}</span>
+              <span className="reports-kpi-label">Check-ins hoje</span>
+              <span className="reports-kpi-hint">
+                {checkIns.noPeriodo} nas últimas {checkIns.semanasNoPeriodo} semanas
+              </span>
             </div>
           </div>
         </section>
+
+        {financial ? (
+          <section className="reports-financial" aria-label="Financeiro do mes">
+            <div className="reports-card-header">
+              <h3>Financeiro do mês</h3>
+            </div>
+            <div className="reports-financial-grid">
+              <div className="reports-financial-item">
+                <span className="reports-kpi-label">Recebido</span>
+                <strong>{brl(financial.recebido.total)}</strong>
+                <span className="reports-financial-detail">
+                  {brl(financial.recebido.mensalidades)} em mensalidades ·{' '}
+                  {brl(financial.recebido.balcao)} no balcão
+                </span>
+              </div>
+              <div className="reports-financial-item">
+                <span className="reports-kpi-label">A receber no mês</span>
+                <strong>{brl(financial.aReceber.total)}</strong>
+                <span className="reports-financial-detail">
+                  {financial.aReceber.quantidade} parcela(s) em aberto
+                </span>
+              </div>
+              <div className="reports-financial-item danger">
+                <span className="reports-kpi-label">Inadimplência</span>
+                <strong>{brl(financial.inadimplencia.total)}</strong>
+                <span className="reports-financial-detail">
+                  {/* Parcelas vencidas x pessoas: 40 parcelas podem ser 3 alunos,
+                      e e o numero de pessoas que define quantas ligacoes fazer. */}
+                  {financial.inadimplencia.quantidade} vencida(s) ·{' '}
+                  {financial.inadimplencia.alunos} aluno(s)
+                </span>
+              </div>
+              {/* Era "Ticket médio" = recebido ÷ nº de recebimentos, misturando
+                  a creatina de R$ 90 com o plano anual: o número caía justamente
+                  quando a loja vendia bem. Agora são duas contas separadas — a
+                  receita por aluno, que se compara mês a mês, e o ticket só de
+                  mensalidade. */}
+              <div className="reports-financial-item">
+                <span className="reports-kpi-label">Receita por aluno</span>
+                <strong>{financial.arpu ? brl(financial.arpu.valor) : '—'}</strong>
+                <span className="reports-financial-detail">
+                  {financial.arpu
+                    ? `sobre ${financial.arpu.matriculasVigentes} matrícula(s) vigente(s)`
+                    : 'sem matrícula vigente no período'}
+                </span>
+              </div>
+              <div className="reports-financial-item">
+                <span className="reports-kpi-label">Ticket de mensalidade</span>
+                <strong>{brl(financial.recebido.ticketMedioMensalidade)}</strong>
+                <span className="reports-financial-detail">
+                  sobre {financial.recebido.qtMensalidades} mensalidade(s) ·{' '}
+                  {financial.recebido.qtBalcao} venda(s) de balcão à parte
+                </span>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {inactivity && inactivity.total > 0 ? (
+          <section className="reports-evasion" aria-label="Alunos sumidos">
+            <div className="reports-card-header">
+              <h3>Sumiram, mas ainda pagam</h3>
+              <span className="reports-financial-detail">
+                sem vir há {inactivity.diasSemCheckIn} dias ou mais ·{' '}
+                {inactivity.comHistorico} já treinavam · {inactivity.nuncaVieram} nunca vieram
+              </span>
+            </div>
+            {/* Ordenados pela frequência de antes: quem treinava três vezes por
+                semana e sumiu aparece primeiro. É de quem a ausência destoa —
+                e é quem ainda dá para trazer de volta. */}
+            <ul className="reports-evasion-list">
+              {inactivity.alunos.slice(0, 25).map((aluno) => (
+                <li className="reports-evasion-item" key={aluno.idAluno}>
+                  <div className="reports-evasion-who">
+                    <strong>{aluno.nmAluno}</strong>
+                    <span>
+                      {aluno.plano ?? 'Sem plano identificado'}
+                      {aluno.nrContato
+                        ? ` · (${aluno.nrDDD ?? ''}) ${aluno.nrContato}`
+                        : aluno.anEmail
+                          ? ` · ${aluno.anEmail}`
+                          : ' · sem contato cadastrado'}
+                    </span>
+                  </div>
+                  <div className="reports-evasion-when">
+                    {aluno.nuncaVeio ? (
+                      // Não é evasão: é uma matrícula que nunca começou. Quem
+                      // vai ligar precisa saber a diferença antes de discar.
+                      <span className="reports-evasion-never">nunca veio</span>
+                    ) : (
+                      <>
+                        <strong>{aluno.diasSemVir} dias</strong>
+                        <span>{aluno.visitas90Dias} visita(s) em 90 dias</span>
+                      </>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {inactivity.total > 25 ? (
+              <p className="reports-evasion-more">
+                e mais {inactivity.total - 25} aluno(s) na mesma situação.
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+
+        {cancellations && cancellations.total > 0 ? (
+          <section className="reports-financial" aria-label="Motivos de cancelamento">
+            <div className="reports-card-header">
+              <h3>Por que sairam neste mes</h3>
+              <span className="reports-financial-detail">{cancellations.total} no total</span>
+            </div>
+            <ul className="reports-reasons">
+              {cancellations.porMotivo.map((linha) => (
+                <li key={linha.motivo}>
+                  <span>{linha.motivo}</span>
+                  <div
+                    className="reports-reason-bar"
+                    style={{
+                      width: `${Math.max(6, (linha.quantidade / cancellations.total) * 100)}%`,
+                    }}
+                  />
+                  <strong>{linha.quantidade}</strong>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <div className="reports-grid">
           <div className="reports-card">
@@ -550,7 +526,9 @@ export function ReportsView() {
               </div>
             </div>
             <BarChartCanvas
-              data={checkInView === 'weekly' ? weeklyCheckIns : monthlyCheckIns}
+              data={
+                checkInView === 'weekly' ? series.checkInsSemanal : series.checkInsMensal
+              }
               color="#1f7a53"
               height={220}
             />
@@ -581,11 +559,7 @@ export function ReportsView() {
             <div className="reports-card-header">
               <h3>Novos alunos por mês</h3>
             </div>
-            <BarChartCanvas
-              data={newStudentsMonthly}
-              color="#2563eb"
-              height={220}
-            />
+            <BarChartCanvas data={series.novosAlunosMensal} color="#2563eb" height={220} />
           </div>
 
           <div className="reports-card">
@@ -595,8 +569,8 @@ export function ReportsView() {
             <div className="reports-donut-layout">
               <DonutChartCanvas
                 data={[
-                  { label: 'Ativos', value: activeStudents, color: '#1f7a53' },
-                  { label: 'Inativos', value: inactiveStudents, color: '#dc2626' },
+                  { label: 'Ativos', value: alunos.ativos, color: '#1f7a53' },
+                  { label: 'Inativos', value: alunos.inativos, color: '#dc2626' },
                 ]}
                 size={160}
               />
@@ -604,19 +578,23 @@ export function ReportsView() {
                 <div className="reports-legend-item">
                   <span className="reports-legend-dot" style={{ background: '#1f7a53' }} />
                   <span className="reports-legend-label">Ativos</span>
-                  <span className="reports-legend-value">{activeStudents}</span>
+                  <span className="reports-legend-value">{alunos.ativos}</span>
                 </div>
                 <div className="reports-legend-item">
                   <span className="reports-legend-dot" style={{ background: '#dc2626' }} />
                   <span className="reports-legend-label">Inativos</span>
-                  <span className="reports-legend-value">{inactiveStudents}</span>
+                  <span className="reports-legend-value">{alunos.inativos}</span>
                 </div>
-                {data.students.length > 0 && (
+                {/* Aqui ficava "Taxa de retenção" = ativos ÷ cadastrados, que
+                    nao mede retencao e sim quanto do historico da casa segue
+                    ativo. A retencao de verdade esta no KPI do topo; esta rosca
+                    responde outra coisa — a composicao do cadastro. */}
+                {alunos.cadastrados > 0 && (
                   <div className="reports-legend-item reports-legend-rate">
                     <PieChart size={14} />
-                    <span className="reports-legend-label">Taxa de retenção</span>
+                    <span className="reports-legend-label">Cadastros ativos</span>
                     <span className="reports-legend-value">
-                      {Math.round((activeStudents / data.students.length) * 100)}%
+                      {Math.round((alunos.ativos / alunos.cadastrados) * 100)}%
                     </span>
                   </div>
                 )}

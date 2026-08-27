@@ -75,6 +75,7 @@ export default function AlunoLayout() {
         />
         {/* Telas secundárias — acessíveis pelo menu Mais, fora da barra de abas */}
         <Tabs.Screen name="perfil" options={{ href: null }} />
+        <Tabs.Screen name="avisos" options={{ href: null }} />
         <Tabs.Screen name="calendario-empresa" options={{ href: null }} />
         <Tabs.Screen name="planos" options={{ href: null }} />
       </Tabs>

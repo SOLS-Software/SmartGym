@@ -55,6 +55,9 @@ model Empresa {
   funcionarioAtividadeAgendas FuncionarioAtividadeAgenda[]
   catracas                    Catraca[]
   localidades                 Localidade[]
+  leads                       Lead[]
+  funcionarioPontos           FuncionarioPonto[]
+  contasRecebimento           ContaRecebimento[]
   idCliente                   Int
   tema                        Tema?                        @relation(fields: [idTema], references: [id])
   cliente                     Cliente                      @relation(fields: [idCliente], references: [id])
@@ -75,22 +78,31 @@ model Plano {
   idUsuarioAlteracao Int?
   boInativo          Boolean  @default(false)
 
-  frequencia      Frequencia?      @relation(fields: [idFrequencia], references: [id])
+  frequencia      Frequencia?        @relation(fields: [idFrequencia], references: [id])
   planoAtividades PlanoAtividade[]
   planoProdutos   PlanoProduto[]
   planoEmpresas   PlanoEmpresa[]
   planoValores    PlanoValor[]
   promocaoPlanos  PromocaoPlano[]
   alunoPlanos     AlunoPlano[]
+  leads           Lead[]
+  solicitacoes    SolicitacaoPlano[]
 
   @@map("tb_Planos")
 }
 
+// Catalogo de regras de pontuacao da empresa: "quanto vale" cada coisa.
 model Pontuacao {
   id                 Int      @id @default(autoincrement())
   idEmpresa          Int
   dsPontuacao        String   @db.VarChar(255)
   qtPontos           Int      @default(0)
+  // Regra que credita SOZINHA a cada check-in do aluno. No maximo uma por
+  // empresa (garantido no handler, nao no banco: e regra de negocio, e um
+  // indice unico parcial nao e expressavel no schema do Prisma). Sem uma regra
+  // padrao a fidelidade continua so no lancamento manual — que foi exatamente
+  // o motivo de o saldo nunca ter saido do zero.
+  boPadrao           Boolean  @default(false)
   dtCadastro         DateTime @default(now())
   dtAlteracao        DateTime @updatedAt
   idUsuarioCadastro  Int?
@@ -248,6 +260,13 @@ model Produto {
   idEmpresa          Int?
   dsProduto          String   @db.VarChar(255)
   qtEstoque          Int      @default(0)
+  // Preco sugerido da venda no balcao. O valor efetivo continua sendo gravado
+  // em ProdutoMovimentacao.vlUnitario (o operador pode mudar na hora); esta
+  // coluna existe para a tela preencher sozinha em vez de exigir digitacao a
+  // cada venda.
+  vlVenda            Decimal? @db.Decimal(12, 4)
+  // Preco em PONTOS. Nulo = produto nao resgatavel por fidelidade.
+  qtPontosResgate    Int?
   dtCadastro         DateTime @default(now())
   dtAlteracao        DateTime @updatedAt
   idUsuarioCadastro  Int?
@@ -365,6 +384,10 @@ model Aluno {
   alunobiometriafacial  AlunoBiometriaFacial[]
   catracaEventos        CatracaEvento[]
   cliente               Cliente                @relation(fields: [idCliente], references: [id])
+  notificacoes          Notificacao[]
+  leads                 Lead[]
+  solicitacoesPlano     SolicitacaoPlano[]
+  integracoes           AlunoIntegracao[]
 
   @@unique([idCliente, caCPFHash])
   // Um numero de usuario da catraca so pode apontar para UM aluno dentro do
@@ -380,6 +403,11 @@ model Funcionario {
   id                 Int       @id @default(autoincrement())
   idEmpresa          Int?
   idCargo            Int?
+  // Perfil de acesso ao sistema (o que ele PODE FAZER). Diferente de idCargo,
+  // que e o cargo de RH (o que ele E na empresa) e nao tem efeito nenhum sobre
+  // permissao. Nulo = funcionario sem perfil: o RBAC nega tudo fora do proprio
+  // perfil, entao um funcionario novo nao nasce com acesso por descuido.
+  idPerfilAcesso     Int?
   nmFuncionario      String    @default("") @db.VarChar(255)
   // PII: valor criptografado (AES-256-GCM, prefixo enc:v1:). Lookups usam caCPFHash.
   caCPF              String    @default("") @db.VarChar(160)
@@ -397,15 +425,20 @@ model Funcionario {
 
   empresa                     Empresa?                     @relation(fields: [idEmpresa], references: [id])
   cargo                       Cargo?                       @relation(fields: [idCargo], references: [id])
+  perfilAcesso                PerfilAcesso?                @relation(fields: [idPerfilAcesso], references: [id])
   usuarios                    Usuario[]
   alunoTreinos                AlunoTreino[]
   alunoEvolucoes              AlunoEvolucao[]
   funcionarioArquivos         FuncionarioArquivo[]
   funcionarioAtividadeAgendas FuncionarioAtividadeAgenda[]
+  solicitacoesResolvidas      SolicitacaoPlano[]
+  leads                       Lead[]
+  pontos                      FuncionarioPonto[]
 
   @@unique([idEmpresa, caCPFHash])
   // Mesmo racional do Aluno: lookups de auth por CPF sem idEmpresa.
   @@index([caCPFHash])
+  @@index([idPerfilAcesso])
   @@map("tb_Funcionarios")
 }
 
@@ -448,10 +481,11 @@ model Usuario {
   // logout / troca de senha ate expirar por tempo.
   nrTokenVersion     Int       @default(0)
 
-  funcionario       Funcionario?       @relation(fields: [idFuncionario], references: [id])
-  aluno             Aluno?             @relation(fields: [idAluno], references: [id])
+  funcionario       Funcionario?         @relation(fields: [idFuncionario], references: [id])
+  aluno             Aluno?               @relation(fields: [idAluno], references: [id])
   senhas            Senha[]
   recuperacoesSenha RecuperacaoSenha[]
+  dispositivos      UsuarioDispositivo[]
 
   @@index([idFuncionario])
   @@index([idAluno])
@@ -636,51 +670,136 @@ model PromocaoProduto {
   @@map("tb_PromocaoProdutos")
 }
 
+// Avaliacao fisica do aluno. Cada linha e uma medicao datada — a serie
+// ordenada por dtAvaliacao e a curva de evolucao que o aluno ve.
+//
+// Unidades (fixas, sem coluna de unidade: converter na entrada e comparar
+// medicao com medicao e o que faz a serie ter sentido):
+//   vlAltura em METROS, vlPeso e vlMassaMagra em QUILOS, circunferencias em
+//   CENTIMETROS, vlPercentualGordura em PONTOS PERCENTUAIS (18.5 = 18,5%).
+// IMC NAO e coluna: e peso/altura², derivado na leitura para nao existir como
+// dado que pode discordar das colunas que o originam.
 model AlunoEvolucao {
+  id                  Int       @id @default(autoincrement())
+  idAluno             Int
+  idFuncionario       Int?
+  // Foto da avaliacao (antes/depois). Reaproveita AlunoArquivo: o upload passa
+  // pelo mesmo fluxo de arquivos do aluno (Supabase + URL assinada), entao a
+  // foto ja nasce com validacao de MIME/magic bytes e controle de tenant.
+  idAlunoArquivo      Int?
+  // Data da MEDICAO, que nem sempre e a do lancamento no sistema (avaliacao de
+  // sexta digitada na segunda). A serie temporal ordena por esta coluna.
+  dtAvaliacao         DateTime? @db.Date
+  vlAltura            Decimal?  @default(0) @db.Decimal(5, 2)
+  vlPeso              Decimal?  @default(0) @db.Decimal(5, 2)
+  vlPercentualGordura Decimal?  @db.Decimal(5, 2)
+  vlMassaMagra        Decimal?  @db.Decimal(5, 2)
+  vlCircPeitoral      Decimal?  @db.Decimal(5, 2)
+  vlCircCintura       Decimal?  @db.Decimal(5, 2)
+  vlCircQuadril       Decimal?  @db.Decimal(5, 2)
+  vlCircBraco         Decimal?  @db.Decimal(5, 2)
+  vlCircCoxa          Decimal?  @db.Decimal(5, 2)
+  dsObservacao        String?   @db.VarChar(1000)
+  dtCadastro          DateTime  @default(now())
+  dtAlteracao         DateTime  @updatedAt
+  idUsuarioCadastro   Int?
+  idUsuarioAlteracao  Int?
+  boInativo           Boolean   @default(false)
+
+  aluno        Aluno         @relation(fields: [idAluno], references: [id])
+  funcionario  Funcionario?  @relation(fields: [idFuncionario], references: [id])
+  alunoArquivo AlunoArquivo? @relation(fields: [idAlunoArquivo], references: [id])
+
+  @@index([idAluno])
+  @@index([idFuncionario])
+  @@index([idAlunoArquivo])
+  @@map("tb_AlunoEvolucoes")
+}
+
+// Perfil de acesso: o conjunto de permissoes que um funcionario carrega.
+// Pertence ao CLIENTE (rede), nao a filial — o mesmo perfil "Recepcao" vale em
+// todas as unidades, e um cliente nunca enxerga nem altera o perfil do outro.
+//
+// Por que nao reaproveitar Cargo: Cargo e uma tabela GLOBAL (sem coluna de
+// tenant), compartilhada por todos os clientes e mutavel so pelo super admin.
+// Amarrar permissao nela significaria um cliente renomeando um cargo e mudando
+// o acesso de todos os outros.
+model PerfilAcesso {
   id                 Int      @id @default(autoincrement())
-  idAluno            Int
-  idFuncionario      Int?
-  vlAltura           Decimal? @default(0) @db.Decimal(5, 2)
-  vlPeso             Decimal? @default(0) @db.Decimal(5, 2)
+  idCliente          Int
+  dsPerfil           String   @default("") @db.VarChar(100)
+  // Perfis semeados para todo cliente novo (Recepcao, Professor, Financeiro,
+  // Gerente). As permissoes sao editaveis como as de qualquer outro; a marca
+  // existe para nao deixar o cliente ficar sem nenhum perfil por engano.
+  boPadrao           Boolean  @default(false)
   dtCadastro         DateTime @default(now())
   dtAlteracao        DateTime @updatedAt
   idUsuarioCadastro  Int?
   idUsuarioAlteracao Int?
   boInativo          Boolean  @default(false)
 
-  aluno       Aluno        @relation(fields: [idAluno], references: [id])
-  funcionario Funcionario? @relation(fields: [idFuncionario], references: [id])
+  cliente      Cliente                 @relation(fields: [idCliente], references: [id])
+  permissoes   PerfilAcessoPermissao[]
+  funcionarios Funcionario[]
 
-  @@index([idAluno])
-  @@index([idFuncionario])
-  @@map("tb_AlunoEvolucoes")
+  @@unique([idCliente, dsPerfil])
+  @@index([idCliente])
+  @@map("tb_PerfisAcesso")
+}
+
+// Uma permissao concedida a um perfil. Linha presente = concedida; ausente =
+// negada (deny-by-default, igual ao RBAC do aluno).
+model PerfilAcessoPermissao {
+  id             Int      @id @default(autoincrement())
+  idPerfilAcesso Int
+  // Chave do catalogo em apps/api/src/plugins/permissions.ts (ex.:
+  // 'students.write'). Texto e nao FK de proposito: o catalogo e CODIGO,
+  // versionado junto com o mapa de rotas que ele protege. Uma tabela de
+  // permissoes editavel no banco divergiria das rotas na primeira alteracao.
+  cnPermissao    String   @db.VarChar(60)
+  dtCadastro     DateTime @default(now())
+
+  perfilAcesso PerfilAcesso @relation(fields: [idPerfilAcesso], references: [id], onDelete: Cascade)
+
+  @@unique([idPerfilAcesso, cnPermissao])
+  @@index([idPerfilAcesso])
+  @@map("tb_PerfilAcessoPermissoes")
 }
 
 model AlunoPlano {
-  id                 Int       @id @default(autoincrement())
-  idAluno            Int
-  idPlano            Int
-  idPromocaoPlano    Int?
-  nrDiaPagamento     Int       @default(1)
-  qtParcelas         Int       @default(1)
-  dtAdmissao         DateTime? @default(now())
-  dtVencimento       DateTime?
-  dtEncerramento     DateTime?
-  dtCadastro         DateTime  @default(now())
-  dtAlteracao        DateTime  @updatedAt
-  idUsuarioCadastro  Int?
-  idUsuarioAlteracao Int?
-  boInativo          Boolean   @default(false)
+  id                   Int       @id @default(autoincrement())
+  idAluno              Int
+  idPlano              Int
+  idPromocaoPlano      Int?
+  // Por que o aluno saiu. Preenchido no cancelamento, junto de dtEncerramento.
+  // O motivo e uma LOOKUP (e nao so texto livre) porque o valor do dado esta em
+  // somar: "7 sairam por preco" muda decisao, "sete frases diferentes" nao.
+  // O texto livre fica em dsMotivoCancelamento, para o caso especifico.
+  idMotivoCancelamento Int?
+  dsMotivoCancelamento String?   @db.VarChar(255)
+  nrDiaPagamento       Int       @default(1)
+  qtParcelas           Int       @default(1)
+  dtAdmissao           DateTime? @default(now())
+  dtVencimento         DateTime?
+  dtEncerramento       DateTime?
+  dtCadastro           DateTime  @default(now())
+  dtAlteracao          DateTime  @updatedAt
+  idUsuarioCadastro    Int?
+  idUsuarioAlteracao   Int?
+  boInativo            Boolean   @default(false)
 
-  aluno         Aluno          @relation(fields: [idAluno], references: [id])
-  plano         Plano          @relation(fields: [idPlano], references: [id])
-  promocaoPlano PromocaoPlano? @relation(fields: [idPromocaoPlano], references: [id])
-  pagamentos    Pagamento[]
-  alunoCheckIns AlunoCheckIn[]
+  aluno              Aluno               @relation(fields: [idAluno], references: [id])
+  plano              Plano               @relation(fields: [idPlano], references: [id])
+  promocaoPlano      PromocaoPlano?      @relation(fields: [idPromocaoPlano], references: [id])
+  motivoCancelamento MotivoCancelamento? @relation(fields: [idMotivoCancelamento], references: [id])
+  pagamentos         Pagamento[]
+  alunoCheckIns      AlunoCheckIn[]
+  solicitacoes       SolicitacaoPlano[]
 
   @@index([idAluno])
   @@index([idPlano])
   @@index([idPromocaoPlano])
+  @@index([idMotivoCancelamento])
   @@map("tb_AlunoPlanos")
 }
 
@@ -691,6 +810,13 @@ model Pagamento {
   idProdutoMovimentacao Int?
   idStatusPagamento     Int
   idFormaPagamento      Int?
+  // Por qual conta a cobranca foi (ou sera) emitida. Nulo = cobranca sem
+  // integracao, que e como todo pagamento nasce hoje.
+  idContaRecebimento    Int?
+  // Id da transacao NO PROVEDOR. E o que torna a conciliacao possivel e o
+  // webhook idempotente: gateway reenvia o mesmo evento por design, e sem uma
+  // chave para reconhecer o repetido a mesma parcela recebe baixa duas vezes.
+  caTransacaoExterna    String?   @db.VarChar(120)
   vlPrevisto            Decimal   @default(0) @db.Decimal(12, 4)
   vlPago                Decimal?  @db.Decimal(12, 4)
   dtCompetencia         DateTime? @db.Date
@@ -707,7 +833,13 @@ model Pagamento {
   produtoMovimentacao ProdutoMovimentacao? @relation(fields: [idProdutoMovimentacao], references: [id])
   statusPagamento     StatusPagamento      @relation(fields: [idStatusPagamento], references: [id])
   formaPagamento      FormaPagamento?      @relation(fields: [idFormaPagamento], references: [id])
+  contaRecebimento    ContaRecebimento?    @relation(fields: [idContaRecebimento], references: [id])
+  webhookEventos      WebhookEvento[]
 
+  // Uma transacao do provedor aponta para UM pagamento. E a trava que faz o
+  // webhook repetido nao virar baixa duplicada. Nulos nao colidem no Postgres,
+  // entao pagamento sem integracao segue livre.
+  @@unique([idContaRecebimento, caTransacaoExterna])
   @@index([idAlunoPlano])
   @@index([idStatusPagamento, dtVencimento])
   @@index([idEmpresa])
@@ -733,11 +865,12 @@ model TreinoExercicio {
   idUsuarioAlteracao Int?
   boInativo          Boolean  @default(false)
 
-  empresa       Empresa?       @relation(fields: [idEmpresa], references: [id])
-  treino        Treino         @relation(fields: [idTreino], references: [id])
-  exercicio     Exercicio      @relation(fields: [idExercicio], references: [id])
-  metodoTreino  MetodoTreino?  @relation(fields: [idMetodoTreino], references: [id])
-  unidadeMedida UnidadeMedida? @relation(fields: [idUnidadeMedida], references: [id])
+  empresa       Empresa?         @relation(fields: [idEmpresa], references: [id])
+  treino        Treino           @relation(fields: [idTreino], references: [id])
+  exercicio     Exercicio        @relation(fields: [idExercicio], references: [id])
+  metodoTreino  MetodoTreino?    @relation(fields: [idMetodoTreino], references: [id])
+  unidadeMedida UnidadeMedida?   @relation(fields: [idUnidadeMedida], references: [id])
+  execucoes     TreinoExecucao[]
 
   @@index([idEmpresa])
   @@index([idTreino])
@@ -753,6 +886,7 @@ model UnidadeMedida {
   boInativo  Boolean  @default(false)
 
   treinoExercicios TreinoExercicio[]
+  treinoExecucoes  TreinoExecucao[]
 
   @@map("tb_UnidadesMedidas")
 }
@@ -779,25 +913,45 @@ model AlunoTreino {
   @@map("tb_AlunoTreinos")
 }
 
+// EXTRATO de pontos do aluno: uma linha por lancamento, nao um saldo mutavel.
+//
+// Mesmo idioma de ProdutoMovimentacao, que o projeto ja usa para estoque:
+// `qtPontos` e o MOVIMENTO (positivo = ganhou, negativo = resgatou) e
+// `qtDisponivel` e o SALDO DEPOIS dele. Guardar so o saldo tornaria impossivel
+// responder "por que eu tenho 40 pontos?" — e essa e a primeira pergunta que o
+// aluno faz. O saldo corrente e o qtDisponivel do lancamento mais recente.
 model AlunoPontuacao {
-  id                 Int      @id @default(autoincrement())
-  idEmpresa          Int
-  idPontuacao        Int
-  idAluno            Int
-  qtDisponivel       Int      @default(0)
-  dtCadastro         DateTime @default(now())
-  dtAlteracao        DateTime @updatedAt
-  idUsuarioCadastro  Int?
-  idUsuarioAlteracao Int?
-  boInativo          Boolean  @default(false)
+  id                    Int      @id @default(autoincrement())
+  idEmpresa             Int
+  // Regra de ganho que originou o credito. NULO em resgate e em baixa avulsa,
+  // que nao vem de regra nenhuma.
+  idPontuacao           Int?
+  idAluno               Int
+  // De onde veio o lancamento. Os tres sao opcionais e mutuamente exclusivos na
+  // pratica; servem para a linha do extrato saber se explicar sozinha.
+  idAlunoCheckIn        Int?     @unique
+  idProdutoMovimentacao Int?
+  dsHistorico           String?  @db.VarChar(255)
+  qtPontos              Int      @default(0)
+  qtDisponivel          Int      @default(0)
+  dtCadastro            DateTime @default(now())
+  dtAlteracao           DateTime @updatedAt
+  idUsuarioCadastro     Int?
+  idUsuarioAlteracao    Int?
+  boInativo             Boolean  @default(false)
 
-  empresa   Empresa   @relation(fields: [idEmpresa], references: [id])
-  pontuacao Pontuacao @relation(fields: [idPontuacao], references: [id])
-  aluno     Aluno     @relation(fields: [idAluno], references: [id])
+  empresa             Empresa              @relation(fields: [idEmpresa], references: [id])
+  pontuacao           Pontuacao?           @relation(fields: [idPontuacao], references: [id])
+  aluno               Aluno                @relation(fields: [idAluno], references: [id])
+  // Unico por check-in: o credito automatico nunca conta a mesma entrada duas
+  // vezes, mesmo se a rota for chamada de novo.
+  alunoCheckIn        AlunoCheckIn?        @relation(fields: [idAlunoCheckIn], references: [id])
+  produtoMovimentacao ProdutoMovimentacao? @relation(fields: [idProdutoMovimentacao], references: [id])
 
   @@index([idEmpresa])
   @@index([idPontuacao])
   @@index([idAluno])
+  @@index([idProdutoMovimentacao])
   @@map("tb_AlunoPontuacoes")
 }
 
@@ -816,11 +970,12 @@ model ProdutoMovimentacao {
   idUsuarioAlteracao Int?
   boInativo          Boolean  @default(false)
 
-  empresa    Empresa     @relation(fields: [idEmpresa], references: [id])
-  produto    Produto     @relation(fields: [idProduto], references: [id])
-  aluno      Aluno?      @relation(fields: [idAluno], references: [id])
-  fornecedor Fornecedor? @relation(fields: [idFornecedor], references: [id])
-  pagamentos Pagamento[]
+  empresa         Empresa          @relation(fields: [idEmpresa], references: [id])
+  produto         Produto          @relation(fields: [idProduto], references: [id])
+  aluno           Aluno?           @relation(fields: [idAluno], references: [id])
+  fornecedor      Fornecedor?      @relation(fields: [idFornecedor], references: [id])
+  pagamentos      Pagamento[]
+  alunoPontuacoes AlunoPontuacao[]
 
   @@index([idEmpresa])
   @@index([idProduto])
@@ -912,6 +1067,7 @@ model AlunoArquivo {
   aluno                 Aluno                  @relation(fields: [idAluno], references: [id])
   tipoArquivo           TipoArquivo?           @relation(fields: [idTiposArquivos], references: [id])
   alunoBiometriaFacials AlunoBiometriaFacial[]
+  alunoEvolucoes        AlunoEvolucao[]
 
   @@index([idAluno])
   @@map("tb_AlunoArquivos")
@@ -1037,6 +1193,8 @@ model AlunoCheckIn {
   atividadeAgenda      AtividadeAgenda?      @relation(fields: [idAtividadeAgenda], references: [id])
   pontuacao            Pontuacao?            @relation(fields: [idPontuacao], references: [id])
   tipoCheckIn          TipoCheckIn?          @relation(fields: [idTipoCheckIn], references: [id])
+  alunoPontuacao       AlunoPontuacao?
+  execucoes            TreinoExecucao[]
 
   @@index([idAluno, idAtividadeAgenda])
   @@index([idEmpresa])
@@ -1045,6 +1203,143 @@ model AlunoCheckIn {
   @@index([idAtividadeAgenda])
   @@index([idPontuacao])
   @@map("tb_AlunoCheckIns")
+}
+
+// Aviso destinado a um aluno. Existe como LINHA (e nao so calculado na hora)
+// porque um aviso precisa de memoria: saber se ja foi lido, se ja foi enviado
+// por email, e nao reaparecer como novidade a cada abertura da tela.
+//
+// `caChave` e a chave de deduplicacao: identifica O MESMO aviso ao longo do
+// tempo (ex.: "pagamento_atrasado:412"). Sem ela, cada varredura criaria uma
+// linha nova do mesmo assunto e o aluno veria a mesma cobranca sete vezes.
+model Notificacao {
+  id           Int       @id @default(autoincrement())
+  idAluno      Int
+  // Tipo e severidade sao strings de CODIGO, nao lookups: quem as consome e o
+  // proprio codigo (regra de geracao e estilo da tela), nao o operador. Uma
+  // tabela editavel aqui divergiria das regras no primeiro rename.
+  cnTipo       String    @db.VarChar(40)
+  cnSeveridade String    @default("info") @db.VarChar(20)
+  dsTitulo     String    @default("") @db.VarChar(120)
+  dsMensagem   String    @default("") @db.VarChar(500)
+  caChave      String    @db.VarChar(120)
+  dtLeitura    DateTime?
+  // Quando o email saiu. Nulo = ainda nao enviado; e o que impede a varredura
+  // de reenviar o mesmo aviso todo dia.
+  dtEnvioEmail DateTime?
+  // Quando o push saiu. Coluna separada do email de proposito: um aparelho sem
+  // app instalado nao pode impedir o email de sair, nem o contrario.
+  dtEnvioPush  DateTime?
+  dtCadastro   DateTime  @default(now())
+  dtAlteracao  DateTime  @updatedAt
+  boInativo    Boolean   @default(false)
+
+  aluno Aluno @relation(fields: [idAluno], references: [id])
+
+  @@unique([idAluno, caChave])
+  @@index([idAluno])
+  @@index([dtEnvioEmail])
+  @@map("tb_Notificacoes")
+}
+
+// Pedido do aluno para cancelar ou renovar a matricula.
+//
+// O aluno PEDE; a equipe resolve. Nao e cancelamento unilateral de proposito:
+// aviso previo, multa e fidelidade contratual sao regras de cada academia, e
+// nao existem no sistema — deixar o aluno encerrar sozinho aplicaria uma regra
+// que ninguem definiu. Aprovar a solicitacao dispara o MESMO cancelamento que a
+// equipe ja fazia pela ficha, com o motivo que o aluno informou.
+model SolicitacaoPlano {
+  id                     Int       @id @default(autoincrement())
+  // NULAVEL: quem ainda nao tem matricula tambem pede plano ("quero este").
+  // Cancelamento e renovacao sempre apontam para um plano existente; troca e
+  // contratacao, nao.
+  idAlunoPlano           Int?
+  // Aluno dono do pedido. Redundante com alunoPlano.idAluno quando ha plano,
+  // e a UNICA forma de saber de quem e o pedido quando nao ha.
+  idAluno                Int?
+  // Plano que o aluno QUER (troca ou contratacao). Nulo em cancelamento e em
+  // renovacao, que repetem o plano atual.
+  idPlanoDesejado        Int?
+  // 'cancelamento' | 'renovacao' | 'troca' — estados de codigo, ver
+  // Notificacao.cnTipo.
+  cnTipo                 String    @db.VarChar(20)
+  // 'pendente' | 'aprovada' | 'recusada'
+  cnStatus               String    @default("pendente") @db.VarChar(20)
+  idMotivoCancelamento   Int?
+  dsObservacao           String?   @db.VarChar(500)
+  dsResposta             String?   @db.VarChar(500)
+  idFuncionarioResolucao Int?
+  dtResolucao            DateTime?
+  dtCadastro             DateTime  @default(now())
+  dtAlteracao            DateTime  @updatedAt
+  idUsuarioCadastro      Int?
+  idUsuarioAlteracao     Int?
+  boInativo              Boolean   @default(false)
+
+  alunoPlano           AlunoPlano?         @relation(fields: [idAlunoPlano], references: [id])
+  aluno                Aluno?              @relation(fields: [idAluno], references: [id])
+  planoDesejado        Plano?              @relation(fields: [idPlanoDesejado], references: [id])
+  motivoCancelamento   MotivoCancelamento? @relation(fields: [idMotivoCancelamento], references: [id])
+  funcionarioResolucao Funcionario?        @relation(fields: [idFuncionarioResolucao], references: [id])
+
+  @@index([idAluno])
+  @@index([idAlunoPlano])
+  @@index([cnStatus])
+  @@map("tb_SolicitacoesPlano")
+}
+
+// Motivos de cancelamento de matricula. Tabela de dominio global, como
+// TipoCheckIn e StatusPagamento: a taxonomia so serve para comparar, e comparar
+// exige que todo mundo use a mesma lista.
+model MotivoCancelamento {
+  id                   Int      @id @default(autoincrement())
+  dsMotivoCancelamento String   @default("") @db.VarChar(255)
+  dtCadastro           DateTime @default(now())
+  dtAlteracao          DateTime @updatedAt
+  boInativo            Boolean  @default(false)
+
+  alunoPlanos       AlunoPlano[]
+  solicitacoesPlano SolicitacaoPlano[]
+
+  @@map("tb_MotivosCancelamento")
+}
+
+// Execucao de um exercicio numa sessao de treino.
+//
+// A SESSAO ja existe: e o AlunoCheckIn criado pelo "iniciar treino" (que carrega
+// idAlunoTreinosSequencia). Falta so o que aconteceu dentro dela, que e esta
+// tabela: quanto o aluno levantou de verdade, quantas series fez, se terminou.
+//
+// Uma linha por (sessao, exercicio prescrito) — o unique abaixo. Marcar a mesma
+// serie de novo atualiza a linha em vez de empilhar duplicatas, que e o que
+// acontece quando alguem toca duas vezes no botao.
+model TreinoExecucao {
+  id                 Int      @id @default(autoincrement())
+  idAlunoCheckIn     Int
+  idTreinoExercicio  Int
+  // O que foi FEITO. O prescrito continua em TreinoExercicio; a diferenca entre
+  // os dois e a informacao que o professor procura.
+  nrSeriesFeitas     Int      @default(0)
+  nrRepeticoes       Int      @default(0)
+  vlCarga            Decimal? @db.Decimal(8, 2)
+  idUnidadeMedida    Int?
+  boConcluido        Boolean  @default(false)
+  dsObservacao       String?  @db.VarChar(255)
+  dtCadastro         DateTime @default(now())
+  dtAlteracao        DateTime @updatedAt
+  idUsuarioCadastro  Int?
+  idUsuarioAlteracao Int?
+  boInativo          Boolean  @default(false)
+
+  alunoCheckIn    AlunoCheckIn    @relation(fields: [idAlunoCheckIn], references: [id])
+  treinoExercicio TreinoExercicio @relation(fields: [idTreinoExercicio], references: [id])
+  unidadeMedida   UnidadeMedida?  @relation(fields: [idUnidadeMedida], references: [id])
+
+  @@unique([idAlunoCheckIn, idTreinoExercicio])
+  @@index([idAlunoCheckIn])
+  @@index([idTreinoExercicio])
+  @@map("tb_TreinoExecucoes")
 }
 
 model TipoCheckIn {
@@ -1254,19 +1549,28 @@ model Cliente {
   id                 Int      @id @default(autoincrement())
   dsCliente          String   @db.VarChar(255)
   caCNPJ             String?  @unique @db.VarChar(14)
+  // Dias sem check-in a partir dos quais o aluno entra na lista de evasao.
+  // Mora no cliente e nao no codigo porque o ritmo de cada academia e outro:
+  // crossfit de cinco vezes por semana estranha em tres dias, academia de
+  // bairro nao. O padrao 10 e curto o bastante para dar tempo de reagir e
+  // longo o bastante para nao alertar por causa de uma viagem.
+  nrDiasSemCheckIn   Int      @default(10)
   dtCadastro         DateTime @default(now())
   dtAlteracao        DateTime @updatedAt
   idUsuarioCadastro  Int?
   idUsuarioAlteracao Int?
   boInativo          Boolean  @default(false)
 
-  empresas        Empresa[]
-  dominios        DominioCorporativo[]
-  temaCustomizado TemaCustomizado?
-  arquivos        ClienteArquivo[]
-  alunos          Aluno[]
-  fornecedores    Fornecedor[]
-  equipamentos    Equipamento[]
+  empresas          Empresa[]
+  dominios          DominioCorporativo[]
+  temaCustomizado   TemaCustomizado?
+  arquivos          ClienteArquivo[]
+  alunos            Aluno[]
+  fornecedores      Fornecedor[]
+  equipamentos      Equipamento[]
+  perfisAcesso      PerfilAcesso[]
+  leads             Lead[]
+  contasRecebimento ContaRecebimento[]
 
   @@map("tb_Clientes")
 }
@@ -1347,7 +1651,7 @@ model CatracaEvento {
 }
 
 model Equipamento {
-  id Int @id @default(autoincrement())
+  id                 Int       @id @default(autoincrement())
   // Equipamento pertence ao CLIENTE (rede), como Fornecedor: fica disponivel
   // para todas as empresas do cliente. Nullable para nao quebrar as linhas
   // anteriores a esta coluna — a migration faz o backfill pelos exercicios
@@ -1426,4 +1730,267 @@ model Localidade {
   @@index([geoLocalidade], name: "geo", type: Gist)
   @@index([idEmpresa])
   @@map("tb_Localidades")
+}
+
+// Interessado que ainda nao e aluno.
+//
+// A porta de entrada da academia nao passava pelo sistema: quem via o site e
+// queria treinar tinha que aparecer no balcao, e nada registrava que ele
+// chegou a perguntar. Sem esta tabela nao existe a pergunta "quantos
+// procuraram este mes e quantos viraram aluno" — o funil comeca cego.
+//
+// NAO e um Aluno incompleto de proposito: aluno tem CPF, plano, matricula e
+// entra no calculo de acesso. Interessado tem nome e telefone. Misturar os
+// dois faria a lista de alunos encher de gente que nunca pisou na academia.
+model Lead {
+  id            Int       @id @default(autoincrement())
+  idCliente     Int
+  // Filial de interesse. Nulo e comum: quem preenche o formulario do site nem
+  // sempre sabe (ou se importa com) qual unidade.
+  idEmpresa     Int?
+  // Plano que despertou o interesse, quando ele veio de uma tela de planos.
+  idPlano       Int?
+  nmLead        String    @default("") @db.VarChar(255)
+  nrDDD         Int?
+  nrContato     String?   @db.VarChar(9)
+  anEmail       String    @default("") @db.VarChar(100)
+  dsMensagem    String?   @db.VarChar(500)
+  // 'novo' | 'em_contato' | 'convertido' | 'perdido' — estados de codigo, pelo
+  // mesmo motivo de Notificacao.cnTipo: quem os consome e a regra, nao o
+  // operador.
+  cnStatus      String    @default("novo") @db.VarChar(20)
+  // 'site' | 'balcao' — de onde a pessoa chegou.
+  caOrigem      String    @default("site") @db.VarChar(20)
+  dsObservacao  String?   @db.VarChar(500)
+  // Preenchido quando o interessado vira aluno de fato. E o que fecha o funil:
+  // sem ele, 'convertido' seria so uma palavra sem ninguem do outro lado.
+  idAluno       Int?
+  idFuncionario Int?
+  dtContato     DateTime?
+  dtCadastro    DateTime  @default(now())
+  dtAlteracao   DateTime  @updatedAt
+  boInativo     Boolean   @default(false)
+
+  cliente     Cliente      @relation(fields: [idCliente], references: [id])
+  empresa     Empresa?     @relation(fields: [idEmpresa], references: [id])
+  plano       Plano?       @relation(fields: [idPlano], references: [id])
+  aluno       Aluno?       @relation(fields: [idAluno], references: [id])
+  funcionario Funcionario? @relation(fields: [idFuncionario], references: [id])
+
+  @@index([idCliente, cnStatus])
+  @@index([idEmpresa])
+  @@map("tb_Leads")
+}
+
+// Batida de ponto do funcionario.
+//
+// Uma LINHA POR BATIDA, nao uma linha por dia com entrada e saida: quem sai
+// para almocar bate quatro vezes, e o par fixo por dia obrigaria a inventar
+// colunas ate acabar a imaginacao. O espelho do mes emparelha as batidas na
+// ordem.
+//
+// REGISTRA O FATO, NAO JULGA: nao ha atraso, hora extra nem falta aqui —
+// julgar exige escala e tolerancia, que sao regras de contrato de cada
+// academia e nao existem no sistema. O total de horas do dia sai do
+// emparelhamento; o que ele significa e com o gerente.
+model FuncionarioPonto {
+  id                 Int      @id @default(autoincrement())
+  idFuncionario      Int
+  idEmpresa          Int?
+  // 'entrada' | 'saida'. O servidor decide alternando a partir da ultima
+  // batida do dia — deixar o cliente escolher produziria duas entradas
+  // seguidas no primeiro clique duplo.
+  cnTipo             String   @db.VarChar(10)
+  dtRegistro         DateTime @default(now())
+  // Batida lancada pelo gerente para corrigir esquecimento. A observacao e
+  // obrigatoria nesse caso: uma correcao sem justificativa e indistinguivel
+  // de adulteracao.
+  boManual           Boolean  @default(false)
+  dsObservacao       String?  @db.VarChar(255)
+  dtCadastro         DateTime @default(now())
+  dtAlteracao        DateTime @updatedAt
+  idUsuarioCadastro  Int?
+  idUsuarioAlteracao Int?
+  boInativo          Boolean  @default(false)
+
+  funcionario Funcionario @relation(fields: [idFuncionario], references: [id])
+  empresa     Empresa?    @relation(fields: [idEmpresa], references: [id])
+
+  @@index([idFuncionario, dtRegistro])
+  @@index([idEmpresa])
+  @@map("tb_FuncionarioPontos")
+}
+
+// Aparelho registrado para receber notificacao push.
+//
+// Pertence ao USUARIO e nao ao aluno porque quem se autentica e o usuario — e
+// o mesmo aparelho pode hospedar contas diferentes ao longo do tempo. O unique
+// no token e o que trata essa troca: registrar de novo MOVE o aparelho para o
+// usuario atual em vez de duplicar, evitando que o dono anterior continue
+// recebendo os avisos de quem usa o telefone agora.
+model UsuarioDispositivo {
+  id           Int      @id @default(autoincrement())
+  idUsuario    Int
+  // Token do Expo (ExponentPushToken[...]). E o endereco do aparelho; sem ele
+  // nao ha para onde enviar.
+  caTokenPush  String   @unique @db.VarChar(255)
+  dsPlataforma String   @default("") @db.VarChar(20)
+  dtUltimoUso  DateTime @default(now())
+  dtCadastro   DateTime @default(now())
+  dtAlteracao  DateTime @updatedAt
+  boInativo    Boolean  @default(false)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@index([idUsuario])
+  @@map("tb_UsuarioDispositivos")
+}
+
+// Por onde a academia RECEBE o dinheiro do aluno.
+//
+// A conta e do CLIENTE, nao nossa: o dinheiro vai direto da mao do aluno para a
+// conta da academia, e o SmartGym so faz a ponte. Isso e deliberado e nao e
+// detalhe de implementacao — manter o dinheiro fora do nosso fluxo evita virar
+// intermediario financeiro, com o repasse e o risco regulatorio que isso traz.
+//
+// NAO CONFUNDIR COM FormaPagamento: aquela e lookup global e diz COMO o dinheiro
+// entrou (dinheiro, cartao, pix). Esta diz POR ONDE — qual conta ou integracao
+// recebeu. As duas convivem no mesmo Pagamento.
+//
+// ESCOPO: `idEmpresa` nulo vale para a rede inteira do cliente; preenchido,
+// vale so para aquela filial. No Brasil a conta que recebe esta amarrada a um
+// CNPJ, e cada Empresa tem o seu — quem centraliza cadastra uma linha, quem tem
+// CNPJ por unidade cadastra uma por unidade.
+model ContaRecebimento {
+  id        Int  @id @default(autoincrement())
+  idCliente Int
+  idEmpresa Int?
+
+  // Nome que o operador reconhece na tela ("Pix da matriz", "Asaas producao").
+  dsConta String @db.VarChar(120)
+
+  // 'pix_manual' | 'asaas' | 'mercadopago' — codigo, nao lookup: quem o consome
+  // e a regra de integracao, que e versionada junto. Ver Notificacao.cnTipo.
+  cnProvedor String @default("pix_manual") @db.VarChar(20)
+  // 'sandbox' | 'producao'. Existe para a academia testar sem mover dinheiro de
+  // verdade, e para a tela conseguir avisar quando alguem esqueceu em sandbox.
+  cnAmbiente String @default("producao") @db.VarChar(10)
+
+  // --- Pix ------------------------------------------------------------------
+  // CRIPTOGRAFADA (prefixo enc:v1:, subchave propria — ver shared/secrets.ts).
+  // A chave Pix "e publica" no sentido de que voce a entrega para receber, mas
+  // ela pode SER um CPF ou um telefone. Guardar em claro abriria um buraco na
+  // mesma politica que cifra CPF em todo o resto do sistema.
+  caChavePix     String? @db.VarChar(400)
+  // 'cpf' | 'cnpj' | 'email' | 'telefone' | 'aleatoria'. Guardado porque o
+  // codigo Pix (padrao EMV do BC) valida a chave conforme o tipo, e porque a
+  // tela mascara de forma diferente cada um.
+  cnTipoChavePix String? @db.VarChar(12)
+  // Exigidos pelo padrao EMV do Banco Central no codigo copia-e-cola. Sem eles
+  // a conta esta cadastrada mas nao gera cobranca — entao pertencem a conta,
+  // nao ao momento da emissao.
+  nmBeneficiario String? @db.VarChar(25)
+  dsCidade       String? @db.VarChar(15)
+
+  // --- Gateway --------------------------------------------------------------
+  // CRIPTOGRAFADA. Credencial ao portador: quem a tem le a carteira do cliente
+  // e, conforme o escopo, movimenta dinheiro. NUNCA e devolvida por rota de
+  // leitura — a API responde so os ultimos digitos.
+  caCredencial String? @db.VarChar(600)
+
+  // Endereco secreto do webhook desta conta: entra na URL que o provedor
+  // chama (/webhooks/payments/<token>). Serve para DUAS coisas — descobrir de
+  // qual academia e o evento, sem confiar no corpo, e ser o primeiro filtro:
+  // sem o token o request nem chega ao processamento. Sorteado; trocar o valor
+  // invalida a URL antiga, que e o remedio para vazamento.
+  caTokenWebhook String? @unique @db.VarChar(64)
+
+  // Conta usada por padrao ao emitir cobranca nova. Mesmo idioma de
+  // Pontuacao.boPadrao: uma por escopo, garantida no handler.
+  boPadrao Boolean @default(false)
+
+  dtCadastro         DateTime @default(now())
+  dtAlteracao        DateTime @updatedAt
+  idUsuarioCadastro  Int?
+  idUsuarioAlteracao Int?
+  boInativo          Boolean  @default(false)
+
+  cliente     Cliente           @relation(fields: [idCliente], references: [id])
+  empresa     Empresa?          @relation(fields: [idEmpresa], references: [id])
+  pagamentos  Pagamento[]
+  eventos     WebhookEvento[]
+  integracoes AlunoIntegracao[]
+
+  @@index([idCliente])
+  @@index([idEmpresa])
+  @@map("tb_ContasRecebimento")
+}
+
+// Evento recebido de um provedor de pagamento (webhook).
+//
+// POR QUE GUARDAR O PAYLOAD CRU: sem isto, "o pagamento nao deu baixa" e uma
+// pergunta sem resposta possivel — e alguem vai fazer essa pergunta. Com o
+// evento gravado da forma como chegou da para dizer se ele chegou, se foi
+// recusado e por que.
+//
+// APPEND-ONLY. Um evento e um fato que aconteceu; reprocessar gera linha nova.
+model WebhookEvento {
+  id                 Int       @id @default(autoincrement())
+  idContaRecebimento Int
+  // 'asaas' | 'mercadopago' — de onde veio, para o parser certo ser escolhido.
+  cnProvedor         String    @db.VarChar(20)
+  // Id do evento NO PROVEDOR. Chave de deduplicacao: provedor reenvia o mesmo
+  // evento por design (timeout, retry), e sem isto o reenvio seria reprocessado.
+  caEventoExterno    String?   @db.VarChar(120)
+  cnTipoEvento       String    @default("") @db.VarChar(60)
+  // Id da transacao no provedor, que liga o evento ao nosso Pagamento.
+  caTransacaoExterna String?   @db.VarChar(120)
+  // 'recebido' | 'processado' | 'ignorado' | 'recusado'.
+  //  recebido  = gravado, ainda nao concluido (ex.: falta confirmar no provedor)
+  //  processado= deu baixa
+  //  ignorado  = evento que nao nos interessa (cobranca criada, por exemplo)
+  //  recusado  = chegou, mas nao confere (valor menor, cobranca inexistente)
+  cnStatus           String    @default("recebido") @db.VarChar(20)
+  dsResultado        String?   @db.VarChar(400)
+  // O corpo como chegou. Truncado no limite da coluna — o que interessa esta
+  // sempre no comeco do JSON dos provedores.
+  dsPayload          String?   @db.VarChar(4000)
+  idPagamento        Int?
+  dtProcessamento    DateTime?
+  dtCadastro         DateTime  @default(now())
+
+  contaRecebimento ContaRecebimento @relation(fields: [idContaRecebimento], references: [id], onDelete: Cascade)
+  pagamento        Pagamento?       @relation(fields: [idPagamento], references: [id])
+
+  // Mesmo evento so entra uma vez por conta.
+  @@unique([idContaRecebimento, caEventoExterno])
+  @@index([idContaRecebimento, dtCadastro])
+  @@index([caTransacaoExterna])
+  @@map("tb_WebhookEventos")
+}
+
+// Quem o aluno E dentro do provedor de pagamento.
+//
+// O Asaas (como qualquer PSP) exige um "cliente" cadastrado antes de emitir
+// cobranca — com nome e CPF, porque a lei brasileira exige identificar quem
+// paga. Este e o de-para entre o nosso Aluno e o cadastro la.
+//
+// TABELA E NAO COLUNA em Aluno de proposito: a academia pode ter mais de uma
+// conta de recebimento (filiais com CNPJ proprio), e o mesmo aluno vira um
+// cliente diferente em cada uma. Uma coluna so guardaria o ultimo.
+model AlunoIntegracao {
+  id                 Int      @id @default(autoincrement())
+  idAluno            Int
+  idContaRecebimento Int
+  // Id do cliente no provedor.
+  caClienteExterno   String   @db.VarChar(120)
+  dtCadastro         DateTime @default(now())
+  dtAlteracao        DateTime @updatedAt
+
+  aluno            Aluno            @relation(fields: [idAluno], references: [id])
+  contaRecebimento ContaRecebimento @relation(fields: [idContaRecebimento], references: [id], onDelete: Cascade)
+
+  @@unique([idAluno, idContaRecebimento])
+  @@index([idContaRecebimento])
+  @@map("tb_AlunoIntegracoes")
 }

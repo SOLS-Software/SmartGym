@@ -41,6 +41,18 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
     if (!company) throw new Error('Empresa nao pertence ao cliente.');
   }
 
+  // Mesma conferencia para o perfil de acesso. Aqui o risco e maior do que um
+  // vinculo torto: o perfil E a permissao. Sem esta trava, um id de perfil de
+  // OUTRO cliente (adivinhado, sao sequenciais) entraria no funcionario e o
+  // RBAC leria as permissoes desse perfil alheio a cada request.
+  async function assertProfileInTenant(idPerfilAcesso: number, idCliente: number) {
+    const profile = await prisma.perfilAcesso.findFirst({
+      where: { id: idPerfilAcesso, idCliente },
+      select: { id: true },
+    });
+    if (!profile) throw new Error('Perfil de acesso invalido.');
+  }
+
   app.get<{
     Querystring: { search?: string };
   }>('/employees', async (request, reply) => {
@@ -65,6 +77,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
         : { empresa: { idCliente } },
       orderBy: { nmFuncionario: 'asc' },
       take: clampLimit(parsedQuery.data.limit),
+      include: { perfilAcesso: { select: { id: true, dsPerfil: true } } },
     });
     return withDecryptedCpfList(employees);
   });
@@ -80,6 +93,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       // sem idCliente no login, que deriva de empresa): vinculo obrigatorio.
       if (!data.idEmpresa) throw new Error('Informe a empresa do funcionario.');
       await assertCompanyInTenant(data.idEmpresa, idCliente);
+      if (data.idPerfilAcesso) await assertProfileInTenant(data.idPerfilAcesso, idCliente);
       // PII: grava o CPF criptografado + hash de lookup.
       const storedData = { ...data, ...encryptCpfFields(String(data.caCPF ?? '')) };
       const employee = await prisma.funcionario.create({
@@ -107,6 +121,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       const data = normalizeEmployeePayload(request.body);
       if (!data.idEmpresa) throw new Error('Informe a empresa do funcionario.');
       await assertCompanyInTenant(data.idEmpresa, idCliente);
+      if (data.idPerfilAcesso) await assertProfileInTenant(data.idPerfilAcesso, idCliente);
       const storedData = { ...data, ...encryptCpfFields(String(data.caCPF ?? '')) };
       const updated = await prisma.funcionario.update({
         where: { id },

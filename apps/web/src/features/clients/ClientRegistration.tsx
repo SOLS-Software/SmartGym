@@ -14,6 +14,7 @@ type Client = {
   dsCliente: string;
   caCNPJ: string | null;
   boInativo: boolean;
+  nrDiasSemCheckIn?: number;
 };
 
 export function ClientRegistration() {
@@ -27,6 +28,7 @@ export function ClientRegistration() {
 
   const [clientName, setClientName] = useState('');
   const [clientCnpj, setClientCnpj] = useState('');
+  const [evasionDays, setEvasionDays] = useState('10');
   const [isActive, setIsActive] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -61,6 +63,7 @@ export function ClientRegistration() {
     setIsCreating(true);
     setClientName('');
     setClientCnpj('');
+    setEvasionDays('10');
     setIsActive(true);
     setFeedback('');
     setIsDrawerOpen(true);
@@ -71,6 +74,7 @@ export function ClientRegistration() {
     setIsCreating(false);
     setClientName(client.dsCliente);
     setClientCnpj(client.caCNPJ ?? '');
+    setEvasionDays(String(client.nrDiasSemCheckIn ?? 10));
     setIsActive(client.boInativo === false);
     setFeedback('');
     setIsDrawerOpen(true);
@@ -90,6 +94,7 @@ export function ClientRegistration() {
         dsCliente: name,
         caCNPJ: clientCnpj.replace(/\D/g, '') || null,
         boInativo: isActive ? false : true,
+        nrDiasSemCheckIn: Number(evasionDays) || 10,
       };
       const res = await fetch(
         isCreating ? `${apiUrl}/clients` : `${apiUrl}/clients/${selectedClientId}`,
@@ -252,6 +257,24 @@ export function ClientRegistration() {
               type="text"
               value={clientCnpj}
             />
+          </div>
+          <div className="field field-size-sm">
+            <label htmlFor="evasionDays">Alerta de evasão (dias)</label>
+            <input
+              id="evasionDays"
+              inputMode="numeric"
+              max={365}
+              min={1}
+              onChange={(e) => setEvasionDays(e.target.value.replace(/\D/g, '').slice(0, 3))}
+              type="number"
+              value={evasionDays}
+            />
+            {/* O ritmo de cada academia é outro: crossfit de cinco vezes por
+                semana estranha em três dias, academia de bairro não. */}
+            <span className="form-hint">
+              Alunos com plano ativo que passarem estes dias sem check-in aparecem
+              no relatório de evasão.
+            </span>
           </div>
           {!isCreating ? (
             <div className="field field-size-sm">
