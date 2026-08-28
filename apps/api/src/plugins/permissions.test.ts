@@ -248,6 +248,30 @@ describe('ponto, interessados e push', () => {
     expect(isEmployeeAllowed('PATCH', '/leads/3', professor)).toBe(false);
   });
 
+  it('trancar matricula e trabalho de matricula, nao de financeiro', () => {
+    // As rotas de trancamento caem no prefixo /students, que e o dominio
+    // `students`. O teste trava isso: suspender cobranca e efeito COLATERAL do
+    // trancamento, e nao motivo para exigir permissao de financeiro de quem so
+    // faz matricula — nem para deixar o financeiro trancar plano.
+    for (const rota of [
+      '/students/7/related/plans/3/lock',
+      '/students/7/related/plans/3/unlock',
+    ]) {
+      expect(requiredPermission('POST', rota)).toEqual({
+        kind: 'permission',
+        permission: 'students.write',
+      });
+      expect(isEmployeeAllowed('POST', rota, new Set(['students.read']))).toBe(false);
+      expect(isEmployeeAllowed('POST', rota, new Set(['payments.write']))).toBe(false);
+      expect(isEmployeeAllowed('POST', rota, new Set(['students.write']))).toBe(true);
+    }
+    // O historico e leitura de matricula.
+    expect(requiredPermission('GET', '/students/7/related/plans/3/locks')).toEqual({
+      kind: 'permission',
+      permission: 'students.read',
+    });
+  });
+
   it('a lista de evasao e relatorio', () => {
     expect(requiredPermission('GET', '/reports/inactive-students')).toEqual({
       kind: 'permission',
@@ -266,6 +290,25 @@ describe('ponto, interessados e push', () => {
     });
     expect(isEmployeeAllowed('GET', '/reports/overview', recepcao)).toBe(false);
     expect(isEmployeeAllowed('GET', '/reports/overview', new Set(['reports.read']))).toBe(true);
+  });
+
+  it('os paineis analiticos entram pelo mesmo padrao, sem cadastro novo', () => {
+    // O padrao /reports(/|$) cobre a aba Dashboards inteira. O teste existe
+    // para travar isso: uma rota de relatorio criada fora de /reports cairia no
+    // deny-by-default e ninguem descobriria ate um gerente reclamar de 403.
+    for (const rota of [
+      '/reports/retention',
+      '/reports/receivables',
+      '/reports/funnel',
+      '/reports/occupancy',
+    ]) {
+      expect(requiredPermission('GET', rota)).toEqual({
+        kind: 'permission',
+        permission: 'reports.read',
+      });
+      expect(isEmployeeAllowed('GET', rota, recepcao)).toBe(false);
+      expect(isEmployeeAllowed('GET', rota, new Set(['reports.read']))).toBe(true);
+    }
   });
 });
 

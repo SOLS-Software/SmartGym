@@ -38,6 +38,8 @@ import { clientErrorMessage } from '../../shared/errors.js';
 import { buildChargeForPayment } from '../../shared/pixCharge.js';
 import { getStatusIdByName } from '../../shared/payments.js';
 import { enrollStudentInPlan } from '../../shared/enrollment.js';
+import { registerStudentLockRoutes } from './trancamentos.js';
+import { trancamentoVigente } from '../../shared/trancamento.js';
 
 // Extrato de pontos e append-only: cada linha guarda o saldo que existia
 // depois dela, entao alterar ou apagar uma linha antiga tornaria mentira o
@@ -223,6 +225,8 @@ async function assertTenantEmpresa(idEmpresa: number, idCliente: number) {
 }
 
 export async function registerStudentRoutes(app: FastifyInstance) {
+  await registerStudentLockRoutes(app);
+
   // ---------------------------------------------------------------------------
   // Students CRUD
   // ---------------------------------------------------------------------------
@@ -862,10 +866,11 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       if (!student) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.alunoPlano.findMany({
+      const matriculas = await prisma.alunoPlano.findMany({
         where: { idAluno },
         take: clampLimit(parsedQuery.data.limit),
         include: {
+          trancamentos: { where: { boInativo: false }, orderBy: { dtInicio: 'desc' } },
           motivoCancelamento: { select: { id: true, dsMotivoCancelamento: true } },
           plano: {
             include: {
@@ -895,6 +900,20 @@ export async function registerStudentRoutes(app: FastifyInstance) {
           promocaoPlano: { include: { promocao: true } },
         },
         orderBy: { dtCadastro: 'desc' },
+      });
+
+      // Estado de trancamento resolvido AQUI, e nao no browser: a regra de qual
+      // pausa vale hoje mora em shared/trancamento.ts e e a mesma que decide o
+      // acesso na catraca. Deixar a tela recalcular abriria espaco para os dois
+      // discordarem, e o gestor veria "ativo" para quem a catraca barra.
+      const agora = new Date();
+      return matriculas.map((matricula) => {
+        const pausa = trancamentoVigente(matricula.trancamentos, agora);
+        return {
+          ...matricula,
+          trancamentoVigente: pausa,
+          trancado: pausa !== null,
+        };
       });
     } catch (error) {
       return reply.code(400).send({

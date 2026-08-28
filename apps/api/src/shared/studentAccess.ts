@@ -6,12 +6,20 @@
 
 import type { PrismaLike } from './payments.js';
 import { getStatusIdByName } from './payments.js';
+import { motivoDoTrancamento, trancamentoVigente } from './trancamento.js';
 
 export type StudentAccessStatus = {
   idAluno: number;
   idAlunoPlano: number | null;
   hasPlan: boolean;
   planActive: boolean;
+  /**
+   * Matricula pausada hoje. Distinta de `planActive`: o contrato NAO acabou —
+   * quem esta trancado volta, e por isso nao entra no churn. Para o acesso o
+   * efeito e o mesmo (nao passa), mas quem le a recusa precisa da diferenca:
+   * "trancado ate 10/05" e outra conversa na recepcao que "plano encerrado".
+   */
+  planPaused: boolean;
   paymentOverdue: boolean;
   paymentCancelled: boolean;
   /** True only when every check passes — the single flag most callers need. */
@@ -44,6 +52,7 @@ export async function getStudentAccessStatus(
       idAlunoPlano: null,
       hasPlan: false,
       planActive: false,
+      planPaused: false,
       paymentOverdue: false,
       paymentCancelled: false,
       canAccess: false,
@@ -53,6 +62,14 @@ export async function getStudentAccessStatus(
 
   const now = new Date();
   const planActive = !plan.dtEncerramento || plan.dtEncerramento > now;
+
+  // Trancamento vigente. A consulta traz so os registros abertos ou recentes; a
+  // decisao de qual (se algum) cobre hoje e da regra pura em ./trancamento.ts.
+  const trancamentos = await db.alunoPlanoTrancamento.findMany({
+    where: { idAlunoPlano: plan.id, boInativo: false },
+    orderBy: { dtInicio: 'desc' },
+  });
+  const pausa = trancamentoVigente(trancamentos, now);
 
   const idStatusCancelado = await getStatusIdByName(db, 'Cancelado');
   const idStatusPendente = await getStatusIdByName(db, 'Pendente');
@@ -81,10 +98,16 @@ export async function getStudentAccessStatus(
       : null;
 
   const paymentOverdue = Boolean(overduePayment);
-  const canAccess = planActive && !paymentCancelled && !paymentOverdue;
+  const planPaused = pausa !== null;
+  const canAccess = planActive && !planPaused && !paymentCancelled && !paymentOverdue;
 
+  // Ordem das recusas: a mais especifica primeiro. Quem esta trancado quase
+  // sempre TAMBEM tem parcela em aberto (a cobranca fica suspensa durante a
+  // pausa), e receber "pagamento em atraso" nesse caso manda o aluno discutir
+  // uma divida que a propria academia suspendeu.
   let reason: string | null = null;
   if (!planActive) reason = 'Plano do aluno esta encerrado.';
+  else if (pausa) reason = motivoDoTrancamento(pausa);
   else if (paymentCancelled) reason = 'Pagamento do plano foi cancelado.';
   else if (paymentOverdue) reason = 'Pagamento em atraso.';
 
@@ -93,6 +116,7 @@ export async function getStudentAccessStatus(
     idAlunoPlano: plan.id,
     hasPlan: true,
     planActive,
+    planPaused,
     paymentOverdue,
     paymentCancelled,
     canAccess,

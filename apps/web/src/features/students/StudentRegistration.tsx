@@ -14,6 +14,7 @@ import { useToast } from '../../shared/components/Toast';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { getSessionClienteId } from '../../shared/auth/sessionUtils';
 import { studentRelatedTables } from './studentRelatedTables';
+import { PlanLockPanel } from './PlanLockPanel';
 import { formatPhone, isValidBirthDate, isValidEmail, toApiDate } from './studentValidation';
 
 const studentTabIcons = {
@@ -1058,6 +1059,27 @@ export function StudentRegistration() {
             ) : (
               <div className="form-hint">Selecione uma aba para ver os registros.</div>
             )}
+
+            {/* Trancamento fica sob a grade de Planos, e nao como coluna dela: o
+                ato precisa de data e motivo, que nao cabem numa celula, e a
+                diferenca entre pausar e cancelar merece uma frase. Aparece so
+                para a matricula selecionada — trancar e sobre UM contrato. */}
+            {studentRelatedConfig?.key === 'plans' && selectedStudentRelatedRecordId !== null
+              ? (() => {
+                  const matricula = studentRelatedRecords.find(
+                    (rec) => rec.id === selectedStudentRelatedRecordId,
+                  );
+                  if (!matricula) return null;
+                  return (
+                    <PlanLockPanel
+                      key={matricula.id}
+                      onChange={() => void loadStudentRelatedRecords()}
+                      plano={matricula as never}
+                      studentId={selectedStudentId}
+                    />
+                  );
+                })()
+              : null}
           </section>
         ) : null}
 

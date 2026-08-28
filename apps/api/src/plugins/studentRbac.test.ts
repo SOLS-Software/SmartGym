@@ -193,8 +193,27 @@ describe('catalogos que o aluno precisa ler', () => {
   // O panorama agrega a base inteira: quantos alunos existem, quantos treinaram,
   // quanto da base ficou. E dado de gestao da academia, nao do aluno — e a
   // allowlist e explicita justamente para uma rota nova nao entrar de carona.
-  it('nao alcanca o panorama de relatorio', () => {
-    expect(isStudentAllowed('GET', '/reports/overview', 7)).toBe(false);
-    expect(isStudentAllowed('GET', '/reports/financial', 7)).toBe(false);
+  // O aluno LE a propria matricula (o GET generico de /students/:id ja permite),
+  // mas trancar e destrancar sao decisao da academia: envolve suspender
+  // cobranca e liberar acesso. Mesmo racional do cancelamento, que o aluno
+  // SOLICITA (plan-requests) em vez de executar.
+  it('nao tranca nem destranca a propria matricula', () => {
+    expect(isStudentAllowed('POST', '/students/7/related/plans/3/lock', 7)).toBe(false);
+    expect(isStudentAllowed('POST', '/students/7/related/plans/3/unlock', 7)).toBe(false);
+    // E muito menos a de outro aluno.
+    expect(isStudentAllowed('POST', '/students/9/related/plans/3/lock', 7)).toBe(false);
+  });
+
+  it('nao alcanca nenhum relatorio nem painel analitico', () => {
+    for (const rota of [
+      '/reports/overview',
+      '/reports/financial',
+      '/reports/retention',
+      '/reports/receivables',
+      '/reports/funnel',
+      '/reports/occupancy',
+    ]) {
+      expect(isStudentAllowed('GET', rota, 7)).toBe(false);
+    }
   });
 });
