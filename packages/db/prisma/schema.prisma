@@ -1197,7 +1197,21 @@ model AlunoCheckIn {
   execucoes            TreinoExecucao[]
 
   @@index([idAluno, idAtividadeAgenda])
-  @@index([idEmpresa])
+  // Frequencia por periodo: toda pergunta de relatorio sobre check-in e "nesta
+  // filial, entre estas duas datas" — movimento de hoje, serie das 12 semanas,
+  // serie dos 6 meses (ver modules/reports/overview.ts). Sem data no indice, o
+  // filtro de periodo vira varredura da tabela inteira, e esta e a tabela que
+  // mais cresce no sistema: uma linha por pessoa por treino, para sempre.
+  //
+  // A ordem importa. `idEmpresa` primeiro porque e igualdade e `dtCadastro`
+  // depois porque e intervalo: o Postgres so consegue usar a parte de intervalo
+  // do indice depois de fixar as colunas de igualdade. Invertido, o corte por
+  // filial nao seria aproveitado.
+  //
+  // Substitui o indice antigo so de `idEmpresa`: um indice composto atende
+  // sozinho as consultas que usavam o prefixo, e manter os dois custaria
+  // escrita a cada check-in sem devolver leitura nenhuma.
+  @@index([idEmpresa, dtCadastro])
   @@index([idAlunoPlano])
   @@index([idAlunoTreinosSequencia])
   @@index([idAtividadeAgenda])
