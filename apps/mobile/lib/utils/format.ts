@@ -1,5 +1,29 @@
 // Helpers de formatação/validação compartilhados (portados de app/index.tsx).
 
+import { isValidPersonName, normalizePersonName } from '@smartgym/shared';
+
+export { normalizePersonName };
+
+// Mesma regra que o servidor aplica em normalizeStudentPayload, vinda do mesmo
+// modulo compartilhado: mostra o erro no campo em vez de esperar o 400 da API.
+export function getStudentNameError(value: string): string | undefined {
+  const name = normalizePersonName(value);
+
+  if (!name) {
+    return 'Informe o nome do aluno.';
+  }
+
+  if (name.length < 2) {
+    return 'O nome deve ter ao menos 2 caracteres.';
+  }
+
+  if (!isValidPersonName(name)) {
+    return 'O nome aceita apenas letras, espaços, apóstrofos, hífens e pontos.';
+  }
+
+  return undefined;
+}
+
 export function onlyDigits(value: string) {
   return value.replace(/\D/g, '');
 }

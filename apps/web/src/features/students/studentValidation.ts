@@ -1,5 +1,28 @@
 // formatPhone era a 3a de quatro copias identicas. Vem de @smartgym/shared.
-export { formatPhone } from '@smartgym/shared';
+import { formatPhone, isValidPersonName, normalizePersonName } from '@smartgym/shared';
+
+export { formatPhone, normalizePersonName };
+
+// Mesma regra que o servidor aplica em normalizeStudentPayload, vinda do mesmo
+// modulo compartilhado: aqui o objetivo e mostrar o erro no campo em vez de
+// deixar a pessoa preencher o formulario inteiro para receber um 400.
+export function getStudentNameError(value: string): string | undefined {
+  const name = normalizePersonName(value);
+
+  if (!name) {
+    return 'Informe o nome do aluno.';
+  }
+
+  if (name.length < 2) {
+    return 'O nome deve ter ao menos 2 caracteres.';
+  }
+
+  if (!isValidPersonName(name)) {
+    return 'O nome aceita apenas letras, espaços, apóstrofos, hífens e pontos.';
+  }
+
+  return undefined;
+}
 
 export function toApiDate(value: string) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {

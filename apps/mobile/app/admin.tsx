@@ -27,8 +27,10 @@ import {
   formatCpf,
   formatPhone,
   getPasswordValidationMessage,
+  getStudentNameError,
   isImageFile,
   isValidCpf,
+  normalizePersonName,
   onlyDigits,
 } from '../lib/utils/format';
 
@@ -1162,8 +1164,9 @@ function StudentRegistration() {
     const errors: StudentValidationErrors = {};
     const trimmedEmail = studentEmail.trim();
 
-    if (!studentName.trim()) {
-      errors.name = 'Informe o nome do aluno.';
+    const nameError = getStudentNameError(studentName);
+    if (nameError) {
+      errors.name = nameError;
     }
 
     if (!isValidCpf(studentCpf)) {
@@ -1305,7 +1308,7 @@ function StudentRegistration() {
       }
 
       const payload = {
-        nmAluno: studentName,
+        nmAluno: normalizePersonName(studentName),
         caCPF: onlyDigits(studentCpf),
         dtNascimento: apiBirthDate,
         nrDDD: Number(studentDdd || 0),
@@ -1611,7 +1614,7 @@ function StudentRegistration() {
             if (touchedStudentFields.name) {
               setStudentErrors((current) => ({
                 ...current,
-                name: value.trim() ? undefined : 'Informe o nome do aluno.',
+                name: getStudentNameError(value),
               }));
             }
           }}

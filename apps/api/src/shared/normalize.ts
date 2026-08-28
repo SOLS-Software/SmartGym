@@ -1,7 +1,13 @@
 // CPF/CNPJ/email vinham reimplementados aqui e tambem no web (duas copias) —
 // regra de negocio duplicada sai de sincronia sem ninguem perceber. Agora vem de
 // @smartgym/shared; o re-export mantem os imports internos do modulo intactos.
-import { isValidCnpj, isValidCpf, isValidEmail } from '@smartgym/shared';
+import {
+  isValidCnpj,
+  isValidCpf,
+  isValidEmail,
+  isValidPersonName,
+  normalizePersonName,
+} from '@smartgym/shared';
 
 export { isValidCnpj, isValidCpf, isValidEmail };
 
@@ -286,8 +292,15 @@ export function normalizeTrainingPayload(payload: TrainingPayload) {
   };
 }
 
-export function normalizeStudentPayload(payload: StudentPayload) {
-  const nmAluno = payload.nmAluno?.trim();
+// `validateNameFormat: false` existe para o PUT self-service: naquele caminho o
+// nmAluno nao vem do cliente, e reinjetado do registro gravado (o aluno nao pode
+// trocar o proprio nome). Validar ali travaria a edicao de contato/endereco de
+// quem ja tem um nome fora do padrao na base, sem que a pessoa pudesse corrigir.
+export function normalizeStudentPayload(
+  payload: StudentPayload,
+  options: { validateNameFormat?: boolean } = {},
+) {
+  const nmAluno = normalizePersonName(payload.nmAluno);
   const caCPF = payload.caCPF?.replace(/\D/g, '') ?? '';
   const nrContato = payload.nrContato?.replace(/\D/g, '') ?? null;
   const anEmail = payload.anEmail?.trim() ?? '';
@@ -299,6 +312,11 @@ export function normalizeStudentPayload(payload: StudentPayload) {
   }
   if (!nmAluno) {
     throw new Error('Informe o nome do aluno.');
+  }
+  if ((options.validateNameFormat ?? true) && !isValidPersonName(nmAluno)) {
+    throw new Error(
+      'Informe um nome de aluno valido: de 2 a 255 caracteres, apenas letras, espacos, apostrofos, hifens e pontos.',
+    );
   }
   if (!caCPF) {
     throw new Error('Informe o CPF do aluno.');

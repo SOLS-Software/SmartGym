@@ -276,9 +276,12 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         'code' in error &&
         (error as { code: string }).code === 'P2002';
       return reply.code(400).send({
+        // 'Erro ao criar aluno.' fixo engolia as mensagens de
+        // normalizeStudentPayload ("Informe um CPF valido.", nome invalido) e a
+        // tela ficava sem dizer o que corrigir. O PUT ja usava clientErrorMessage.
         message: isPrismaUnique
           ? 'CPF já cadastrado para este cliente.'
-          : 'Erro ao criar aluno.',
+          : clientErrorMessage(error, 'Erro ao criar aluno.'),
       });
     }
   });
@@ -345,20 +348,25 @@ export async function registerStudentRoutes(app: FastifyInstance) {
           })
         : null;
 
-      const data = normalizeStudentPayload({
-        ...request.body,
-        // Tenant sempre do token; idCliente vindo do body e ignorado.
-        idCliente,
-        ...(stored
-          ? {
-              nmAluno: stored.nmAluno,
-              // normalizeStudentPayload exige um CPF valido: usamos o CPF ja
-              // gravado (decifrado) para revalidar sem permitir troca.
-              caCPF: decryptCpfValue(stored.caCPF),
-              boInativo: stored.boInativo,
-            }
-          : {}),
-      });
+      const data = normalizeStudentPayload(
+        {
+          ...request.body,
+          // Tenant sempre do token; idCliente vindo do body e ignorado.
+          idCliente,
+          ...(stored
+            ? {
+                nmAluno: stored.nmAluno,
+                // normalizeStudentPayload exige um CPF valido: usamos o CPF ja
+                // gravado (decifrado) para revalidar sem permitir troca.
+                caCPF: decryptCpfValue(stored.caCPF),
+                boInativo: stored.boInativo,
+              }
+            : {}),
+        },
+        // Nome fora do padrao ja gravado nao pode travar a tela de perfil do
+        // aluno: aqui o nome vem do banco, nao do cliente.
+        { validateNameFormat: !stored },
+      );
 
       const updated = await prisma.aluno.update({
         where: { id },
