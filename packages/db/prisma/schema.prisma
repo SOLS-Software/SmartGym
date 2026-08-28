@@ -795,12 +795,70 @@ model AlunoPlano {
   pagamentos         Pagamento[]
   alunoCheckIns      AlunoCheckIn[]
   solicitacoes       SolicitacaoPlano[]
+  trancamentos       AlunoPlanoTrancamento[]
 
   @@index([idAluno])
   @@index([idPlano])
   @@index([idPromocaoPlano])
   @@index([idMotivoCancelamento])
   @@map("tb_AlunoPlanos")
+}
+
+// Periodo em que a matricula ficou PAUSADA — viagem, lesao, gravidez, um mes
+// apertado.
+//
+// POR QUE NAO E UMA FLAG EM AlunoPlano
+//
+// Trancar nao e um estado, e um intervalo, e acontece mais de uma vez na vida
+// de um contrato. Uma coluna `boTrancado` responderia "esta trancado?" e
+// perderia "quantas vezes", "por quanto tempo" e "quando" — que sao as
+// perguntas que fazem o dado valer alguma coisa. Mesmo idioma de
+// AlunoPontuacao (extrato, nao saldo) e FuncionarioPonto (uma linha por
+// batida).
+//
+// POR QUE ISTO PRECISA EXISTIR
+//
+// Sem lugar para registrar pausa, a equipe encerrava a matricula e abria outra
+// na volta. O efeito colateral e que a saida virava CHURN: quem viajou dois
+// meses entrava na estatistica de evasao junto com quem foi para o concorrente,
+// e o motivo de cancelamento ficava poluido. A coorte e o churn dos Dashboards
+// leem `dtEncerramento`; trancar sem toca-lo e o que torna os dois honestos.
+//
+// QUANDO A PAUSA ACABA
+//
+// `dtRetorno` preenchido = voltou naquele dia. Vazio com `dtPrevisaoRetorno`
+// no passado = a pausa acabou sozinha, na data combinada. Vazio e sem previsao
+// = segue trancado ate alguem registrar a volta.
+//
+// A previsao VALE por design: uma pausa "ate 10/03" que ninguem fechou nao
+// pode continuar liberando acesso e suspendendo cobranca indefinidamente. Quem
+// quer pausa sem prazo precisa dizer isso deixando a previsao em branco, o que
+// e uma escolha deliberada e nao um esquecimento.
+model AlunoPlanoTrancamento {
+  id           Int       @id @default(autoincrement())
+  idAlunoPlano Int
+  dtInicio     DateTime  @db.Date
+  // Ate quando o aluno combinou ficar fora. Nulo = sem prazo.
+  dtPrevisaoRetorno DateTime? @db.Date
+  // Quando voltou de fato. Nulo = ainda fora (ver regra acima).
+  dtRetorno    DateTime? @db.Date
+  // Texto livre: ao contrario do cancelamento, aqui nao ha taxonomia. Somar
+  // motivos de pausa nao muda decisao nenhuma, entao uma lookup so daria
+  // trabalho de manter.
+  dsMotivo     String?   @db.VarChar(255)
+
+  dtCadastro         DateTime @default(now())
+  dtAlteracao        DateTime @updatedAt
+  idUsuarioCadastro  Int?
+  idUsuarioAlteracao Int?
+  boInativo          Boolean  @default(false)
+
+  alunoPlano AlunoPlano @relation(fields: [idAlunoPlano], references: [id])
+
+  // A pergunta quente e "esta matricula esta trancada nesta data?", que varre
+  // por matricula e corta por inicio.
+  @@index([idAlunoPlano, dtInicio])
+  @@map("tb_AlunoPlanoTrancamentos")
 }
 
 model Pagamento {
