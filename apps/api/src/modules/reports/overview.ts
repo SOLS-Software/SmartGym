@@ -28,7 +28,7 @@ import { Prisma } from '@smartgym/db';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { clientErrorMessage } from '../../shared/errors.js';
-import { matriculaVigenteWhere } from './vigencia.js';
+import { matriculaAtivaWhere, matriculaVigenteWhere } from './vigencia.js';
 import {
   encaixar,
   limitesDe,
@@ -140,6 +140,7 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
         const [
           alunosPorStatus,
           matriculasVigentes,
+          matriculasTrancadas,
           matriculasNoInicioDoMes,
           encerradasNoMes,
           novasNoMes,
@@ -160,6 +161,18 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
           }),
 
           prisma.alunoPlano.count({ where: matriculaVigenteWhere(idCliente, agora) }),
+
+          // Trancadas: contrato em vigor, pausado hoje. Sai separado porque
+          // somar com as ativas esconderia justamente o que o trancamento veio
+          // tornar visivel — e subtrair viraria evasao, que e o erro antigo.
+          prisma.alunoPlano.count({
+            where: {
+              AND: [
+                matriculaVigenteWhere(idCliente, agora),
+                { NOT: matriculaAtivaWhere(idCliente, agora) },
+              ],
+            },
+          }),
 
           // Denominador da retencao: quem estava vigente no primeiro instante
           // do mes. Sem ele, "retencao" viraria de novo uma razao de cadastro.
@@ -282,6 +295,9 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
           },
           matriculas: {
             vigentes: matriculasVigentes,
+            // vigentes = ativas + trancadas, sempre.
+            ativas: matriculasVigentes - matriculasTrancadas,
+            trancadas: matriculasTrancadas,
             novasNoMes,
             encerradasNoMes,
           },

@@ -100,6 +100,7 @@ html.dark .chip {
 @import './dashboard.css';
 @import './onboarding.css';
 @import './reports.css';
+@import './dashboards.css';
 @import './catracas.css';
 @import './access-profiles.css';
 @import './evolution.css';

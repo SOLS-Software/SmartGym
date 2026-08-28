@@ -1,0 +1,356 @@
+/* Aba Dashboards — paineis analiticos (retencao, recebiveis, funil, ocupacao).
+ *
+ * Tudo aqui usa os tokens de globals.css/base.css, entao o modo escuro sai de
+ * graca: os canvas da tela de Relatorios precisam ler `classList` na hora de
+ * desenhar, estes graficos nao. */
+
+.dash-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── KPIs ── */
+.dash-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+
+.dash-kpi {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: 0.625rem;
+}
+
+.dash-kpi.tom-alerta { border-left-color: #d97706; }
+.dash-kpi.tom-perigo { border-left-color: var(--color-danger); }
+
+.dash-kpi-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  flex-shrink: 0;
+  border-radius: 0.5rem;
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.dash-kpi.tom-alerta .dash-kpi-icon { background: #fef3c7; color: #b45309; }
+.dash-kpi.tom-perigo .dash-kpi-icon { background: var(--color-danger-bg); color: var(--color-danger); }
+
+html.dark .dash-kpi-icon { background: rgba(31, 122, 83, 0.18); }
+html.dark .dash-kpi.tom-alerta .dash-kpi-icon { background: rgba(217, 119, 6, 0.18); color: #fbbf24; }
+html.dark .dash-kpi.tom-perigo .dash-kpi-icon { background: rgba(220, 38, 38, 0.18); color: #f87171; }
+
+.dash-kpi-corpo { min-width: 0; }
+
+.dash-kpi-valor {
+  display: block;
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-kpi-rotulo {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  margin-top: 0.1rem;
+}
+
+.dash-kpi-hint {
+  display: block;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--color-muted);
+  opacity: 0.85;
+  margin-top: 0.15rem;
+}
+
+/* ── Blocos ── */
+.dash-bloco {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.625rem;
+  padding: 1rem 1.125rem 1.125rem;
+}
+
+.dash-bloco-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.dash-bloco-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.dash-hint {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.dash-duas-colunas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: 1.25rem;
+}
+
+.dash-legenda,
+.dash-nota {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+
+.dash-nota {
+  margin: 0.75rem 0 0;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.dash-legenda strong { color: var(--color-text); font-weight: 650; }
+
+.dash-nota-inline {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+.dash-vazio {
+  margin: 0;
+  padding: 0.85rem 0;
+  font-size: 0.83rem;
+  color: var(--color-muted);
+}
+
+/* ── Barras horizontais ── */
+.dash-barras {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.dash-barra-topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.dash-barra-label {
+  font-size: 0.82rem;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-barra-valor {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dash-barra-trilho {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--color-border-subtle);
+  overflow: hidden;
+}
+
+.dash-barra-preenchida {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-primary);
+}
+
+.dash-barra-preenchida.tom-ok { background: var(--color-primary); }
+.dash-barra-preenchida.tom-alerta { background: #d97706; }
+.dash-barra-preenchida.tom-perigo { background: var(--color-danger); }
+
+.dash-barra-hint {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+  color: var(--color-muted);
+}
+
+/* ── Serie vertical ── */
+.dash-serie-barras {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.dash-serie-coluna {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+
+.dash-serie-valor {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 0.2rem;
+  white-space: nowrap;
+}
+
+.dash-serie-barra {
+  width: 100%;
+  max-width: 2.2rem;
+  border-radius: 0.25rem 0.25rem 0 0;
+  background: var(--color-primary);
+  opacity: 0.85;
+}
+
+.dash-serie-label {
+  margin-top: 0.35rem;
+  font-size: 0.65rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+/* ── Tabelas (coorte e mapa de calor) ── */
+.dash-tabela-scroll {
+  overflow-x: auto;
+}
+
+.dash-coorte,
+.dash-mapa {
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-coorte th,
+.dash-mapa th {
+  font-weight: 600;
+  color: var(--color-muted);
+  padding: 0.3rem 0.45rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.dash-coorte th[scope='row'],
+.dash-mapa th[scope='row'] {
+  text-align: left;
+  color: var(--color-text);
+}
+
+.dash-coorte td,
+.dash-mapa td {
+  padding: 0.35rem 0.5rem;
+  text-align: center;
+  border-radius: 0.25rem;
+  min-width: 2.6rem;
+  color: var(--color-text);
+}
+
+.dash-coorte-tamanho {
+  font-weight: 700;
+  background: var(--color-surface-alt);
+}
+
+.dash-coorte-celula { font-weight: 600; }
+
+/* Tinta das celulas tingidas.
+ *
+ * Nao herdam --color-text: a celula e pintada com a cor primaria do CLIENTE em
+ * opacidade variavel, e a cor primaria e configuravel (TemaCustomizado). Marca
+ * clara pede tinta escura, marca escura pede tinta clara — e nenhum token sabe
+ * disso. Quem decide e a luminancia real da celula, calculada em ./calor.ts.
+ *
+ * Os valores sao literais e nao tokens de proposito: precisam valer contra a
+ * COR DA CELULA, nao contra a superficie do tema. */
+.dash-coorte-celula.tinta-escura,
+.dash-mapa-celula.tinta-escura { color: #10231a; }
+
+.dash-coorte-celula.tinta-clara,
+.dash-mapa-celula.tinta-clara { color: #f2f7f4; }
+
+/* Mes que ainda nao aconteceu para a safra: hachura discreta, nao um zero. */
+.dash-coorte-futuro {
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 3px,
+    var(--color-border-subtle) 3px,
+    var(--color-border-subtle) 6px
+  );
+}
+
+.dash-coorte-na { color: var(--color-muted); opacity: 0.5; }
+
+.dash-coorte tr.vazia th[scope='row'],
+.dash-coorte tr.vazia .dash-coorte-tamanho {
+  color: var(--color-muted);
+  opacity: 0.6;
+}
+
+.dash-tag {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+}
+
+.dash-mapa-canto { min-width: 2.2rem; }
+
+.dash-mapa-celula {
+  min-width: 2.1rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: var(--color-border-subtle);
+}
+
+.dash-mapa-celula.pico {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* ── Mobile ── */
+@media (max-width: 47.5rem) {
+  .dash-content { gap: 1rem; }
+  .dash-bloco { padding: 0.85rem 0.9rem 1rem; }
+  .dash-duas-colunas { gap: 1rem; }
+  .dash-serie-valor { display: none; }
+}

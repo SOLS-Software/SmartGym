@@ -41,3 +41,48 @@ export function matriculaVigenteWhere(
     ],
   };
 }
+
+/**
+ * Filtro de matriculas TRANCADAS numa data.
+ *
+ * Espelha exatamente `trancamentoCobre` (shared/trancamento.ts): inicio <=
+ * referencia, e o fim vem de `dtRetorno` quando existe, senao de
+ * `dtPrevisaoRetorno`, senao nunca. As duas implementacoes precisam concordar —
+ * uma decide o acesso do aluno na catraca e a outra o numero no painel, e um
+ * gestor ligando para alguem que o sistema deixou entrar seria constrangedor.
+ * Se mexer numa, mexa na outra; o teste de trancamento.test.ts trava a regra.
+ *
+ * Vigente NAO exclui trancada: o contrato pausado continua em vigor, so nao
+ * vale hoje. Quem quer so as que estao valendo compoe com `NOT`.
+ */
+export function matriculaTrancadaWhere(referencia: Date): Prisma.AlunoPlanoWhereInput {
+  return {
+    trancamentos: {
+      some: {
+        boInativo: false,
+        dtInicio: { lte: referencia },
+        OR: [
+          { dtRetorno: { gt: referencia } },
+          { AND: [{ dtRetorno: null }, { dtPrevisaoRetorno: { gt: referencia } }] },
+          { AND: [{ dtRetorno: null }, { dtPrevisaoRetorno: null }] },
+        ],
+      },
+    },
+  };
+}
+
+/**
+ * Vigente E em uso hoje — o contrato existe e nao esta pausado.
+ *
+ * E este o numero que serve de denominador para receita por aluno: quem esta
+ * trancado nao esta pagando, e divide-lo junto derrubaria o ARPU sem que a
+ * academia tivesse perdido nada.
+ */
+export function matriculaAtivaWhere(
+  idCliente: number,
+  referencia: Date,
+): Prisma.AlunoPlanoWhereInput {
+  return {
+    AND: [matriculaVigenteWhere(idCliente, referencia), { NOT: matriculaTrancadaWhere(referencia) }],
+  };
+}

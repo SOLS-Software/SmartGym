@@ -10,7 +10,8 @@ import { prisma } from '../../shared/prisma.js';
 import { clientErrorMessage } from '../../shared/errors.js';
 import { getStatusIdByName } from '../../shared/payments.js';
 import { registerOverviewRoutes } from './overview.js';
-import { matriculaVigenteWhere } from './vigencia.js';
+import { registerDashboardRoutes } from './dashboards.js';
+import { matriculaAtivaWhere } from './vigencia.js';
 
 const inactiveQuerySchema = z.object({
   idEmpresa: z.coerce.number().int().optional(),
@@ -40,6 +41,7 @@ function toNumber(value: unknown): number {
 
 export async function registerReportRoutes(app: FastifyInstance) {
   await registerOverviewRoutes(app);
+  await registerDashboardRoutes(app);
 
   app.get<{
     Querystring: { idEmpresa?: string; from?: string; to?: string };
@@ -76,7 +78,7 @@ export async function registerReportRoutes(app: FastifyInstance) {
 
       const base = { boInativo: false, ...escopoEmpresa };
 
-      const [recebidos, aReceber, vencidos, matriculasVigentes] = await Promise.all([
+      const [recebidos, aReceber, vencidos, matriculasAtivas] = await Promise.all([
         // Recebido: o que foi pago DENTRO do periodo (data de pagamento, nao de
         // vencimento) — e o dinheiro que entrou no caixa nesses dias.
         prisma.pagamento.findMany({
@@ -106,13 +108,17 @@ export async function registerReportRoutes(app: FastifyInstance) {
           },
           select: { vlPrevisto: true, idAlunoPlano: true },
         }),
-        // Denominador do ARPU. Escopo de cliente, nao de filial: matricula nao
-        // tem idEmpresa (ver o comentario de escopo em ./overview.ts). Com uma
-        // filial selecionada, a receita e da filial e a base e da rede — por
-        // isso o ARPU so e devolvido quando o relatorio olha a rede inteira.
+        // Denominador do ARPU: matricula ATIVA, nao apenas vigente. Quem esta
+        // com o plano trancado nao esta pagando, e conta-lo derrubaria a receita
+        // por aluno sem que a academia tivesse perdido nada.
+        //
+        // Escopo de cliente, nao de filial: matricula nao tem idEmpresa (ver o
+        // comentario de escopo em ./overview.ts). Com uma filial selecionada, a
+        // receita e da filial e a base e da rede — por isso o ARPU so e
+        // devolvido quando o relatorio olha a rede inteira.
         parsed.data.idEmpresa
           ? Promise.resolve(0)
-          : prisma.alunoPlano.count({ where: matriculaVigenteWhere(idCliente, new Date()) }),
+          : prisma.alunoPlano.count({ where: matriculaAtivaWhere(idCliente, new Date()) }),
       ]);
 
       const somaPago = (linhas: Array<{ vlPago?: unknown; vlPrevisto?: unknown }>) =>
@@ -149,8 +155,8 @@ export async function registerReportRoutes(app: FastifyInstance) {
         // quantas parcelas cairam no periodo. Nula quando o relatorio esta
         // filtrado por filial (ver a consulta acima) ou quando nao ha base.
         arpu:
-          matriculasVigentes > 0
-            ? { valor: totalRecebido / matriculasVigentes, matriculasVigentes }
+          matriculasAtivas > 0
+            ? { valor: totalRecebido / matriculasAtivas, matriculasAtivas }
             : null,
         aReceber: {
           total: aReceber.reduce((soma, linha) => soma + toNumber(linha.vlPrevisto), 0),

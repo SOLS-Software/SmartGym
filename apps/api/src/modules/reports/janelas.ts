@@ -38,7 +38,7 @@ export type Janela = {
  */
 export type LinhaAgregada = { bucket: string; total: number };
 
-const MESES_PT = [
+export const MESES_PT = [
   'jan',
   'fev',
   'mar',

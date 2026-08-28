@@ -52,6 +52,7 @@ import { TimeClock } from '../../features/timeclock/TimeClock';
 import { PaymentAccountRegistration } from '../../features/billing/PaymentAccountRegistration';
 import { CashierDesk } from '../../features/cashier/CashierDesk';
 import { ReportsView } from '../../features/reports/ReportsView';
+import { DashboardsView } from '../../features/dashboards/DashboardsView';
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 import {
   SESSION_KEY,
@@ -77,6 +78,7 @@ import {
   FilePlus,
   Globe,
   LayoutDashboard,
+  LineChart,
   MapPin,
   Menu,
   Moon,
@@ -134,6 +136,7 @@ const menuItemIcons: Record<string, LucideIcon> = {
   'Localidades': MapPin,
   'Pontuações': Star,
   'Relatórios': BarChart3,
+  'Dashboards': LineChart,
   'Interessados': UserSearch,
   'Ponto': Clock,
   'Contas de Recebimento': Landmark,
@@ -143,7 +146,7 @@ const menuItemIcons: Record<string, LucideIcon> = {
 const menuGroups = [
   {
     title: 'INÍCIO',
-    items: ['Painel', 'Recepção', 'Caixa', 'Relatórios'],
+    items: ['Painel', 'Recepção', 'Caixa', 'Relatórios', 'Dashboards'],
   },
   {
     title: 'EMPRESA',
@@ -190,6 +193,7 @@ const menuItemPermissions: Record<string, string> = {
   'Recepção': 'checkins.write',
   'Caixa': 'payments.read',
   'Relatórios': 'reports.read',
+  'Dashboards': 'reports.read',
   'Clientes': 'companies.read',
   'Empresas': 'companies.read',
   // Dominio proprio (billing), nao 'payments': quem da baixa numa parcela nao
@@ -1070,7 +1074,7 @@ export default function HomePage() {
           .map((group) => ({
             ...group,
             title: getMenuGroupLabel(group.title, 'student'),
-            items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda' && item !== 'Calendário Empresa' && item !== 'Treino' && item !== 'Relatórios' && item !== 'Recepção' && item !== 'Minha Conta' && item !== 'Interessados' && item !== 'Caixa'),
+            items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda' && item !== 'Calendário Empresa' && item !== 'Treino' && item !== 'Relatórios' && item !== 'Dashboards' && item !== 'Recepção' && item !== 'Minha Conta' && item !== 'Interessados' && item !== 'Caixa'),
           }));
 
     // Rede de seguranca da navegacao: a sessao guarda o ultimo item aberto, e a
@@ -1278,6 +1282,8 @@ export default function HomePage() {
             <ReceptionDesk />
           ) : activeItem === 'Relatórios' ? (
             <ReportsView />
+          ) : activeItem === 'Dashboards' ? (
+            <DashboardsView />
           ) : activeItem === 'Clientes' ? (
             <ClientRegistration />
           ) : activeItem === 'Empresas' ? (
