@@ -1,76 +1,42 @@
-// Helpers de formatação/validação compartilhados (portados de app/index.tsx).
+// Helpers de formatação/validação das telas do app.
+//
+// Isto era a QUARTA cópia de onlyDigits/formatCpf/isValidCpf/formatPhone/
+// isImageFile e a QUINTA implementação das regras de senha. O pacote
+// @smartgym/shared existe justamente para isso, já é dependência do mobile e já
+// funciona aqui (lib/components/ExerciseDetailModal.tsx importa dele) — a cópia
+// não tinha impedimento técnico, só inércia.
+//
+// E a duplicação já tinha começado a divergir: a mensagem de senha daqui usava
+// "não pode conter espaços" (com acento) e a do servidor "nao pode conter
+// espacos". Mesma regra, dois textos — que é como uma regra sai de sincronia
+// antes de sair de verdade.
+//
+// O re-export mantém os ~10 imports das telas intactos.
+export {
+  formatCep,
+  formatCnpj,
+  formatCpf,
+  formatPhone,
+  isImageFile,
+  isValidCnpj,
+  isValidCpf,
+  isValidEmail,
+  onlyDigits,
+} from '@smartgym/shared';
 
-export function onlyDigits(value: string) {
-  return value.replace(/\D/g, '');
-}
+import { erroDaSenha } from '@smartgym/shared';
 
-export function formatCpf(value: string) {
-  const digits = onlyDigits(value).slice(0, 11);
+export { LIMITES, REGRAS_SENHA, SENHA_MAX, SENHA_MIN } from '@smartgym/shared';
 
-  return digits
-    .replace(/^(\d{3})(\d)/, '$1.$2')
-    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d)/, '.$1-$2');
-}
-
-export function isValidCpf(value: string) {
-  const cpf = onlyDigits(value);
-
-  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) {
-    return false;
-  }
-
-  const calculateDigit = (size: number) => {
-    let sum = 0;
-
-    for (let index = 0; index < size; index += 1) {
-      sum += Number(cpf[index]) * (size + 1 - index);
-    }
-
-    const rest = (sum * 10) % 11;
-
-    return rest === 10 ? 0 : rest;
-  };
-
-  return calculateDigit(9) === Number(cpf[9]) && calculateDigit(10) === Number(cpf[10]);
-}
-
-export function formatPhone(value: string) {
-  const digits = onlyDigits(value).slice(0, 9);
-
-  if (digits.length <= 8) {
-    return digits.replace(/^(\d{4})(\d)/, '$1-$2');
-  }
-
-  return digits.replace(/^(\d{5})(\d)/, '$1-$2');
-}
-
-export function isImageFile(path: string) {
-  return /\.(jpg|jpeg|png|gif|webp)$/i.test(path);
-}
-
+/**
+ * Mensagem da primeira regra de senha violada, ou '' quando a senha serve.
+ *
+ * Continua devolvendo string vazia (e não `null`) porque os chamadores fazem
+ * `if (mensagem)`; a regra em si vem de `erroDaSenha`, a mesma que a API usa em
+ * normalizeRegisterPassword e que as telas de senha do web usam.
+ */
 export function getPasswordValidationMessage(password: string) {
-  if (password.length < 6) {
-    return 'A senha deve ter pelo menos 6 caracteres.';
-  }
-
-  if (password.length > 20) {
-    return 'A senha deve ter no maximo 20 caracteres.';
-  }
-
-  if (/\s/.test(password)) {
-    return 'A senha não pode conter espaços.';
-  }
-
-  if (!/\d/.test(password)) {
-    return 'A senha deve conter pelo menos 1 numero.';
-  }
-
-  if ((password.match(/[a-zA-Z]/g) ?? []).length < 3) {
-    return 'A senha deve conter pelo menos 3 letras.';
-  }
-
-  return '';
+  return erroDaSenha(password) ?? '';
 }
 
 // Datas — string-split, sem shift de timezone (espelha o web registrationHelpers).

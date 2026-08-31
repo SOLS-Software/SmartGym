@@ -24,11 +24,15 @@ import { authFetch as fetch, setAuthToken } from '../lib/api/client';
 // Helpers de formatacao/validacao: vinham reimplementados neste arquivo,
 // identicos aos de lib/utils/format.ts que todas as outras telas ja usam.
 import {
+  LIMITES,
+  formatCnpj,
   formatCpf,
   formatPhone,
   getPasswordValidationMessage,
   isImageFile,
+  isValidCnpj,
   isValidCpf,
+  isValidEmail,
   onlyDigits,
 } from '../lib/utils/format';
 
@@ -160,7 +164,6 @@ type Company = {
   id: number;
   dsEmpresa: string;
   caCNPJ: string;
-  cnTemaTP: number;
   boInativo: number;
 };
 
@@ -235,7 +238,6 @@ function CompanyRegistration() {
   const [isCreating, setIsCreating] = useState(false);
   const [companyName, setCompanyName] = useState('');
   const [companyCnpj, setCompanyCnpj] = useState('');
-  const [companyTheme, setCompanyTheme] = useState('0');
   const [isCompanyActive, setIsCompanyActive] = useState(false);
   const [feedback, setFeedback] = useState('');
   const isFormEnabled = selectedCompanyId !== null || isCreating;
@@ -275,7 +277,6 @@ function CompanyRegistration() {
     setIsCreating(false);
     setCompanyName('');
     setCompanyCnpj('');
-    setCompanyTheme('0');
     setIsCompanyActive(false);
   }
 
@@ -284,7 +285,6 @@ function CompanyRegistration() {
     setIsCreating(true);
     setCompanyName('');
     setCompanyCnpj('');
-    setCompanyTheme('0');
     setIsCompanyActive(true);
     setFeedback('');
   }
@@ -293,8 +293,8 @@ function CompanyRegistration() {
     setSelectedCompanyId(company.id);
     setIsCreating(false);
     setCompanyName(company.dsEmpresa);
-    setCompanyCnpj(company.caCNPJ);
-    setCompanyTheme(String(company.cnTemaTP));
+    // Vem cru do banco (so digitos); a tela mostra mascarado.
+    setCompanyCnpj(formatCnpj(company.caCNPJ));
     setIsCompanyActive(company.boInativo === 0);
     setFeedback('');
   }
@@ -337,11 +337,20 @@ function CompanyRegistration() {
   }
 
   async function handleSaveCompany() {
+    if (!companyName.trim()) {
+      setFeedback('Informe o nome da empresa.');
+      return;
+    }
+    if (!isValidCnpj(companyCnpj)) {
+      setFeedback('Informe um CNPJ válido.');
+      return;
+    }
+
     try {
       const payload = {
-        dsEmpresa: companyName,
-        caCNPJ: companyCnpj,
-        cnTemaTP: Number(companyTheme || 0),
+        dsEmpresa: companyName.trim(),
+        // A API so aceita digitos; a mascara e da tela.
+        caCNPJ: onlyDigits(companyCnpj),
         boInativo: isCompanyActive ? 0 : 1,
       };
       const response = await fetch(
@@ -433,7 +442,6 @@ function CompanyRegistration() {
                 </Text>
               </View>
               <Text style={styles.productStock}>CNPJ: {company.caCNPJ}</Text>
-              <Text style={styles.productStock}>Tema: {company.cnTemaTP}</Text>
             </Pressable>
           ))}
 
@@ -455,7 +463,7 @@ function CompanyRegistration() {
         <Text style={styles.label}>Empresa</Text>
         <TextInput
           editable={isFormEnabled}
-          maxLength={255}
+          maxLength={LIMITES.empresa.dsEmpresa}
           onChangeText={setCompanyName}
           placeholder="Ex.: Academia Cliente"
           placeholderTextColor="#82918a"
@@ -463,28 +471,29 @@ function CompanyRegistration() {
           value={companyName}
         />
 
+        {/* Sem mascara e sem conferencia do digito verificador, o CNPJ so era
+            recusado pela API depois do envio — enquanto o web ja validava na
+            digitacao. Mesma funcao dos dois lados (@smartgym/shared). */}
         <Text style={styles.label}>CNPJ</Text>
         <TextInput
           editable={isFormEnabled}
           keyboardType="number-pad"
-          maxLength={14}
-          onChangeText={setCompanyCnpj}
-          placeholder="Somente numeros"
+          maxLength={18}
+          onChangeText={(value) => setCompanyCnpj(formatCnpj(value))}
+          placeholder="00.000.000/0000-00"
           placeholderTextColor="#82918a"
-          style={styles.input}
+          style={[styles.input, companyCnpj.trim() && !isValidCnpj(companyCnpj) && styles.inputError]}
           value={companyCnpj}
         />
+        {companyCnpj.trim() && !isValidCnpj(companyCnpj) ? (
+          <Text style={styles.fieldErrorText}>Informe um CNPJ válido.</Text>
+        ) : null}
 
-        <Text style={styles.label}>Tema</Text>
-        <TextInput
-          editable={isFormEnabled}
-          keyboardType="number-pad"
-          onChangeText={setCompanyTheme}
-          placeholder="0"
-          placeholderTextColor="#82918a"
-          style={styles.input}
-          value={companyTheme}
-        />
+        {/* O campo "Tema" gravava `cnTemaTP`, coluna REMOVIDA de tb_Empresas
+            pela migration 20260430174000_sync_new_academia_diagram. O
+            normalizador da API nem conhece o nome, entao o valor era descartado
+            em silencio e a lista mostrava "Tema: undefined". Tema de empresa
+            hoje e o TemaCustomizado, editado em outra tela. */}
 
         <Text style={styles.label}>Status</Text>
         <Pressable accessibilityRole="button"
@@ -821,7 +830,7 @@ function ProductRegistration() {
         <Text style={styles.label}>Produto</Text>
         <TextInput
           editable={isFormEnabled}
-          maxLength={255}
+          maxLength={LIMITES.produto.dsProduto}
           onChangeText={setProductName}
           placeholder="Ex.: Whey Protein 900g"
           placeholderTextColor="#82918a"
@@ -965,10 +974,6 @@ function getCalendarDays(monthDate: Date) {
 
     return date;
   });
-}
-
-function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 function StudentRegistration() {
@@ -1313,7 +1318,7 @@ function StudentRegistration() {
         anEmail: trimmedEmail,
         anCEP: studentCep,
         anLogradouro: studentAddress,
-        nrEndereco: studentAddressNumber ? Number(studentAddressNumber) : null,
+        nrEndereco: studentAddressNumber.trim() || null,
         boInativo: isStudentActive ? 0 : 1,
       };
       const response = await fetch(
@@ -1827,7 +1832,7 @@ function StudentRegistration() {
         <Text style={styles.label}>Endereço</Text>
         <TextInput
           editable={isFormEnabled}
-          maxLength={100}
+          maxLength={LIMITES.aluno.anLogradouro}
           onChangeText={setStudentAddress}
           placeholder="Logradouro"
           placeholderTextColor="#82918a"
@@ -1846,11 +1851,14 @@ function StudentRegistration() {
             style={[styles.input, styles.flexInput]}
             value={studentCep}
           />
+          {/* A coluna e VarChar(10), nao inteiro: com number-pad e
+              `Number(...)` no payload, "123A" e "s/n" nao podiam ser
+              digitados. Mesmo ajuste ja feito na tela do web. */}
           <TextInput
             editable={isFormEnabled}
-            keyboardType="number-pad"
+            maxLength={LIMITES.aluno.nrEndereco}
             onChangeText={setStudentAddressNumber}
-            placeholder="Numero"
+            placeholder="123A"
             placeholderTextColor="#82918a"
             style={[styles.input, styles.flexInput]}
             value={studentAddressNumber}
@@ -2241,6 +2249,12 @@ export default function HomeScreen() {
     const typedEmail = registerEmail.trim();
     if (!typedEmail) {
       setAuthFeedback('Informe o email do seu cadastro.');
+      return;
+    }
+    // So a presenca era conferida: um email malformado ia ate o servidor para
+    // voltar com a mesma mensagem, gastando uma das tentativas do rate limit.
+    if (!isValidEmail(typedEmail)) {
+      setAuthFeedback('Informe um email válido.');
       return;
     }
 
@@ -2637,7 +2651,7 @@ export default function HomeScreen() {
                   <Text style={styles.label}>{currentDomainConfig.label}</Text>
                   <TextInput
                     editable={isCreatingDomainRecord || selectedDomainRecordId !== null}
-                    maxLength={255}
+                    maxLength={LIMITES.auxiliar.padrao}
                     onChangeText={setDomainName}
                     placeholder="Digite aqui"
                     placeholderTextColor="#82918a"
@@ -2651,7 +2665,7 @@ export default function HomeScreen() {
                       </Text>
                       <TextInput
                         editable={isCreatingDomainRecord || selectedDomainRecordId !== null}
-                        maxLength={255}
+                        maxLength={LIMITES.auxiliar.padrao}
                         onChangeText={setDomainDescription}
                         placeholder="Digite aqui"
                         placeholderTextColor="#82918a"
@@ -3051,7 +3065,7 @@ export default function HomeScreen() {
                   autoCapitalize="none"
                   autoComplete="email"
                   keyboardType="email-address"
-                  maxLength={255}
+                  maxLength={LIMITES.aluno.anEmail}
                   onChangeText={setRegisterEmail}
                   placeholder={registerLookup?.emailMask || 'email cadastrado na academia'}
                   style={styles.input}
