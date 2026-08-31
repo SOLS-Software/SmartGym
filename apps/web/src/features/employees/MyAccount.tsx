@@ -3,6 +3,7 @@
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { KeyRound } from 'lucide-react';
+import { REGRAS_SENHA, SENHA_MAX, SENHA_MIN, erroDaSenha } from '@smartgym/shared';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { useToast } from '../../shared/components/Toast';
@@ -60,6 +61,14 @@ export function MyAccount() {
     event.preventDefault();
     setPasswordFeedback('');
 
+    // As cinco regras do servidor (normalizeRegisterPassword) nao existiam
+    // aqui: a tela mandava a senha, o /auth/change-password recusava e a
+    // pessoa descobria a regra pelo erro. Mesma funcao, mesmo texto.
+    const erroSenha = erroDaSenha(newPassword);
+    if (erroSenha) {
+      setPasswordFeedback(erroSenha);
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setPasswordFeedback('A confirmação não confere com a nova senha.');
       return;
@@ -194,10 +203,17 @@ export function MyAccount() {
                   />
                 </RegistrationField>
 
-                <RegistrationField htmlFor="senhaNova" label="Nova senha" size="md">
+                <RegistrationField
+                  htmlFor="senhaNova"
+                  hint={`${SENHA_MIN} a ${SENHA_MAX} caracteres, com pelo menos 1 número e 3 letras.`}
+                  label="Nova senha"
+                  size="md"
+                >
                   <input
                     autoComplete="new-password"
                     id="senhaNova"
+                    maxLength={SENHA_MAX}
+                    minLength={SENHA_MIN}
                     onChange={(event) => setNewPassword(event.target.value)}
                     required
                     type="password"
@@ -209,12 +225,29 @@ export function MyAccount() {
                   <input
                     autoComplete="new-password"
                     id="senhaConfirma"
+                    maxLength={SENHA_MAX}
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     required
                     type="password"
                     value={confirmPassword}
                   />
                 </RegistrationField>
+
+                <div
+                  className="password-checklist"
+                  aria-label="Requisitos da senha"
+                  style={{ flex: '1 1 100%' }}
+                >
+                  {REGRAS_SENHA.map((regra) => {
+                    const atende = regra.atende(newPassword);
+                    return (
+                      <div className={atende ? 'met' : ''} key={regra.label}>
+                        <span aria-hidden="true">{atende ? '✓' : '•'}</span>
+                        {regra.label}
+                      </div>
+                    );
+                  })}
+                </div>
 
                 <p className="account-note" style={{ flex: '1 1 100%' }}>
                   Trocar a senha encerra as sessões abertas em outros aparelhos — inclusive

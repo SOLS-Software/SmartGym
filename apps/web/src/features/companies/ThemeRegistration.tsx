@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Plus, Save, Trash2, Upload } from 'lucide-react';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { GridPagination, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
+import { LIMITES, isValidHexColor, isValidHostname } from '@smartgym/shared';
 
 type CompanyFile = { id: number; dsArquivo: string; anCaminho: string };
 
@@ -412,11 +413,22 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
                 type="color"
                 value={String(themeData[field])}
               />
+              {/* O campo aceitava qualquer texto de ate 7 caracteres: "azul"
+                  era gravado literal na coluna VarChar(7), virava
+                  `--color-primary: azul` e derrubava o tema inteiro do cliente
+                  — sem erro em nenhuma das tres camadas. O `pattern` recusa no
+                  submit e o aria-invalid marca o campo assim que sai o foco. */}
               <input
+                aria-invalid={Boolean(themeData[field]) && !isValidHexColor(String(themeData[field]))}
+                className={
+                  themeData[field] && !isValidHexColor(String(themeData[field])) ? 'invalid' : ''
+                }
                 id={`${prefix}-${field}-text`}
-                maxLength={7}
+                maxLength={LIMITES.tema.corHex}
                 onChange={(e) => onChange(field, e.target.value)}
+                pattern="#[0-9A-Fa-f]{6}"
                 placeholder="#000000"
+                title="Use o formato #RRGGBB, por exemplo #1A73E8."
                 type="text"
                 value={String(themeData[field])}
               />
@@ -441,7 +453,7 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
           <label htmlFor={`${prefix}-fontePrincipal`}>Fonte Principal</label>
           <input
             id={`${prefix}-fontePrincipal`}
-            maxLength={100}
+            maxLength={LIMITES.tema.fonte}
             onChange={(e) => onChange('fontePrincipal', e.target.value)}
             placeholder="Inter"
             type="text"
@@ -452,7 +464,7 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
           <label htmlFor={`${prefix}-fonteSecundaria`}>Fonte Secundária</label>
           <input
             id={`${prefix}-fonteSecundaria`}
-            maxLength={100}
+            maxLength={LIMITES.tema.fonte}
             onChange={(e) => onChange('fonteSecundaria', e.target.value)}
             placeholder="Open Sans"
             type="text"
@@ -601,14 +613,25 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
           <label htmlFor="urlDominio">URL do Domínio</label>
           <input
             disabled={!isDomainFormEnabled}
+            aria-invalid={Boolean(domainUrl.trim()) && !isValidHostname(domainUrl)}
+            className={domainUrl.trim() && !isValidHostname(domainUrl) ? 'invalid' : ''}
             id="urlDominio"
-            maxLength={255}
+            maxLength={LIMITES.dominio.urlDominio}
             onChange={(e) => setDomainUrl(e.target.value)}
             placeholder="ex: academia.com.br ou app.academia.com.br"
             ref={domainUrlRef}
             type="text"
             value={domainUrl}
           />
+          {/* O dominio e comparado com window.location.hostname para resolver
+              o tenant no formulario publico: com "https://" ou barra ele nunca
+              casa, e a tela publica responde "Academia nao encontrada" longe
+              de onde o erro foi cometido. */}
+          {domainUrl.trim() && !isValidHostname(domainUrl) ? (
+            <span className="field-error" role="alert">
+              Informe apenas o domínio, sem http:// e sem barra.
+            </span>
+          ) : null}
         </div>
 
         <div className="two-columns">

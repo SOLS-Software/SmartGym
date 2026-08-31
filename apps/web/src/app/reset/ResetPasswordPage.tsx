@@ -2,6 +2,7 @@
 
 import { Suspense, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { REGRAS_SENHA, SENHA_MAX, SENHA_MIN, erroDaSenha } from '@smartgym/shared';
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 
 function ResetPasswordForm() {
@@ -22,6 +23,15 @@ function ResetPasswordForm() {
 
     if (!password) {
       setFeedback('Informe a nova senha.');
+      return;
+    }
+    // Esta tela nao validava NADA: o servidor cobra cinco regras
+    // (normalizeRegisterPassword) e quem redefinia a senha so descobria qual
+    // delas quebrou depois de submeter. Mesma funcao dos dois lados, mesmo
+    // texto de erro.
+    const erroSenha = erroDaSenha(password);
+    if (erroSenha) {
+      setFeedback(erroSenha);
       return;
     }
     if (password !== confirmPassword) {
@@ -87,8 +97,11 @@ function ResetPasswordForm() {
                 name="new-password"
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="new-password"
-                placeholder="Digite a nova senha"
+                placeholder={`${SENHA_MIN} a ${SENHA_MAX} caracteres, com número`}
+                maxLength={SENHA_MAX}
+                minLength={SENHA_MIN}
                 onChange={(event) => setPassword(event.target.value)}
+                required
                 value={password}
               />
               <button
@@ -102,6 +115,20 @@ function ResetPasswordForm() {
               </button>
             </div>
 
+            {/* Mesma checklist da tela de cadastro: as regras sao as do
+                servidor, entao quem digita ve o que falta ANTES de submeter. */}
+            <div className="password-checklist" aria-label="Requisitos da senha">
+              {REGRAS_SENHA.map((regra) => {
+                const atende = regra.atende(password);
+                return (
+                  <div className={atende ? 'met' : ''} key={regra.label}>
+                    <span aria-hidden="true">{atende ? '✓' : '•'}</span>
+                    {regra.label}
+                  </div>
+                );
+              })}
+            </div>
+
             <label htmlFor="confirm-password">Confirmar nova senha</label>
             <input
               id="confirm-password"
@@ -109,7 +136,9 @@ function ResetPasswordForm() {
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
               placeholder="Repita a nova senha"
+              maxLength={SENHA_MAX}
               onChange={(event) => setConfirmPassword(event.target.value)}
+              required
               value={confirmPassword}
             />
 

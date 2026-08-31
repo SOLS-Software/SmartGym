@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { BadgeCheck, CreditCard, File, FileImage, Package, Palette, Receipt, Save, Tag } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatCep, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
+import { limitesDoCampo } from '../../shared/registration/campoLimites';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
@@ -1083,6 +1084,10 @@ export function CompanyRegistration() {
                       <input
                         disabled={!isChildFormEnabled}
                         id={`companyChild-${field.key}`}
+                        // Sem `step`, o input numerico usa step=1 e o browser
+                        // recusava 150,50 em vlPrevisto/vlPago/vlDesconto —
+                        // todas as abas de dinheiro desta tela.
+                        {...limitesDoCampo(field)}
                         onChange={(event) =>
                           setChildFormValues((current) => ({
                             ...current,

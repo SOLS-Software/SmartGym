@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Clock, LogIn, LogOut } from 'lucide-react';
+import { LIMITES } from '@smartgym/shared';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { useToast } from '../../shared/components/Toast';
 
@@ -354,15 +355,22 @@ export function TimeClock() {
                   <span>Data e hora</span>
                   <input
                     onChange={(event) => setFixWhen(event.target.value)}
+                    required
                     type="datetime-local"
                     value={fixWhen}
                   />
                 </label>
                 <label className="timeclock-fix-wide">
                   <span>Justificativa</span>
+                  {/* O servidor exige 3 a 255 caracteres (manualSchema); sem
+                      `required` aqui, o envio vazio voltava como "Dados
+                      invalidos." sem dizer qual campo. */}
                   <input
+                    maxLength={LIMITES.ponto.dsObservacao}
+                    minLength={3}
                     onChange={(event) => setFixNote(event.target.value)}
                     placeholder="Esqueceu de bater a saída"
+                    required
                     type="text"
                     value={fixNote}
                   />

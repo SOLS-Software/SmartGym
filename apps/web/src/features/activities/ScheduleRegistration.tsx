@@ -6,6 +6,7 @@ import { Save, UserCheck, Users } from 'lucide-react';
 import { formatDateInput, getLookupLabel,
   findLookupOption,
 } from '../../shared/registration/registrationHelpers';
+import { limitesDoCampo } from '../../shared/registration/campoLimites';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
@@ -571,7 +572,7 @@ export function ScheduleRegistration() {
                     ))}
                   </select>
                 ) : (
-                  <input disabled={!isScheduleFormEnabled} id={`sched-${field.key}`} min={field.type === 'number' ? 0 : undefined} onChange={(e) => setScheduleFormValues((c) => ({ ...c, [field.key]: e.target.value }))} required={field.required} type={field.type} value={scheduleFormValues[field.key] ?? ''} />
+                  <input disabled={!isScheduleFormEnabled} id={`sched-${field.key}`} {...limitesDoCampo(field)} onChange={(e) => setScheduleFormValues((c) => ({ ...c, [field.key]: e.target.value }))} required={field.required} type={field.type} value={scheduleFormValues[field.key] ?? ''} />
                 )}
               </RegistrationField>
             ))}

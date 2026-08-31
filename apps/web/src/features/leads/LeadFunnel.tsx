@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { MessageSquare, Phone, Plus, UserPlus } from 'lucide-react';
+import { LIMITES } from '@smartgym/shared';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { useToast } from '../../shared/components/Toast';
 import type { Company } from '../../shared/registration/registrationTypes';
@@ -235,10 +236,16 @@ export function LeadFunnel() {
 
         {isCreating ? (
           <form className="leads-create" onSubmit={handleCreate}>
+            {/* Nenhum destes campos tinha maxLength: o servidor recorta em
+                zod (min 2 / max 255, 100, 500) e devolvia "Dados invalidos."
+                sem dizer qual. Os limites saem das mesmas colunas. */}
             <label>
               <span>Nome</span>
               <input
+                maxLength={LIMITES.lead.nmLead}
+                minLength={2}
                 onChange={(event) => setNovoNome(event.target.value)}
+                required
                 type="text"
                 value={novoNome}
               />
@@ -247,6 +254,7 @@ export function LeadFunnel() {
               <span>Telefone</span>
               <input
                 inputMode="tel"
+                maxLength={15}
                 onChange={(event) => setNovoTelefone(event.target.value)}
                 placeholder="(00) 00000-0000"
                 type="tel"
@@ -256,6 +264,7 @@ export function LeadFunnel() {
             <label>
               <span>E-mail</span>
               <input
+                maxLength={LIMITES.lead.anEmail}
                 onChange={(event) => setNovoEmail(event.target.value)}
                 type="email"
                 value={novoEmail}
@@ -278,6 +287,7 @@ export function LeadFunnel() {
             <label className="leads-create-wide">
               <span>O que ele procura</span>
               <input
+                maxLength={LIMITES.lead.dsMensagem}
                 onChange={(event) => setNovaMensagem(event.target.value)}
                 type="text"
                 value={novaMensagem}

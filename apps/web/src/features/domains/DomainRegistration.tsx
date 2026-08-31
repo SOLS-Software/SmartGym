@@ -20,6 +20,7 @@ import type {
   LookupRecord,
 } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { limitesDoCampo } from '../../shared/registration/campoLimites';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 
 const domainItems = [
@@ -493,7 +494,7 @@ export function DomainRegistration() {
                   ) : (
                     <input
                       id={`domainField-${field.key}`}
-                      maxLength={field.type === 'text' ? 255 : undefined}
+                      {...limitesDoCampo(field)}
                       onChange={(event) =>
                         setFieldValues((current) => ({ ...current, [field.key]: event.target.value }))
                       }

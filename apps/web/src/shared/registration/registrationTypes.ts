@@ -153,7 +153,9 @@ export type Student = {
   anLogradouro: string;
   anComplemento: string;
   anBairro: string;
-  nrEndereco: number | null;
+  // A coluna e VarChar(10) — o tipo dizia `number` e a tela usava
+  // `type="number"`, o que impedia "123A" e "s/n".
+  nrEndereco: string | null;
   boInativo: boolean;
 };
 

@@ -13,6 +13,7 @@ import {
   isImageFile,
   paginateItems,
 } from '../../shared/registration/registrationHelpers';
+import { limitesDoCampo } from '../../shared/registration/campoLimites';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
@@ -842,7 +843,7 @@ export function PromotionRegistration() {
                           {(relatedLookups[field.key] ?? []).map((option) => (<option key={option.id} value={option.id}>{getLookupLabel(option, field)}</option>))}
                         </select>
                       ) : (
-                        <input disabled={!isRelatedFormEnabled} id={`promotionRelated-${field.key}`} onChange={(event) => setRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} type={field.type} value={relatedFormValues[field.key] ?? ''} />
+                        <input disabled={!isRelatedFormEnabled} id={`promotionRelated-${field.key}`} {...limitesDoCampo(field)} onChange={(event) => setRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} type={field.type} value={relatedFormValues[field.key] ?? ''} />
                       )}
                     </RegistrationField>
                   ))}

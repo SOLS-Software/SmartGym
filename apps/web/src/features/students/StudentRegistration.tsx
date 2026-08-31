@@ -4,6 +4,8 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, CreditCard, FileText, Receipt, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatCep, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, formatDddPhone, getLookupLabel, isImageFile, isValidCpf, joinDddPhone, onlyDigits, paginateItems, splitDddPhone } from '../../shared/registration/registrationHelpers';
+import { LIMITES } from '@smartgym/shared';
+import { limitesDoCampo } from '../../shared/registration/campoLimites';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
@@ -1103,7 +1105,7 @@ export function StudentRegistration() {
               {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
               {/* Nome */}
               <RegistrationField error={studentErrors.name} htmlFor="nmAluno" label="Nome" required size="full" touched={touchedStudentFields.name}>
-                <input className={touchedStudentFields.name && studentErrors.name ? 'invalid' : ''} id="nmAluno" maxLength={255} onBlur={() => validateStudentField('name')} onChange={(event) => { const value = event.target.value; setStudentName(value); if (touchedStudentFields.name) { setStudentErrors((current) => ({ ...current, name: value.trim() ? undefined : 'Informe o nome do aluno.' })); } }} placeholder="Ex.: Maria Souza" ref={nameInputRef} type="text" value={studentName} />
+                <input className={touchedStudentFields.name && studentErrors.name ? 'invalid' : ''} id="nmAluno" maxLength={LIMITES.aluno.nmAluno} onBlur={() => validateStudentField('name')} onChange={(event) => { const value = event.target.value; setStudentName(value); if (touchedStudentFields.name) { setStudentErrors((current) => ({ ...current, name: value.trim() ? undefined : 'Informe o nome do aluno.' })); } }} placeholder="Ex.: Maria Souza" ref={nameInputRef} type="text" value={studentName} />
               </RegistrationField>
               {/* CPF */}
               <RegistrationField error={studentErrors.cpf} htmlFor="caCPF" label="CPF" required size="md" touched={touchedStudentFields.cpf}>
@@ -1120,23 +1122,27 @@ export function StudentRegistration() {
               </RegistrationField>
               {/* Email */}
               <RegistrationField error={studentErrors.email} htmlFor="anEmail" label="Email" size="lg" touched={touchedStudentFields.email}>
-                <input className={touchedStudentFields.email && studentErrors.email ? 'invalid' : ''} id="anEmail" maxLength={100} onBlur={() => validateStudentField('email')} onChange={(event) => { const value = event.target.value; setStudentEmail(value); if (touchedStudentFields.email) { const trimmedEmail = value.trim(); setStudentErrors((current) => ({ ...current, email: trimmedEmail && !isValidEmail(trimmedEmail) ? 'Informe um email válido.' : undefined })); } }} placeholder="aluno@email.com" ref={emailInputRef} type="email" value={studentEmail} />
+                <input className={touchedStudentFields.email && studentErrors.email ? 'invalid' : ''} id="anEmail" maxLength={LIMITES.aluno.anEmail} onBlur={() => validateStudentField('email')} onChange={(event) => { const value = event.target.value; setStudentEmail(value); if (touchedStudentFields.email) { const trimmedEmail = value.trim(); setStudentErrors((current) => ({ ...current, email: trimmedEmail && !isValidEmail(trimmedEmail) ? 'Informe um email válido.' : undefined })); } }} placeholder="aluno@email.com" ref={emailInputRef} type="email" value={studentEmail} />
               </RegistrationField>
               {/* Endereço */}
               <RegistrationField htmlFor="anLogradouro" label="Logradouro" size="full">
-                <input id="anLogradouro" maxLength={100} onChange={(event) => setStudentAddress(event.target.value)} placeholder="Rua, avenida..." type="text" value={studentAddress} />
+                <input id="anLogradouro" maxLength={LIMITES.aluno.anLogradouro} onChange={(event) => setStudentAddress(event.target.value)} placeholder="Rua, avenida..." type="text" value={studentAddress} />
               </RegistrationField>
               <RegistrationField htmlFor="anBairro" label="Bairro" size="md">
-                <input id="anBairro" maxLength={100} onChange={(event) => setStudentDistrict(event.target.value)} placeholder="Bairro" type="text" value={studentDistrict} />
+                <input id="anBairro" maxLength={LIMITES.aluno.anBairro} onChange={(event) => setStudentDistrict(event.target.value)} placeholder="Bairro" type="text" value={studentDistrict} />
               </RegistrationField>
               <RegistrationField htmlFor="anComplemento" label="Complemento" size="md">
-                <input id="anComplemento" maxLength={100} onChange={(event) => setStudentComplement(event.target.value)} placeholder="Apt, bloco..." type="text" value={studentComplement} />
+                <input id="anComplemento" maxLength={LIMITES.aluno.anComplemento} onChange={(event) => setStudentComplement(event.target.value)} placeholder="Apt, bloco..." type="text" value={studentComplement} />
               </RegistrationField>
               <RegistrationField htmlFor="anCEP" label="CEP" size="sm">
                 <input id="anCEP" inputMode="numeric" maxLength={9} onChange={(event) => setStudentCep(formatCep(event.target.value))} placeholder="00000-000" type="text" value={studentCep} />
               </RegistrationField>
               <RegistrationField htmlFor="nrEndereco" label="Número" size="xs">
-                <input id="nrEndereco" max={999999999} min={0} onChange={(event) => setStudentAddressNumber(event.target.value)} placeholder="0" type="number" value={studentAddressNumber} />
+                {/* A coluna e VarChar(10), nao inteiro: era `type="number"`,
+                    entao "123A", "s/n" e "KM 12" nao podiam ser digitados. As
+                    telas de Empresa e Fornecedor ja usam texto para o mesmo
+                    campo. */}
+                <input id="nrEndereco" maxLength={LIMITES.aluno.nrEndereco} onChange={(event) => setStudentAddressNumber(event.target.value)} placeholder="123A" type="text" value={studentAddressNumber} />
               </RegistrationField>
               {/* Status */}
               <RegistrationField htmlFor="studentStatus" label="Status" size="sm">
@@ -1203,7 +1209,11 @@ export function StudentRegistration() {
                       {(studentRelatedLookups[field.key] ?? []).map((option) => (<option key={option.id} value={option.id}>{getLookupLabel(option, field)}</option>))}
                     </select>
                   ) : (
-                    <input disabled={!isStudentRelatedFormEnabled} id={`studentRelated-${field.key}`} max={field.key === 'nrDiaPagamento' ? 31 : undefined} min={field.key === 'nrDiaPagamento' ? 1 : undefined} onChange={(event) => setStudentRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} type={field.type} value={studentRelatedFormValues[field.key] ?? ''} />
+                    // min/max/step/maxLength vem da coluna (campoLimites), nao
+                    // mais de um `field.key === 'nrDiaPagamento'` no meio do
+                    // JSX: sem `step`, o browser recusava 72,4 no peso e a aba
+                    // de avaliacao fisica nao aceitava decimal nenhum.
+                    <input disabled={!isStudentRelatedFormEnabled} id={`studentRelated-${field.key}`} {...limitesDoCampo(field)} onChange={(event) => setStudentRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} type={field.type} value={studentRelatedFormValues[field.key] ?? ''} />
                   )}
                 </RegistrationField>
               ))}

@@ -6,6 +6,7 @@ import { Dumbbell, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, getLookupLabel, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
+import { limitesDoCampo } from '../../shared/registration/campoLimites';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import type { Company, CompanyChildField, CompanyChildRecord, CompanyChildTable, Level, LookupRecord, Training } from '../../shared/registration/registrationTypes';
 import { useToast } from '../../shared/components/Toast';
@@ -686,7 +687,9 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                     <input
                       disabled={!isExerciseFormEnabled}
                       id={`exercise-${field.key}`}
-                      min={field.type === 'number' ? 0 : undefined}
+                      // `qtPeso` e Decimal(8,2): com o antigo `min` sozinho, o
+                      // step=1 padrao do browser recusava 12,5 kg.
+                      {...limitesDoCampo(field)}
                       onChange={(event) =>
                         setTrainingRelatedFormValues((current) => ({
                           ...current,

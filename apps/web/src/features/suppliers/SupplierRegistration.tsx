@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatCep, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
-import { formatCnpj, formatPhone } from '@smartgym/shared';
+import { LIMITES, formatCnpj, formatPhone, isValidCnpj, isValidEmail } from '@smartgym/shared';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
@@ -36,8 +36,48 @@ export function SupplierRegistration() {
   const [isActive, setIsActive] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  // Esta tela nao tinha validacao nenhuma em JS: CNPJ era so mascarado e o
+  // e-mail contava com o `type="email"` do browser. Quem digitava um CNPJ com
+  // digito verificador errado so descobria depois do POST. Mesmo padrao de
+  // Aluno/Funcionario/Empresa (erros por campo + foco no primeiro).
+  type SupplierField = 'name' | 'cnpj' | 'email';
+  const [supplierErrors, setSupplierErrors] = useState<Partial<Record<SupplierField, string>>>({});
+  const [touchedSupplierFields, setTouchedSupplierFields] = useState<
+    Partial<Record<SupplierField, boolean>>
+  >({});
+  const cnpjInputRef = useRef<HTMLInputElement | null>(null);
+  const emailInputRef = useRef<HTMLInputElement | null>(null);
 
   const isFormEnabled = selectedSupplierId !== null || isCreating;
+
+  function getSupplierValidationErrors() {
+    const errors: Partial<Record<SupplierField, string>> = {};
+
+    if (!dsFornecedor.trim()) {
+      errors.name = 'Informe o nome do fornecedor.';
+    }
+    // CNPJ e opcional (a coluna aceita null), mas preenchido tem de ser valido.
+    if (caCNPJ.trim() && !isValidCnpj(caCNPJ)) {
+      errors.cnpj = 'Informe um CNPJ válido.';
+    }
+    if (dsEmail.trim() && !isValidEmail(dsEmail.trim())) {
+      errors.email = 'Informe um e-mail válido.';
+    }
+
+    return errors;
+  }
+
+  function validateSupplierField(field: SupplierField) {
+    const errors = getSupplierValidationErrors();
+    setTouchedSupplierFields((current) => ({ ...current, [field]: true }));
+    setSupplierErrors((current) => ({ ...current, [field]: errors[field] }));
+  }
+
+  function focusFirstSupplierError(errors: Partial<Record<SupplierField, string>>) {
+    if (errors.name) return nameInputRef.current?.focus();
+    if (errors.cnpj) return cnpjInputRef.current?.focus();
+    if (errors.email) return emailInputRef.current?.focus();
+  }
   const filteredSuppliers = suppliers.filter((supplier) =>
     supplier.dsFornecedor.toLowerCase().includes(searchTerm.toLowerCase()),
   );
@@ -86,6 +126,8 @@ export function SupplierRegistration() {
     setAnUF('');
     setIsActive(false);
     setFeedback('');
+    setSupplierErrors({});
+    setTouchedSupplierFields({});
   }
 
   function handleNew() {
@@ -112,6 +154,8 @@ export function SupplierRegistration() {
     setAnUF(supplier.anUF ?? '');
     setIsActive(supplier.boInativo === false);
     setFeedback('');
+    setSupplierErrors({});
+    setTouchedSupplierFields({});
     setIsDrawerOpen(true);
   }
 
@@ -138,11 +182,20 @@ export function SupplierRegistration() {
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    const errors = getSupplierValidationErrors();
+    if (Object.keys(errors).length > 0) {
+      setSupplierErrors(errors);
+      setTouchedSupplierFields({ name: true, cnpj: true, email: true });
+      setFeedback(Object.values(errors)[0] ?? 'Revise os campos destacados.');
+      focusFirstSupplierError(errors);
+      return;
+    }
+
     try {
       // Fornecedor e da rede: o tenant (cliente) vem do token na API — o form
       // nao seleciona empresa; a filial e registrada na compra, nao aqui.
       const payload = {
-        dsFornecedor,
+        dsFornecedor: dsFornecedor.trim(),
         caCNPJ: onlyDigits(caCNPJ),
         anCEP: onlyDigits(anCEP),
         anLogradouro,
@@ -232,20 +285,20 @@ export function SupplierRegistration() {
         >
           <form className="drawer-fields" onSubmit={handleSave}>
             {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
-            <RegistrationField htmlFor="fornecedorNome" label="Nome" size="full">
-              <input disabled={!isFormEnabled} id="fornecedorNome" maxLength={255} onChange={(event) => setDsFornecedor(event.target.value)} placeholder="Ex.: Distribuidora Fit Ltda" ref={nameInputRef} required type="text" value={dsFornecedor} />
+            <RegistrationField error={supplierErrors.name} htmlFor="fornecedorNome" label="Nome" required size="full" touched={touchedSupplierFields.name}>
+              <input className={touchedSupplierFields.name && supplierErrors.name ? 'invalid' : ''} disabled={!isFormEnabled} id="fornecedorNome" maxLength={LIMITES.fornecedor.dsFornecedor} onBlur={() => validateSupplierField('name')} onChange={(event) => setDsFornecedor(event.target.value)} placeholder="Ex.: Distribuidora Fit Ltda" ref={nameInputRef} required type="text" value={dsFornecedor} />
             </RegistrationField>
-            <RegistrationField htmlFor="fornecedorCNPJ" label="CNPJ" size="md">
-              <input disabled={!isFormEnabled} id="fornecedorCNPJ" inputMode="numeric" maxLength={18} onChange={(event) => setCaCNPJ(formatCnpj(event.target.value))} placeholder="00.000.000/0000-00" type="text" value={caCNPJ} />
+            <RegistrationField error={supplierErrors.cnpj} htmlFor="fornecedorCNPJ" label="CNPJ" size="md" touched={touchedSupplierFields.cnpj}>
+              <input className={touchedSupplierFields.cnpj && supplierErrors.cnpj ? 'invalid' : ''} disabled={!isFormEnabled} id="fornecedorCNPJ" inputMode="numeric" maxLength={18} onBlur={() => validateSupplierField('cnpj')} onChange={(event) => setCaCNPJ(formatCnpj(event.target.value))} placeholder="00.000.000/0000-00" ref={cnpjInputRef} type="text" value={caCNPJ} />
             </RegistrationField>
             <RegistrationField htmlFor="fornecedorDDD" label="DDD" size="xs">
-              <input disabled={!isFormEnabled} id="fornecedorDDD" maxLength={2} onChange={(event) => setNrDDD(event.target.value)} placeholder="11" type="text" value={nrDDD} />
+              <input disabled={!isFormEnabled} id="fornecedorDDD" inputMode="numeric" maxLength={2} onChange={(event) => setNrDDD(onlyDigits(event.target.value).slice(0, 2))} placeholder="11" type="text" value={nrDDD} />
             </RegistrationField>
             <RegistrationField htmlFor="fornecedorContato" label="Telefone" size="sm">
               <input disabled={!isFormEnabled} id="fornecedorContato" inputMode="numeric" maxLength={10} onChange={(event) => setNrContato(formatPhone(event.target.value))} placeholder="00000-0000" type="text" value={nrContato} />
             </RegistrationField>
-            <RegistrationField htmlFor="fornecedorEmail" label="E-mail" size="md">
-              <input disabled={!isFormEnabled} id="fornecedorEmail" maxLength={255} onChange={(event) => setDsEmail(event.target.value)} placeholder="contato@fornecedor.com" type="email" value={dsEmail} />
+            <RegistrationField error={supplierErrors.email} htmlFor="fornecedorEmail" label="E-mail" size="md" touched={touchedSupplierFields.email}>
+              <input className={touchedSupplierFields.email && supplierErrors.email ? 'invalid' : ''} disabled={!isFormEnabled} id="fornecedorEmail" maxLength={LIMITES.fornecedor.dsEmail} onBlur={() => validateSupplierField('email')} onChange={(event) => setDsEmail(event.target.value)} placeholder="contato@fornecedor.com" ref={emailInputRef} type="email" value={dsEmail} />
             </RegistrationField>
             <RegistrationField htmlFor="fornecedorCEP" label="CEP" size="sm">
               <input inputMode="numeric" disabled={!isFormEnabled} id="fornecedorCEP" maxLength={9} onChange={(event) => setAnCEP(formatCep(event.target.value))} placeholder="00000-000" type="text" value={anCEP} />
@@ -263,7 +316,7 @@ export function SupplierRegistration() {
               <input disabled={!isFormEnabled} id="fornecedorCidade" maxLength={100} onChange={(event) => setAnCidade(event.target.value)} type="text" value={anCidade} />
             </RegistrationField>
             <RegistrationField htmlFor="fornecedorUF" label="UF" size="xs">
-              <input disabled={!isFormEnabled} id="fornecedorUF" maxLength={2} onChange={(event) => setAnUF(event.target.value.toUpperCase())} type="text" value={anUF} />
+              <input disabled={!isFormEnabled} id="fornecedorUF" maxLength={2} onChange={(event) => setAnUF(event.target.value.toUpperCase().replace(/[^A-Z]/g, ''))} type="text" value={anUF} />
             </RegistrationField>
             <RegistrationField htmlFor="fornecedorStatus" label="Status" size="sm">
               <button aria-pressed={isActive} className={`status-toggle ${isActive ? 'active' : ''}`} disabled={!isFormEnabled} id="fornecedorStatus" onClick={handleToggleStatus} type="button">

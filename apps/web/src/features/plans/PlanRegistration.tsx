@@ -4,6 +4,7 @@ import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Activity, Building2, CreditCard, DollarSign, Package, Save, Tag } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
+import { limitesDoCampo } from '../../shared/registration/campoLimites';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
@@ -864,7 +865,7 @@ export function PlanRegistration() {
                         {(planRelatedLookups[field.key] ?? []).map((option) => (<option key={option.id} value={option.id}>{getLookupLabel(option, field)}</option>))}
                       </select>
                     ) : (
-                      <input disabled={!isPlanRelatedFormEnabled} id={`planRelated-${field.key}`} onChange={(event) => setPlanRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} type={field.type} value={planRelatedFormValues[field.key] ?? ''} />
+                      <input disabled={!isPlanRelatedFormEnabled} id={`planRelated-${field.key}`} {...limitesDoCampo(field)} onChange={(event) => setPlanRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} type={field.type} value={planRelatedFormValues[field.key] ?? ''} />
                     )}
                   </RegistrationField>
                 ))}

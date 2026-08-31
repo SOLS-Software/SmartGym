@@ -2,12 +2,15 @@ import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import {
+  assertOrdemDasDatas,
   assertValidId,
   getMultipartFieldValue,
+  numeroNaFaixa,
   optionalDate,
   optionalNumber,
-  requiredText,
+  requiredWithin,
 } from '../../shared/normalize.js';
+import { LIMITES } from '@smartgym/shared';
 import { prisma } from '../../shared/prisma.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { assertAllowedUploadType, assertUploadBuffer, getPromotionFilePath } from '../../shared/files.js';
@@ -141,13 +144,22 @@ const promotionChildResourceConfig = {
       await assertPlanInTenant(idCliente, optionalNumber(payload.idPlano));
     },
     normalize(promotionId: number, payload: CompanyChildPayload) {
+      const dtInicio = optionalDate(payload.dtInicio) ?? new Date();
+      const dtEncerramento = optionalDate(payload.dtEncerramento) ?? null;
+      assertOrdemDasDatas(
+        dtInicio,
+        dtEncerramento,
+        'O encerramento nao pode ser anterior ao inicio.',
+      );
+
       return {
         idEmpresa: optionalNumber(payload.idEmpresa),
         idPromocao: promotionId,
         idPlano: optionalNumber(payload.idPlano),
-        qtDisponivel: Number(payload.qtDisponivel ?? 0),
-        dtInicio: optionalDate(payload.dtInicio) ?? new Date(),
-        dtEncerramento: optionalDate(payload.dtEncerramento) ?? null,
+        qtDisponivel:
+          numeroNaFaixa(payload.qtDisponivel ?? 0, 'qtDisponivel', 'A quantidade disponivel') ?? 0,
+        dtInicio,
+        dtEncerramento,
         boInativo: toBool(payload.boInativo),
       };
     },
@@ -186,22 +198,39 @@ function getPromotionChildResourceConfig(resource: string) {
 }
 
 function normalizePromotionPayload(payload: CompanyChildPayload) {
-  // !(x >= 0) tambem rejeita NaN.
-  const qtPeriodo = Number(payload.qtPeriodo ?? 0);
-  if (!(qtPeriodo >= 0)) throw new Error('Periodo nao pode ser negativo.');
-  const vlDesconto = Number(payload.vlDesconto ?? 0);
-  if (!(vlDesconto >= 0)) throw new Error('Valor de desconto nao pode ser negativo.');
-  const pcDesconto = Number(payload.pcDesconto ?? 0);
-  if (!(pcDesconto >= 0 && pcDesconto <= 100)) throw new Error('Percentual de desconto deve estar entre 0 e 100.');
+  // As checagens eram so de piso ("nao pode ser negativo"): vlDesconto e
+  // Decimal(12,4) e um valor de 13 digitos passava daqui direto para o
+  // Postgres. numeroNaFaixa confere piso E teto contra a mesma faixa que o
+  // input do front usa, entao a mensagem e igual nos dois lados.
+  const qtPeriodo = numeroNaFaixa(payload.qtPeriodo ?? 0, 'qtPeriodo', 'O periodo') ?? 0;
+  const vlDesconto = numeroNaFaixa(payload.vlDesconto ?? 0, 'vlDesconto', 'O valor de desconto') ?? 0;
+  const pcDesconto =
+    numeroNaFaixa(payload.pcDesconto ?? 0, 'pcDesconto', 'O percentual de desconto') ?? 0;
+
+  const dtInicio = optionalDate(payload.dtInicio) ?? new Date();
+  const dtEncerramento = optionalDate(payload.dtEncerramento) ?? null;
+  // Promocao que encerra antes de comecar entrava na base e sumia das
+  // listagens de vigentes sem que nada acusasse.
+  assertOrdemDasDatas(
+    dtInicio,
+    dtEncerramento,
+    'O encerramento da promocao nao pode ser anterior ao inicio.',
+  );
+
   return {
     idEmpresa: optionalNumber(payload.idEmpresa),
-    dsPromocao: requiredText(payload.dsPromocao, 'Informe a promocao.'),
+    dsPromocao: requiredWithin(
+      payload.dsPromocao,
+      LIMITES.promocao.dsPromocao,
+      'Informe a promocao.',
+      'O nome da promocao',
+    ),
     qtPeriodo,
     idUnidadeTempo: optionalNumber(payload.idUnidadeTempo),
     vlDesconto,
     pcDesconto,
-    dtInicio: optionalDate(payload.dtInicio) ?? new Date(),
-    dtEncerramento: optionalDate(payload.dtEncerramento) ?? null,
+    dtInicio,
+    dtEncerramento,
     boInativo: toBool(payload.boInativo),
   };
 }

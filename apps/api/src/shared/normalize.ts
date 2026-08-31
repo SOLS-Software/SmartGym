@@ -1,9 +1,18 @@
 // CPF/CNPJ/email vinham reimplementados aqui e tambem no web (duas copias) —
 // regra de negocio duplicada sai de sincronia sem ninguem perceber. Agora vem de
 // @smartgym/shared; o re-export mantem os imports internos do modulo intactos.
-import { isValidCnpj, isValidCpf, isValidEmail } from '@smartgym/shared';
+import {
+  FAIXAS,
+  LIMITES,
+  erroDaSenha,
+  isValidCnpj,
+  isValidCpf,
+  isValidEmail,
+  isValidHexColor,
+  isValidHostname,
+} from '@smartgym/shared';
 
-export { isValidCnpj, isValidCpf, isValidEmail };
+export { isValidCnpj, isValidCpf, isValidEmail, isValidHexColor, isValidHostname };
 
 import type {
   CompanyPayload,
@@ -149,6 +158,57 @@ function digitsWithin(value: string | undefined, maxLength: number, label: strin
   return digits;
 }
 
+/**
+ * Texto obrigatorio dentro do limite da coluna. `requiredText` sozinho garantia
+ * so o "nao vazio": o texto longo demais passava por aqui e ia estourar no
+ * Postgres, que devolve P2000 e vira "Erro ao salvar" sem dizer o campo.
+ */
+export function requiredWithin(value: unknown, maxLength: number, message: string, label: string) {
+  const text = requiredText(value, message);
+
+  if (text.length > maxLength) {
+    throw new Error(`${label} deve ter no maximo ${maxLength} caracteres.`);
+  }
+
+  return text;
+}
+
+/**
+ * Numero dentro da faixa declarada em FAIXAS (@smartgym/shared).
+ *
+ * `optionalNumber` devolve NaN para lixo ("abc") e nao conhece a precisao da
+ * coluna: 1000 num Decimal(5,2) so falhava no banco. Aqui o valor e conferido
+ * contra a MESMA faixa que o input do front usa em min/max/step.
+ */
+export function numeroNaFaixa(value: unknown, campo: string, label: string) {
+  const numero = optionalNumber(value);
+
+  if (numero === null) {
+    return null;
+  }
+  if (!Number.isFinite(numero)) {
+    throw new Error(`${label} deve ser um numero.`);
+  }
+
+  const faixa = FAIXAS[campo];
+  if (faixa && (numero < faixa.min || numero > faixa.max)) {
+    throw new Error(`${label} deve estar entre ${faixa.min} e ${faixa.max}.`);
+  }
+
+  return numero;
+}
+
+/** Data final nao pode ser anterior a inicial. Nenhum par do sistema conferia. */
+export function assertOrdemDasDatas(
+  inicio: Date | null | undefined,
+  fim: Date | null | undefined,
+  message: string,
+) {
+  if (inicio && fim && fim.getTime() < inicio.getTime()) {
+    throw new Error(message);
+  }
+}
+
 function validUf(value: string | undefined) {
   const uf = value?.trim().toUpperCase() ?? '';
 
@@ -169,8 +229,10 @@ export function normalizeCompanyPayload(payload: CompanyPayload) {
   if (!dsEmpresa) {
     throw new Error('Informe o nome da empresa.');
   }
-  if (dsEmpresa.length > 100) {
-    throw new Error('O nome da empresa deve ter no maximo 100 caracteres.');
+  if (dsEmpresa.length > LIMITES.empresa.dsEmpresa) {
+    throw new Error(
+      `O nome da empresa deve ter no maximo ${LIMITES.empresa.dsEmpresa} caracteres.`,
+    );
   }
   if (!caCNPJ) {
     throw new Error('Informe o CNPJ da empresa.');
@@ -200,27 +262,26 @@ export function normalizeCompanyPayload(payload: CompanyPayload) {
 }
 
 export function normalizeProductPayload(payload: ProductPayload) {
-  const dsProduto = payload.dsProduto?.trim();
-  if (!dsProduto) {
-    throw new Error('Informe o nome do produto.');
-  }
-  if (dsProduto.length > 255) {
-    throw new Error('O nome do produto deve ter no maximo 255 caracteres.');
-  }
-  const vlVenda = optionalNumber(payload.vlVenda);
-  if (vlVenda !== null && vlVenda < 0) {
-    throw new Error('O preco de venda nao pode ser negativo.');
-  }
-
-  const qtPontosResgate = optionalNumber(payload.qtPontosResgate);
-  if (qtPontosResgate !== null && qtPontosResgate <= 0) {
-    throw new Error('O preco em pontos deve ser maior que zero.');
-  }
+  const dsProduto = requiredWithin(
+    payload.dsProduto,
+    LIMITES.produto.dsProduto,
+    'Informe o nome do produto.',
+    'O nome do produto',
+  );
+  // A checagem era so `< 0`: a coluna e Decimal(12,4) e um preco de 13 digitos
+  // passava aqui para estourar no Postgres. numeroNaFaixa le a mesma faixa que
+  // o input usa em min/max.
+  const vlVenda = numeroNaFaixa(payload.vlVenda, 'vlVenda', 'O preco de venda');
+  const qtPontosResgate = numeroNaFaixa(
+    payload.qtPontosResgate,
+    'qtPontosResgate',
+    'O preco em pontos',
+  );
 
   return {
     idEmpresa: payload.idEmpresa ?? null,
     dsProduto,
-    qtEstoque: Number(payload.qtEstoque ?? 0),
+    qtEstoque: numeroNaFaixa(payload.qtEstoque ?? 0, 'qtEstoque', 'O estoque') ?? 0,
     vlVenda,
     // Nulo = produto nao resgatavel por pontos.
     qtPontosResgate,
@@ -261,10 +322,12 @@ export function normalizeFornecedorPayload(payload: FornecedorPayload) {
 }
 
 export function normalizeExercisePayload(payload: ExercisePayload) {
-  const dsExercicio = payload.dsExercicio?.trim();
-  if (!dsExercicio) {
-    throw new Error('Informe o nome do exercicio.');
-  }
+  const dsExercicio = requiredWithin(
+    payload.dsExercicio,
+    LIMITES.exercicio.dsExercicio,
+    'Informe o nome do exercicio.',
+    'O nome do exercicio',
+  );
   return {
     idEmpresa: payload.idEmpresa ?? null,
     dsExercicio,
@@ -274,10 +337,12 @@ export function normalizeExercisePayload(payload: ExercisePayload) {
 }
 
 export function normalizeTrainingPayload(payload: TrainingPayload) {
-  const dsTreino = payload.dsTreino?.trim();
-  if (!dsTreino) {
-    throw new Error('Informe o nome do treino.');
-  }
+  const dsTreino = requiredWithin(
+    payload.dsTreino,
+    LIMITES.treino.dsTreino,
+    'Informe o nome do treino.',
+    'O nome do treino',
+  );
   return {
     idEmpresa: optionalNumber(payload.idEmpresa),
     idNivel: optionalNumber(payload.idNivel),
@@ -320,22 +385,44 @@ export function normalizeStudentPayload(payload: StudentPayload) {
     }
   }
 
+  // O normalizador do aluno era o unico que nao usava trimmedWithin/digitsWithin
+  // — os helpers estavam neste mesmo arquivo, so Empresa e Fornecedor os
+  // chamavam. Sem eles, um nome de 300 caracteres vindo do mobile ou de um
+  // curl chegava intacto no `nmAluno VarChar(255)` e o erro era P2000, que o
+  // clientErrorMessage traduz para o fallback generico "Erro ao salvar aluno.".
+  if (nmAluno.length > LIMITES.aluno.nmAluno) {
+    throw new Error(`O nome do aluno deve ter no maximo ${LIMITES.aluno.nmAluno} caracteres.`);
+  }
+  if (anEmail.length > LIMITES.aluno.anEmail) {
+    throw new Error(`O email deve ter no maximo ${LIMITES.aluno.anEmail} caracteres.`);
+  }
+
+  const nrDDD = optionalNumber(payload.nrDDD) ?? 0;
+  if (!Number.isInteger(nrDDD) || nrDDD < 0 || nrDDD > 99) {
+    throw new Error('Informe um DDD valido.');
+  }
+
   return {
     idCliente,
     nmAluno,
     caCPF,
     dtNascimento,
-    nrDDD: Number(payload.nrDDD ?? 0),
-    nrContato,
+    nrDDD,
+    nrContato: digitsWithin(nrContato ?? undefined, LIMITES.aluno.nrContato, 'O contato'),
     anEmail,
-    anCEP: payload.anCEP?.replace(/\D/g, '') ?? '',
-    anLogradouro: payload.anLogradouro?.trim() ?? '',
-    anComplemento: payload.anComplemento?.trim() ?? '',
-    anBairro: payload.anBairro?.trim() ?? '',
-    nrEndereco:
-      payload.nrEndereco === null || payload.nrEndereco === undefined || payload.nrEndereco === ''
-        ? null
+    // As colunas de endereco sao NOT NULL com default "": null aqui viraria
+    // erro do Prisma, entao o vazio continua sendo string vazia.
+    anCEP: digitsWithin(payload.anCEP, LIMITES.aluno.anCEP, 'O CEP') ?? '',
+    anLogradouro: trimmedWithin(payload.anLogradouro, LIMITES.aluno.anLogradouro, 'O logradouro') ?? '',
+    anComplemento: trimmedWithin(payload.anComplemento, LIMITES.aluno.anComplemento, 'O complemento') ?? '',
+    anBairro: trimmedWithin(payload.anBairro, LIMITES.aluno.anBairro, 'O bairro') ?? '',
+    nrEndereco: trimmedWithin(
+      payload.nrEndereco === null || payload.nrEndereco === undefined
+        ? undefined
         : String(payload.nrEndereco),
+      LIMITES.aluno.nrEndereco,
+      'O numero do endereco',
+    ),
     boInativo: toBool(payload.boInativo),
   };
 }
@@ -390,10 +477,12 @@ export function normalizeStudentFacialBiometricPayload(payload: StudentFacialBio
 }
 
 export function normalizePlanPayload(payload: PlanPayload) {
-  const dsPlano = payload.dsPlano?.trim();
-  if (!dsPlano) {
-    throw new Error('Informe o nome do plano.');
-  }
+  const dsPlano = requiredWithin(
+    payload.dsPlano,
+    LIMITES.plano.dsPlano,
+    'Informe o nome do plano.',
+    'O nome do plano',
+  );
   return {
     dsPlano,
     idFrequencia: optionalNumber(payload.idFrequencia),
@@ -435,6 +524,20 @@ export function normalizeEmployeePayload(payload: EmployeePayload) {
     }
   }
 
+  if (nmFuncionario.length > LIMITES.funcionario.nmFuncionario) {
+    throw new Error(
+      `O nome do funcionario deve ter no maximo ${LIMITES.funcionario.nmFuncionario} caracteres.`,
+    );
+  }
+  if (anEmail.length > LIMITES.funcionario.anEmail) {
+    throw new Error(`O email deve ter no maximo ${LIMITES.funcionario.anEmail} caracteres.`);
+  }
+
+  const nrDDD = optionalNumber(payload.nrDDD);
+  if (nrDDD !== null && (!Number.isInteger(nrDDD) || nrDDD < 0 || nrDDD > 99)) {
+    throw new Error('Informe um DDD valido.');
+  }
+
   return {
     idEmpresa: optionalNumber(payload.idEmpresa),
     idCargo: optionalNumber(payload.idCargo),
@@ -445,8 +548,8 @@ export function normalizeEmployeePayload(payload: EmployeePayload) {
     nmFuncionario,
     caCPF,
     dtNascimento,
-    nrDDD: optionalNumber(payload.nrDDD),
-    nrContato: nrContato || null,
+    nrDDD,
+    nrContato: digitsWithin(nrContato, LIMITES.funcionario.nrContato, 'O contato'),
     anEmail,
     dtAdmissao,
     boInativo: toBool(payload.boInativo),
@@ -454,15 +557,21 @@ export function normalizeEmployeePayload(payload: EmployeePayload) {
 }
 
 export function normalizeEquipamentoPayload(payload: EquipamentoPayload) {
-  const nmEquipamento = payload.nmEquipamento?.trim();
-  if (!nmEquipamento) {
-    throw new Error('Informe o nome do equipamento.');
-  }
+  const nmEquipamento = requiredWithin(
+    payload.nmEquipamento,
+    LIMITES.equipamento.nmEquipamento,
+    'Informe o nome do equipamento.',
+    'O nome do equipamento',
+  );
   const dtAquisicao = optionalDate(payload.dtAquisicao);
 
   return {
-    nrEquipamento: optionalNumber(payload.nrEquipamento),
-    dsEquipamento: payload.dsEquipamento?.trim() || null,
+    nrEquipamento: numeroNaFaixa(payload.nrEquipamento, 'nrEquipamento', 'O numero do equipamento'),
+    dsEquipamento: trimmedWithin(
+      payload.dsEquipamento,
+      LIMITES.equipamento.dsEquipamento,
+      'A descricao do equipamento',
+    ),
     nmEquipamento,
     dtAquisicao: dtAquisicao ?? null,
     boInativo: toBool(payload.boInativo),
@@ -476,6 +585,11 @@ export function normalizeEquipamentoManutencaoPayload(payload: EquipamentoManute
   if (!dtExecucao) {
     throw new Error('Informe a data de execucao da manutencao.');
   }
+  assertOrdemDasDatas(
+    dtExecucao,
+    dtValidade,
+    'A validade da manutencao nao pode ser anterior a execucao.',
+  );
 
   return {
     dtExecucao,
@@ -485,14 +599,16 @@ export function normalizeEquipamentoManutencaoPayload(payload: EquipamentoManute
 }
 
 export function normalizeLocalidadePayload(payload: LocalidadePayload) {
-  const nmLocalidade = payload.nmLocalidade?.trim();
+  const nmLocalidade = requiredWithin(
+    payload.nmLocalidade,
+    LIMITES.localidade.nmLocalidade,
+    'Informe o nome da localidade.',
+    'O nome da localidade',
+  );
   const idEmpresa = optionalNumber(payload.idEmpresa);
   const latitude = Number(payload.latitude);
   const longitude = Number(payload.longitude);
 
-  if (!nmLocalidade) {
-    throw new Error('Informe o nome da localidade.');
-  }
   if (!idEmpresa) {
     throw new Error('Informe a empresa.');
   }
@@ -506,7 +622,8 @@ export function normalizeLocalidadePayload(payload: LocalidadePayload) {
   return {
     idEmpresa,
     nmLocalidade,
-    dsLocalidade: payload.dsLocalidade?.trim() ?? '',
+    dsLocalidade:
+      trimmedWithin(payload.dsLocalidade, LIMITES.localidade.dsLocalidade, 'A descricao') ?? '',
     cnLocalidadeTP: Number(payload.cnLocalidadeTP ?? 0),
     latitude,
     longitude,
@@ -516,20 +633,13 @@ export function normalizeLocalidadePayload(payload: LocalidadePayload) {
 
 export function normalizeRegisterPassword(password: string | undefined) {
   const value = password ?? '';
-  if (value.length < 6) {
-    throw new Error('A senha deve ter pelo menos 6 caracteres.');
-  }
-  if (value.length > 20) {
-    throw new Error('A senha deve ter no maximo 20 caracteres.');
-  }
-  if (/\s/.test(value)) {
-    throw new Error('A senha nao pode conter espacos.');
-  }
-  if (!/\d/.test(value)) {
-    throw new Error('A senha deve conter pelo menos 1 numero.');
-  }
-  if ((value.match(/[a-zA-Z]/g) ?? []).length < 3) {
-    throw new Error('A senha deve conter pelo menos 3 letras.');
+  // As cinco regras sairam daqui para @smartgym/shared: a tela de cadastro
+  // reimplementava quatro delas numa checklist, o `pattern` do input cobria
+  // tres, e as telas de redefinir e de trocar senha nao cobriam nenhuma. Agora
+  // servidor e as tres telas leem a mesma funcao e devolvem o mesmo texto.
+  const erro = erroDaSenha(value);
+  if (erro) {
+    throw new Error(erro);
   }
   return value;
 }

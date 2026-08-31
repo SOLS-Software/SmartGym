@@ -3,6 +3,7 @@
 import type { FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatCpf, formatDateInput, isImageFile, isValidCpf } from '../../shared/registration/registrationHelpers';
+import { REGRAS_SENHA, SENHA_MAX, SENHA_MIN } from '@smartgym/shared';
 import type { RegisterLookupRecord } from '../../shared/registration/registrationTypes';
 import { PlanRegistration } from '../../features/plans/PlanRegistration';
 import { StudentPlansView } from '../../features/plans/StudentPlansView';
@@ -491,28 +492,13 @@ export default function HomePage() {
     }
   }, []);
 
-  const passwordRequirements = [
-    {
-      label: 'Pelo menos 1 número',
-      met: /\d/.test(registerPassword),
-    },
-    {
-      label: 'Pelo menos 3 letras',
-      met: (registerPassword.match(/[a-zA-Z]/g) ?? []).length >= 3,
-    },
-    {
-      label: 'Pelo menos 6 caracteres',
-      met: registerPassword.length >= 6,
-    },
-    {
-      label: 'No máximo 20 caracteres',
-      met: registerPassword.length > 0 && registerPassword.length <= 20,
-    },
-    {
-      label: 'Sem espaços',
-      met: registerPassword.length > 0 && !/\s/.test(registerPassword),
-    },
-  ];
+  // A checklist era uma reimplementacao das regras que vivem no servidor
+  // (normalizeRegisterPassword). Agora as duas leem REGRAS_SENHA — mudar a
+  // regra num lugar so passou a ser impossivel.
+  const passwordRequirements = REGRAS_SENHA.map((regra) => ({
+    label: regra.label,
+    met: regra.atende(registerPassword),
+  }));
 
   useEffect(() => {
     void (async () => {
@@ -881,6 +867,15 @@ export default function HomePage() {
     setAuthFeedback('');
 
     const formData = new FormData(event.currentTarget);
+
+    // O CPF so era mascarado aqui; quem digitava um digito errado gastava uma
+    // das 10 tentativas por minuto do rate limit do /auth/login para receber a
+    // mesma mensagem que o front ja tinha como dizer.
+    const loginDigits = String(formData.get('user') ?? '');
+    if (!isValidCpf(loginDigits)) {
+      showAuthError('Informe um CPF valido.');
+      return;
+    }
 
     try {
       setIsSubmittingAuth(true);
@@ -1616,6 +1611,9 @@ export default function HomePage() {
                 type={showLoginPassword ? 'text' : 'password'}
                 autoComplete="current-password"
                 placeholder="Digite sua senha"
+                // Sem `required` o submit saia com a senha vazia e queimava uma
+                // tentativa do rate limit do /auth/login.
+                required
               />
               <button
                 aria-label={showLoginPassword ? 'Ocultar senha' : 'Mostrar senha'}
@@ -1777,11 +1775,14 @@ export default function HomePage() {
                 id="registerPassword"
                 name="password"
                 autoComplete="new-password"
-                maxLength={20}
-                minLength={6}
+                maxLength={SENHA_MAX}
+                minLength={SENHA_MIN}
                 onChange={(event) => setRegisterPassword(event.target.value)}
-                pattern="(?=.*\d)\S{6,20}"
-                placeholder="6 a 20 caracteres, com número"
+                // O pattern anterior — (?=.*\d)\S{6,20} — nao cobria a regra
+                // das 3 letras que o servidor cobra e que a checklist logo
+                // abaixo mostra: "a1234567" passava aqui e era recusado la.
+                pattern="(?=.*\d)(?=(?:\S*[a-zA-Z]){3})\S{6,20}"
+                placeholder={`${SENHA_MIN} a ${SENHA_MAX} caracteres, com número e 3 letras`}
                 required
                 type={showRegisterPassword ? 'text' : 'password'}
                 value={registerPassword}

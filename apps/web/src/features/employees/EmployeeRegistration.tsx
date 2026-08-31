@@ -865,8 +865,11 @@ export function EmployeeRegistration() {
               <RegistrationField error={employeeErrors.cpf} htmlFor="employeeCpf" label="CPF" required size="md" touched={touchedEmployeeFields.cpf}>
                 <input inputMode="numeric" className={touchedEmployeeFields.cpf && employeeErrors.cpf ? 'invalid' : ''} id="employeeCpf" maxLength={14} onBlur={() => validateEmployeeField('cpf')} onChange={(event) => { const formattedCpf = formatCpf(event.target.value); setEmployeeCpf(formattedCpf); if (touchedEmployeeFields.cpf) { setEmployeeErrors((current) => ({ ...current, cpf: isValidCpf(formattedCpf) ? undefined : 'Informe um CPF válido.' })); } }} placeholder="000.000.000-00" ref={cpfInputRef} type="text" value={employeeCpf} />
               </RegistrationField>
-              <RegistrationField htmlFor="employeeCompany" label="Empresa" size="lg">
-                <select id="employeeCompany" onChange={(event) => setSelectedCompanyId(event.target.value)} value={selectedCompanyId}>
+              {/* Obrigatoria na API ("Informe a empresa do funcionario."):
+                  sem empresa o funcionario fica orfao de tenant. O select nao
+                  marcava isso. */}
+              <RegistrationField htmlFor="employeeCompany" label="Empresa" required size="lg">
+                <select id="employeeCompany" onChange={(event) => setSelectedCompanyId(event.target.value)} required value={selectedCompanyId}>
                   <option value="">Selecione</option>
                   {companies.map((company) => (<option key={company.id} value={company.id}>{company.dsEmpresa}</option>))}
                 </select>

@@ -56,6 +56,14 @@ function describeFields(fields: string[]): string {
 export function clientErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     switch (error.code) {
+      // Valor maior que a coluna. Cai aqui quando algum campo escapou dos
+      // limites de @smartgym/shared/LIMITES — a rota generica dizia so "Erro ao
+      // salvar", sem indicar o campo, e a pessoa reduzia texto no escuro.
+      case 'P2000':
+        return `O campo ${describeFields(targetFields(error))} excede o tamanho permitido.`;
+      // Numero fora da precisao da coluna (ex.: 1000 num Decimal(5,2)).
+      case 'P2020':
+        return 'Valor numerico fora da faixa permitida para o campo.';
       case 'P2002':
         return `Ja existe um registro com este ${describeFields(targetFields(error))}.`;
       case 'P2003':

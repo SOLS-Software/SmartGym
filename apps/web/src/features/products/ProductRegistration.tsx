@@ -665,9 +665,12 @@ export function ProductRegistration() {
           {drawerMode === 'product' ? (
             <form className="drawer-fields" onSubmit={handleSaveProduct}>
               {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
-              <RegistrationField htmlFor="idEmpresa" label="Empresa" size="lg">
-                <select disabled={!isFormEnabled} id="idEmpresa" onChange={(event) => setSelectedCompanyId(event.target.value)} value={selectedCompanyId}>
-                  <option value="">Sem empresa</option>
+              {/* A opcao era "Sem empresa", mas POST/PUT /products recusam
+                  idEmpresa vazio ("Informe a empresa do produto."): a tela
+                  oferecia uma escolha que nunca salvava. */}
+              <RegistrationField htmlFor="idEmpresa" label="Empresa" required size="lg">
+                <select disabled={!isFormEnabled} id="idEmpresa" onChange={(event) => setSelectedCompanyId(event.target.value)} required value={selectedCompanyId}>
+                  <option value="">Selecione</option>
                   {companies.map((company) => (<option key={company.id} value={company.id}>{company.dsEmpresa}</option>))}
                 </select>
               </RegistrationField>

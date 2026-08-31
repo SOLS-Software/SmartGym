@@ -6,7 +6,8 @@ import { Pencil, Plus, Save } from 'lucide-react';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { GridPagination, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
-import { formatCnpj } from '../companies/companyUtils';
+import { formatCnpj, isValidCnpj } from '../companies/companyUtils';
+import { LIMITES } from '@smartgym/shared';
 import { useToast } from '../../shared/components/Toast';
 
 type Client = {
@@ -87,6 +88,13 @@ export function ClientRegistration() {
       setFeedback('Informe o nome do cliente.');
       return;
     }
+    // O CNPJ e opcional (a coluna aceita null) mas e UNIQUE: sem conferir o
+    // digito verificador, a unicidade passa a proteger lixo. Empresa e
+    // Fornecedor ja conferiam; o Cliente, que e o proprio tenant, nao.
+    if (clientCnpj.trim() && !isValidCnpj(clientCnpj)) {
+      setFeedback('Informe um CNPJ válido.');
+      return;
+    }
     try {
       setIsSaving(true);
       setFeedback('');
@@ -94,7 +102,9 @@ export function ClientRegistration() {
         dsCliente: name,
         caCNPJ: clientCnpj.replace(/\D/g, '') || null,
         boInativo: isActive ? false : true,
-        nrDiasSemCheckIn: Number(evasionDays) || 10,
+        // `Number(x) || 10` transformava 0 em 10 em silencio. O input tem
+        // min=1, entao o vazio e o unico caso que ainda cai no padrao.
+        nrDiasSemCheckIn: evasionDays === '' ? 10 : Number(evasionDays),
       };
       const res = await fetch(
         isCreating ? `${apiUrl}/clients` : `${apiUrl}/clients/${selectedClientId}`,
@@ -239,7 +249,7 @@ export function ClientRegistration() {
             <label htmlFor="clientName">Nome do Cliente *</label>
             <input
               id="clientName"
-              maxLength={255}
+              maxLength={LIMITES.cliente.dsCliente}
               onChange={(e) => setClientName(e.target.value)}
               placeholder="Ex: Academia Fitness"
               required

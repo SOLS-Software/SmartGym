@@ -2,7 +2,15 @@ import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
-import { assertValidId, optionalNumber, requiredText, optionalText, getMultipartFieldValue } from '../../shared/normalize.js';
+import {
+  assertValidId,
+  numeroNaFaixa,
+  optionalNumber,
+  optionalText,
+  requiredWithin,
+  getMultipartFieldValue,
+} from '../../shared/normalize.js';
+import { LIMITES, isValidCnpj, isValidHexColor, isValidHostname, onlyDigits } from '@smartgym/shared';
 import { getClientSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { assertAllowedUploadType, assertUploadBuffer, getClientFilePath } from '../../shared/files.js';
 import { clientErrorMessage } from '../../shared/errors.js';
@@ -30,18 +38,88 @@ const themeBodySchema = z.object({
   raioCardBorder: z.coerce.number().optional(),
 });
 
+/**
+ * CNPJ do cliente: opcional, mas se vier tem de ser um CNPJ de verdade.
+ *
+ * A coluna e UNIQUE e o campo era gravado com `optionalText` — qualquer texto
+ * entrava, inclusive um "CNPJ" de 3 caracteres, e a unicidade passava a
+ * proteger lixo. Empresa e Fornecedor ja conferiam o digito verificador; o
+ * Cliente, que e o proprio tenant, era o unico que nao conferia.
+ */
+function normalizeClientCnpj(value: unknown) {
+  const digitos = onlyDigits(optionalText(value));
+  if (!digitos) return null;
+  if (!isValidCnpj(digitos)) {
+    throw new Error('Informe um CNPJ valido.');
+  }
+  return digitos;
+}
+
+/**
+ * Cor do tema.
+ *
+ * O valor vira `--color-primary` no CSS do cliente e a coluna e VarChar(7).
+ * `optionalText` aceitava "azul": gravava literal, quebrava o tema inteiro e
+ * ninguem ligava as duas coisas. Texto invalido agora volta como erro do campo.
+ */
+function corDoTema(value: unknown, padrao: string, label: string) {
+  const cor = optionalText(value);
+  if (!cor) return padrao;
+  if (!isValidHexColor(cor)) {
+    throw new Error(`${label} deve estar no formato #RRGGBB.`);
+  }
+  return cor.toUpperCase();
+}
+
+function fonteDoTema(value: unknown, padrao: string, label: string) {
+  const fonte = optionalText(value);
+  if (!fonte) return padrao;
+  if (fonte.length > LIMITES.tema.fonte) {
+    throw new Error(`${label} deve ter no maximo ${LIMITES.tema.fonte} caracteres.`);
+  }
+  return fonte;
+}
+
+/**
+ * Dominio corporativo.
+ *
+ * E a chave que resolve o TENANT no formulario publico: `POST /public/leads`
+ * compara este valor com o `window.location.hostname` da pagina. Um cadastro
+ * com "https://" na frente, barra no fim ou espaco no meio nunca casa, e a
+ * tela publica responde "Academia nao encontrada" — o erro aparece longe de
+ * onde foi cometido. `requiredText` aceitava qualquer coisa, inclusive texto
+ * maior que a coluna VarChar(255).
+ */
+function normalizeUrlDominio(value: unknown) {
+  const url = optionalText(value).toLowerCase();
+  if (!url) {
+    throw new Error('Informe a URL do dominio.');
+  }
+  if (url.length > LIMITES.dominio.urlDominio) {
+    throw new Error(`A URL do dominio deve ter no maximo ${LIMITES.dominio.urlDominio} caracteres.`);
+  }
+  if (!isValidHostname(url)) {
+    throw new Error('Informe apenas o dominio, sem http:// e sem barra (ex.: academia.com.br).');
+  }
+  return url;
+}
+
 function normalizeThemeData(b: Record<string, unknown>) {
   return {
-    corPrimaria: optionalText(b.corPrimaria) || '#000000',
-    corSecundaria: optionalText(b.corSecundaria) || '#FFFFFF',
-    corAcentuacao: optionalText(b.corAcentuacao) || '#FF0000',
-    corTexto: optionalText(b.corTexto) || '#000000',
-    corFundo: optionalText(b.corFundo) || '#FFFFFF',
-    fontePrincipal: optionalText(b.fontePrincipal) || 'Inter',
-    fonteSecundaria: optionalText(b.fonteSecundaria) || 'Open Sans',
-    tamanhoBase: Number(b.tamanhoBase ?? 14),
-    espacamentoPadrao: Number(b.espacamentoPadrao ?? 16),
-    raioCardBorder: Number(b.raioCardBorder ?? 8),
+    corPrimaria: corDoTema(b.corPrimaria, '#000000', 'A cor primaria'),
+    corSecundaria: corDoTema(b.corSecundaria, '#FFFFFF', 'A cor secundaria'),
+    corAcentuacao: corDoTema(b.corAcentuacao, '#FF0000', 'A cor de acentuacao'),
+    corTexto: corDoTema(b.corTexto, '#000000', 'A cor do texto'),
+    corFundo: corDoTema(b.corFundo, '#FFFFFF', 'A cor de fundo'),
+    fontePrincipal: fonteDoTema(b.fontePrincipal, 'Inter', 'A fonte principal'),
+    fonteSecundaria: fonteDoTema(b.fonteSecundaria, 'Open Sans', 'A fonte secundaria'),
+    // O zod ja garante que sao numeros; a FAIXA e que garante que cabem no
+    // layout (fonte 300px nao e tema customizado, e tela quebrada).
+    tamanhoBase: numeroNaFaixa(b.tamanhoBase ?? 14, 'tamanhoBase', 'O tamanho da fonte') ?? 14,
+    espacamentoPadrao:
+      numeroNaFaixa(b.espacamentoPadrao ?? 16, 'espacamentoPadrao', 'O espacamento') ?? 16,
+    raioCardBorder:
+      numeroNaFaixa(b.raioCardBorder ?? 8, 'raioCardBorder', 'O raio da borda') ?? 8,
     boModoEscuro: toBool(b.boModoEscuro ?? false),
     idArquivoLogo: optionalNumber(b.idArquivoLogo),
     idArquivoFavicon: optionalNumber(b.idArquivoFavicon),
@@ -94,9 +172,15 @@ export async function registerClientRoutes(app: FastifyInstance) {
       return reply.code(403).send({ message: 'Acesso restrito ao administrador do sistema.' });
     }
     try {
-      const dsCliente = requiredText(request.body.dsCliente, 'Informe o nome do cliente.');
+      const dsCliente = requiredWithin(
+        request.body.dsCliente,
+        LIMITES.cliente.dsCliente,
+        'Informe o nome do cliente.',
+        'O nome do cliente',
+      );
+      const caCNPJ = normalizeClientCnpj(request.body.caCNPJ);
       const cliente = await prisma.cliente.create({
-        data: { dsCliente, caCNPJ: optionalText(request.body.caCNPJ) || null, boInativo: false },
+        data: { dsCliente, caCNPJ, boInativo: false },
       });
       // Cliente novo ja nasce com os perfis de acesso padrao: sem eles, o
       // primeiro funcionario cadastrado nao teria perfil algum para receber e
@@ -113,20 +197,37 @@ export async function registerClientRoutes(app: FastifyInstance) {
       const id = Number(request.params.id);
       assertValidId(id, 'Cliente invalido.');
       if (!assertTenantClient(request, reply, id)) return reply;
-      const dsCliente = requiredText(request.body.dsCliente, 'Informe o nome do cliente.');
+      const dsCliente = requiredWithin(
+        request.body.dsCliente,
+        LIMITES.cliente.dsCliente,
+        'Informe o nome do cliente.',
+        'O nome do cliente',
+      );
+      const caCNPJ = normalizeClientCnpj(request.body.caCNPJ);
       return prisma.cliente.update({
         where: { id },
         data: {
           dsCliente,
-          caCNPJ: optionalText(request.body.caCNPJ) || null,
+          caCNPJ,
           boInativo: toBool(request.body.boInativo),
           // Corte do alerta de evasao. Fora da faixa 1-365 nao e configuracao,
           // e engano: 0 alertaria sobre quem treinou hoje de manha.
-          ...(request.body.nrDiasSemCheckIn !== undefined &&
-          Number(request.body.nrDiasSemCheckIn) >= 1 &&
-          Number(request.body.nrDiasSemCheckIn) <= 365
-            ? { nrDiasSemCheckIn: Number(request.body.nrDiasSemCheckIn) }
-            : {}),
+          //
+          // Antes o valor fora da faixa era IGNORADO em silencio: a tela dizia
+          // "Cliente salvo" e o corte continuava o antigo. Agora vira erro do
+          // campo, pela mesma faixa que o input usa em min/max.
+          ...(request.body.nrDiasSemCheckIn === undefined ||
+          request.body.nrDiasSemCheckIn === null ||
+          request.body.nrDiasSemCheckIn === ''
+            ? {}
+            : {
+                nrDiasSemCheckIn:
+                  numeroNaFaixa(
+                    request.body.nrDiasSemCheckIn,
+                    'nrDiasSemCheckIn',
+                    'Os dias sem check-in',
+                  ) ?? 10,
+              }),
         },
       });
     } catch (error) {
@@ -229,7 +330,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       const id = Number(request.params.id);
       assertValidId(id, 'Cliente invalido.');
       if (!assertTenantClient(request, reply, id)) return reply;
-      const urlDominio = requiredText(request.body.urlDominio, 'Informe a URL do dominio.');
+      const urlDominio = normalizeUrlDominio(request.body.urlDominio);
       const dominio = await prisma.dominioCorporativo.create({
         data: { idCliente: id, urlDominio: urlDominio.toLowerCase(), boSubdominio: toBool(request.body.boSubdominio ?? true), boAtivo: toBool(request.body.boAtivo ?? true) },
       });
@@ -246,7 +347,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       assertValidId(id, 'Cliente invalido.');
       assertValidId(domainId, 'Dominio invalido.');
       if (!assertTenantClient(request, reply, id)) return reply;
-      const urlDominio = requiredText(request.body.urlDominio, 'Informe a URL do dominio.');
+      const urlDominio = normalizeUrlDominio(request.body.urlDominio);
       return prisma.dominioCorporativo.update({
         where: { id: domainId, idCliente: id },
         data: { urlDominio: urlDominio.toLowerCase(), boSubdominio: toBool(request.body.boSubdominio ?? true), boAtivo: toBool(request.body.boAtivo ?? true) },

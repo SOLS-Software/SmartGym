@@ -8,6 +8,7 @@ import {
   assertValidId,
   optionalNumber,
   optionalDate,
+  numeroNaFaixa,
 } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import {
@@ -1454,15 +1455,24 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       // Sem data informada vale hoje: a serie temporal ordena por esta coluna e
       // uma medicao sem data ficaria fora do grafico.
       dtAvaliacao: optionalDate(body.dtAvaliacao) ?? new Date(),
-      vlAltura: optionalNumber(body.vlAltura),
-      vlPeso: optionalNumber(body.vlPeso),
-      vlPercentualGordura: optionalNumber(body.vlPercentualGordura),
-      vlMassaMagra: optionalNumber(body.vlMassaMagra),
-      vlCircPeitoral: optionalNumber(body.vlCircPeitoral),
-      vlCircCintura: optionalNumber(body.vlCircCintura),
-      vlCircQuadril: optionalNumber(body.vlCircQuadril),
-      vlCircBraco: optionalNumber(body.vlCircBraco),
-      vlCircCoxa: optionalNumber(body.vlCircCoxa),
+      // Todas estas colunas sao Decimal(5,2) — o teto real e 999,99, e nao
+      // "numero decimal". Com `optionalNumber` puro, 1000 no peso ou "abc"
+      // (que vira NaN) so falhavam no Postgres. numeroNaFaixa le a MESMA faixa
+      // que o input do front usa em min/max/step, entao a mensagem e a mesma
+      // dos dois lados. `vlAltura` esta em METROS: 175 seria 175 m.
+      vlAltura: numeroNaFaixa(body.vlAltura, 'vlAltura', 'A altura'),
+      vlPeso: numeroNaFaixa(body.vlPeso, 'vlPeso', 'O peso'),
+      vlPercentualGordura: numeroNaFaixa(
+        body.vlPercentualGordura,
+        'vlPercentualGordura',
+        'O percentual de gordura',
+      ),
+      vlMassaMagra: numeroNaFaixa(body.vlMassaMagra, 'vlMassaMagra', 'A massa magra'),
+      vlCircPeitoral: numeroNaFaixa(body.vlCircPeitoral, 'vlCircPeitoral', 'O peitoral'),
+      vlCircCintura: numeroNaFaixa(body.vlCircCintura, 'vlCircCintura', 'A cintura'),
+      vlCircQuadril: numeroNaFaixa(body.vlCircQuadril, 'vlCircQuadril', 'O quadril'),
+      vlCircBraco: numeroNaFaixa(body.vlCircBraco, 'vlCircBraco', 'O braco'),
+      vlCircCoxa: numeroNaFaixa(body.vlCircCoxa, 'vlCircCoxa', 'A coxa'),
       dsObservacao: observacao || null,
       boInativo: toBool(body.boInativo),
     };
@@ -1712,8 +1722,13 @@ export async function registerStudentRoutes(app: FastifyInstance) {
             idAluno,
             idPlano,
             idEmpresa: optionalNumber(request.body.idEmpresa),
-            nrDiaPagamento: Number(request.body.nrDiaPagamento ?? 1),
-            qtParcelas: optionalNumber(request.body.qtParcelas),
+            // Dia do mes: o teto e o calendario, nao o int4. Sem esta trava a
+            // matricula aceitava dia 99 e a geracao de cobranca caia sempre no
+            // ultimo dia do mes, sem ninguem perceber.
+            nrDiaPagamento:
+              numeroNaFaixa(request.body.nrDiaPagamento ?? 1, 'nrDiaPagamento', 'O dia de pagamento') ??
+              1,
+            qtParcelas: numeroNaFaixa(request.body.qtParcelas, 'qtParcelas', 'As parcelas'),
             idPromocaoPlano: optionalNumber(request.body.idPromocaoPlano),
             dtAdmissao: optionalDate(request.body.dtAdmissao),
             boInativo: toBool(request.body.boInativo),
@@ -2059,7 +2074,9 @@ export async function registerStudentRoutes(app: FastifyInstance) {
           data: {
             idPlano,
             idPromocaoPlano,
-            nrDiaPagamento: Number(request.body.nrDiaPagamento ?? 1),
+            nrDiaPagamento:
+              numeroNaFaixa(request.body.nrDiaPagamento ?? 1, 'nrDiaPagamento', 'O dia de pagamento') ??
+              1,
             dtAdmissao: optionalDate(request.body.dtAdmissao) ?? new Date(),
             boInativo: boInativoPlano,
             // Cancelling records the cancellation date; reactivating clears it.

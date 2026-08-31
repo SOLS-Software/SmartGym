@@ -1,7 +1,15 @@
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { assertValidId, optionalDate, optionalNumber, requiredText } from '../../shared/normalize.js';
+import {
+  assertOrdemDasDatas,
+  assertValidId,
+  numeroNaFaixa,
+  optionalDate,
+  optionalNumber,
+  requiredWithin,
+} from '../../shared/normalize.js';
+import { LIMITES } from '@smartgym/shared';
 import { prisma } from '../../shared/prisma.js';
 import { clientErrorMessage } from '../../shared/errors.js';
 
@@ -68,7 +76,12 @@ function normalizeActivityPayload(payload: ActivityPayload) {
   return {
     idEmpresa: optionalNumber(payload.idEmpresa),
     idEsporte: optionalNumber(payload.idEsporte),
-    dsAtividade: requiredText(payload.dsAtividade, 'Informe a atividade.'),
+    dsAtividade: requiredWithin(
+      payload.dsAtividade,
+      LIMITES.atividade.dsAtividade,
+      'Informe a atividade.',
+      'O nome da atividade',
+    ),
     boInativo: toBool(payload.boInativo),
   };
 }
@@ -76,14 +89,21 @@ function normalizeActivityPayload(payload: ActivityPayload) {
 function normalizeActivitySchedulePayload(activityId: number, payload: ActivitySchedulePayload) {
   const idEmpresa = optionalNumber(payload.idEmpresa);
   if (!idEmpresa) throw new Error('Informe a empresa da agenda.');
+
+  const dtInicial = optionalDate(payload.dtInicial) ?? null;
+  const dtFinal = optionalDate(payload.dtFinal) ?? null;
+  // Sessao que termina antes de comecar entrava na agenda e sumia dos filtros
+  // por periodo (que consultam por `dtInicial`), sem nada acusar.
+  assertOrdemDasDatas(dtInicial, dtFinal, 'O fim da sessao nao pode ser antes do inicio.');
+
   return {
     idEmpresa,
     idAtividade: activityId,
     idCategoria: optionalNumber(payload.idCategoria),
     idLocalidade: optionalNumber(payload.idLocalidade),
-    dtInicial: optionalDate(payload.dtInicial) ?? null,
-    dtFinal: optionalDate(payload.dtFinal) ?? null,
-    qtAlunos: optionalNumber(payload.qtAlunos),
+    dtInicial,
+    dtFinal,
+    qtAlunos: numeroNaFaixa(payload.qtAlunos, 'qtAlunos', 'A vaga de alunos'),
     boInativo: toBool(payload.boInativo),
   };
 }

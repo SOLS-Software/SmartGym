@@ -4,7 +4,9 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import {
   normalizePlanPayload,
+  assertOrdemDasDatas,
   assertValidId,
+  numeroNaFaixa,
   optionalNumber,
   optionalDate,
   getMultipartFieldValue,
@@ -228,13 +230,24 @@ const planChildResourceConfig = {
       await assertPromotionInTenant(idCliente, optionalNumber(payload.idPromocao));
     },
     normalize(planId: number, payload: CompanyChildPayload) {
+      const dtInicio = optionalDate(payload.dtInicio) ?? new Date();
+      const dtEncerramento = optionalDate(payload.dtEncerramento) ?? null;
+      // Mesma regra da promocao: vigencia que termina antes de comecar some
+      // das listagens de vigentes sem que nada acuse.
+      assertOrdemDasDatas(
+        dtInicio,
+        dtEncerramento,
+        'O encerramento nao pode ser anterior ao inicio.',
+      );
+
       return {
         idPlano: planId,
         idEmpresa: optionalNumber(payload.idEmpresa),
         idPromocao: optionalNumber(payload.idPromocao),
-        qtDisponivel: Number(payload.qtDisponivel ?? 0),
-        dtInicio: optionalDate(payload.dtInicio) ?? new Date(),
-        dtEncerramento: optionalDate(payload.dtEncerramento) ?? null,
+        qtDisponivel:
+          numeroNaFaixa(payload.qtDisponivel ?? 0, 'qtDisponivel', 'A quantidade disponivel') ?? 0,
+        dtInicio,
+        dtEncerramento,
         boInativo: toBool(payload.boInativo),
       };
     },
