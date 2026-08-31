@@ -4,13 +4,15 @@ import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import {
   assertValidId,
+  corDoTema,
+  fonteDoTema,
   numeroNaFaixa,
   optionalNumber,
   optionalText,
   requiredWithin,
   getMultipartFieldValue,
 } from '../../shared/normalize.js';
-import { LIMITES, isValidCnpj, isValidHexColor, isValidHostname, onlyDigits } from '@smartgym/shared';
+import { LIMITES, isValidCnpj, isValidHostname, onlyDigits } from '@smartgym/shared';
 import { getClientSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { assertAllowedUploadType, assertUploadBuffer, getClientFilePath } from '../../shared/files.js';
 import { clientErrorMessage } from '../../shared/errors.js';
@@ -53,31 +55,6 @@ function normalizeClientCnpj(value: unknown) {
     throw new Error('Informe um CNPJ valido.');
   }
   return digitos;
-}
-
-/**
- * Cor do tema.
- *
- * O valor vira `--color-primary` no CSS do cliente e a coluna e VarChar(7).
- * `optionalText` aceitava "azul": gravava literal, quebrava o tema inteiro e
- * ninguem ligava as duas coisas. Texto invalido agora volta como erro do campo.
- */
-function corDoTema(value: unknown, padrao: string, label: string) {
-  const cor = optionalText(value);
-  if (!cor) return padrao;
-  if (!isValidHexColor(cor)) {
-    throw new Error(`${label} deve estar no formato #RRGGBB.`);
-  }
-  return cor.toUpperCase();
-}
-
-function fonteDoTema(value: unknown, padrao: string, label: string) {
-  const fonte = optionalText(value);
-  if (!fonte) return padrao;
-  if (fonte.length > LIMITES.tema.fonte) {
-    throw new Error(`${label} deve ter no maximo ${LIMITES.tema.fonte} caracteres.`);
-  }
-  return fonte;
 }
 
 /**

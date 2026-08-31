@@ -3,6 +3,7 @@ import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { clientErrorMessage } from '../../shared/errors.js';
+import { LIMITES } from '@smartgym/shared';
 
 type RolePayload = {
   dsCargo?: string;
@@ -24,18 +25,24 @@ type CategoryPayload = {
 
 const boInativoField = z.preprocess((value) => toBool(value), z.boolean());
 
-function textField(message: string) {
+// O teto de 200 era literal aqui e SO aqui: o input do front usava 255 (o
+// tamanho da coluna), entao 201 caracteres passavam pela tela e voltavam como
+// erro do servidor. Agora sai de LIMITES.auxiliar, que o front tambem le.
+function textField(message: string, maxLength: number = LIMITES.auxiliar.padrao) {
   return z
     .string({ required_error: message, invalid_type_error: message })
     .trim()
     .min(1, message)
-    .max(200, 'O campo deve ter no maximo 200 caracteres.');
+    .max(maxLength, `O campo deve ter no maximo ${maxLength} caracteres.`);
 }
 
 const optionalTextField = z
   .string({ invalid_type_error: 'Dados invalidos.' })
   .trim()
-  .max(200, 'O campo deve ter no maximo 200 caracteres.')
+  .max(
+    LIMITES.auxiliar.padrao,
+    `O campo deve ter no maximo ${LIMITES.auxiliar.padrao} caracteres.`,
+  )
   .nullish();
 
 function idField(message: string) {
@@ -89,7 +96,9 @@ const levelBodySchema = z.object({
 });
 
 const bodyAreaBodySchema = z.object({
-  dsAreaCorporal: textField('Informe a area corporal.'),
+  // Unica das tabelas de dominio cuja coluna nao e VarChar(255): aqui e 100, e
+  // o teto generico de 200 deixava o Postgres recusar com P2000.
+  dsAreaCorporal: textField('Informe a area corporal.', LIMITES.auxiliar.dsAreaCorporal),
   boInativo: boInativoField,
 });
 

@@ -13,7 +13,7 @@ import {
 } from '../../shared/auth/sessionUtils';
 import type { AuthenticatedUser } from '../../shared/auth/sessionUtils';
 import { ThemeRegistration } from '../../features/companies/ThemeRegistration';
-import { formatCpf } from '../../shared/registration/registrationHelpers';
+import { formatCpf, isValidCpf } from '../../shared/registration/registrationHelpers';
 
 type ClientTheme = {
   idCliente: number;
@@ -190,6 +190,15 @@ export default function GestorPage() {
     }
 
     const formData = new FormData(event.currentTarget);
+
+    // Mesma trava do login principal: /auth/gestor-login tem o authRateLimit, e
+    // um CPF digitado errado gastava uma tentativa para receber a mensagem que
+    // a tela ja tinha como dar. Esta e a porta do super-admin.
+    if (!isValidCpf(String(formData.get('user') ?? ''))) {
+      setFeedback('Informe um CPF valido.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       const res = await fetch(`${apiUrl}/auth/gestor-login`, {
@@ -271,8 +280,10 @@ export default function GestorPage() {
                 <label htmlFor="clienteId">ID do Cliente</label>
                 <input
                   id="clienteId"
+                  min={1}
                   onChange={(e) => setLoginClienteId(e.target.value)}
                   placeholder="Ex: 1"
+                  required
                   type="number"
                   value={loginClienteId}
                 />
@@ -283,9 +294,11 @@ export default function GestorPage() {
             <input inputMode="numeric"
               autoComplete="username"
               id="user"
+              maxLength={14}
               name="user"
               onChange={(e) => setLoginCpf(formatCpf(e.target.value))}
               placeholder="000.000.000-00"
+              required
               type="text"
               value={loginCpf}
             />
@@ -297,6 +310,7 @@ export default function GestorPage() {
                 id="password"
                 name="password"
                 placeholder="Digite sua senha"
+                required
                 type={showPassword ? 'text' : 'password'}
               />
               <button

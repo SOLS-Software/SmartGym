@@ -6,12 +6,18 @@ import { prisma } from '../../shared/prisma.js';
 import {
   normalizeCompanyPayload,
   assertValidId,
+  corDoTema,
+  fonteDoTema,
+  numeroNaFaixa,
   optionalNumber,
   requiredText,
+  requiredWithin,
   optionalText,
   optionalDate,
+  trimmedWithin,
   getMultipartFieldValue,
 } from '../../shared/normalize.js';
+import { LIMITES } from '@smartgym/shared';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 import { assertAllowedUploadType, assertUploadBuffer, getCompanyFilePath, getPromotionFilePath } from '../../shared/files.js';
@@ -51,11 +57,11 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     normalize(companyId: number, payload: CompanyChildPayload) {
       return {
         idEmpresa: companyId,
-        dsPromocao: requiredText(payload.dsPromocao, 'Informe a promocao.'),
-        qtPeriodo: Number(payload.qtPeriodo ?? 0),
+        dsPromocao: requiredWithin(payload.dsPromocao, LIMITES.promocao.dsPromocao, 'Informe a promocao.', 'O nome da promocao'),
+        qtPeriodo: numeroNaFaixa(payload.qtPeriodo ?? 0, 'qtPeriodo', 'O periodo') ?? 0,
         idUnidadeTempo: optionalNumber(payload.idUnidadeTempo),
-        vlDesconto: Number(payload.vlDesconto ?? 0),
-        pcDesconto: Number(payload.pcDesconto ?? 0),
+        vlDesconto: numeroNaFaixa(payload.vlDesconto ?? 0, 'vlDesconto', 'O valor de desconto') ?? 0,
+        pcDesconto: numeroNaFaixa(payload.pcDesconto ?? 0, 'pcDesconto', 'O percentual de desconto') ?? 0,
         dtInicio: optionalDate(payload.dtInicio) ?? new Date(),
         dtEncerramento: optionalDate(payload.dtEncerramento) ?? null,
         boInativo: toBool(payload.boInativo),
@@ -87,8 +93,8 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
       return {
         idPromocao: optionalNumber(payload.idPromocao),
         idTiposArquivos: optionalNumber(payload.idTiposArquivos),
-        dsArquivo: requiredText(payload.dsArquivo, 'Informe o arquivo.'),
-        anCaminho: optionalText(payload.anCaminho),
+        dsArquivo: requiredWithin(payload.dsArquivo, LIMITES.arquivo.dsArquivo, 'Informe o arquivo.', 'O nome do arquivo'),
+        anCaminho: trimmedWithin(payload.anCaminho, LIMITES.arquivo.anCaminho, 'O caminho do arquivo') ?? '',
         cnChaveAcesso: optionalNumber(payload.cnChaveAcesso),
         cnDistribuidor: optionalNumber(payload.cnDistribuidor),
         boInativo: toBool(payload.boInativo),
@@ -121,7 +127,9 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
         idAluno,
         idPlano,
         idPromocaoPlano: optionalNumber(payload.idPromocaoPlano),
-        nrDiaPagamento: Number(payload.nrDiaPagamento ?? 1),
+        // Mesma trava que /students ja aplica: sem ela esta rota aceitava dia 99.
+        nrDiaPagamento:
+          numeroNaFaixa(payload.nrDiaPagamento ?? 1, 'nrDiaPagamento', 'O dia de pagamento') ?? 1,
         dtAdmissao: optionalDate(payload.dtAdmissao) ?? new Date(),
         boInativo: toBool(payload.boInativo),
       };
@@ -138,8 +146,8 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
         idEmpresa: companyId,
         idAlunoPlano: optionalNumber(payload.idAlunoPlano),
         idProdutoMovimentacao: optionalNumber(payload.idProdutoMovimentacao),
-        vlPrevisto: Number(payload.vlPrevisto ?? payload.vlPago ?? 0),
-        vlPago: optionalNumber(payload.vlPago),
+        vlPrevisto: numeroNaFaixa(payload.vlPrevisto ?? payload.vlPago ?? 0, 'vlPrevisto', 'O valor previsto') ?? 0,
+        vlPago: numeroNaFaixa(payload.vlPago, 'vlPago', 'O valor pago'),
         idStatusPagamento,
         idFormaPagamento: optionalNumber(payload.idFormaPagamento),
         dtVencimento: optionalDate(payload.dtVencimento),
@@ -162,9 +170,9 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
         idEmpresa: companyId,
         idProduto: optionalNumber(payload.idProduto),
         idAluno: optionalNumber(payload.idAluno),
-        qtMovimentada: Number(payload.qtMovimentada ?? 0),
-        vlUnitario: Number(payload.vlUnitario ?? 0),
-        qtDisponivel: Number(payload.qtDisponivel ?? 0),
+        qtMovimentada: numeroNaFaixa(payload.qtMovimentada ?? 0, 'qtMovimentada', 'A quantidade') ?? 0,
+        vlUnitario: numeroNaFaixa(payload.vlUnitario ?? 0, 'vlUnitario', 'O valor unitario') ?? 0,
+        qtDisponivel: numeroNaFaixa(payload.qtDisponivel ?? 0, 'qtDisponivel', 'A quantidade disponivel') ?? 0,
         boInativo: toBool(payload.boInativo),
       };
     },
@@ -193,7 +201,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
         idFornecedor,
         idAluno: null,
         qtMovimentada,
-        vlUnitario: Number(payload.vlUnitario ?? 0),
+        vlUnitario: numeroNaFaixa(payload.vlUnitario ?? 0, 'vlUnitario', 'O valor unitario') ?? 0,
         qtDisponivel: 0,
         boInativo: toBool(payload.boInativo),
       };
@@ -230,7 +238,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
         idAluno,
         idFornecedor: null,
         qtMovimentada,
-        vlUnitario: Number(payload.vlUnitario ?? 0),
+        vlUnitario: numeroNaFaixa(payload.vlUnitario ?? 0, 'vlUnitario', 'O valor unitario') ?? 0,
         qtDisponivel: 0,
         boInativo: toBool(payload.boInativo),
       };
@@ -244,8 +252,8 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
       return {
         idEmpresa: companyId,
         idTiposArquivos: optionalNumber(payload.idTiposArquivos),
-        dsArquivo: requiredText(payload.dsArquivo, 'Informe o arquivo.'),
-        anCaminho: optionalText(payload.anCaminho),
+        dsArquivo: requiredWithin(payload.dsArquivo, LIMITES.arquivo.dsArquivo, 'Informe o arquivo.', 'O nome do arquivo'),
+        anCaminho: trimmedWithin(payload.anCaminho, LIMITES.arquivo.anCaminho, 'O caminho do arquivo') ?? '',
         cnChaveAcesso: optionalNumber(payload.cnChaveAcesso),
         cnDistribuidor: optionalNumber(payload.cnDistribuidor),
         boInativo: toBool(payload.boInativo),
@@ -274,8 +282,8 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     normalize(companyId: number, payload: CompanyChildPayload) {
       return {
         idEmpresa: companyId,
-        dsPontuacao: requiredText(payload.dsPontuacao, 'Informe a descricao da pontuacao.'),
-        qtPontos: Number(payload.qtPontos ?? 0),
+        dsPontuacao: requiredWithin(payload.dsPontuacao, LIMITES.pontuacao.dsPontuacao, 'Informe a descricao da pontuacao.', 'A descricao da pontuacao'),
+        qtPontos: numeroNaFaixa(payload.qtPontos ?? 0, 'qtPontos', 'Os pontos') ?? 0,
         boPadrao: toBool(payload.boPadrao),
         boInativo: toBool(payload.boInativo),
       };
@@ -287,7 +295,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     companyField: null,
     normalize(_companyId: number, payload: CompanyChildPayload) {
       return {
-        dsTema: requiredText(payload.dsTema, 'Informe o tema.'),
+        dsTema: requiredWithin(payload.dsTema, LIMITES.tema.dsTema, 'Informe o tema.', 'O nome do tema'),
         boInativo: toBool(payload.boInativo),
       };
     },
@@ -1072,17 +1080,32 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         return reply.code(400).send({ message: 'Dados invalidos.' });
       }
       const b = request.body;
+      // Este bloco e a SEGUNDA copia do normalizador de tema (a outra esta em
+      // clients/routes.ts, para o tema do cliente) e ja tinha divergido dela em
+      // dois pontos:
+      //
+      //  - Sem conferencia de formato: "azul" era gravado literal na coluna
+      //    VarChar(7), virava `--color-primary: azul` e derrubava o tema da
+      //    empresa inteira, sem erro em camada nenhuma.
+      //  - `?? '#000000'` nunca dispara. `optionalText` devolve STRING VAZIA
+      //    quando o campo nao vem, nao null, e `??` so cobre null/undefined —
+      //    entao cor ausente gravava '' em vez do padrao. A copia do cliente
+      //    usava `|| '#000000'`, que funciona.
+      //
+      // As duas copias passam a chamar os mesmos helpers de @smartgym/shared.
       const data = {
-        corPrimaria: optionalText(b.corPrimaria) ?? '#000000',
-        corSecundaria: optionalText(b.corSecundaria) ?? '#FFFFFF',
-        corAcentuacao: optionalText(b.corAcentuacao) ?? '#FF0000',
-        corTexto: optionalText(b.corTexto) ?? '#000000',
-        corFundo: optionalText(b.corFundo) ?? '#FFFFFF',
-        fontePrincipal: optionalText(b.fontePrincipal) ?? 'Inter',
-        fonteSecundaria: optionalText(b.fonteSecundaria) ?? 'Open Sans',
-        tamanhoBase: Number(b.tamanhoBase ?? 14),
-        espacamentoPadrao: Number(b.espacamentoPadrao ?? 16),
-        raioCardBorder: Number(b.raioCardBorder ?? 8),
+        corPrimaria: corDoTema(b.corPrimaria, '#000000', 'A cor primaria'),
+        corSecundaria: corDoTema(b.corSecundaria, '#FFFFFF', 'A cor secundaria'),
+        corAcentuacao: corDoTema(b.corAcentuacao, '#FF0000', 'A cor de acentuacao'),
+        corTexto: corDoTema(b.corTexto, '#000000', 'A cor do texto'),
+        corFundo: corDoTema(b.corFundo, '#FFFFFF', 'A cor de fundo'),
+        fontePrincipal: fonteDoTema(b.fontePrincipal, 'Inter', 'A fonte principal'),
+        fonteSecundaria: fonteDoTema(b.fonteSecundaria, 'Open Sans', 'A fonte secundaria'),
+        tamanhoBase: numeroNaFaixa(b.tamanhoBase ?? 14, 'tamanhoBase', 'O tamanho da fonte') ?? 14,
+        espacamentoPadrao:
+          numeroNaFaixa(b.espacamentoPadrao ?? 16, 'espacamentoPadrao', 'O espacamento') ?? 16,
+        raioCardBorder:
+          numeroNaFaixa(b.raioCardBorder ?? 8, 'raioCardBorder', 'O raio da borda') ?? 8,
         boModoEscuro: toBool(b.boModoEscuro ?? false),
         idArquivoLogo: optionalNumber(b.idArquivoLogo),
         idArquivoFavicon: optionalNumber(b.idArquivoFavicon),

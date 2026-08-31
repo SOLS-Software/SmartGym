@@ -132,8 +132,11 @@ const UFS = [
   'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO',
 ];
 
-function trimmedWithin(value: string | undefined, maxLength: number, label: string) {
-  const text = value?.trim() ?? '';
+// `unknown` e nao `string | undefined`: os payloads das rotas filhas tipam
+// varios campos como `string | number | null`, e forcar o cast em cada chamada
+// era mais ruido do que a coercao aqui dentro.
+export function trimmedWithin(value: unknown, maxLength: number, label: string) {
+  const text = typeof value === 'string' ? value.trim() : '';
 
   if (!text) {
     return null;
@@ -196,6 +199,35 @@ export function numeroNaFaixa(value: unknown, campo: string, label: string) {
   }
 
   return numero;
+}
+
+/**
+ * Cor do tema.
+ *
+ * O valor vira `--color-primary` no CSS do cliente e a coluna e VarChar(7).
+ * Existiam DUAS copias deste normalizador — uma para o tema do cliente
+ * (clients/routes.ts) e outra para o tema da empresa (companies/routes.ts) — e
+ * elas ja tinham divergido: nenhuma conferia o formato ("azul" era gravado
+ * literal e derrubava o tema), e a da empresa usava `?? padrao` sobre um
+ * `optionalText` que devolve STRING VAZIA, entao o padrao nunca era aplicado.
+ * Uma copia so, para as duas rotas.
+ */
+export function corDoTema(value: unknown, padrao: string, label: string) {
+  const cor = optionalText(value);
+  if (!cor) return padrao;
+  if (!isValidHexColor(cor)) {
+    throw new Error(`${label} deve estar no formato #RRGGBB.`);
+  }
+  return cor.toUpperCase();
+}
+
+export function fonteDoTema(value: unknown, padrao: string, label: string) {
+  const fonte = optionalText(value);
+  if (!fonte) return padrao;
+  if (fonte.length > LIMITES.tema.fonte) {
+    throw new Error(`${label} deve ter no maximo ${LIMITES.tema.fonte} caracteres.`);
+  }
+  return fonte;
 }
 
 /** Data final nao pode ser anterior a inicial. Nenhum par do sistema conferia. */

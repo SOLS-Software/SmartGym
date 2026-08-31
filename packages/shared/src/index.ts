@@ -218,7 +218,15 @@ export const LIMITES = {
   pontuacao: { dsPontuacao: 255 },
   tema: { corHex: 7, fonte: 100, dsTema: 255 },
   dominio: { urlDominio: 255 },
+  // Tabelas de dominio (Cargo, Nivel, Frequencia, Tipo de arquivo...). O
+  // servidor ja tinha um teto proprio de 200 para todas elas — mais apertado
+  // que as colunas VarChar(255) — mas o front deixava digitar 255 e o usuario
+  // levava "O campo deve ter no maximo 200 caracteres." depois de submeter.
+  // Area corporal e a excecao: a coluna e VarChar(100), entao o teto de 200 do
+  // servidor era LARGO demais e sobrava para o Postgres recusar.
+  auxiliar: { padrao: 200, dsAreaCorporal: 100 },
   lead: { nmLead: 255, anEmail: 100, dsMensagem: 500, dsObservacao: 500, nrContato: 9 },
+  arquivo: { dsArquivo: 255, anCaminho: 255 },
   avaliacao: { dsObservacao: 1000 },
   ponto: { dsObservacao: 255 },
   trancamento: { dsMotivo: 255 },

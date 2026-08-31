@@ -21,6 +21,7 @@ import type {
 } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { limitesDoCampo } from '../../shared/registration/campoLimites';
+import { LIMITES } from '@smartgym/shared';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 
 const domainItems = [
@@ -463,9 +464,16 @@ export function DomainRegistration() {
               {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
               <div className="field field-size-full">
                 <label htmlFor="domainName">{config?.label ?? 'Nome'}</label>
+                {/* O teto vem do modulo `auxiliary` da API (200 para toda
+                    tabela de dominio, 100 para area corporal), nao do tamanho
+                    da coluna: com 255 aqui, o servidor recusava depois do
+                    submit sem a tela ter avisado. */}
                 <input
                   id="domainName"
-                  maxLength={255}
+                  {...limitesDoCampo(
+                    { key: config?.field ?? '', type: 'text' },
+                    LIMITES.auxiliar.padrao,
+                  )}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="Digite aqui"
                   type="text"
@@ -494,7 +502,7 @@ export function DomainRegistration() {
                   ) : (
                     <input
                       id={`domainField-${field.key}`}
-                      {...limitesDoCampo(field)}
+                      {...limitesDoCampo(field, LIMITES.auxiliar.padrao)}
                       onChange={(event) =>
                         setFieldValues((current) => ({ ...current, [field.key]: event.target.value }))
                       }

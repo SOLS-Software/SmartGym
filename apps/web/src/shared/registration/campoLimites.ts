@@ -27,7 +27,9 @@ const MAX_TEXTO: Record<string, number> = {
   dsObservacao: LIMITES.avaliacao.dsObservacao,
   dsHistorico: 255,
   dsMotivo: LIMITES.trancamento.dsMotivo,
-  dsMotivoCancelamento: 255,
+  dsMotivoCancelamento: LIMITES.auxiliar.padrao,
+  // Coluna VarChar(100), nao 255 nem os 200 do resto do modulo auxiliary.
+  dsAreaCorporal: LIMITES.auxiliar.dsAreaCorporal,
 };
 
 export type LimitesDeCampo = {
@@ -43,8 +45,16 @@ export type LimitesDeCampo = {
  * input. Campo de tipo sem limite conhecido (date, por exemplo) volta objeto
  * vazio — o input fica como estava, entao adotar isto nao muda tela nenhuma
  * por acidente.
+ *
+ * `maxTextoPadrao` cobre a tela de Dominios: o modulo `auxiliary` da API
+ * valida TODAS as tabelas de dominio com um teto proprio de 200 (mais apertado
+ * que a coluna VarChar(255)), e sem isto o input deixava digitar 255 para o
+ * servidor recusar depois.
  */
-export function limitesDoCampo(field: Pick<CompanyChildField, 'key' | 'type'>): LimitesDeCampo {
+export function limitesDoCampo(
+  field: Pick<CompanyChildField, 'key' | 'type'>,
+  maxTextoPadrao = 255,
+): LimitesDeCampo {
   if (field.type === 'number') {
     const faixa = FAIXAS[field.key];
     // Numero ainda nao mapeado em FAIXAS mantem o piso 0 que as telas ja
@@ -54,10 +64,9 @@ export function limitesDoCampo(field: Pick<CompanyChildField, 'key' | 'type'>): 
   }
 
   if (field.type === 'text') {
-    // 255 e o VarChar mais comum do schema e ja era o default que a tela de
-    // dominios aplicava. Quem foge disso (dsObservacao, VarChar(1000)) esta
-    // mapeado acima.
-    return { maxLength: MAX_TEXTO[field.key] ?? 255 };
+    // 255 e o VarChar mais comum do schema. Quem foge disso (dsObservacao,
+    // VarChar(1000); dsAreaCorporal, VarChar(100)) esta mapeado acima.
+    return { maxLength: MAX_TEXTO[field.key] ?? maxTextoPadrao };
   }
 
   return {};
