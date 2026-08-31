@@ -157,14 +157,62 @@ type Product = {
   idEmpresa: number | null;
   dsProduto: string;
   qtEstoque: number;
+  // Nao editaveis no app; ver CompanyPreservados para o porque de existirem aqui.
+  vlVenda: string | number | null;
+  qtPontosResgate: number | null;
   boInativo: number;
 };
 
+type ProductPreservados = Pick<Product, 'vlVenda' | 'qtPontosResgate'>;
+
+const PRODUCT_PRESERVADOS_VAZIO: ProductPreservados = {
+  vlVenda: null,
+  qtPontosResgate: null,
+};
+
+// Os campos que o formulario do app NAO edita continuam no tipo de proposito:
+// a listagem ja os devolve, e sao eles que o PUT precisa reenviar. Ver
+// `preservados` em cada tela.
 type Company = {
   id: number;
   dsEmpresa: string;
   caCNPJ: string;
+  anCEP: string | null;
+  anLogradouro: string | null;
+  nrEndereco: string | null;
+  anBairro: string | null;
+  anCidade: string | null;
+  anUF: string | null;
+  nrDDD: number | null;
+  nrContato: string | null;
   boInativo: number;
+};
+
+/**
+ * Campos que a tela do app nao mostra e que o PUT tem de devolver intactos.
+ *
+ * As rotas PUT gravam o objeto normalizado INTEIRO: campo ausente no corpo vira
+ * null/'' e sobrescreve o que estava la. Como o app tem um formulario menor que
+ * o do web, salvar uma empresa pelo celular apagava o endereco inteiro que a
+ * recepcao tinha preenchido no navegador — sem erro e sem aviso.
+ *
+ * A listagem ja devolve essas colunas, entao o conserto e so nao perde-las no
+ * caminho: guarda no `handleSelect` e reenvia no `handleSave`.
+ */
+type CompanyPreservados = Pick<
+  Company,
+  'anCEP' | 'anLogradouro' | 'nrEndereco' | 'anBairro' | 'anCidade' | 'anUF' | 'nrDDD' | 'nrContato'
+>;
+
+const COMPANY_PRESERVADOS_VAZIO: CompanyPreservados = {
+  anCEP: null,
+  anLogradouro: null,
+  nrEndereco: null,
+  anBairro: null,
+  anCidade: null,
+  anUF: null,
+  nrDDD: null,
+  nrContato: null,
 };
 
 type Student = {
@@ -177,8 +225,19 @@ type Student = {
   anEmail: string;
   anCEP: string;
   anLogradouro: string;
-  nrEndereco: number | null;
+  // Coluna VarChar(10): cabe "123A" e "s/n", nao so digito.
+  nrEndereco: string | null;
+  // Nao editaveis no app; ver CompanyPreservados para o porque de existirem aqui.
+  anBairro: string;
+  anComplemento: string;
   boInativo: number;
+};
+
+type StudentPreservados = Pick<Student, 'anBairro' | 'anComplemento'>;
+
+const STUDENT_PRESERVADOS_VAZIO: StudentPreservados = {
+  anBairro: '',
+  anComplemento: '',
 };
 
 type StudentFile = {
@@ -238,6 +297,11 @@ function CompanyRegistration() {
   const [isCreating, setIsCreating] = useState(false);
   const [companyName, setCompanyName] = useState('');
   const [companyCnpj, setCompanyCnpj] = useState('');
+  // Endereco e contato da empresa: o app nao os edita, mas o PUT precisa
+  // reenvia-los ou eles somem do banco.
+  const [companyPreservados, setCompanyPreservados] = useState<CompanyPreservados>(
+    COMPANY_PRESERVADOS_VAZIO,
+  );
   const [isCompanyActive, setIsCompanyActive] = useState(false);
   const [feedback, setFeedback] = useState('');
   const isFormEnabled = selectedCompanyId !== null || isCreating;
@@ -277,6 +341,7 @@ function CompanyRegistration() {
     setIsCreating(false);
     setCompanyName('');
     setCompanyCnpj('');
+    setCompanyPreservados(COMPANY_PRESERVADOS_VAZIO);
     setIsCompanyActive(false);
   }
 
@@ -285,6 +350,7 @@ function CompanyRegistration() {
     setIsCreating(true);
     setCompanyName('');
     setCompanyCnpj('');
+    setCompanyPreservados(COMPANY_PRESERVADOS_VAZIO);
     setIsCompanyActive(true);
     setFeedback('');
   }
@@ -295,6 +361,16 @@ function CompanyRegistration() {
     setCompanyName(company.dsEmpresa);
     // Vem cru do banco (so digitos); a tela mostra mascarado.
     setCompanyCnpj(formatCnpj(company.caCNPJ));
+    setCompanyPreservados({
+      anCEP: company.anCEP,
+      anLogradouro: company.anLogradouro,
+      nrEndereco: company.nrEndereco,
+      anBairro: company.anBairro,
+      anCidade: company.anCidade,
+      anUF: company.anUF,
+      nrDDD: company.nrDDD,
+      nrContato: company.nrContato,
+    });
     setIsCompanyActive(company.boInativo === 0);
     setFeedback('');
   }
@@ -348,6 +424,8 @@ function CompanyRegistration() {
 
     try {
       const payload = {
+        // Devolve intacto o que a tela nao mostra.
+        ...companyPreservados,
         dsEmpresa: companyName.trim(),
         // A API so aceita digitos; a mascara e da tela.
         caCNPJ: onlyDigits(companyCnpj),
@@ -550,6 +628,11 @@ function ProductRegistration() {
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [productName, setProductName] = useState('');
   const [productStock, setProductStock] = useState('');
+  // Preco e preco em pontos nao sao editaveis aqui; sem reenvia-los, salvar um
+  // produto pelo app zerava os dois.
+  const [productPreservados, setProductPreservados] = useState<ProductPreservados>(
+    PRODUCT_PRESERVADOS_VAZIO,
+  );
   const [isProductActive, setIsProductActive] = useState(false);
   const [feedback, setFeedback] = useState('');
   const isFormEnabled = selectedProductId !== null || isCreating;
@@ -603,6 +686,7 @@ function ProductRegistration() {
     setSelectedCompanyId('');
     setProductName('');
     setProductStock('');
+    setProductPreservados(PRODUCT_PRESERVADOS_VAZIO);
     setIsProductActive(false);
   }
 
@@ -612,6 +696,7 @@ function ProductRegistration() {
     setSelectedCompanyId('');
     setProductName('');
     setProductStock('0');
+    setProductPreservados(PRODUCT_PRESERVADOS_VAZIO);
     setIsProductActive(true);
     setFeedback('');
   }
@@ -622,6 +707,10 @@ function ProductRegistration() {
     setSelectedCompanyId(product.idEmpresa ? String(product.idEmpresa) : '');
     setProductName(product.dsProduto);
     setProductStock(String(product.qtEstoque));
+    setProductPreservados({
+      vlVenda: product.vlVenda,
+      qtPontosResgate: product.qtPontosResgate,
+    });
     setIsProductActive(product.boInativo === 0);
     setFeedback('');
   }
@@ -666,6 +755,8 @@ function ProductRegistration() {
   async function handleSaveProduct() {
     try {
       const payload = {
+        // Devolve intacto o que a tela nao mostra.
+        ...productPreservados,
         idEmpresa: selectedCompanyId ? Number(selectedCompanyId) : null,
         dsProduto: productName,
         qtEstoque: Number(productStock || 0),
@@ -1001,6 +1092,11 @@ function StudentRegistration() {
   const [studentCep, setStudentCep] = useState('');
   const [studentAddress, setStudentAddress] = useState('');
   const [studentAddressNumber, setStudentAddressNumber] = useState('');
+  // Bairro e complemento nao existem neste formulario; sem reenvia-los,
+  // salvar um aluno pelo app apagava os dois.
+  const [studentPreservados, setStudentPreservados] = useState<StudentPreservados>(
+    STUDENT_PRESERVADOS_VAZIO,
+  );
   const [isBirthCalendarOpen, setIsBirthCalendarOpen] = useState(false);
   const [birthCalendarMonth, setBirthCalendarMonth] = useState(new Date());
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -1113,6 +1209,7 @@ function StudentRegistration() {
     setStudentCep('');
     setStudentAddress('');
     setStudentAddressNumber('');
+    setStudentPreservados(STUDENT_PRESERVADOS_VAZIO);
     setIsStudentActive(false);
     setStudentErrors({});
     setTouchedStudentFields({});
@@ -1134,6 +1231,7 @@ function StudentRegistration() {
     setStudentCep('');
     setStudentAddress('');
     setStudentAddressNumber('');
+    setStudentPreservados(STUDENT_PRESERVADOS_VAZIO);
     setIsStudentActive(true);
     setFileFeedback('');
     setStudentFiles([]);
@@ -1153,9 +1251,11 @@ function StudentRegistration() {
     setStudentEmail(student.anEmail);
     setStudentCep(student.anCEP);
     setStudentAddress(student.anLogradouro);
-    setStudentAddressNumber(
-      student.nrEndereco === null ? '' : String(student.nrEndereco),
-    );
+    setStudentAddressNumber(student.nrEndereco ?? '');
+    setStudentPreservados({
+      anBairro: student.anBairro,
+      anComplemento: student.anComplemento,
+    });
     setIsStudentActive(student.boInativo === 0);
     setFeedback('');
     setFileFeedback('');
@@ -1310,6 +1410,8 @@ function StudentRegistration() {
       }
 
       const payload = {
+        // Devolve intacto o que a tela nao mostra.
+        ...studentPreservados,
         nmAluno: studentName,
         caCPF: onlyDigits(studentCpf),
         dtNascimento: apiBirthDate,
