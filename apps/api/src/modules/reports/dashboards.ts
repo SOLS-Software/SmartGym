@@ -484,6 +484,9 @@ export async function registerDashboardRoutes(app: FastifyInstance) {
             FROM "tb_AlunoCheckIns" c
             JOIN "tb_Empresas" e ON e.id = c."idEmpresa"
             WHERE c."boInativo" = false
+              -- Mapa de ocupacao e sobre gente na academia; sessao do app nao
+              -- ocupa esteira nenhuma.
+              AND c."boPresencial" = true
               AND e."idCliente" = ${idCliente}
               ${escopoSql}
               AND c."dtCadastro" >= ${desde}

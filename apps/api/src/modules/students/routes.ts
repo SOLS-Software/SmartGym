@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import {
   normalizeStudentPayload,
@@ -39,6 +39,7 @@ import { clientErrorMessage } from '../../shared/errors.js';
 import { buildChargeForPayment } from '../../shared/pixCharge.js';
 import { getStatusIdByName } from '../../shared/payments.js';
 import { enrollStudentInPlan } from '../../shared/enrollment.js';
+import { buildSelfCheckInData, inicioDoDia } from '../../shared/selfCheckIn.js';
 import { registerStudentLockRoutes } from './trancamentos.js';
 import { trancamentoVigente } from '../../shared/trancamento.js';
 
@@ -223,6 +224,105 @@ async function assertTenantEmpresa(idEmpresa: number, idCliente: number) {
     select: { id: true },
   });
   if (!empresa) throw new Error('Empresa invalida para este cliente.');
+}
+
+// A sessao de treino como o app do aluno enxerga: plano e treino escolhido,
+// nada da operacao.
+const SESSAO_INCLUDE = {
+  alunoPlano: { include: { plano: true } },
+  alunoTreinoSequencia: {
+    include: { alunoTreino: { include: { treino: true, funcionario: true } } },
+  },
+};
+
+/**
+ * Abre (ou retoma) a sessao de treino do dia a pedido do proprio aluno.
+ *
+ * Nao e presenca: `boPresencial: false` mantem a sessao fora de frequencia,
+ * evasao, ocupacao e fidelidade. Quem prova que a pessoa entrou na academia e a
+ * catraca ou a recepcao; isto aqui existe para o aluno ter onde anotar o treino.
+ */
+async function abrirSessaoDoApp(
+  request: FastifyRequest<{ Params: { id: string; resource: string }; Body: CompanyChildPayload }>,
+  reply: FastifyReply,
+  contexto: { idAluno: number; idCliente: number },
+) {
+  const { idAluno, idCliente } = contexto;
+
+  // Mesma trava da porta: sem plano ativo ou com pagamento em atraso, nao abre.
+  // O motivo volta para a tela — o aluno tem o direito de saber por que.
+  const acesso = await getStudentAccessStatus(prisma, idAluno);
+  if (!acesso.canAccess) {
+    throw new Error(acesso.reason ?? 'Sem acesso liberado para treinar.');
+  }
+
+  const idAlunoTreinosSequencia = optionalNumber(request.body.idAlunoTreinosSequencia);
+  if (idAlunoTreinosSequencia) {
+    const sequencia = await prisma.alunoTreinoSequencia.findFirst({
+      where: { id: idAlunoTreinosSequencia, alunoTreino: { idAluno } },
+      select: { id: true },
+    });
+    if (!sequencia) throw new Error('Sequencia de treino invalida para o aluno.');
+  }
+
+  // Ja ha sessao hoje? Retoma em vez de criar outra. Duas situacoes reais: o
+  // aluno passou pela catraca e depois tocou "iniciar treino" (a sessao dele e
+  // a da porta, presencial, e a carga anotada tem que ir para ELA), e o toque
+  // duplo no botao. Sem isto, o treino do dia sairia partido em duas linhas.
+  const sessaoDeHoje = await prisma.alunoCheckIn.findFirst({
+    where: { idAluno, boInativo: false, dtCadastro: { gte: inicioDoDia(new Date()) } },
+    orderBy: { dtCadastro: 'desc' },
+    include: SESSAO_INCLUDE,
+  });
+
+  if (sessaoDeHoje) {
+    // A sessao da catraca nasce sem treino escolhido. Se o aluno acabou de
+    // dizer qual esta fazendo, anota — e so isso; o resto da linha da porta
+    // continua intocado.
+    if (idAlunoTreinosSequencia && !sessaoDeHoje.idAlunoTreinosSequencia) {
+      const atualizada = await prisma.alunoCheckIn.update({
+        where: { id: sessaoDeHoje.id },
+        data: { idAlunoTreinosSequencia },
+        include: SESSAO_INCLUDE,
+      });
+      return reply.code(200).send(atualizada);
+    }
+    return reply.code(200).send(sessaoDeHoje);
+  }
+
+  const planoAtivo = await prisma.alunoPlano.findFirst({
+    where: { idAluno, boInativo: false },
+    orderBy: { dtCadastro: 'desc' },
+    select: { id: true },
+  });
+
+  // Filial: a da ultima visita — e onde o aluno treina. Sem historico, a
+  // primeira do cliente, mesmo criterio da rota da recepcao. O corpo nao
+  // escolhe: filial errada desloca o numero de outra unidade.
+  const ultimaVisita = await prisma.alunoCheckIn.findFirst({
+    where: { idAluno },
+    orderBy: { dtCadastro: 'desc' },
+    select: { idEmpresa: true },
+  });
+  const idEmpresa =
+    ultimaVisita?.idEmpresa ??
+    (await prisma.empresa.findFirst({ where: { idCliente }, select: { id: true } }))?.id ??
+    null;
+  if (!idEmpresa) throw new Error('Nao foi possivel identificar a filial da sessao.');
+
+  // Sem creditCheckInPoints, ao contrario do caminho da recepcao: ponto e por
+  // presenca, e presenca quem atesta e a porta.
+  const criada = await prisma.alunoCheckIn.create({
+    data: buildSelfCheckInData({
+      idAluno,
+      idEmpresa,
+      idAlunoPlano: planoAtivo?.id ?? null,
+      idAlunoTreinosSequencia,
+    }),
+    include: SESSAO_INCLUDE,
+  });
+
+  return reply.code(201).send(criada);
 }
 
 export async function registerStudentRoutes(app: FastifyInstance) {
@@ -1038,9 +1138,15 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         }));
 
       if (!conta) {
+        // Duas plateias na mesma rota. Para a equipe, o que resolve: onde
+        // cadastrar. Para o aluno, mandar "cadastre em Contas de Recebimento"
+        // seria pedir uma tela que ele nao alcanca — ele precisa saber o que
+        // fazer agora, que e pagar de outro jeito.
         return reply.code(400).send({
           message:
-            'Nenhuma conta de recebimento configurada para esta cobranca. Cadastre em Contas de Recebimento.',
+            request.user.role === 'student'
+              ? 'Pagamento por Pix indisponivel no momento. Fale com a recepcao da academia.'
+              : 'Nenhuma conta de recebimento configurada para esta cobranca. Cadastre em Contas de Recebimento.',
         });
       }
 
@@ -1706,6 +1812,14 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       const student = await findTenantStudent(idAluno, idCliente);
       if (!student) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+
+      // O ALUNO abrindo a propria sessao de treino. Caminho separado do da
+      // recepcao de proposito: o de baixo aceita do corpo a regra de pontuacao,
+      // o tipo e a empresa, porque quem chama esta na academia. Vindo do app,
+      // nada disso pode ser escolhido por quem pede.
+      if (resource === 'check-ins' && request.user.role === 'student') {
+        return await abrirSessaoDoApp(request, reply, { idAluno, idCliente });
       }
 
       if (resource === 'plans') {

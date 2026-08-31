@@ -68,6 +68,13 @@ export function isStudentAllowed(
       // Pedir cancelamento ou renovacao da propria matricula. Quem resolve e a
       // equipe (ver modules/planRequests) — aqui o aluno so abre o pedido.
       (method === 'POST' && /^\/students\/\d+\/related\/plan-requests$/.test(pathname)) ||
+      // Abrir a propria sessao de treino, para ter onde anotar carga e series.
+      // NAO e presenca: o handler grava `boPresencial: false`, ignora pontuacao
+      // e tipo vindos do corpo e nao credita fidelidade — frequencia, evasao e
+      // pontos continuam sendo o que a catraca e a recepcao registram. Liberar
+      // a rota crua aqui deixaria o aluno pontuar de casa escolhendo a regra
+      // que mais vale.
+      (method === 'POST' && /^\/students\/\d+\/related\/check-ins$/.test(pathname)) ||
       // Marcar o proprio aviso como lido.
       (method === 'POST' && /^\/students\/\d+\/notifications\/\d+\/read$/.test(pathname)) ||
       // Gerar o codigo de pagamento da PROPRIA parcela. E POST porque, em conta

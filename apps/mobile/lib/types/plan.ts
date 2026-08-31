@@ -2,7 +2,7 @@
 export type PlanCatalogItem = {
   id: number;
   dsPlano: string;
-  boInativo: number;
+  boInativo: boolean | number;
   frequencia?: { dsFrequencia?: string } | null;
   planoAtividades?: Array<{ id: number; atividade?: { dsAtividade?: string } | null }>;
   planoValores?: Array<{ id: number; vlVenda?: number | string | null; empresa?: { dsEmpresa?: string } | null }>;

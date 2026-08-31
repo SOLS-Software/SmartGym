@@ -1013,7 +1013,14 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       inicioDoDia.setHours(0, 0, 0, 0);
 
       const checkIns = await prisma.alunoCheckIn.findMany({
-        where: { idEmpresa: companyId, boInativo: false, dtCadastro: { gte: inicioDoDia } },
+        // Quem esta na academia agora. Sessao aberta pelo app nao entra: a
+        // recepcao leria como pessoa presente alguem que so abriu o celular.
+        where: {
+          idEmpresa: companyId,
+          boInativo: false,
+          boPresencial: true,
+          dtCadastro: { gte: inicioDoDia },
+        },
         take: 500,
         include: {
           aluno: { select: { id: true, nmAluno: true } },

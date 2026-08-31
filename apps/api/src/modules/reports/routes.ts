@@ -303,13 +303,22 @@ export async function registerReportRoutes(app: FastifyInstance) {
         // seis meses apareceria como "nunca veio".
         prisma.alunoCheckIn.groupBy({
           by: ['idAluno'],
-          where: { boInativo: false, idAluno: { in: idsAlunos }, ...escopoEmpresa },
+          // So presenca de verdade. Sessao aberta no app nao pode zerar o
+          // contador de evasao: o aluno sumido continuaria "visto ontem" so
+          // por abrir o aplicativo do sofa.
+          where: {
+            boInativo: false,
+            boPresencial: true,
+            idAluno: { in: idsAlunos },
+            ...escopoEmpresa,
+          },
           _max: { dtCadastro: true },
         }),
         prisma.alunoCheckIn.groupBy({
           by: ['idAluno'],
           where: {
             boInativo: false,
+            boPresencial: true,
             idAluno: { in: idsAlunos },
             dtCadastro: { gte: noventaDias },
             ...escopoEmpresa,

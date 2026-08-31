@@ -3,7 +3,7 @@
 export interface AreaCorporal {
   id: number;
   dsAreaCorporal: string;
-  boInativo: number;
+  boInativo: boolean | number;
 }
 
 export interface Exercise {
@@ -11,7 +11,7 @@ export interface Exercise {
   idEmpresa: number;
   dsExercicio: string;
   dsInstrucao: string | null;
-  boInativo: number;
+  boInativo: boolean | number;
 }
 
 // Resumo do equipamento que vem junto do exercicio quando a listagem e pedida
@@ -34,7 +34,7 @@ export interface Training {
   idAluno: number | null;
   idNivel: number | null;
   dsTreino: string;
-  boInativo: number;
+  boInativo: boolean | number;
 }
 
 export interface TrainingExercise {
@@ -49,7 +49,7 @@ export interface TrainingExercise {
   qtDescanso: number;
   qtPeso: number;
   cnUnidadeMedida: string;
-  boInativo: number;
+  boInativo: boolean | number;
 }
 
 export interface TrainingExerciseWithCover extends TrainingExercise {
@@ -65,7 +65,7 @@ export interface AlunoTreinoSequencia {
   id: number;
   idAlunoTreino: number;
   nrOrdem: number;
-  boInativo: number;
+  boInativo: boolean | number;
 }
 
 export interface StudentTraining {
@@ -75,7 +75,7 @@ export interface StudentTraining {
   idTreino: number;
   dtCadastro: string;
   dtAlteracao: string | null;
-  boInativo: number;
+  boInativo: boolean | number;
   funcionario?: Employee | null;
   treino?: Training | null;
   alunoTreinosSequencias?: AlunoTreinoSequencia[];
@@ -85,6 +85,12 @@ export interface StudentCheckIn {
   id: number;
   dtCadastro: string;
   idAlunoTreinosSequencia: number | null;
+  /**
+   * Presença de verdade (catraca ou recepção) x sessão aberta aqui no app.
+   * Só a primeira conta em frequência, evasão e pontos — o app abre sessão
+   * para o aluno ter onde anotar o treino, não para registrar que ele veio.
+   */
+  boPresencial?: boolean;
   alunoPlano?: {
     plano?: {
       dsPlano?: string;

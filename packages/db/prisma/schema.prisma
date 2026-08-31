@@ -1238,6 +1238,13 @@ model AlunoCheckIn {
   idAtividadeAgenda       Int?
   idPontuacao             Int?
   idTipoCheckIn           Int?
+  // Presenca de verdade (catraca ou recepcao) x sessao que o proprio aluno
+  // abriu pelo app para anotar o treino. So a primeira conta em frequencia,
+  // evasao, ocupacao e fidelidade — senao o aluno pontuaria de casa e os
+  // relatorios de retencao passariam a medir toques de botao.
+  //
+  // Default true: tudo que existia antes desta coluna veio da porta.
+  boPresencial            Boolean  @default(true)
   dtCadastro              DateTime @default(now())
   dtAlteracao             DateTime @updatedAt
   idUsuarioCadastro       Int?

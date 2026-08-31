@@ -19,6 +19,8 @@ type StudentPlan = {
 type CheckIn = {
   id: number;
   dtCadastro: string;
+  /** Falso quando o próprio aluno abriu a sessão pelo app. */
+  boPresencial?: boolean;
 };
 
 type Notification = {
@@ -99,7 +101,12 @@ export function StudentDashboard({ studentId, studentName, onNavigate }: Student
       ]);
 
       const plans = plansRes.ok ? ((await plansRes.json()) as StudentPlan[]) : [];
-      const checkIns = checkInsRes.ok ? ((await checkInsRes.json()) as CheckIn[]) : [];
+      // Só as idas de verdade à academia. A sessão que o próprio aluno abre no
+      // app para anotar o treino não é frequência — contá-la aqui daria a ele
+      // uma sequência que a academia não vê nos relatórios dela.
+      const checkIns = (checkInsRes.ok ? ((await checkInsRes.json()) as CheckIn[]) : []).filter(
+        (ci) => ci.boPresencial !== false,
+      );
       const notifications = notifRes.ok ? ((await notifRes.json()) as Notification[]) : [];
 
       const activePlan = plans.find((p) => p.boInativo === false);

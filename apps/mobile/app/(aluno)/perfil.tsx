@@ -1,14 +1,22 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { apiUrl, getApiError, authFetch as fetch } from '../../lib/api/client';
 import { AjusteBiometria } from '../../lib/components/AjusteBiometria';
 import { Screen } from '../../lib/components/Screen';
+import { estaAtivo } from '../../lib/utils/flags';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { useTokens } from '../../lib/theme/tokens';
 import type { StudentFile, StudentPlan, StudentProfile } from '../../lib/types/student';
 import type { StudentCheckIn, StudentTraining } from '../../lib/types/training';
-import { formatCpf, formatDateDisplay, formatDateTimeDisplay, formatPhone, isImageFile } from '../../lib/utils/format';
+import {
+  formatCpf,
+  formatDateDisplay,
+  formatDateTimeDisplay,
+  formatPhone,
+  getPasswordValidationMessage,
+  isImageFile,
+} from '../../lib/utils/format';
 
 export default function PerfilScreen() {
   const t = useTokens();
@@ -22,6 +30,14 @@ export default function PerfilScreen() {
   const [checkIns, setCheckIns] = useState<StudentCheckIn[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
+
+  // Troca de senha. O aluno também é dono de uma conta: sem isto, a única
+  // forma de trocar a senha dele era abrindo o site.
+  const [abrirSenha, setAbrirSenha] = useState(false);
+  const [senhaAtual, setSenhaAtual] = useState('');
+  const [novaSenha, setNovaSenha] = useState('');
+  const [trocandoSenha, setTrocandoSenha] = useState(false);
+  const [avisoSenha, setAvisoSenha] = useState('');
 
   useEffect(() => {
     if (!studentId) return;
@@ -89,8 +105,39 @@ export default function PerfilScreen() {
     .map((part) => part[0]?.toUpperCase())
     .join('');
 
-  const activePlan = plans.find((p) => p.boInativo === 0) ?? plans[0] ?? null;
-  const activeTrainings = trainings.filter((st) => st.boInativo === 0);
+  async function trocarSenha() {
+    // A mesma regra do cadastro, checada aqui só para o aluno não descobrir o
+    // requisito depois de mandar. Quem manda continua sendo o servidor.
+    const problema = getPasswordValidationMessage(novaSenha);
+    if (problema) {
+      setAvisoSenha(problema);
+      return;
+    }
+    try {
+      setTrocandoSenha(true);
+      setAvisoSenha('');
+      const response = await fetch(`${apiUrl}/auth/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: senhaAtual, newPassword: novaSenha }),
+      });
+      if (!response.ok) await getApiError(response, 'Não foi possível trocar a senha.');
+      setAbrirSenha(false);
+      setSenhaAtual('');
+      setNovaSenha('');
+      // Trocar a senha revoga as sessões vivas no servidor (nrTokenVersion),
+      // inclusive esta. Avisar antes evita o susto de cair na tela de login
+      // sem entender por quê.
+      setFeedback('Senha alterada. Entre de novo com a senha nova.');
+    } catch (error) {
+      setAvisoSenha(error instanceof Error ? error.message : 'Erro ao trocar a senha.');
+    } finally {
+      setTrocandoSenha(false);
+    }
+  }
+
+  const activePlan = plans.find((p) => estaAtivo(p.boInativo)) ?? plans[0] ?? null;
+  const activeTrainings = trainings.filter((st) => estaAtivo(st.boInativo));
   const recentCheckIns = checkIns.slice(0, 5);
 
   return (
@@ -132,9 +179,9 @@ export default function PerfilScreen() {
           <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border, borderRadius: t.radius }]}>
             <View style={styles.planHeader}>
               <Text style={[styles.planName, { color: t.text }]}>{activePlan.plano?.dsPlano ?? '-'}</Text>
-              <View style={[styles.pill, { backgroundColor: activePlan.boInativo === 0 ? t.brandTintSoft : t.border }]}>
-                <Text style={[styles.pillText, { color: activePlan.boInativo === 0 ? t.brand : t.textSubtle }]}>
-                  {activePlan.boInativo === 0 ? 'Ativo' : 'Inativo'}
+              <View style={[styles.pill, { backgroundColor: estaAtivo(activePlan.boInativo) ? t.brandTintSoft : t.border }]}>
+                <Text style={[styles.pillText, { color: estaAtivo(activePlan.boInativo) ? t.brand : t.textSubtle }]}>
+                  {estaAtivo(activePlan.boInativo) ? 'Ativo' : 'Inativo'}
                 </Text>
               </View>
             </View>
@@ -173,7 +220,13 @@ export default function PerfilScreen() {
                 <Text style={[styles.lineTitle, { color: t.text }]}>
                   {ci.alunoTreinoSequencia?.alunoTreino?.treino?.dsTreino ?? 'Treino'}
                 </Text>
-                <Text style={[styles.lineMeta, { color: t.textSubtle }]}>{formatDateTimeDisplay(ci.dtCadastro)}</Text>
+                <Text style={[styles.lineMeta, { color: t.textSubtle }]}>
+                  {formatDateTimeDisplay(ci.dtCadastro)}
+                  {/* A sessão que o próprio aluno abriu aqui não é registro de
+                      entrada. Dizer isso evita que ele conte como visita algo
+                      que a academia não vê como visita. */}
+                  {ci.boPresencial === false ? ' · aberto no app' : ''}
+                </Text>
               </View>
             ))}
           </View>
@@ -184,6 +237,93 @@ export default function PerfilScreen() {
 
       <Section title="Segurança">
         <AjusteBiometria />
+
+        {abrirSenha ? (
+          <View style={styles.formSenha}>
+            <TextInput
+              autoCapitalize="none"
+              onChangeText={setSenhaAtual}
+              placeholder="Senha atual"
+              placeholderTextColor={t.placeholder}
+              secureTextEntry
+              style={[styles.campo, { backgroundColor: t.inputBg, borderColor: t.border, color: t.text }]}
+              value={senhaAtual}
+            />
+            <TextInput
+              autoCapitalize="none"
+              onChangeText={setNovaSenha}
+              placeholder="Nova senha"
+              placeholderTextColor={t.placeholder}
+              secureTextEntry
+              style={[styles.campo, { backgroundColor: t.inputBg, borderColor: t.border, color: t.text }]}
+              value={novaSenha}
+            />
+            {avisoSenha ? (
+              <Text style={[styles.avisoSenha, { color: t.danger }]}>{avisoSenha}</Text>
+            ) : null}
+            <View style={styles.acoesSenha}>
+              <Pressable
+                accessibilityLabel="Cancelar troca de senha"
+                accessibilityRole="button"
+                onPress={() => {
+                  setAbrirSenha(false);
+                  setSenhaAtual('');
+                  setNovaSenha('');
+                  setAvisoSenha('');
+                }}
+                style={({ pressed }) => [
+                  styles.botaoSenha,
+                  {
+                    backgroundColor: t.inputBg,
+                    borderColor: t.border,
+                    borderWidth: 1,
+                    borderRadius: t.radius,
+                    opacity: pressed ? 0.75 : 1,
+                  },
+                ]}
+              >
+                <Text style={[styles.botaoSenhaTexto, { color: t.textMuted }]}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Salvar nova senha"
+                accessibilityRole="button"
+                disabled={trocandoSenha}
+                onPress={() => void trocarSenha()}
+                style={({ pressed }) => [
+                  styles.botaoSenha,
+                  {
+                    backgroundColor: t.brand,
+                    borderRadius: t.radius,
+                    opacity: pressed || trocandoSenha ? 0.75 : 1,
+                  },
+                ]}
+              >
+                <Text style={[styles.botaoSenhaTexto, { color: '#ffffff' }]}>
+                  {trocandoSenha ? 'Salvando...' : 'Salvar'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <Pressable
+            accessibilityLabel="Trocar senha"
+            accessibilityRole="button"
+            onPress={() => setAbrirSenha(true)}
+            style={({ pressed }) => [
+              styles.botaoSenha,
+              {
+                backgroundColor: t.inputBg,
+                borderColor: t.border,
+                borderWidth: 1,
+                borderRadius: t.radius,
+                marginTop: 10,
+                opacity: pressed ? 0.75 : 1,
+              },
+            ]}
+          >
+            <Text style={[styles.botaoSenhaTexto, { color: t.textMuted }]}>Trocar senha</Text>
+          </Pressable>
+        )}
       </Section>
 
       <Pressable
@@ -229,6 +369,12 @@ function Row({ label, value, last }: { label: string; value: string; last?: bool
 }
 
 const styles = StyleSheet.create({
+  formSenha: { gap: 8, marginTop: 10 },
+  campo: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14 },
+  avisoSenha: { fontSize: 12, fontWeight: '600' },
+  acoesSenha: { flexDirection: 'row', gap: 8 },
+  botaoSenha: { flex: 1, paddingVertical: 10, alignItems: 'center' },
+  botaoSenhaTexto: { fontSize: 14, fontWeight: '700' },
   feedback: { fontSize: 13, fontWeight: '600' },
   avatarBlock: { alignItems: 'center', gap: 10, marginTop: 8 },
   avatar: { width: 96, height: 96, borderRadius: 999, borderWidth: 1 },

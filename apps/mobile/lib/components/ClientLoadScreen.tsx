@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useClientLoader } from '../hooks/useClientLoader';
+import { estaAtivo } from '../utils/flags';
 
 interface ClientLoadScreenProps {
   clientId: number;
@@ -95,8 +96,8 @@ export function ClientLoadScreen({
           {data.caCNPJ && (
             <Text style={[styles.cnpj, { color: textColor }]}>CNPJ: {data.caCNPJ}</Text>
           )}
-          <Text style={[styles.status, { color: data.boInativo === 0 ? '#10B981' : '#EF4444' }]}>
-            {data.boInativo === 0 ? 'Ativo' : 'Inativo'}
+          <Text style={[styles.status, { color: estaAtivo(data.boInativo) ? '#10B981' : '#EF4444' }]}>
+            {estaAtivo(data.boInativo) ? 'Ativo' : 'Inativo'}
           </Text>
           {theme && (
             <View style={styles.themeInfo}>

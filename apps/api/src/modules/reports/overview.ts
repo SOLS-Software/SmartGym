@@ -129,6 +129,8 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
             FROM "tb_AlunoCheckIns" c
             JOIN "tb_Empresas" e ON e.id = c."idEmpresa"
             WHERE c."boInativo" = false
+              -- Sessao aberta pelo app nao e frequencia (ver boPresencial).
+              AND c."boPresencial" = true
               AND e."idCliente" = ${idCliente}
               ${escopoCheckIn}
               AND c."dtCadastro" >= ${limites.inicio}
@@ -209,6 +211,7 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
           prisma.alunoCheckIn.count({
             where: {
               boInativo: false,
+              boPresencial: true,
               empresa: { idCliente },
               ...(idEmpresa ? { idEmpresa } : {}),
               dtCadastro: { gte: comecoDoDia, lte: agora },
@@ -221,6 +224,7 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
           prisma.alunoCheckIn.count({
             where: {
               boInativo: false,
+              boPresencial: true,
               empresa: { idCliente },
               ...(idEmpresa ? { idEmpresa } : {}),
               ...(limiteSemanas

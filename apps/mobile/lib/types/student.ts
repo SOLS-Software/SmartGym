@@ -11,7 +11,7 @@ export type StudentProfile = {
   anCEP: string;
   anLogradouro: string;
   nrEndereco: number | null;
-  boInativo: number;
+  boInativo: boolean | number;
 };
 
 export type StudentFile = {
@@ -19,14 +19,14 @@ export type StudentFile = {
   idAluno: number | null;
   anCaminho: string;
   dtCadastro: string;
-  boInativo: number;
+  boInativo: boolean | number;
 };
 
 // Matrícula do aluno (GET /students/:id/related/plans) — subconjunto usado nas telas.
 export type StudentPlan = {
   id: number;
   idAluno: number;
-  boInativo: number;
+  boInativo: boolean | number;
   dtCadastro: string | null;
   empresa?: { id: number; dsEmpresa?: string } | null;
   plano?: {

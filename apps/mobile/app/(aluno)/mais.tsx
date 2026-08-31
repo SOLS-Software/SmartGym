@@ -8,11 +8,14 @@ type MenuItem = {
   emoji: string;
   title: string;
   subtitle: string;
-  href: '/perfil' | '/calendario-empresa' | '/planos' | '/avisos';
+  href: '/matricula' | '/pontos' | '/evolucao' | '/perfil' | '/calendario-empresa' | '/planos' | '/avisos';
 };
 
 const MENU: MenuItem[] = [
   { emoji: '🔔', title: 'Avisos', subtitle: 'Cobranças, vencimentos e recados', href: '/avisos' },
+  { emoji: '🧾', title: 'Matrícula', subtitle: 'Seu plano, cobranças e Pix', href: '/matricula' },
+  { emoji: '⭐', title: 'Meus pontos', subtitle: 'Saldo e extrato da fidelidade', href: '/pontos' },
+  { emoji: '📈', title: 'Minha evolução', subtitle: 'Avaliações físicas e medidas', href: '/evolucao' },
   { emoji: '👤', title: 'Perfil', subtitle: 'Seus dados, plano e acessos', href: '/perfil' },
   { emoji: '🗓️', title: 'Calendário da empresa', subtitle: 'Atividades e promoções do mês', href: '/calendario-empresa' },
   { emoji: '💳', title: 'Planos', subtitle: 'Planos oferecidos pela academia', href: '/planos' },

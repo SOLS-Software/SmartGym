@@ -29,6 +29,7 @@
     "@smartgym/shared": "workspace:*",
     "expo": "^54.0.0",
     "expo-camera": "~17.0.10",
+    "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.0",
     "expo-document-picker": "~14.0.8",
     "expo-linking": "~8.0.0",

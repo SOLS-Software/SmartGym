@@ -34,6 +34,8 @@ type StudentCheckIn = {
     id: number;
     dtCadastro: string;
     idAlunoTreinosSequencia: number | null;
+    /** Falso quando a sessão foi aberta aqui, e não na catraca ou na recepção. */
+    boPresencial?: boolean;
     alunoPlano?: {
         plano?: {
             dsPlano?: string;
@@ -330,8 +332,18 @@ export function MyTraining({ studentId, studentName }: MyTrainingProps) {
             }
 
             const checkIn = (await response.json()) as StudentCheckIn;
-            setCheckIns((current) => [checkIn, ...current]);
-            showToast('Treino iniciado com sucesso.');
+
+            // 200 = o servidor devolveu a sessão que já existia hoje (a da
+            // catraca, ou a de um toque anterior). Sem esta distinção a lista
+            // ganharia a mesma sessão duas vezes e o aluno leria como dois
+            // treinos no mesmo dia.
+            const retomada = response.status === 200;
+            setCheckIns((current) => [checkIn, ...current.filter((item) => item.id !== checkIn.id)]);
+            showToast(
+                retomada
+                    ? 'Você já tinha uma sessão hoje. Continuando nela.'
+                    : 'Treino iniciado com sucesso.',
+            );
         } catch (error) {
             setFeedback(error instanceof Error ? error.message : 'Erro ao iniciar treino.');
         } finally {

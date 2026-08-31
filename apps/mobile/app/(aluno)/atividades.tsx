@@ -71,6 +71,31 @@ export default function AtividadesScreen() {
     );
   }
 
+  // Cancelar a inscrição. O app inscrevia e não desinscrevia: a vaga que o
+  // aluno não ia usar ficava bloqueada para os outros até a aula acontecer.
+  //
+  // O corpo leva idAluno porque o schema da rota exige, mas o servidor ignora
+  // esse campo para o papel aluno e usa o do token — senão daria para cancelar
+  // a inscrição de outra pessoa trocando o número.
+  async function handleUnenroll(scheduleId: number) {
+    if (!studentId) return;
+    try {
+      setIsSubmitting(true);
+      const response = await fetch(`${apiUrl}/agenda-sessions/${scheduleId}/unenroll`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idAluno: studentId }),
+      });
+      if (!response.ok) await getApiError(response, 'Não foi possível cancelar a inscrição.');
+      setFeedback('Inscrição cancelada.');
+      await loadActivities();
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Erro ao cancelar inscrição.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   async function handleEnroll() {
     if (!studentId || selectedScheduleIds.length === 0) return;
     try {
@@ -186,7 +211,30 @@ export default function AtividadesScreen() {
                       {' · '}
                       {getText(schedule.empresa, 'dsEmpresa')}
                     </Text>
-                    {enrolled ? <Text style={[styles.tag, { color: t.brand }]}>Você já está inscrito</Text> : null}
+                    {enrolled ? (
+                      <>
+                        <Text style={[styles.tag, { color: t.brand }]}>Você já está inscrito</Text>
+                        <Pressable
+                          accessibilityLabel={`Cancelar inscrição em ${category}`}
+                          accessibilityRole="button"
+                          disabled={isSubmitting}
+                          onPress={() => void handleUnenroll(schedule.id)}
+                          style={({ pressed }) => [
+                            styles.cancelBtn,
+                            {
+                              borderColor: t.border,
+                              borderRadius: t.radius,
+                              backgroundColor: t.inputBg,
+                              opacity: isSubmitting ? 0.5 : pressed ? 0.75 : 1,
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.cancelText, { color: t.danger }]}>
+                            Cancelar inscrição
+                          </Text>
+                        </Pressable>
+                      </>
+                    ) : null}
                     {!enrolled && isFull ? <Text style={[styles.tag, { color: t.danger }]}>Sem vagas</Text> : null}
                   </Pressable>
                 );
@@ -235,6 +283,13 @@ const styles = StyleSheet.create({
   scheduleCategory: { fontSize: 14, fontWeight: '700' },
   scheduleMeta: { fontSize: 12, fontWeight: '600' },
   tag: { fontSize: 12, fontWeight: '800', marginTop: 2 },
+  cancelBtn: {
+    borderWidth: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  cancelText: { fontSize: 13, fontWeight: '700' },
   enrollBtn: { minHeight: 50, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   enrollText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
 });

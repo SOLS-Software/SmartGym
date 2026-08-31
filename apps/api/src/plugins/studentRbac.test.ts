@@ -111,6 +111,28 @@ describe('registro de execucao do treino', () => {
   });
 });
 
+describe('sessao de treino aberta pelo app', () => {
+  // O botao "iniciar treino" existia nas duas telas ha meses chamando uma rota
+  // que o aluno nao alcancava — 403 silencioso, e sem sessao nao ha onde anotar
+  // carga. Liberado com o servidor decidindo o que grava (shared/selfCheckIn).
+  it('o aluno abre a propria sessao', () => {
+    expect(isStudentAllowed('POST', '/students/7/related/check-ins', 7)).toBe(true);
+    expect(isStudentAllowed('GET', '/students/7/related/check-ins', 7)).toBe(true);
+  });
+
+  it('mas nao a de outro aluno', () => {
+    expect(isStudentAllowed('POST', '/students/8/related/check-ins', 7)).toBe(false);
+  });
+
+  it('e nao alcanca a rota de check-in da recepcao', () => {
+    // A da recepcao aceita pontuacao e tipo do corpo; e por ela que o aluno
+    // pontuaria de casa escolhendo a regra que mais vale.
+    expect(isStudentAllowed('POST', '/companies/3/children/student-check-ins', 7)).toBe(false);
+    expect(isStudentAllowed('PUT', '/students/7/related/check-ins/12', 7)).toBe(false);
+    expect(isStudentAllowed('DELETE', '/students/7/related/check-ins/12', 7)).toBe(false);
+  });
+});
+
 describe('codigo de pagamento da propria cobranca', () => {
   it('o aluno gera a cobranca da propria parcela', () => {
     // Regressao: a rota virou POST (em conta de gateway ela CRIA cobranca no

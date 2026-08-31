@@ -2,7 +2,7 @@ export interface Client {
   id: number;
   dsCliente: string;
   caCNPJ: string | null;
-  boInativo: number;
+  boInativo: boolean | number;
 }
 
 export interface ClientTheme {
