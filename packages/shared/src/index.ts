@@ -76,6 +76,70 @@ export function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+// Nome de pessoa (aluno, funcionario).
+//
+// A coluna e VarChar(255) e ate aqui a unica regra, nos tres apps, era "nao
+// pode ser vazio" - sem tamanho minimo e sem conjunto de caracteres. Nome acima
+// de 255 chegava a virar 400 generico do Prisma, sem dizer o motivo.
+//
+// A regra deliberadamente NAO tenta adivinhar "isso parece uma frase, nao um
+// nome". Toda heuristica desse tipo rejeita nome legitimo: "termina em ponto"
+// derruba "Maria da Silva Jr.", "ponto seguido de espaco" derruba "Ana P.
+// Souza" e limite de palavras derruba "Maria da Conceicao dos Santos Silva
+// Junior". Falso positivo no cadastro custa mais do que um registro sujo.
+//
+// As faixas acentuadas vao em \u de proposito: o arquivo e consumido por tres
+// runtimes (tsx/Node na api, webpack no web, Metro no mobile) e assim nao
+// depende do encoding com que cada um le o fonte. Property escapes (\p{L})
+// ficariam mais legiveis, mas o suporte no Hermes e recente demais para o app.
+export const PERSON_NAME_MAX_LENGTH = 255;
+
+const PERSON_NAME_PATTERN =
+  /^[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF][A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF '.-]*$/;
+
+/** Apara as pontas e colapsa espacos internos ("Ana  Maria" -> "Ana Maria"). */
+export function normalizePersonName(value: string | null | undefined): string {
+  return (value ?? '').trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * Formato de nome de pessoa: comeca com letra, tem de 2 a 255 caracteres e
+ * aceita apenas letras (com acento), espaco, apostrofo, hifen e ponto.
+ * Espera o valor JA passado por normalizePersonName.
+ */
+export function isValidPersonName(value: string): boolean {
+  return (
+    value.length >= 2 &&
+    value.length <= PERSON_NAME_MAX_LENGTH &&
+    PERSON_NAME_PATTERN.test(value)
+  );
+}
+
+/**
+ * Mensagem da regra de nome violada, ou `undefined` quando o nome serve.
+ *
+ * O commit que trouxe a regra de nome deixou esta funcao em DUAS copias
+ * identicas — web/studentValidation.ts e mobile/utils/format.ts — com o mesmo
+ * texto de tela nas duas. E o mesmo caminho que `formatPhone` e as regras de
+ * senha percorreram antes de divergir, entao ela nasce aqui: as telas
+ * reexportam, e mudar o texto passa a ser uma edicao so.
+ */
+export function getStudentNameError(value: string): string | undefined {
+  const name = normalizePersonName(value);
+
+  if (!name) {
+    return 'Informe o nome do aluno.';
+  }
+  if (name.length < 2) {
+    return 'O nome deve ter ao menos 2 caracteres.';
+  }
+  if (!isValidPersonName(name)) {
+    return 'O nome aceita apenas letras, espaços, apóstrofos, hífens e pontos.';
+  }
+
+  return undefined;
+}
+
 // Mascaras de entrada compartilhadas entre web e mobile.
 //
 // `formatPhone` chegou a existir em QUATRO copias identicas (mobile/utils,

@@ -10,6 +10,8 @@ import {
   isValidEmail,
   isValidHexColor,
   isValidHostname,
+  isValidPersonName,
+  normalizePersonName,
 } from '@smartgym/shared';
 
 export { isValidCnpj, isValidCpf, isValidEmail, isValidHexColor, isValidHostname };
@@ -383,8 +385,15 @@ export function normalizeTrainingPayload(payload: TrainingPayload) {
   };
 }
 
-export function normalizeStudentPayload(payload: StudentPayload) {
-  const nmAluno = payload.nmAluno?.trim();
+// `validateNameFormat: false` existe para o PUT self-service: naquele caminho o
+// nmAluno nao vem do cliente, e reinjetado do registro gravado (o aluno nao pode
+// trocar o proprio nome). Validar ali travaria a edicao de contato/endereco de
+// quem ja tem um nome fora do padrao na base, sem que a pessoa pudesse corrigir.
+export function normalizeStudentPayload(
+  payload: StudentPayload,
+  options: { validateNameFormat?: boolean } = {},
+) {
+  const nmAluno = normalizePersonName(payload.nmAluno);
   const caCPF = payload.caCPF?.replace(/\D/g, '') ?? '';
   const nrContato = payload.nrContato?.replace(/\D/g, '') ?? null;
   const anEmail = payload.anEmail?.trim() ?? '';
@@ -396,6 +405,11 @@ export function normalizeStudentPayload(payload: StudentPayload) {
   }
   if (!nmAluno) {
     throw new Error('Informe o nome do aluno.');
+  }
+  if ((options.validateNameFormat ?? true) && !isValidPersonName(nmAluno)) {
+    throw new Error(
+      'Informe um nome de aluno valido: de 2 a 255 caracteres, apenas letras, espacos, apostrofos, hifens e pontos.',
+    );
   }
   if (!caCPF) {
     throw new Error('Informe o CPF do aluno.');
@@ -422,6 +436,10 @@ export function normalizeStudentPayload(payload: StudentPayload) {
   // chamavam. Sem eles, um nome de 300 caracteres vindo do mobile ou de um
   // curl chegava intacto no `nmAluno VarChar(255)` e o erro era P2000, que o
   // clientErrorMessage traduz para o fallback generico "Erro ao salvar aluno.".
+  //
+  // O teto sobrevive ao `isValidPersonName` acima de proposito: aquele so roda
+  // quando `validateNameFormat` esta ligado, e no PUT self-service ele fica
+  // desligado. Aqui e o unico limite naquele caminho.
   if (nmAluno.length > LIMITES.aluno.nmAluno) {
     throw new Error(`O nome do aluno deve ter no maximo ${LIMITES.aluno.nmAluno} caracteres.`);
   }

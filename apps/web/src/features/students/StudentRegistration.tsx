@@ -17,7 +17,7 @@ import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { getSessionClienteId } from '../../shared/auth/sessionUtils';
 import { studentRelatedTables } from './studentRelatedTables';
 import { PlanLockPanel } from './PlanLockPanel';
-import { formatPhone, isValidBirthDate, isValidEmail, toApiDate } from './studentValidation';
+import { formatPhone, getStudentNameError, isValidBirthDate, isValidEmail, normalizePersonName, toApiDate } from './studentValidation';
 
 const studentTabIcons = {
   files: FileText,
@@ -485,8 +485,9 @@ export function StudentRegistration() {
     const errors: StudentValidationErrors = {};
     const trimmedEmail = studentEmail.trim();
 
-    if (!studentName.trim()) {
-      errors.name = 'Informe o nome do aluno.';
+    const nameError = getStudentNameError(studentName);
+    if (nameError) {
+      errors.name = nameError;
     }
 
     if (!isValidCpf(studentCpf)) {
@@ -615,7 +616,7 @@ export function StudentRegistration() {
 
       const payload = {
         idCliente,
-        nmAluno: studentName,
+        nmAluno: normalizePersonName(studentName),
         caCPF: onlyDigits(studentCpf),
         dtNascimento: apiBirthDate,
         nrDDD: Number(splitDddPhone(studentPhone).ddd || 0),
@@ -1105,7 +1106,7 @@ export function StudentRegistration() {
               {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
               {/* Nome */}
               <RegistrationField error={studentErrors.name} htmlFor="nmAluno" label="Nome" required size="full" touched={touchedStudentFields.name}>
-                <input className={touchedStudentFields.name && studentErrors.name ? 'invalid' : ''} id="nmAluno" maxLength={LIMITES.aluno.nmAluno} onBlur={() => validateStudentField('name')} onChange={(event) => { const value = event.target.value; setStudentName(value); if (touchedStudentFields.name) { setStudentErrors((current) => ({ ...current, name: value.trim() ? undefined : 'Informe o nome do aluno.' })); } }} placeholder="Ex.: Maria Souza" ref={nameInputRef} type="text" value={studentName} />
+                <input className={touchedStudentFields.name && studentErrors.name ? 'invalid' : ''} id="nmAluno" maxLength={LIMITES.aluno.nmAluno} onBlur={() => validateStudentField('name')} onChange={(event) => { const value = event.target.value; setStudentName(value); if (touchedStudentFields.name) { setStudentErrors((current) => ({ ...current, name: getStudentNameError(value) })); } }} placeholder="Ex.: Maria Souza" ref={nameInputRef} type="text" value={studentName} />
               </RegistrationField>
               {/* CPF */}
               <RegistrationField error={studentErrors.cpf} htmlFor="caCPF" label="CPF" required size="md" touched={touchedStudentFields.cpf}>

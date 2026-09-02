@@ -29,10 +29,12 @@ import {
   formatCpf,
   formatPhone,
   getPasswordValidationMessage,
+  getStudentNameError,
   isImageFile,
   isValidCnpj,
   isValidCpf,
   isValidEmail,
+  normalizePersonName,
   onlyDigits,
 } from '../lib/utils/format';
 
@@ -1267,8 +1269,9 @@ function StudentRegistration() {
     const errors: StudentValidationErrors = {};
     const trimmedEmail = studentEmail.trim();
 
-    if (!studentName.trim()) {
-      errors.name = 'Informe o nome do aluno.';
+    const nameError = getStudentNameError(studentName);
+    if (nameError) {
+      errors.name = nameError;
     }
 
     if (!isValidCpf(studentCpf)) {
@@ -1412,7 +1415,7 @@ function StudentRegistration() {
       const payload = {
         // Devolve intacto o que a tela nao mostra.
         ...studentPreservados,
-        nmAluno: studentName,
+        nmAluno: normalizePersonName(studentName),
         caCPF: onlyDigits(studentCpf),
         dtNascimento: apiBirthDate,
         nrDDD: Number(studentDdd || 0),
@@ -1718,7 +1721,7 @@ function StudentRegistration() {
             if (touchedStudentFields.name) {
               setStudentErrors((current) => ({
                 ...current,
-                name: value.trim() ? undefined : 'Informe o nome do aluno.',
+                name: getStudentNameError(value),
               }));
             }
           }}

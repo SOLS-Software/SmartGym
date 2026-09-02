@@ -17,10 +17,16 @@ export {
   formatCnpj,
   formatCpf,
   formatPhone,
+  // A regra de nome e a mensagem de erro dela vinham duplicadas aqui e no
+  // web/studentValidation.ts. Mesmo caminho que formatPhone e as regras de
+  // senha percorreram antes de divergir — agora nascem no pacote.
+  getStudentNameError,
   isImageFile,
   isValidCnpj,
   isValidCpf,
   isValidEmail,
+  isValidPersonName,
+  normalizePersonName,
   onlyDigits,
 } from '@smartgym/shared';
 
