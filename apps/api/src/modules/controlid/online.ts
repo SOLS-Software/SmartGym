@@ -111,8 +111,10 @@ function montarResposta(decisao: Decisao, userId: number | null, portalId: numbe
 async function decidirAcesso(params: {
   idCliente: number;
   userId: number | null;
+  /** Unidade do equipamento: e nela que o aluno esta tentando entrar. */
+  idEmpresa: number | null;
 }): Promise<Decisao> {
-  const { idCliente, userId } = params;
+  const { idCliente, userId, idEmpresa } = params;
 
   if (userId === null || userId <= 0) {
     return {
@@ -142,8 +144,9 @@ async function decidirAcesso(params: {
   }
 
   // Mesma porta de entrada usada por check-in manual, login e app: uma regra so
-  // para "aluno esta em dia".
-  const status = await getStudentAccessStatus(prisma, aluno.id);
+  // para "aluno esta em dia" — agora tambem para "o plano dele vale AQUI".
+  // Plano de uma unidade nao gira a catraca da outra.
+  const status = await getStudentAccessStatus(prisma, aluno.id, idEmpresa);
 
   return {
     liberado: status.canAccess,
@@ -310,7 +313,7 @@ export async function handleIdentificacaoOnline(
   // Catraca ainda nao vinculada a uma empresa nao tem como resolver aluno
   // nenhum: sem dono, sem escopo de busca. Nega e deixa o motivo no log.
   const decisao = idCliente
-    ? await decidirAcesso({ idCliente, userId })
+    ? await decidirAcesso({ idCliente, userId, idEmpresa: catraca.idEmpresa ?? null })
     : {
         liberado: false,
         motivo: 'Catraca nao esta vinculada a uma empresa.',

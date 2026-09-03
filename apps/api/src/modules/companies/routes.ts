@@ -23,6 +23,7 @@ import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 import { assertAllowedUploadType, assertUploadBuffer, getCompanyFilePath, getPromotionFilePath } from '../../shared/files.js';
 import type { CompanyChildPayload, CompanyChildResource, CompanyPayload } from '../../shared/api-types.js';
 import { clientErrorMessage } from '../../shared/errors.js';
+import { consumirBeneficioDeProduto } from '../../shared/planBenefitsDb.js';
 import { getStatusIdByName } from '../../shared/payments.js';
 import { creditCheckInPoints, registerPointsEntry } from '../../shared/loyalty.js';
 
@@ -427,6 +428,8 @@ async function createSale(params: {
   data: Record<string, unknown>;
   payload: CompanyChildPayload;
   include?: Record<string, unknown>;
+  /** Quem esta no balcao — fica no registro de uso do beneficio. */
+  idUsuario?: number | null;
 }) {
   const { companyId, idCliente, data, payload, include } = params;
   const idProduto = Number(data.idProduto);
@@ -458,13 +461,22 @@ async function createSale(params: {
   }
 
   const resgateEmPontos = toBool(payload.boResgatePontos);
+  // Terceira forma de "pagar": o produto ja e direito da matricula. Explicita,
+  // como o resgate por pontos — consumir o direito sozinho gastaria, sem
+  // ninguem pedir, a camiseta que o aluno talvez quisesse guardar para depois.
+  const peloBeneficio = toBool(payload.boBeneficioPlano);
+
+  if (resgateEmPontos && peloBeneficio) {
+    throw new Error('Escolha uma forma so: pontos ou beneficio do plano.');
+  }
 
   if (resgateEmPontos && !produto.qtPontosResgate) {
     throw new Error('Este produto nao tem preco em pontos definido.');
   }
 
   // Preco: o que o operador digitou; na ausencia, o preco sugerido do cadastro.
-  const vlUnitario = Number(data.vlUnitario) || Number(produto.vlVenda ?? 0);
+  // Entrega por direito do plano nao tem preco: ja foi paga na mensalidade.
+  const vlUnitario = peloBeneficio ? 0 : Number(data.vlUnitario) || Number(produto.vlVenda ?? 0);
   const total = vlUnitario * quantidade;
 
   const idStatusPagamento = resgateEmPontos
@@ -488,7 +500,20 @@ async function createSale(params: {
       data: { qtDisponivel: atualizado.qtEstoque },
     });
 
-    if (resgateEmPontos) {
+    if (peloBeneficio) {
+      // Baixa do direito na MESMA transacao da baixa do estoque: sem direito
+      // disponivel isto lanca, e o rollback devolve o produto ao estoque —
+      // entregar de graca sem direito e decisao de gente, nao efeito colateral.
+      await consumirBeneficioDeProduto(transaction, {
+        idAluno,
+        idCliente,
+        idProduto,
+        idEmpresa: companyId,
+        quantidade,
+        idProdutoMovimentacao: movimentacao.id,
+        idUsuario: params.idUsuario ?? null,
+      });
+    } else if (resgateEmPontos) {
       await registerPointsEntry(transaction, {
         idAluno,
         idEmpresa: companyId,
@@ -1189,7 +1214,8 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
           if (!plan) throw new Error('Plano do aluno invalido.');
           data.idAluno = plan.idAluno;
         }
-        const access = await getStudentAccessStatus(prisma, Number(data.idAluno));
+        // Recepcao: a unidade e a da empresa da rota.
+        const access = await getStudentAccessStatus(prisma, Number(data.idAluno), companyId);
         if (!access.canAccess) {
           throw new Error(access.reason ?? 'Aluno sem acesso liberado para check-in.');
         }
@@ -1240,6 +1266,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
             data,
             payload: request.body,
             include: config.include,
+            idUsuario: request.user.sub ?? null,
           }),
         );
       }

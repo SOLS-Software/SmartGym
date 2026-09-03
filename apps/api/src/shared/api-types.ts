@@ -107,7 +107,12 @@ export type FacialRecognitionResult = {
 
 export type PlanPayload = {
   dsPlano?: string;
+  /** Ciclo de cobranca (Mensal, Trimestral) — nao e limite de entradas. */
   idFrequencia?: number | string | null;
+  /** Entradas permitidas por periodo; nulo = sem limite. */
+  qtAcessosPeriodo?: number | string | null;
+  /** dia | semana | mes */
+  cnPeriodoAcesso?: string | null;
   boInativo?: boolean;
 };
 
@@ -208,6 +213,7 @@ export type PlanChildResource =
   | 'products'
   | 'companies'
   | 'activities'
+  | 'benefits'
   | 'promotion-plans'
   | 'promotion-products';
 

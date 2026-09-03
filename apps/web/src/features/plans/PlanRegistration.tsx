@@ -2,7 +2,7 @@
 
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Activity, Building2, CreditCard, DollarSign, Package, Save, Tag } from 'lucide-react';
+import { Activity, Building2, CreditCard, DollarSign, Gift, Package, Save, Tag } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, formatDateInput, getLookupLabel, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
 import { limitesDoCampo } from '../../shared/registration/campoLimites';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
@@ -13,7 +13,7 @@ import { useToast } from '../../shared/components/Toast';
 import type { CompanyChildRecord, CompanyChildTable, Frequency, LookupRecord, Plan } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
-const planTabIcons = { values: DollarSign, products: Package, companies: Building2, activities: Activity, promotionPlans: Tag, promotionProducts: CreditCard };
+const planTabIcons = { values: DollarSign, products: Package, companies: Building2, activities: Activity, benefits: Gift, promotionPlans: Tag, promotionProducts: CreditCard };
 
 const planRelatedTables: CompanyChildTable[] = [
   {
@@ -76,6 +76,47 @@ const planRelatedTables: CompanyChildTable[] = [
     fields: [
       { key: 'idEmpresa', label: 'Empresa', type: 'number', lookupEndpoint: 'companies', lookupLabelKey: 'dsEmpresa' },
       { key: 'idAtividade', label: 'Atividade', type: 'number', lookupEndpoint: 'activities', lookupLabelKey: 'dsAtividade' },
+    ],
+  },
+  {
+    key: 'benefits',
+    endpoint: 'benefits',
+    label: 'Benefícios',
+    labelSingular: 'Benefício',
+    title: 'Benefícios do plano',
+    columns: [
+      { key: 'dsBeneficio', label: 'Benefício' },
+      { key: 'cnTipo', label: 'Tipo' },
+      { key: 'idProduto', label: 'Produto', lookupLabelKey: 'dsProduto' },
+      { key: 'qtLimite', label: 'Quantidade' },
+      { key: 'cnJanela', label: 'Renova' },
+      { key: 'boInativo', label: 'Status', type: 'status' },
+    ],
+    fields: [
+      { key: 'dsBeneficio', label: 'Descrição', type: 'text' },
+      {
+        key: 'cnTipo',
+        label: 'Tipo',
+        type: 'text',
+        selectOptions: [
+          { value: 'produto', label: 'Produto' },
+          { value: 'avaliacao', label: 'Avaliação física' },
+          { value: 'outro', label: 'Outro' },
+        ],
+      },
+      { key: 'idProduto', label: 'Produto', type: 'number', lookupEndpoint: 'products', lookupLabelKey: 'dsProduto' },
+      { key: 'qtLimite', label: 'Quantidade', type: 'number' },
+      {
+        key: 'cnJanela',
+        label: 'Renova',
+        type: 'text',
+        selectOptions: [
+          { value: 'matricula', label: 'Uma vez por matrícula' },
+          { value: 'mes', label: 'Por mês' },
+          { value: 'ano', label: 'Por ano' },
+        ],
+      },
+      { key: 'idEmpresa', label: 'Empresa', type: 'number', lookupEndpoint: 'companies', lookupLabelKey: 'dsEmpresa' },
     ],
   },
   {
@@ -152,6 +193,10 @@ export function PlanRegistration() {
   const [isCreating, setIsCreating] = useState(false);
   const [planName, setPlanName] = useState('');
   const [planFrequencyId, setPlanFrequencyId] = useState('');
+  // Limite de ENTRADAS do plano. Separado da frequência de cobrança de
+  // propósito: são coisas diferentes com nomes parecidos.
+  const [planAccessLimit, setPlanAccessLimit] = useState('');
+  const [planAccessPeriod, setPlanAccessPeriod] = useState('');
   const [isPlanActive, setIsPlanActive] = useState(true);
   const [feedback, setFeedback] = useState('');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -356,6 +401,8 @@ export function PlanRegistration() {
     setIsCreating(false);
     setPlanName('');
     setPlanFrequencyId('');
+    setPlanAccessLimit('');
+    setPlanAccessPeriod('');
     setIsPlanActive(true);
     setFeedback('');
   }
@@ -379,6 +426,8 @@ export function PlanRegistration() {
     setIsCreating(false);
     setPlanName(plan.dsPlano);
     setPlanFrequencyId(plan.idFrequencia ? String(plan.idFrequencia) : '');
+    setPlanAccessLimit(plan.qtAcessosPeriodo ? String(plan.qtAcessosPeriodo) : '');
+    setPlanAccessPeriod(plan.cnPeriodoAcesso ?? '');
     setIsPlanActive(plan.boInativo === false);
     setFeedback('');
   }
@@ -485,6 +534,8 @@ export function PlanRegistration() {
       const payload = {
         dsPlano: planName.trim(),
         idFrequencia: planFrequencyId ? Number(planFrequencyId) : null,
+        qtAcessosPeriodo: planAccessLimit ? Number(planAccessLimit) : null,
+        cnPeriodoAcesso: planAccessPeriod || null,
         boInativo: isPlanActive ? false : true,
       };
       const response = await fetch(
@@ -804,6 +855,31 @@ export function PlanRegistration() {
                 {frequencies.map((frequency) => (<option key={frequency.id} value={frequency.id}>{frequency.dsFrequencia}</option>))}
               </select>
             </RegistrationField>
+            <RegistrationField htmlFor="planAccessLimit" label="Entradas permitidas" size="sm">
+              <input
+                id="planAccessLimit"
+                min={1}
+                onChange={(event) => setPlanAccessLimit(event.target.value)}
+                placeholder="sem limite"
+                type="number"
+                value={planAccessLimit}
+              />
+            </RegistrationField>
+            <RegistrationField htmlFor="planAccessPeriod" label="A cada" size="sm">
+              <select id="planAccessPeriod" onChange={(event) => setPlanAccessPeriod(event.target.value)} value={planAccessPeriod}>
+                <option value="">—</option>
+                <option value="dia">Dia</option>
+                <option value="semana">Semana</option>
+                <option value="mes">Mês</option>
+              </select>
+            </RegistrationField>
+            {/* Dito na tela porque a diferença entre os dois campos não é
+                óbvia: "Frequência" cobra, "Entradas permitidas" limita. */}
+            <p className="form-hint" style={{ flex: '1 1 100%' }}>
+              Frequência é o ciclo de cobrança do plano. Entradas permitidas limita quantas vezes o
+              aluno pode vir — e apenas <strong>avisa a recepção</strong> quando passa, sem travar a
+              catraca.
+            </p>
             <RegistrationField htmlFor="planStatus" label="Status" size="sm">
               <button aria-pressed={isPlanActive} className={`status-toggle ${isPlanActive ? 'active' : ''}`} id="planStatus" onClick={handleTogglePlanStatus} type="button">
                 <span>{isPlanActive ? 'Ativo' : 'Inativo'}</span>
@@ -863,6 +939,14 @@ export function PlanRegistration() {
                       <select disabled={!isPlanRelatedFormEnabled} id={`planRelated-${field.key}`} onChange={(event) => setPlanRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} value={planRelatedFormValues[field.key] ?? ''}>
                         <option value="">Selecione</option>
                         {(planRelatedLookups[field.key] ?? []).map((option) => (<option key={option.id} value={option.id}>{getLookupLabel(option, field)}</option>))}
+                      </select>
+                    ) : field.selectOptions ? (
+                      /* Lista fixa (tipo do benefício, janela de renovação):
+                         valores que o servidor valida, e digitar "matricula" à
+                         mão só produziria erro de digitação. */
+                      <select disabled={!isPlanRelatedFormEnabled} id={`planRelated-${field.key}`} onChange={(event) => setPlanRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} value={planRelatedFormValues[field.key] ?? ''}>
+                        <option value="">Selecione</option>
+                        {field.selectOptions.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
                       </select>
                     ) : (
                       <input disabled={!isPlanRelatedFormEnabled} id={`planRelated-${field.key}`} {...limitesDoCampo(field)} onChange={(event) => setPlanRelatedFormValues((current) => ({ ...current, [field.key]: event.target.value }))} required={field.required} type={field.type} value={planRelatedFormValues[field.key] ?? ''} />

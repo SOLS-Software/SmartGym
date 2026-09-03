@@ -54,6 +54,17 @@ type Pedido = {
 
 type MotivoCancelamento = { id: number; dsMotivoCancelamento: string };
 
+type Beneficio = {
+  idPlanoBeneficio: number;
+  descricao: string;
+  limite: number;
+  usadas: number;
+  restantes: number;
+  podeUsar: boolean;
+  /** "por matrícula", "neste mês", "neste ano" */
+  janela: string;
+};
+
 const NOME_DO_TIPO: Record<Pedido['cnTipo'], string> = {
   cancelamento: 'cancelamento',
   renovacao: 'renovação',
@@ -105,6 +116,7 @@ export default function MatriculaScreen() {
   // gerar em massa espalharia isso sem ninguém ter pedido.
   // Pedidos de cancelamento/renovação. O aluno abre; quem decide é a academia
   // — prazo e multa são regras do contrato dela, não do aplicativo.
+  const [beneficios, setBeneficios] = useState<Beneficio[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [motivos, setMotivos] = useState<MotivoCancelamento[]>([]);
   const [tipoPedido, setTipoPedido] = useState<'cancelamento' | 'renovacao' | null>(null);
@@ -152,6 +164,12 @@ export default function MatriculaScreen() {
     void carregar();
     void carregarPedidos();
     void (async () => {
+      try {
+        const dados = await apiGet<{ beneficios?: Beneficio[] }>(`/students/${idAluno}/benefits`);
+        setBeneficios(dados.beneficios ?? []);
+      } catch {
+        // extra da tela; a matrícula continua aparecendo
+      }
       try {
         setMotivos(await apiGet<MotivoCancelamento[]>('/cancellation-reasons'));
       } catch {
@@ -300,6 +318,48 @@ export default function MatriculaScreen() {
           ) : (
             <Vazio texto="Nenhum plano registrado." />
           )}
+
+          {/* --- direitos do plano --- */}
+          {beneficios.length > 0 ? (
+            <>
+              <Text style={[styles.secao, styles.secaoDistante, { color: t.textSubtle }]}>
+                O QUE SEU PLANO DÁ
+              </Text>
+              <View style={styles.pilha}>
+                {beneficios.map((beneficio) => (
+                  <View
+                    key={beneficio.idPlanoBeneficio}
+                    style={[
+                      styles.cartao,
+                      { backgroundColor: t.surface, borderColor: t.border, borderRadius: t.radius },
+                    ]}
+                  >
+                    <View style={styles.linhaTopo}>
+                      <View style={{ flexShrink: 1 }}>
+                        <Text style={[styles.dadoValor, { color: t.text, textAlign: 'left' }]}>
+                          {beneficio.descricao}
+                        </Text>
+                        <Text style={[styles.meta, { color: t.textSubtle }]}>{beneficio.janela}</Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.status,
+                          { color: beneficio.podeUsar ? t.brand : t.textSubtle },
+                        ]}
+                      >
+                        {beneficio.restantes} de {beneficio.limite}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+              {/* Dito porque o aluno pode achar que o app entrega: quem
+                  entrega é a recepção, e o registro é dela. */}
+              <Text style={[styles.meta, { color: t.textSubtle, marginTop: 8 }]}>
+                A retirada é registrada pela recepção quando você recebe.
+              </Text>
+            </>
+          ) : null}
 
           {/* --- cancelamento e renovação --- */}
           {planoAtivo ? (

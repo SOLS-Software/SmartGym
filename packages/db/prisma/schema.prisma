@@ -66,12 +66,26 @@ model Empresa {
   @@index([geoEmpresa], name: "geo_empresa", type: Gist)
   @@index([idCliente])
   @@map("tb_Empresas")
+  planoBeneficios       PlanoBeneficio[]
+  beneficioUsos         AlunoBeneficioUso[]
 }
 
 model Plano {
   id                 Int      @id @default(autoincrement())
   dsPlano            String   @db.VarChar(255)
+  // CICLO DE COBRANCA (Mensal, Trimestral, Anual) — e o que gera as parcelas
+  // em shared/payments.ts. NAO confundir com quantas vezes o aluno pode vir:
+  // isso e qtAcessosPeriodo, logo abaixo.
   idFrequencia       Int?
+  // Quantas entradas o plano permite por periodo ("3x por semana"). Nulo = sem
+  // limite, que e o estado de todo plano ja cadastrado.
+  //
+  // INFORMATIVO por decisao de negocio: estourar sinaliza para a recepcao e
+  // NAO tranca a catraca — limite comercial nao pode virar porta travada com a
+  // pessoa parada na frente, no horario de pico.
+  qtAcessosPeriodo   Int?
+  /// dia | semana | mes
+  cnPeriodoAcesso    String?  @db.VarChar(10)
   dtCadastro         DateTime @default(now())
   dtAlteracao        DateTime @updatedAt
   idUsuarioCadastro  Int?
@@ -83,6 +97,7 @@ model Plano {
   planoProdutos   PlanoProduto[]
   planoEmpresas   PlanoEmpresa[]
   planoValores    PlanoValor[]
+  planoBeneficios PlanoBeneficio[]
   promocaoPlanos  PromocaoPlano[]
   alunoPlanos     AlunoPlano[]
   leads           Lead[]
@@ -281,6 +296,7 @@ model Produto {
 
   @@index([idEmpresa])
   @@map("tb_Produtos")
+  planoBeneficios    PlanoBeneficio[]
 }
 
 model Treino {
@@ -397,6 +413,7 @@ model Aluno {
   // unique composto (idCliente lider) nao cobre esse acesso.
   @@index([caCPFHash])
   @@map("tb_Alunos")
+  beneficioUsos      AlunoBeneficioUso[]
 }
 
 model Funcionario {
@@ -608,6 +625,80 @@ model PlanoEmpresa {
   @@map("tb_PlanoEmpresas")
 }
 
+// Direito que a matricula da: uma camiseta na assinatura, uma avaliacao por
+// mes, dois passes de convidado por ano.
+//
+// O que faltava antes nao era a lista de produtos do plano (tb_PlanoProdutos ja
+// dizia QUAIS), e sim QUANTOS e EM QUE JANELA — sem isso nao ha como saber se o
+// aluno ja pegou, e a recepcao entregava duas vezes sem o sistema notar.
+model PlanoBeneficio {
+  id          Int    @id @default(autoincrement())
+  idPlano     Int
+  /// Nulo = vale em qualquer unidade coberta pelo plano.
+  idEmpresa   Int?
+  /// produto | avaliacao | outro
+  cnTipo      String @db.VarChar(20)
+  /// Obrigatorio quando cnTipo = produto.
+  idProduto   Int?
+  /// Como o direito aparece para a recepcao e para o aluno.
+  dsBeneficio String @default("") @db.VarChar(255)
+  qtLimite    Int    @default(1)
+  /// matricula | mes | ano — a janela em que qtLimite se renova.
+  cnJanela    String @db.VarChar(20)
+
+  dtCadastro         DateTime @default(now())
+  dtAlteracao        DateTime @updatedAt
+  idUsuarioCadastro  Int?
+  idUsuarioAlteracao Int?
+  boInativo          Boolean  @default(false)
+
+  plano   Plano    @relation(fields: [idPlano], references: [id])
+  empresa Empresa? @relation(fields: [idEmpresa], references: [id])
+  produto Produto? @relation(fields: [idProduto], references: [id])
+  usos    AlunoBeneficioUso[]
+
+  @@index([idPlano])
+  @@index([idProduto])
+  @@map("tb_PlanoBeneficios")
+}
+
+// Uso de um direito. Append-only como o extrato de pontos: cancelar uma entrega
+// e um registro inativado, nao uma linha apagada — senao "ele ja pegou?" passa
+// a depender de quem lembra.
+model AlunoBeneficioUso {
+  id               Int  @id @default(autoincrement())
+  idPlanoBeneficio Int
+  /// A matricula que consumiu — e ela que define a janela "por matricula".
+  idAlunoPlano     Int
+  idAluno          Int
+  idEmpresa        Int?
+  qtUsada          Int  @default(1)
+  /// Movimentacao de estoque gerada pela entrega, quando o direito e produto.
+  idProdutoMovimentacao Int?
+  /// Avaliacao registrada, quando o direito e avaliacao fisica.
+  idAlunoEvolucao       Int?
+  dsObservacao          String?  @db.VarChar(255)
+  dtUso                 DateTime @default(now())
+
+  dtCadastro         DateTime @default(now())
+  dtAlteracao        DateTime @updatedAt
+  idUsuarioCadastro  Int?
+  idUsuarioAlteracao Int?
+  boInativo          Boolean  @default(false)
+
+  planoBeneficio      PlanoBeneficio       @relation(fields: [idPlanoBeneficio], references: [id])
+  alunoPlano          AlunoPlano           @relation(fields: [idAlunoPlano], references: [id])
+  aluno               Aluno                @relation(fields: [idAluno], references: [id])
+  empresa             Empresa?             @relation(fields: [idEmpresa], references: [id])
+  produtoMovimentacao ProdutoMovimentacao? @relation(fields: [idProdutoMovimentacao], references: [id])
+  alunoEvolucao       AlunoEvolucao?       @relation(fields: [idAlunoEvolucao], references: [id])
+
+  @@index([idAluno])
+  @@index([idAlunoPlano])
+  @@index([idPlanoBeneficio])
+  @@map("tb_AlunoBeneficioUsos")
+}
+
 model PlanoValor {
   id                 Int      @id @default(autoincrement())
   idEmpresa          Int?
@@ -714,6 +805,7 @@ model AlunoEvolucao {
   @@index([idFuncionario])
   @@index([idAlunoArquivo])
   @@map("tb_AlunoEvolucoes")
+  beneficioUsos AlunoBeneficioUso[]
 }
 
 // Perfil de acesso: o conjunto de permissoes que um funcionario carrega.
@@ -802,6 +894,7 @@ model AlunoPlano {
   @@index([idPromocaoPlano])
   @@index([idMotivoCancelamento])
   @@map("tb_AlunoPlanos")
+  beneficioUsos        AlunoBeneficioUso[]
 }
 
 // Periodo em que a matricula ficou PAUSADA — viagem, lesao, gravidez, um mes
@@ -1040,6 +1133,7 @@ model ProdutoMovimentacao {
   @@index([idAluno])
   @@index([idFornecedor])
   @@map("tb_ProdutoMovimentacoes")
+  beneficioUsos   AlunoBeneficioUso[]
 }
 
 model Fornecedor {

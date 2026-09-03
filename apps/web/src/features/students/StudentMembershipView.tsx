@@ -112,6 +112,17 @@ type PlanRequest = {
 
 type CancellationReason = { id: number; dsMotivoCancelamento: string };
 
+type Benefit = {
+  idPlanoBeneficio: number;
+  descricao: string;
+  cnTipo: string;
+  limite: number;
+  usadas: number;
+  restantes: number;
+  podeUsar: boolean;
+  janela: string;
+};
+
 export function StudentMembershipView({ studentId, studentName }: StudentMembershipViewProps) {
   const { showToast } = useToast();
   const [student, setStudent] = useState<Student | null>(null);
@@ -122,6 +133,7 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
   const [requestNote, setRequestNote] = useState('');
   const [isRequesting, setIsRequesting] = useState(false);
   const [requestFeedback, setRequestFeedback] = useState('');
+  const [benefits, setBenefits] = useState<Benefit[]>([]);
   const [plans, setPlans] = useState<StudentPlanView[]>([]);
   const [payments, setPayments] = useState<StudentPaymentView[]>([]);
   const [files, setFiles] = useState<StudentFile[]>([]);
@@ -221,7 +233,20 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
     void loadMembership();
     void loadRequests();
     void loadReasons();
+    void loadBenefits();
   }, [studentId]);
+
+  async function loadBenefits() {
+    if (!studentId) return;
+    try {
+      const response = await fetch(`${apiUrl}/students/${studentId}/benefits`);
+      if (!response.ok) return;
+      const data = (await response.json()) as { beneficios?: Benefit[] };
+      setBenefits(data.beneficios ?? []);
+    } catch {
+      // Extra da tela: falhar aqui não pode esconder a matrícula.
+    }
+  }
 
   async function loadRequests() {
     if (!studentId) return;
@@ -486,6 +511,28 @@ export function StudentMembershipView({ studentId, studentName }: StudentMembers
           </div>
         </div>
       </section>
+
+      {benefits.length > 0 ? (
+        <section className="membership-benefits" aria-label="Benefícios do plano">
+          <p className="section-label">O que seu plano dá</p>
+          <ul>
+            {benefits.map((benefit) => (
+              <li key={benefit.idPlanoBeneficio}>
+                <span>{benefit.descricao}</span>
+                {/* O número antes do rótulo: "1 de 1" é a informação, e
+                    "restante(s) por matrícula" é o que ela quer dizer. */}
+                <strong className={benefit.podeUsar ? 'ok' : 'used'}>
+                  {benefit.restantes} de {benefit.limite}
+                </strong>
+                <em>{benefit.janela}</em>
+              </li>
+            ))}
+          </ul>
+          <p className="form-hint">
+            A retirada é registrada pela recepção quando você recebe.
+          </p>
+        </section>
+      ) : null}
 
       {activePlan ? (
         <section className="membership-requests" aria-label="Solicitações">

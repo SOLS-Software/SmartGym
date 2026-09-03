@@ -5,6 +5,7 @@ import { prisma } from '../../shared/prisma.js';
 import { assertValidId } from '../../shared/normalize.js';
 import { decryptCpfValue } from '../../shared/pii.js';
 import { clientErrorMessage } from '../../shared/errors.js';
+import { assertPlanoCobreAtividades } from '../../shared/planCoverageDb.js';
 import { creditCheckInPointsSafe } from '../../shared/loyalty.js';
 
 // Data ISO (YYYY-MM-DD) em querystring; string vazia e tratada como ausente.
@@ -246,6 +247,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       const session = await prisma.atividadeAgenda.findFirst({
         where: { id: idAgenda, boInativo: false, empresa: { idCliente } },
         include: {
+          atividade: { select: { dsAtividade: true } },
           alunoAtividadeAgendas: { where: { boInativo: false }, select: { idAluno: true } },
         },
       });
@@ -277,6 +279,17 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       if (session.qtAlunos !== null && session.alunoAtividadeAgendas.length >= session.qtAlunos) {
         return reply.code(409).send({ message: 'Não há vagas disponíveis nesta agenda.' });
       }
+
+      // O plano tem que incluir a atividade — a mesma regra da tela de
+      // Atividades, pela mesma funcao. Plano sem atividade marcada continua
+      // dando acesso a todas.
+      await assertPlanoCobreAtividades(prisma, idAluno, [
+        {
+          idAtividade: session.idAtividade,
+          idEmpresa: session.idEmpresa,
+          dsAtividade: session.atividade?.dsAtividade ?? null,
+        },
+      ]);
 
       const enrollment = await prisma.alunoAtividadeAgenda.create({
         data: {

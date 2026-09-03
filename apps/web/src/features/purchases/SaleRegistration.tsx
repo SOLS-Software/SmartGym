@@ -35,6 +35,19 @@ type PointsBalance = { idEmpresa: number; dsEmpresa: string; qtDisponivel: numbe
 const money = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+type Beneficio = {
+  idPlanoBeneficio: number;
+  descricao: string;
+  cnTipo: string;
+  /** Preenchido quando o direito é de um produto — é o que casa com a venda. */
+  idProduto?: number | null;
+  limite: number;
+  usadas: number;
+  restantes: number;
+  podeUsar: boolean;
+  janela: string;
+};
+
 export function SaleRegistration() {
   const { showToast } = useToast();
   const productSelectRef = useRef<HTMLSelectElement | null>(null);
@@ -61,6 +74,11 @@ export function SaleRegistration() {
   const [quantidade, setQuantidade] = useState('1');
   const [vlUnitario, setVlUnitario] = useState('');
   const [pagarComPontos, setPagarComPontos] = useState(false);
+  // Terceira forma de "pagar": o produto já é direito da matrícula. Explícita,
+  // como o resgate por pontos — consumir sozinho gastaria, sem ninguém pedir,
+  // a camiseta que o aluno talvez quisesse guardar.
+  const [usarBeneficio, setUsarBeneficio] = useState(false);
+  const [beneficios, setBeneficios] = useState<Beneficio[]>([]);
   const [pago, setPago] = useState(true);
   const [idFormaPagamento, setIdFormaPagamento] = useState('');
   const [saldo, setSaldo] = useState<number | null>(null);
@@ -75,6 +93,15 @@ export function SaleRegistration() {
   const totalPontos = (produtoSelecionado?.qtPontosResgate ?? 0) * quantidadeNumero;
 
   const podeResgatar = Boolean(produtoSelecionado?.qtPontosResgate);
+
+  // O direito que cobre ESTE produto, se houver saldo. É o que faz o operador
+  // lembrar de não cobrar por algo que o plano já paga.
+  const beneficioDoProduto =
+    produtoSelecionado === null
+      ? null
+      : (beneficios.find(
+          (item) => item.idProduto === produtoSelecionado.id && item.podeUsar,
+        ) ?? null);
   const saldoInsuficiente = pagarComPontos && saldo !== null && saldo < totalPontos;
   const estoqueInsuficiente =
     produtoSelecionado !== null && quantidadeNumero > produtoSelecionado.qtEstoque;
@@ -177,6 +204,28 @@ export function SaleRegistration() {
     })();
   }, [idAluno, selectedCompanyId]);
 
+  // Direitos do aluno escolhido, pelo mesmo motivo do saldo de pontos: saber
+  // que existe é o que faz o operador oferecer.
+  useEffect(() => {
+    if (!idAluno) {
+      setBeneficios([]);
+      return;
+    }
+    void (async () => {
+      try {
+        const response = await fetch(`${apiUrl}/students/${idAluno}/benefits`);
+        if (!response.ok) {
+          setBeneficios([]);
+          return;
+        }
+        const data = (await response.json()) as { beneficios?: Beneficio[] };
+        setBeneficios(data.beneficios ?? []);
+      } catch {
+        setBeneficios([]);
+      }
+    })();
+  }, [idAluno]);
+
   // Preço sugerido do cadastro entra sozinho ao trocar de produto.
   useEffect(() => {
     if (!produtoSelecionado) return;
@@ -186,6 +235,7 @@ export function SaleRegistration() {
         : String(produtoSelecionado.vlVenda),
     );
     if (!produtoSelecionado.qtPontosResgate) setPagarComPontos(false);
+    setUsarBeneficio(false);
   }, [produtoSelecionado]);
 
   function handleNew() {
@@ -198,6 +248,7 @@ export function SaleRegistration() {
     setQuantidade('1');
     setVlUnitario('');
     setPagarComPontos(false);
+    setUsarBeneficio(false);
     setPago(true);
     setIdFormaPagamento('');
     setSaldo(null);
@@ -241,16 +292,23 @@ export function SaleRegistration() {
           idProduto: Number(idProduto),
           idAluno: Number(idAluno),
           qtMovimentada: quantidadeNumero,
-          vlUnitario: pagarComPontos ? 0 : Number(vlUnitario || 0),
+          vlUnitario: pagarComPontos || usarBeneficio ? 0 : Number(vlUnitario || 0),
           boResgatePontos: pagarComPontos,
-          boPago: pagarComPontos ? false : pago,
+          boBeneficioPlano: usarBeneficio,
+          boPago: pagarComPontos || usarBeneficio ? false : pago,
           idFormaPagamento: idFormaPagamento ? Number(idFormaPagamento) : null,
         }),
       });
       if (!response.ok) await getApiError(response, 'Não foi possível registrar a venda.');
 
       await Promise.all([loadSales(), loadLookups()]);
-      showToast(pagarComPontos ? 'Resgate registrado.' : 'Venda registrada.');
+      showToast(
+        usarBeneficio
+          ? 'Entrega registrada pelo plano.'
+          : pagarComPontos
+            ? 'Resgate registrado.'
+            : 'Venda registrada.',
+      );
       setIsDrawerOpen(false);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao registrar venda.');
@@ -423,32 +481,60 @@ export function SaleRegistration() {
               </div>
             ) : null}
 
-            {podeResgatar ? (
+            {podeResgatar || beneficioDoProduto ? (
               <RegistrationField htmlFor="vendaResgate" label="Forma de pagamento" size="full">
                 <div className="sale-payment-toggle" id="vendaResgate">
                   <label>
                     <input
-                      checked={!pagarComPontos}
+                      checked={!pagarComPontos && !usarBeneficio}
                       name="formaPagamentoVenda"
-                      onChange={() => setPagarComPontos(false)}
+                      onChange={() => {
+                        setPagarComPontos(false);
+                        setUsarBeneficio(false);
+                      }}
                       type="radio"
                     />
                     <span>Dinheiro</span>
                   </label>
-                  <label>
-                    <input
-                      checked={pagarComPontos}
-                      name="formaPagamentoVenda"
-                      onChange={() => setPagarComPontos(true)}
-                      type="radio"
-                    />
-                    <span>Resgatar com pontos ({totalPontos} pts)</span>
-                  </label>
+                  {podeResgatar ? (
+                    <label>
+                      <input
+                        checked={pagarComPontos}
+                        name="formaPagamentoVenda"
+                        onChange={() => {
+                          setPagarComPontos(true);
+                          setUsarBeneficio(false);
+                        }}
+                        type="radio"
+                      />
+                      <span>Resgatar com pontos ({totalPontos} pts)</span>
+                    </label>
+                  ) : null}
+                  {/* Só aparece quando ESTE aluno tem direito a ESTE produto:
+                      uma opção que some quando não cabe é mais fácil de ler
+                      do que uma desabilitada que ninguém sabe por quê. */}
+                  {beneficioDoProduto ? (
+                    <label>
+                      <input
+                        checked={usarBeneficio}
+                        name="formaPagamentoVenda"
+                        onChange={() => {
+                          setUsarBeneficio(true);
+                          setPagarComPontos(false);
+                        }}
+                        type="radio"
+                      />
+                      <span>
+                        Benefício do plano ({beneficioDoProduto.restantes} de{' '}
+                        {beneficioDoProduto.limite} {beneficioDoProduto.janela})
+                      </span>
+                    </label>
+                  ) : null}
                 </div>
               </RegistrationField>
             ) : null}
 
-            {!pagarComPontos ? (
+            {!pagarComPontos && !usarBeneficio ? (
               <>
                 <RegistrationField htmlFor="vendaValor" label="Valor unitário" size="sm">
                   <input
@@ -497,8 +583,24 @@ export function SaleRegistration() {
 
             <div className="sale-total" style={{ flex: '1 1 100%' }}>
               <span>Total</span>
-              <strong>{pagarComPontos ? `${totalPontos} pts` : money(totalDinheiro)}</strong>
+              <strong>
+                {usarBeneficio
+                  ? 'Sem cobrança'
+                  : pagarComPontos
+                    ? `${totalPontos} pts`
+                    : money(totalDinheiro)}
+              </strong>
             </div>
+
+            {/* Dito porque é o efeito que o operador não vê acontecer: o
+                produto sai do estoque E o direito é consumido, juntos. */}
+            {usarBeneficio && beneficioDoProduto ? (
+              <p className="form-hint" style={{ flex: '1 1 100%' }}>
+                Sai do estoque e baixa o direito do plano: depois desta entrega restam{' '}
+                {Math.max(beneficioDoProduto.restantes - quantidadeNumero, 0)} de{' '}
+                {beneficioDoProduto.limite} {beneficioDoProduto.janela}.
+              </p>
+            ) : null}
 
             {saldoInsuficiente ? (
               <div className="form-feedback" style={{ flex: '1 1 100%' }}>
@@ -519,7 +621,13 @@ export function SaleRegistration() {
                 type="submit"
               >
                 <Save size={16} />
-                {isSaving ? 'Registrando...' : pagarComPontos ? 'Registrar resgate' : 'Registrar venda'}
+                {isSaving
+                  ? 'Registrando...'
+                  : usarBeneficio
+                    ? 'Registrar entrega'
+                    : pagarComPontos
+                      ? 'Registrar resgate'
+                      : 'Registrar venda'}
               </button>
             </div>
           </form>

@@ -30,6 +30,10 @@ type StudentAccess = {
   hasPlan: boolean;
   planActive: boolean;
   paymentOverdue: boolean;
+  /** O plano não cobre a filial perguntada. */
+  unidadeNaoCoberta?: boolean;
+  /** Limite de entradas do plano. Avisa, não bloqueia. */
+  frequencia?: { limite: number | null; usadas: number; excedeu: boolean; aviso: string | null };
 };
 
 type PlanRequest = {
@@ -66,6 +70,18 @@ function describeOrigin(checkIn: CheckIn) {
   return checkIn.tipoCheckIn?.dsTipoCheckIn ?? 'Entrada';
 }
 
+type Benefit = {
+  idPlanoBeneficio: number;
+  descricao: string;
+  cnTipo: string;
+  limite: number;
+  usadas: number;
+  restantes: number;
+  podeUsar: boolean;
+  /** "por matrícula", "neste mês", "neste ano" */
+  janela: string;
+};
+
 export function ReceptionDesk() {
   const { showToast } = useToast();
 
@@ -76,6 +92,10 @@ export function ReceptionDesk() {
 
   const [term, setTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  // Direitos da matrícula (camiseta da assinatura, avaliação do mês) com o
+  // saldo. É aqui que a entrega acontece — o aluno não marca "peguei".
+  const [benefits, setBenefits] = useState<Benefit[]>([]);
+  const [deliveringId, setDeliveringId] = useState<number | null>(null);
   const [access, setAccess] = useState<StudentAccess | null>(null);
   const [points, setPoints] = useState<number | null>(null);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
@@ -221,12 +241,16 @@ export function ReceptionDesk() {
     setTerm('');
     setAccess(null);
     setPoints(null);
+    setBenefits([]);
 
-    // Situação e saldo em paralelo: são as duas perguntas que a recepção faz
-    // antes de liberar a entrada.
-    const [verifyResponse, pointsResponse] = await Promise.all([
-      fetch(`${apiUrl}/students/${student.id}`),
+    // Situação, saldo e direitos em paralelo: são as perguntas que a recepção
+    // faz antes de liberar a entrada. A situação vai com a FILIAL: o plano
+    // pode valer noutra unidade, e a tela precisa dizer isso antes do
+    // check-in recusar.
+    const [verifyResponse, pointsResponse, benefitsResponse] = await Promise.all([
+      fetch(`${apiUrl}/students/${student.id}?idEmpresa=${selectedCompanyId ?? ''}`),
       fetch(`${apiUrl}/students/${student.id}/related/points`),
+      fetch(`${apiUrl}/students/${student.id}/benefits`),
     ]);
 
     if (verifyResponse.ok) {
@@ -238,6 +262,36 @@ export function ReceptionDesk() {
         saldos: Array<{ idEmpresa: number; qtDisponivel: number }>;
       };
       setPoints(data.saldos.find((s) => s.idEmpresa === selectedCompanyId)?.qtDisponivel ?? 0);
+    }
+    if (benefitsResponse.ok) {
+      const data = (await benefitsResponse.json()) as { beneficios?: Benefit[] };
+      setBenefits(data.beneficios ?? []);
+    }
+  }
+
+  async function handleDeliver(benefit: Benefit) {
+    if (!selectedStudent) return;
+    try {
+      setDeliveringId(benefit.idPlanoBeneficio);
+      const response = await fetch(
+        `${apiUrl}/students/${selectedStudent.id}/benefits/${benefit.idPlanoBeneficio}/use`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idEmpresa: selectedCompanyId }),
+        },
+      );
+      if (!response.ok) await getApiError(response, 'Não foi possível registrar a entrega.');
+
+      // A resposta traz o estado novo: a linha vira "0 de 1" na hora, sem uma
+      // segunda chamada e sem a recepção precisar recarregar para conferir.
+      const data = (await response.json()) as { beneficios?: Benefit[] };
+      setBenefits(data.beneficios ?? []);
+      showToast(`${benefit.descricao} entregue.`);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Erro ao registrar a entrega.');
+    } finally {
+      setDeliveringId(null);
     }
   }
 
@@ -380,12 +434,56 @@ export function ReceptionDesk() {
                 </p>
               ) : null}
 
+              {/* Frequência é AVISO, não bloqueio: a entrada acontece e a
+                  recepção decide o que fazer. Fica separado da linha de acesso
+                  para não parecer recusa. */}
+              {access?.frequencia?.aviso ? (
+                <p className="reception-frequency" role="status">
+                  {access.frequencia.aviso}
+                </p>
+              ) : null}
+
+              {benefits.length > 0 ? (
+                <ul className="reception-benefits">
+                  {benefits.map((benefit) => (
+                    <li key={benefit.idPlanoBeneficio}>
+                      <span>
+                        {benefit.descricao}
+                        <em>
+                          {benefit.restantes} de {benefit.limite} {benefit.janela}
+                        </em>
+                      </span>
+                      <button
+                        disabled={!benefit.podeUsar || deliveringId === benefit.idPlanoBeneficio}
+                        onClick={() => void handleDeliver(benefit)}
+                        type="button"
+                      >
+                        {deliveringId === benefit.idPlanoBeneficio
+                          ? 'Registrando...'
+                          : benefit.podeUsar
+                            ? 'Entregar'
+                            : 'Já usou'}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
+              {benefits.some((benefit) => benefit.podeUsar && benefit.cnTipo === 'produto') ? (
+                /* Dito porque é o efeito que não se vê acontecer: entregar aqui
+                   tira a unidade do estoque, como uma venda de valor zero. */
+                <p className="reception-benefits-hint">
+                  Entregar um produto baixa o estoque junto com o direito.
+                </p>
+              ) : null}
+
               <button
                 className="reception-clear"
                 onClick={() => {
                   setSelectedStudent(null);
                   setAccess(null);
                   setPoints(null);
+                  setBenefits([]);
                 }}
                 type="button"
               >

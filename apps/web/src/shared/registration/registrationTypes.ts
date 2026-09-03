@@ -171,7 +171,12 @@ export type StudentFile = {
 export type Plan = {
   id: number;
   dsPlano: string;
+  /** Ciclo de cobrança (Mensal, Trimestral) — não é limite de entradas. */
   idFrequencia: number | null;
+  /** Entradas permitidas por período. Null = sem limite. */
+  qtAcessosPeriodo?: number | null;
+  /** dia | semana | mes */
+  cnPeriodoAcesso?: string | null;
   boInativo: boolean;
 };
 

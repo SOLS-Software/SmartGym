@@ -533,9 +533,28 @@ export function normalizePlanPayload(payload: PlanPayload) {
     'Informe o nome do plano.',
     'O nome do plano',
   );
+  // Limite de ENTRADAS ("3x por semana"). Nao confundir com idFrequencia, que
+  // e o ciclo de cobranca. Vale so aos pares: quantidade sem periodo (ou o
+  // contrario) nao limita nada, e meio cadastro nao pode virar acusacao na
+  // recepcao.
+  const qtAcessosPeriodo = optionalNumber(payload.qtAcessosPeriodo);
+  const cnPeriodoAcesso =
+    typeof payload.cnPeriodoAcesso === 'string' ? payload.cnPeriodoAcesso.trim().toLowerCase() : '';
+
+  if (qtAcessosPeriodo !== null && qtAcessosPeriodo <= 0) {
+    throw new Error('O limite de entradas deve ser maior que zero.');
+  }
+  if (cnPeriodoAcesso && !['dia', 'semana', 'mes'].includes(cnPeriodoAcesso)) {
+    throw new Error('Periodo do limite invalido.');
+  }
+
+  const temLimite = qtAcessosPeriodo !== null && Boolean(cnPeriodoAcesso);
+
   return {
     dsPlano,
     idFrequencia: optionalNumber(payload.idFrequencia),
+    qtAcessosPeriodo: temLimite ? qtAcessosPeriodo : null,
+    cnPeriodoAcesso: temLimite ? cnPeriodoAcesso : null,
     boInativo: toBool(payload.boInativo),
   };
 }

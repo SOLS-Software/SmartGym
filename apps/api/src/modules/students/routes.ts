@@ -40,6 +40,11 @@ import { buildChargeForPayment } from '../../shared/pixCharge.js';
 import { getStatusIdByName } from '../../shared/payments.js';
 import { enrollStudentInPlan } from '../../shared/enrollment.js';
 import { buildSelfCheckInData, inicioDoDia } from '../../shared/selfCheckIn.js';
+import {
+  carregarBeneficiosDoAluno,
+  registrarUsoDeBeneficio,
+} from '../../shared/planBenefitsDb.js';
+import { assertPlanoCobreAtividades } from '../../shared/planCoverageDb.js';
 import { registerStudentLockRoutes } from './trancamentos.js';
 import { trancamentoVigente } from '../../shared/trancamento.js';
 
@@ -325,6 +330,18 @@ async function abrirSessaoDoApp(
   return reply.code(201).send(criada);
 }
 
+// A leitura dos direitos e a baixa moram em shared/planBenefitsDb.ts: as duas
+// portas (o balcao de vendas e o painel da recepcao) precisam do mesmo
+// comportamento, e a baixa do estoque nao pode existir so numa delas.
+async function carregarBeneficios(idAluno: number, idCliente: number) {
+  const estado = await carregarBeneficiosDoAluno(prisma, idAluno, idCliente);
+  return {
+    idAlunoPlano: estado.idAlunoPlano,
+    dsPlano: estado.dsPlano,
+    beneficios: estado.beneficios,
+  };
+}
+
 export async function registerStudentRoutes(app: FastifyInstance) {
   await registerStudentLockRoutes(app);
 
@@ -393,12 +410,17 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
   app.get<{
     Params: { id: string };
+    Querystring: { idEmpresa?: string };
   }>('/students/:id', async (request, reply) => {
     const idCliente = request.user.idCliente;
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Aluno invalido.');
+      // A recepcao pergunta pela FILIAL dela: sem isso a ficha diria "acesso
+      // liberado" e o check-in logo em seguida recusaria por unidade — a tela
+      // discordando da porta, que e justamente o que evitamos aqui.
+      const idEmpresaConsulta = optionalNumber(request.query?.idEmpresa);
       const student = await prisma.aluno.findFirst({ where: { id, idCliente } });
 
       if (!student) {
@@ -410,7 +432,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       // catraca usa — a tela nunca discorda da porta.
       return {
         ...withDecryptedCpf(student),
-        studentAccess: await getStudentAccessStatus(prisma, id),
+        studentAccess: await getStudentAccessStatus(prisma, id, idEmpresaConsulta),
       };
     } catch (error) {
       return reply.code(400).send({
@@ -1173,6 +1195,78 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     }
   });
 
+  // O que a matricula do aluno da de direito, e quanto sobrou.
+  app.get<{ Params: { id: string } }>('/students/:id/benefits', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    try {
+      const idAluno = Number(request.params.id);
+      assertValidId(idAluno, 'Aluno invalido.');
+
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) return reply.code(404).send({ message: 'Registro nao encontrado.' });
+
+      return await carregarBeneficios(idAluno, idCliente);
+    } catch (error) {
+      return reply.code(400).send({
+        message: clientErrorMessage(error, 'Erro ao listar beneficios do aluno.'),
+      });
+    }
+  });
+
+  // Entrega de um direito. Quem registra e a EQUIPE (o RBAC do aluno nao
+  // libera esta rota): entregar e um ato do balcao, e deixar o aluno marcar
+  // "peguei" esvaziaria o controle que a tabela existe para dar.
+  app.post<{
+    Params: { id: string; benefitId: string };
+    Body: { dsObservacao?: string | null; idEmpresa?: number | string | null };
+  }>('/students/:id/benefits/:benefitId/use', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    try {
+      const idAluno = Number(request.params.id);
+      const idPlanoBeneficio = Number(request.params.benefitId);
+      assertValidId(idAluno, 'Aluno invalido.');
+      assertValidId(idPlanoBeneficio, 'Beneficio invalido.');
+
+      const student = await findTenantStudent(idAluno, idCliente);
+      if (!student) return reply.code(404).send({ message: 'Registro nao encontrado.' });
+
+      const idEmpresa = optionalNumber(request.body?.idEmpresa);
+      if (idEmpresa) await assertTenantEmpresa(idEmpresa, idCliente);
+
+      // Direito e estoque na MESMA transacao: se a baixa do produto falhar
+      // (estoque insuficiente), o direito nao pode ficar marcado como usado.
+      const registro = await prisma.$transaction(async (transaction) => {
+        const estado = await carregarBeneficiosDoAluno(transaction, idAluno, idCliente);
+        if (!estado.idAlunoPlano) throw new Error('Aluno sem matricula ativa.');
+
+        return registrarUsoDeBeneficio(transaction, {
+          estado,
+          idPlanoBeneficio,
+          idAluno,
+          idEmpresa: idEmpresa ?? null,
+          dsObservacao:
+            typeof request.body?.dsObservacao === 'string'
+              ? request.body.dsObservacao.trim().slice(0, 255) || null
+              : null,
+          idUsuario: request.user.sub ?? null,
+        });
+      });
+
+      // Devolve o estado novo junto: a tela do balcao precisa mostrar
+      // "resta 0 de 1" no mesmo instante, sem uma segunda chamada.
+      return reply.code(201).send({
+        registro,
+        ...(await carregarBeneficios(idAluno, idCliente)),
+      });
+    } catch (error) {
+      return reply.code(400).send({
+        message: clientErrorMessage(error, 'Erro ao registrar a entrega do beneficio.'),
+      });
+    }
+  });
+
   // Avisos do aluno. A geracao e a deduplicacao moram em shared/notifications.ts
   // — aqui so sincronizamos e devolvemos o que esta valendo, ja com o estado de
   // leitura. Sincronizar na leitura mantem a tela correta mesmo se o despacho
@@ -1418,7 +1512,7 @@ export async function registerStudentRoutes(app: FastifyInstance) {
           // Somente agendas do tenant: ids de outros clientes caem no erro de nao encontradas.
           where: { id: { in: scheduleIds }, boInativo: false, empresa: { idCliente } },
           include: {
-            atividade: { select: { dsAtividade: true } },
+            atividade: { select: { id: true, dsAtividade: true } },
             alunoAtividadeAgendas: {
               where: { boInativo: false },
               select: { idAluno: true },
@@ -1430,6 +1524,18 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         if (schedules.length !== scheduleIds.length) {
           throw new Error('Uma ou mais aulas selecionadas nao foram encontradas.');
         }
+
+        // O plano tem que incluir a atividade. Plano sem atividade marcada
+        // continua dando acesso a todas — ver planCoverage.ts.
+        await assertPlanoCobreAtividades(
+          transaction,
+          idAluno,
+          schedules.map((schedule) => ({
+            idAtividade: schedule.idAtividade,
+            idEmpresa: schedule.idEmpresa,
+            dsAtividade: schedule.atividade?.dsAtividade ?? null,
+          })),
+        );
 
         for (const schedule of schedules) {
           if (!schedule.dtInicial || !schedule.dtFinal) {
@@ -2090,7 +2196,9 @@ export async function registerStudentRoutes(app: FastifyInstance) {
 
       if (!idEmpresaCheckIn) throw new Error('Informe a empresa do check-in.');
 
-      const access = await getStudentAccessStatus(prisma, idAluno);
+      // A unidade do check-in entra na conta: o plano precisa cobrir a filial
+      // onde a pessoa esta entrando, e nao apenas estar em dia.
+      const access = await getStudentAccessStatus(prisma, idAluno, idEmpresaCheckIn);
       if (!access.canAccess) {
         throw new Error(access.reason ?? 'Aluno sem acesso liberado para check-in.');
       }

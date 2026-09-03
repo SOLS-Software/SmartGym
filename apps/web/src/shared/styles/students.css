@@ -2054,3 +2054,44 @@ html.dark .lock-badge.trancado {
   font-style: normal;
   opacity: 0.8;
 }
+
+
+/* Direitos da matrícula, do lado do aluno: leitura, sem botão — quem entrega
+   é a recepção. */
+.membership-benefits {
+  margin-top: 1.25rem;
+}
+
+.membership-benefits ul {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.membership-benefits li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.membership-benefits strong.ok {
+  color: var(--color-gain, #15803d);
+}
+
+.membership-benefits strong.used {
+  opacity: 0.55;
+}
+
+.membership-benefits em {
+  font-style: normal;
+  font-size: 0.78rem;
+  opacity: 0.7;
+}

@@ -15,6 +15,7 @@ import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { assertAllowedUploadType, assertUploadBuffer, getPromotionFilePath } from '../../shared/files.js';
 import type { CompanyChildPayload, PlanChildResource, PlanPayload } from '../../shared/api-types.js';
 import { clientErrorMessage } from '../../shared/errors.js';
+import { janelaDoBeneficio } from '../../shared/planBenefits.js';
 
 // ---------------------------------------------------------------------------
 // Validacao de entrada
@@ -216,6 +217,47 @@ const planChildResourceConfig = {
         idPlano: planId,
         idEmpresa: optionalNumber(payload.idEmpresa),
         idAtividade: optionalNumber(payload.idAtividade),
+        boInativo: toBool(payload.boInativo),
+      };
+    },
+  },
+  benefits: {
+    delegate: asPlanChildDelegate(prisma.planoBeneficio),
+    childWhere(planId: number): Record<string, unknown> {
+      return { idPlano: planId };
+    },
+    async assertTenant(idCliente: number, payload: CompanyChildPayload) {
+      await assertCompanyInTenant(idCliente, optionalNumber(payload.idEmpresa));
+      await assertProductInTenant(idCliente, optionalNumber(payload.idProduto));
+    },
+    normalize(planId: number, payload: CompanyChildPayload) {
+      const cnTipo = String(payload.cnTipo ?? 'produto').trim().toLowerCase();
+      const idProduto = optionalNumber(payload.idProduto);
+
+      // Direito de produto sem produto nao da para entregar: viraria uma linha
+      // na tela que a recepcao nao consegue cumprir.
+      if (cnTipo === 'produto' && !idProduto) {
+        throw new Error('Escolha o produto do beneficio.');
+      }
+
+      const qtLimite = optionalNumber(payload.qtLimite) ?? 1;
+      if (qtLimite <= 0) throw new Error('A quantidade do beneficio deve ser maior que zero.');
+
+      const cnJanela = janelaDoBeneficio(
+        typeof payload.cnJanela === 'string' ? payload.cnJanela : null,
+      );
+      if (!cnJanela) {
+        throw new Error('Informe quando o beneficio se renova: matricula, mes ou ano.');
+      }
+
+      return {
+        idPlano: planId,
+        idEmpresa: optionalNumber(payload.idEmpresa),
+        cnTipo: cnTipo === 'avaliacao' ? 'avaliacao' : cnTipo === 'outro' ? 'outro' : 'produto',
+        idProduto: cnTipo === 'produto' ? idProduto : null,
+        dsBeneficio: typeof payload.dsBeneficio === 'string' ? payload.dsBeneficio.trim() : '',
+        qtLimite,
+        cnJanela,
         boInativo: toBool(payload.boInativo),
       };
     },
@@ -538,6 +580,31 @@ export async function registerPlanRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao listar empresas do plano.'),
+      });
+    }
+  });
+
+  app.get<{ Params: { id: string } }>('/plans/:id/related/benefits', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    try {
+      const idPlano = Number(request.params.id);
+      assertValidId(idPlano, 'Plano invalido.');
+      if (!(await planBelongsToTenant(idCliente, idPlano))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+
+      return prisma.planoBeneficio.findMany({
+        where: { idPlano },
+        include: {
+          empresa: { select: { id: true, dsEmpresa: true } },
+          produto: { select: { id: true, dsProduto: true } },
+        },
+        orderBy: { id: 'asc' },
+      });
+    } catch (error) {
+      return reply.code(400).send({
+        message: clientErrorMessage(error, 'Erro ao listar beneficios do plano.'),
       });
     }
   });
