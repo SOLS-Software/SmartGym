@@ -183,6 +183,29 @@ const menuGroups = [
   },
 ];
 
+// Menu do ALUNO, escrito por extenso.
+//
+// Antes era a estrutura da gestao menos uma lista de exclusoes, e lista de
+// exclusao erra por OMISSAO: todo item novo do menu nasce visivel para o
+// aluno, e so se descobre quando ele clica e leva "Acesso nao autorizado".
+// Foi o que aconteceu com "Agendas" (que ainda lista alunos inscritos de
+// outras pessoas) e com "Exercicios" (a tela de cadastro pede areas do corpo
+// e equipamentos, que o aluno nao alcanca).
+//
+// Aqui o aluno so ve o que ele usa de verdade. Continua sendo ergonomia, nao
+// seguranca: quem forjar a navegacao segue barrado pela API.
+const studentMenuGroups = [
+  { title: 'INÍCIO', items: ['Painel'] },
+  { title: 'AULAS', items: ['Atividades', 'Calendário', 'Calendário Empresa'] },
+  { title: 'TREINO', items: ['Meu Treino', 'Evolução'] },
+  {
+    title: 'MINHA CONTA',
+    items: ['Matrículas', 'Planos', 'Promoções', 'Pontuações', 'Minha Conta'],
+  },
+];
+
+const studentMenuItems = new Set(studentMenuGroups.flatMap((group) => group.items));
+
 // Permissao exigida por item de menu. A chave e o item; o valor e a permissao
 // que o SERVIDOR exige nas rotas daquela tela (apps/api/src/plugins/
 // permissions.ts). Item ausente do mapa = visivel para qualquer funcionario.
@@ -228,11 +251,10 @@ const menuItemPermissions: Record<string, string> = {
   'Domínios': 'domains.write',
 };
 
-// Grupos visiveis para o usuario. O aluno segue com a lista inteira (o RBAC
-// dele e outro, por rota, e as telas ja se adaptam por authUserType); o filtro
-// vale para funcionario. Grupo que fica sem nenhum item some junto.
-function getVisibleMenuGroups(userType: AuthUserType, permissions: string[]) {
-  if (userType === 'student') return menuGroups;
+// Grupos visiveis para o FUNCIONARIO, pelas permissoes do perfil dele. O
+// aluno tem estrutura propria (studentMenuGroups). Grupo que fica sem nenhum
+// item some junto.
+function getVisibleMenuGroups(permissions: string[]) {
   const granted = new Set(permissions);
   return menuGroups
     .map((group) => ({
@@ -254,17 +276,6 @@ function getMenuItemLabel(item: string, userType: AuthUserType) {
   // activeItem); so o rotulo exibido muda.
   if (item === 'Montar Treino') return 'Montagem de Treino';
   return item;
-}
-
-// Os grupos do menu foram escritos para a operacao da academia e o app do aluno
-// reaproveita a mesma lista. Sem esta traducao o aluno via um grupo "ALUNOS"
-// (e a trilha "ALUNOS / MATRÍCULA") com a propria matricula dentro — ele nao e
-// uma lista de alunos, ele e o aluno.
-function getMenuGroupLabel(title: string, userType: AuthUserType) {
-  if (userType !== 'student') return title;
-  if (title === 'ALUNOS') return 'MINHA CONTA';
-  if (title === 'ATIVIDADE') return 'AULAS';
-  return title;
 }
 
 const THEME_CACHE_KEY = 'smartgym_theme_cache';
@@ -535,9 +546,14 @@ export default function HomePage() {
               setAuthUserEmployeeId(user.idFuncionario);
               setAuthUserStudentId(user.idAluno);
               setActiveItem(
-                savedActiveItem === 'Meu Treino' && user.type === 'employee'
-                  ? 'Painel'
-                  : savedActiveItem,
+                user.type === 'employee'
+                  ? savedActiveItem === 'Meu Treino'
+                    ? 'Painel'
+                    : savedActiveItem
+                  : // Aluno voltando numa tela que saiu do menu dele.
+                    studentMenuItems.has(savedActiveItem)
+                    ? savedActiveItem
+                    : 'Meu Treino',
               );
               setIsLoggedIn(true);
               if (shouldShowOnboarding(user.id)) {
@@ -1058,19 +1074,15 @@ export default function HomePage() {
   if (isLoggedIn) {
     const visibleMenuGroups =
       authUserType === 'employee'
-        ? getVisibleMenuGroups('employee', authUserPermissions)
+        ? getVisibleMenuGroups(authUserPermissions)
+            // "Meu Treino" e "Evolução" sao do aluno: para o funcionario elas
+            // abririam sem aluno nenhum selecionado.
             .map((group) => ({
               ...group,
               items: group.items.filter((item) => item !== 'Meu Treino' && item !== 'Evolução'),
             }))
             .filter((group) => group.items.length > 0)
-        : menuGroups
-          .filter((group) => group.title === 'INÍCIO' || group.title === 'TREINO' || group.title === 'ALUNOS' || group.title === 'ATIVIDADE')
-          .map((group) => ({
-            ...group,
-            title: getMenuGroupLabel(group.title, 'student'),
-            items: group.items.filter((item) => item !== 'Montar Treino' && item !== 'Montagem de Agenda' && item !== 'Calendário Empresa' && item !== 'Treino' && item !== 'Relatórios' && item !== 'Dashboards' && item !== 'Recepção' && item !== 'Minha Conta' && item !== 'Interessados' && item !== 'Caixa'),
-          }));
+        : studentMenuGroups;
 
     // Rede de seguranca da navegacao: a sessao guarda o ultimo item aberto, e a
     // barra inferior do mobile tem atalhos fixos — os dois podem apontar para
@@ -1078,14 +1090,17 @@ export default function HomePage() {
     // tela carregar e encher de 403.
     const requiredForActive = menuItemPermissions[activeItem];
     const isActiveItemBlocked =
-      authUserType === 'employee' &&
-      requiredForActive !== undefined &&
-      !authUserPermissions.includes(requiredForActive);
+      authUserType === 'employee'
+        ? requiredForActive !== undefined && !authUserPermissions.includes(requiredForActive)
+        : // Sessao antiga pode ter guardado uma tela da gestao (era possivel
+          // chegar em "Agendas" pelo menu). Melhor explicar do que abrir a
+          // tela e enche-la de 403.
+          !studentMenuItems.has(activeItem);
 
-    const activeGroup = getMenuGroupLabel(
-      menuGroups.find((g) => g.items.includes(activeItem))?.title ?? '',
-      authUserType,
-    );
+    const activeGroup =
+      (authUserType === 'student' ? studentMenuGroups : menuGroups).find((g) =>
+        g.items.includes(activeItem),
+      )?.title ?? '';
 
     return (
       <div className={`home-page ${isMenuOpen ? '' : 'menu-collapsed'}`}>
@@ -1251,8 +1266,9 @@ export default function HomePage() {
                 {getMenuItemLabel(activeItem, authUserType).toUpperCase()}
               </h2>
               <p>
-                Seu perfil de acesso não inclui esta tela. Peça a quem administra o sistema
-                para liberar em RH &rsaquo; Perfis de Acesso.
+                {authUserType === 'student'
+                  ? 'Esta tela é da equipe da academia. Use o menu ao lado para ver seu treino, suas aulas e sua matrícula.'
+                  : 'Seu perfil de acesso não inclui esta tela. Peça a quem administra o sistema para liberar em RH \u203A Perfis de Acesso.'}
               </p>
             </div>
           ) : activeItem === 'Painel' ? (
