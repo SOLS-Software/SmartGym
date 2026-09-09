@@ -91,6 +91,10 @@ handlers e sinaliza `prisma.<modelDeTenant>.findMany/findFirst/update/delete` se
    model de tenant é consultado sem `idCliente`, junto com o teste de cobertura de
    rotas do M-2. Remover o `getTenantId()` morto ou passar a usá-lo. Rede de
    proteção imediata, risco zero.
+   → **FEITO (2026-09-09):** `apps/api/src/plugins/tenantScope.test.ts` flagra
+   `findMany`/`count`/`aggregate`/`groupBy` de model de tenant sem `idCliente`
+   (escopo estreito p/ zero falso-positivo — hoje 25/25 escopadas; provado que
+   pega uma violação injetada). `getTenantId()` morto removido de `plugins/auth.ts`.
 2. **Próximo trimestre (G):** implementar **B (RLS)** para os **15 models com
    `idCliente`** — a defesa forte onde ela é barata (a coluna já existe). Role de
    app sem `BYPASSRLS`, `SET LOCAL` por request, e um teste de integração que

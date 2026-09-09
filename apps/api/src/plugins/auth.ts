@@ -208,9 +208,7 @@ export async function requireSuperAdmin(request: FastifyRequest, reply: FastifyR
   }
 }
 
-// Tenant do usuario autenticado. Funcionario/gestor derivam de Empresa.idCliente
-// e aluno de Aluno.idCliente (ambos populados no login). Rotas de gestao devem
-// exigir non-null.
-export function getTenantId(request: FastifyRequest): number | null {
-  return request.user.idCliente ?? null;
-}
+// (Removido: `getTenantId(request)` — era codigo morto, 0 usos. Os handlers leem
+// `request.user.idCliente` direto e conferem non-null na hora. Se a fase 2 do
+// isolamento (RLS/Prisma extension — ver docs/isolamento-tenant-proposta.md)
+// introduzir um acesso centralizado ao tenant, ele nasce ali, com uso real.)
