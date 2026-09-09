@@ -38,7 +38,8 @@ declare module 'fastify' {
 
 // Rotas alcancaveis sem token (match exato do pathname, sem query string).
 // Nunca usar startsWith aqui: '/auth/login-x' nao pode herdar a isencao.
-const PUBLIC_ROUTES = new Set([
+// Exportado para o teste de cobertura de rotas usar a MESMA fonte de verdade.
+export const PUBLIC_ROUTES = new Set([
   '/health',
   '/auth/login',
   '/auth/gestor-login',
@@ -78,7 +79,7 @@ const PUBLIC_ROUTES = new Set([
 // duas pontas): e a mesma disciplina do Set, so que expressa em regex. Um
 // `startsWith('/webhooks')` isentaria qualquer sub-rota futura de autenticacao
 // sem ninguem perceber.
-const PUBLIC_ROUTE_PATTERNS: RegExp[] = [
+export const PUBLIC_ROUTE_PATTERNS: RegExp[] = [
   // Webhook de pagamento. A defesa esta no modulo: token na URL, token no
   // header conferido em tempo constante, e confirmacao de volta no provedor.
   /^\/webhooks\/payments\/[A-Za-z0-9_-]{16,64}$/,
