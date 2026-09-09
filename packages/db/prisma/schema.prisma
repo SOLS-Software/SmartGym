@@ -435,6 +435,7 @@ model Aluno {
   leads                 Lead[]
   solicitacoesPlano     SolicitacaoPlano[]
   integracoes           AlunoIntegracao[]
+  consentimentos        Consentimento[]
 
   @@unique([idCliente, caCPFHash])
   // Um numero de usuario da catraca so pode apontar para UM aluno dentro do
@@ -1794,6 +1795,7 @@ model Cliente {
   atividades        Atividade[]
   treinos           Treino[]
   promocoes         Promocao[]
+  consentimentos    Consentimento[]
 
   @@map("tb_Clientes")
 }
@@ -2252,4 +2254,33 @@ model Auditoria {
   @@index([idCliente, dtEvento])
   @@index([idUsuario, dtEvento])
   @@map("tb_Auditoria")
+}
+
+// Consentimento do titular (LGPD art. 8 e art. 11, II "a"). Registra concessao
+// E revogacao de forma ESPECIFICA por finalidade — biometria facial (dado
+// sensivel), comunicacao por email, push. APPEND-ONLY: cada mudanca e um novo
+// registro; o estado atual e o registro mais recente por (aluno, finalidade).
+// Isso da a rastreabilidade que o art. 37 exige (quem consentiu o que, quando).
+//
+// Alimentado por /students/:id/consents (ver modules/students). A CHECAGEM que
+// bloqueia biometria/push sem consentimento ainda nao esta ligada — depende da
+// tela de captura do consentimento; ver o achado M-3 no relatorio de auditoria.
+model Consentimento {
+  id            Int      @id @default(autoincrement())
+  idCliente     Int
+  idAluno       Int
+  // Finalidade especifica: 'biometria_facial', 'comunicacao_email', 'push'...
+  cnFinalidade  String   @db.VarChar(40)
+  boConcedido   Boolean
+  // Versao do termo/aviso aceito, para provar O QUE foi consentido.
+  dsVersaoTermo String?  @db.VarChar(40)
+  dtRegistro    DateTime @default(now())
+  anIpOrigem    String?  @db.VarChar(64)
+
+  cliente Cliente @relation(fields: [idCliente], references: [id])
+  aluno   Aluno   @relation(fields: [idAluno], references: [id])
+
+  @@index([idAluno, cnFinalidade, dtRegistro])
+  @@index([idCliente])
+  @@map("tb_Consentimentos")
 }

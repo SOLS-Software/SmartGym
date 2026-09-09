@@ -346,6 +346,145 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   await registerStudentLockRoutes(app);
 
   // ---------------------------------------------------------------------------
+  // LGPD — direito de acesso e portabilidade do titular (art. 18, II e V)
+  //
+  // Reune, num JSON legivel, TODO o dado pessoal do aluno que a academia trata:
+  // ficha, planos, pagamentos, avaliacao fisica (dado de saude), frequencia,
+  // pontos, avisos, solicitacoes e o METADADO da biometria — nunca o embedding
+  // em si (a API nunca devolve o vetor). Escopado por tenant; o proprio aluno
+  // exporta os seus (studentRbac libera GET /students/:id/lgpd-export para o
+  // dono) e a equipe exporta a pedido do titular (cai em students.read).
+  // ---------------------------------------------------------------------------
+  app.get<{ Params: { id: string } }>('/students/:id/lgpd-export', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    try {
+      const idAluno = Number(request.params.id);
+      assertValidId(idAluno, 'Aluno invalido.');
+
+      const aluno = await prisma.aluno.findFirst({
+        where: { id: idAluno, idCliente },
+        include: {
+          cliente: { select: { dsCliente: true } },
+          alunoPlanos: { include: { plano: { select: { dsPlano: true } } } },
+          alunoEvolucoes: true,
+          alunoTreinos: { include: { treino: { select: { dsTreino: true } } } },
+          alunoCheckIns: true,
+          alunosPontuacoes: true,
+          notificacoes: true,
+          solicitacoesPlano: true,
+          catracaEventos: true,
+          // Metadado da biometria — NUNCA o vetor (anEmbedding fica de fora).
+          alunobiometriafacial: {
+            select: {
+              id: true,
+              dsProvider: true,
+              dsModelo: true,
+              dtCadastro: true,
+              dtAlteracao: true,
+              boInativo: true,
+            },
+          },
+        },
+      });
+
+      if (!aluno) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+
+      const { caCPF, caCPFHash: _hash, ...resto } = aluno;
+      return reply
+        .header('Content-Disposition', `attachment; filename="dados-aluno-${idAluno}.json"`)
+        .send({
+          _meta: {
+            titular: idAluno,
+            academia: aluno.cliente?.dsCliente ?? null,
+            geradoEm: new Date().toISOString(),
+            baseLegal:
+              'Art. 18, II (acesso) e V (portabilidade) da LGPD. Metadados de biometria incluidos; o vetor biometrico nao e exportado.',
+          },
+          ...resto,
+          // CPF decifrado para o proprio titular; o hash de lookup fica de fora.
+          caCPF: decryptCpfValue(caCPF),
+        });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({ message: 'Erro ao gerar a exportacao de dados.' });
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // LGPD — consentimento especifico por finalidade (art. 8 e art. 11)
+  //
+  // GET devolve o estado ATUAL (registro mais recente por finalidade) + o
+  // historico. POST registra uma concessao OU revogacao (append-only). O
+  // proprio aluno concede/revoga pelo app (studentRbac libera estes dois no
+  // seu id); a equipe registra a pedido (students.read/.write).
+  // ---------------------------------------------------------------------------
+  const CONSENT_PURPOSES = new Set(['biometria_facial', 'comunicacao_email', 'push']);
+
+  app.get<{ Params: { id: string } }>('/students/:id/consents', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    try {
+      const idAluno = Number(request.params.id);
+      assertValidId(idAluno, 'Aluno invalido.');
+      if (!(await findTenantStudent(idAluno, idCliente))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+      const registros = await prisma.consentimento.findMany({
+        where: { idAluno, idCliente },
+        orderBy: { dtRegistro: 'desc' },
+      });
+      // Estado atual = o registro mais recente de cada finalidade.
+      const atual: Record<string, { concedido: boolean; em: Date; versao: string | null }> = {};
+      for (const r of registros) {
+        if (!(r.cnFinalidade in atual)) {
+          atual[r.cnFinalidade] = { concedido: r.boConcedido, em: r.dtRegistro, versao: r.dsVersaoTermo };
+        }
+      }
+      return { idAluno, atual, historico: registros };
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({ message: 'Erro ao consultar consentimentos.' });
+    }
+  });
+
+  app.post<{
+    Params: { id: string };
+    Body: { cnFinalidade?: string; boConcedido?: unknown; dsVersaoTermo?: string };
+  }>('/students/:id/consents', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    try {
+      const idAluno = Number(request.params.id);
+      assertValidId(idAluno, 'Aluno invalido.');
+      if (!(await findTenantStudent(idAluno, idCliente))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+      const cnFinalidade = String(request.body?.cnFinalidade ?? '');
+      if (!CONSENT_PURPOSES.has(cnFinalidade)) {
+        return reply.code(400).send({ message: 'Finalidade de consentimento invalida.' });
+      }
+      const registro = await prisma.consentimento.create({
+        data: {
+          idCliente,
+          idAluno,
+          cnFinalidade,
+          boConcedido: toBool(request.body?.boConcedido),
+          dsVersaoTermo: request.body?.dsVersaoTermo?.slice(0, 40) || null,
+          anIpOrigem: (request.ip ?? '').slice(0, 64) || null,
+        },
+      });
+      return reply.code(201).send(registro);
+    } catch (error) {
+      return reply.code(400).send({
+        message: clientErrorMessage(error, 'Erro ao registrar consentimento.'),
+      });
+    }
+  });
+
+  // ---------------------------------------------------------------------------
   // Students CRUD
   // ---------------------------------------------------------------------------
 

@@ -82,6 +82,9 @@ export function isStudentAllowed(
       // conferida no handler; aqui basta o caminho ser o dele.
       (method === 'POST' &&
         /^\/students\/\d+\/related\/payments\/\d+\/charge$/.test(pathname)) ||
+      // Consentimento LGPD do PROPRIO titular: conceder/revogar biometria, push,
+      // comunicacao. E direito do titular exerce-lo, entao o app do aluno pode.
+      (method === 'POST' && /^\/students\/\d+\/consents$/.test(pathname)) ||
       (method === 'PUT' && /^\/students\/\d+$/.test(pathname))
     );
   }
