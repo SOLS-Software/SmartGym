@@ -36,8 +36,11 @@ export type EnrollArgs = {
 export async function enrollStudentInPlan(args: EnrollArgs) {
   const { transaction, idCliente, idAluno, idPlano } = args;
 
-  const plano = await transaction.plano.findUnique({
-    where: { id: idPlano },
+  // findFirst com idCliente, nao findUnique por id: sem o filtro de tenant
+  // aqui, matricular um aluno num plano de OUTRA academia era so passar o id
+  // certo — e as parcelas nasciam com o preco do concorrente.
+  const plano = await transaction.plano.findFirst({
+    where: { id: idPlano, idCliente },
     include: {
       frequencia: true,
       planoValores: { where: { boInativo: false }, orderBy: { dtCadastro: 'desc' } },
@@ -76,7 +79,13 @@ export async function enrollStudentInPlan(args: EnrollArgs) {
   const idPromocaoPlano = args.idPromocaoPlano ?? null;
   const promocaoPlano = idPromocaoPlano
     ? await transaction.promocaoPlano.findFirst({
-        where: { id: idPromocaoPlano, OR: [{ idEmpresa: null }, { empresa: { idCliente } }] },
+        // idEmpresa nulo aqui e "vale em todas as filiais"; quem garante o
+        // tenant e a campanha dona, nao a filial da linha.
+        where: {
+          id: idPromocaoPlano,
+          promocao: { idCliente },
+          OR: [{ idEmpresa: null }, { empresa: { idCliente } }],
+        },
         include: { promocao: true },
       })
     : null;

@@ -351,7 +351,11 @@ export default function GestorPage() {
         </div>
       </header>
 
-      <ThemeRegistration idCliente={session.idCliente} allowedCompanyIds={session.empresas.map((e) => e.id)} />
+      <ThemeRegistration
+        idCliente={session.idCliente}
+        allowedCompanyIds={session.empresas.map((e) => e.id)}
+        canManageDomains={session.superAdmin === true}
+      />
     </main>
   );
 }

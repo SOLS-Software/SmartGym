@@ -1971,14 +1971,10 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         if (!idTreino) throw new Error('Selecione um treino.');
 
         const training = await prisma.treino.findFirst({
-          where: {
-            id: idTreino,
-            OR: [
-              { empresa: { idCliente } },
-              { idEmpresa: null, idAluno: null },
-              { idEmpresa: null, aluno: { idCliente } },
-            ],
-          },
+          // Treino do cliente. O filtro antigo aceitava tambem ficha sem
+          // filial e sem aluno, que antes de tb_Treinos.idCliente era o
+          // "modelo global" — e vinha de qualquer academia da instalacao.
+          where: { id: idTreino, idCliente },
           select: { id: true },
         });
         if (!training) throw new Error('Treino invalido.');
@@ -2323,14 +2319,10 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         if (!idTreino) throw new Error('Selecione um treino.');
 
         const training = await prisma.treino.findFirst({
-          where: {
-            id: idTreino,
-            OR: [
-              { empresa: { idCliente } },
-              { idEmpresa: null, idAluno: null },
-              { idEmpresa: null, aluno: { idCliente } },
-            ],
-          },
+          // Treino do cliente. O filtro antigo aceitava tambem ficha sem
+          // filial e sem aluno, que antes de tb_Treinos.idCliente era o
+          // "modelo global" — e vinha de qualquer academia da instalacao.
+          where: { id: idTreino, idCliente },
           select: { id: true },
         });
         if (!training) throw new Error('Treino invalido.');

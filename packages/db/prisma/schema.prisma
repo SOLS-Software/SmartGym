@@ -13,7 +13,10 @@ model Empresa {
   id                 Int                                   @id @default(autoincrement())
   idTema             Int?
   dsEmpresa          String                                @db.VarChar(255)
-  caCNPJ             String                                @unique @db.VarChar(14)
+  // Unico POR CLIENTE (ver @@unique abaixo), nao por instalacao: uma rede que
+  // opera o mesmo CNPJ em duas contas travava, e o erro de duplicidade
+  // confirmava a um cliente que aquele CNPJ ja existia em algum outro.
+  caCNPJ             String                                @db.VarChar(14)
   anCEP              String?                               @db.VarChar(8)
   anLogradouro       String?                               @db.VarChar(150)
   nrEndereco         String?                               @db.VarChar(10)
@@ -63,6 +66,7 @@ model Empresa {
   cliente                     Cliente                      @relation(fields: [idCliente], references: [id])
   temaCustomizado             TemaCustomizado?
 
+  @@unique([idCliente, caCNPJ])
   @@index([geoEmpresa], name: "geo_empresa", type: Gist)
   @@index([idCliente])
   @@map("tb_Empresas")
@@ -70,8 +74,20 @@ model Empresa {
   beneficioUsos         AlunoBeneficioUso[]
 }
 
+// DONO DO PLANO E O CLIENTE, nao a filial.
+//
+// Ate 09/2026 esta tabela nao tinha coluna de tenant nenhuma: quem era o dono
+// se deduzia por PlanoEmpresa, e o filtro de leitura tratava "plano sem
+// nenhuma empresa vinculada" como GLOBAL — visivel a todos os clientes. Como
+// POST /plans cria justamente sem vinculo, todo plano nascia global: 7 dos 9
+// planos da base estavam nesse estado, levando junto o preco em PlanoValor.
+//
+// A filial continua opcional nos FILHOS (PlanoValor, PlanoAtividade...), onde
+// idEmpresa nulo agora significa "vale em todas as filiais DESTE cliente" —
+// nao mais "de todo mundo".
 model Plano {
   id                 Int      @id @default(autoincrement())
+  idCliente          Int
   dsPlano            String   @db.VarChar(255)
   // CICLO DE COBRANCA (Mensal, Trimestral, Anual) — e o que gera as parcelas
   // em shared/payments.ts. NAO confundir com quantas vezes o aluno pode vir:
@@ -92,6 +108,7 @@ model Plano {
   idUsuarioAlteracao Int?
   boInativo          Boolean  @default(false)
 
+  cliente         Cliente            @relation(fields: [idCliente], references: [id])
   frequencia      Frequencia?        @relation(fields: [idFrequencia], references: [id])
   planoAtividades PlanoAtividade[]
   planoProdutos   PlanoProduto[]
@@ -103,6 +120,7 @@ model Plano {
   leads           Lead[]
   solicitacoes    SolicitacaoPlano[]
 
+  @@index([idCliente])
   @@map("tb_Planos")
 }
 
@@ -132,8 +150,13 @@ model Pontuacao {
   @@map("tb_Pontuacoes")
 }
 
+// idCliente e obrigatorio; idEmpresa segue opcional e significa "vale em todas
+// as filiais deste cliente" (aula de plano que a rede inteira oferece). Antes
+// de 09/2026 a ausencia de filial significava GLOBAL — a aula de um cliente
+// aparecia na grade de outro.
 model Atividade {
   id                 Int      @id @default(autoincrement())
+  idCliente          Int
   idEmpresa          Int?
   idEsporte          Int?
   dsAtividade        String   @db.VarChar(255)
@@ -143,11 +166,13 @@ model Atividade {
   idUsuarioAlteracao Int?
   boInativo          Boolean  @default(false)
 
+  cliente          Cliente           @relation(fields: [idCliente], references: [id])
   empresa          Empresa?          @relation(fields: [idEmpresa], references: [id])
   esporte          Esporte?          @relation(fields: [idEsporte], references: [id])
   atividadeAgendas AtividadeAgenda[]
   planoAtividades  PlanoAtividade[]
 
+  @@index([idCliente])
   @@index([idEmpresa])
   @@index([idEsporte])
   @@map("tb_Atividades")
@@ -299,8 +324,12 @@ model Produto {
   planoBeneficios    PlanoBeneficio[]
 }
 
+// Ficha de treino. idEmpresa nulo = modelo da rede, valido em qualquer filial
+// do cliente — era o estado de 3 fichas que, sem idCliente, ficavam legiveis
+// por qualquer academia da instalacao.
 model Treino {
   id                 Int      @id @default(autoincrement())
+  idCliente          Int
   idEmpresa          Int?
   idAluno            Int?
   idNivel            Int?
@@ -311,12 +340,14 @@ model Treino {
   idUsuarioAlteracao Int?
   boInativo          Boolean  @default(false)
 
+  cliente          Cliente           @relation(fields: [idCliente], references: [id])
   empresa          Empresa?          @relation(fields: [idEmpresa], references: [id])
   aluno            Aluno?            @relation(fields: [idAluno], references: [id])
   nivel            Nivel?            @relation(fields: [idNivel], references: [id])
   treinoExercicios TreinoExercicio[]
   alunoTreinos     AlunoTreino[]
 
+  @@index([idCliente])
   @@index([idEmpresa])
   @@index([idAluno])
   @@map("tb_Treinos")
@@ -480,9 +511,15 @@ model FuncionarioArquivo {
 
 model Usuario {
   id                 Int       @id @default(autoincrement())
+  // Tenant do usuario. Continua deduzivel por funcionario.empresa/aluno, mas
+  // agora tambem esta gravado: e o que permite o login ser unico POR CLIENTE
+  // em vez de por instalacao (dois clientes podiam nao ter, cada um, um
+  // usuario "recepcao@..." — o primeiro tomava o nome, e o erro de duplicidade
+  // entregava ao segundo que o outro existia).
+  idCliente          Int
   idFuncionario      Int?
   idAluno            Int?
-  dsLogin            String    @unique @default("") @db.VarChar(100)
+  dsLogin            String    @default("") @db.VarChar(100)
   dtUltimoAcesso     DateTime?
   dtCadastro         DateTime  @default(now())
   dtAlteracao        DateTime  @updatedAt
@@ -498,12 +535,15 @@ model Usuario {
   // logout / troca de senha ate expirar por tempo.
   nrTokenVersion     Int       @default(0)
 
+  cliente           Cliente              @relation(fields: [idCliente], references: [id])
   funcionario       Funcionario?         @relation(fields: [idFuncionario], references: [id])
   aluno             Aluno?               @relation(fields: [idAluno], references: [id])
   senhas            Senha[]
   recuperacoesSenha RecuperacaoSenha[]
   dispositivos      UsuarioDispositivo[]
 
+  @@unique([idCliente, dsLogin])
+  @@index([idCliente])
   @@index([idFuncionario])
   @@index([idAluno])
   @@map("tb_Usuarios")
@@ -545,8 +585,11 @@ model RecuperacaoSenha {
   @@map("tb_RecuperacoesSenha")
 }
 
+// Campanha promocional. Mesmo modelo de Plano: dono e o cliente, filial e
+// opcional e restringe a campanha a uma unidade.
 model Promocao {
   id                 Int       @id @default(autoincrement())
+  idCliente          Int
   idEmpresa          Int?
   dsPromocao         String    @default("") @db.VarChar(255)
   qtPeriodo          Int       @default(0)
@@ -561,12 +604,14 @@ model Promocao {
   idUsuarioAlteracao Int?
   boInativo          Boolean   @default(false)
 
+  cliente          Cliente           @relation(fields: [idCliente], references: [id])
   empresa          Empresa?          @relation(fields: [idEmpresa], references: [id])
   unidadeTempo     UnidadeTempo?     @relation(fields: [idUnidadeTempo], references: [id])
   promocaoPlanos   PromocaoPlano[]
   promocaoProdutos PromocaoProduto[]
   promocaoArquivos PromocaoArquivo[]
 
+  @@index([idCliente])
   @@index([idEmpresa])
   @@map("tb_Promocoes")
 }
@@ -1739,11 +1784,16 @@ model Cliente {
   temaCustomizado   TemaCustomizado?
   arquivos          ClienteArquivo[]
   alunos            Aluno[]
+  usuarios          Usuario[]
   fornecedores      Fornecedor[]
   equipamentos      Equipamento[]
   perfisAcesso      PerfilAcesso[]
   leads             Lead[]
   contasRecebimento ContaRecebimento[]
+  planos            Plano[]
+  atividades        Atividade[]
+  treinos           Treino[]
+  promocoes         Promocao[]
 
   @@map("tb_Clientes")
 }
@@ -2166,4 +2216,40 @@ model AlunoIntegracao {
   @@unique([idAluno, idContaRecebimento])
   @@index([idContaRecebimento])
   @@map("tb_AlunoIntegracoes")
+}
+
+// Trilha de auditoria (LGPD art. 37/38 accountability e art. 48 incidente):
+// registra QUEM acessou/alterou dado pessoal, QUANDO e por qual rota — nunca o
+// CONTEUDO (a trilha nao pode virar mais um deposito de PII). Alimentada pelo
+// hook onResponse em apps/api/src/app.ts, que audita as rotas que tocam titular
+// (alunos, funcionarios, avaliacao, biometria, financeiro) e os eventos de
+// seguranca (login, sessao revogada, acesso negado, webhook recusado).
+//
+// APPEND-ONLY e SEM FK para Usuario/Cliente de proposito: o registro precisa
+// sobreviver a remocao do ator (forense) e nunca ser apagado em cascata. A
+// retencao e por politica (expurgo por dtEvento) — decisao de negocio, ainda
+// nao automatizada.
+model Auditoria {
+  id          BigInt   @id @default(autoincrement())
+  dtEvento    DateTime @default(now())
+  // Ator: id do Usuario do token. Nulo em rota publica/anonima.
+  idUsuario   Int?
+  // Tenant do ator (Usuario.idCliente do token).
+  idCliente   Int?
+  // Papel no token: student / employee / gestor.
+  cnPapel     String?  @db.VarChar(20)
+  cnMetodo    String   @db.VarChar(10)
+  // Pathname sem query string (ex.: "/students/491"). O id do recurso ja vem
+  // aqui — nao guardamos corpo nem query, que poderiam carregar PII.
+  dsRota      String   @db.VarChar(255)
+  nrStatus    Int
+  anIp        String?  @db.VarChar(64)
+  // Rotulo de evento de seguranca quando o handler/hook marca algo alem do
+  // status HTTP (ex.: "sessao_revogada", "token_ausente").
+  dsResultado String?  @db.VarChar(100)
+
+  @@index([dtEvento])
+  @@index([idCliente, dtEvento])
+  @@index([idUsuario, dtEvento])
+  @@map("tb_Auditoria")
 }

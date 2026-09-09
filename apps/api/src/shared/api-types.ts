@@ -166,6 +166,9 @@ export type RegisterPayload = {
   phone?: string | number | null;
   email?: string;
   password?: string;
+  // Dominio de onde o cadastro foi aberto (window.location.hostname no web).
+  // Resolve QUAL cliente e este — o mesmo CPF pode ter ficha em varios tenants.
+  caDominio?: string;
 };
 
 export type LoginPayload = {
@@ -173,15 +176,24 @@ export type LoginPayload = {
   password?: string;
   // Origem do login: define a validade do token (mobile recebe token longo).
   client?: 'web' | 'mobile';
+  // Dominio de onde o login foi aberto (window.location.hostname no web).
+  // Quando resolve um cliente, o lookup por CPF e escopado a ele: e assim que
+  // "entrar pela pagina da academia X" so alcanca a conta da academia X. O app
+  // mobile nao tem dominio — la a senha desambigua entre os tenants.
+  caDominio?: string;
 };
 
 export type ForgotPasswordPayload = {
   cpf?: string;
+  // Ver LoginPayload.caDominio: escopa a recuperacao ao cliente do dominio.
+  caDominio?: string;
 };
 
 export type RegisterLookupQuery = {
   type?: 'student' | 'employee';
   cpf?: string;
+  // Ver LoginPayload.caDominio: escopa a busca da ficha ao cliente do dominio.
+  caDominio?: string;
 };
 
 export type VerifySessionQuery = {

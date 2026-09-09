@@ -673,7 +673,7 @@ export default function HomePage() {
     try {
       setIsLookingUpRegister(true);
       const response = await fetch(
-        `${apiUrl}/auth/register-lookup?type=${type}&cpf=${cpf}`,
+        `${apiUrl}/auth/register-lookup?type=${type}&cpf=${cpf}&caDominio=${encodeURIComponent(window.location.hostname)}`,
       );
 
       // `if (false && ...)` desativava esta checagem e deixava o fluxo seguir
@@ -903,6 +903,9 @@ export default function HomePage() {
         body: JSON.stringify({
           login: String(formData.get('user') ?? ''),
           password: String(formData.get('password') ?? ''),
+          // Dominio de acesso: o servidor resolve o cliente por ele e escopa o
+          // login a esta academia (o mesmo CPF pode existir em varios tenants).
+          caDominio: window.location.hostname,
         }),
       });
       if (false && !response.ok) {
@@ -943,6 +946,8 @@ export default function HomePage() {
         },
         body: JSON.stringify({
           cpf: forgotCpf,
+          // Escopa a recuperacao a esta academia (ver login).
+          caDominio: window.location.hostname,
         }),
       });
 
@@ -998,7 +1003,8 @@ export default function HomePage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
+        // Escopa o auto-cadastro a esta academia (ver login).
+        body: JSON.stringify({ ...payload, caDominio: window.location.hostname }),
       });
 
       if (!response.ok) {
@@ -1014,6 +1020,7 @@ export default function HomePage() {
         body: JSON.stringify({
           login: payload.cpf,
           password: payload.password,
+          caDominio: window.location.hostname,
         }),
       });
 

@@ -71,8 +71,9 @@ type PromotionChildDelegate = {
 };
 
 // ---------------------------------------------------------------------------
-// Tenant isolation: Promocao.idEmpresa -> Empresa.idCliente. Registros com
-// idEmpresa nulo sao tratados como globais (visiveis a todos).
+// Tenant isolation: Promocao.idCliente (desde 09/2026). idEmpresa continua
+// opcional e restringe a campanha a UMA filial; nulo agora significa "todas as
+// filiais deste cliente", nao mais "de todo mundo".
 // ---------------------------------------------------------------------------
 
 function tenantCompanyWhere(idCliente: number) {
@@ -81,21 +82,15 @@ function tenantCompanyWhere(idCliente: number) {
 
 async function promotionBelongsToTenant(idCliente: number, idPromocao: number) {
   const promotion = await prisma.promocao.findFirst({
-    where: { id: idPromocao, ...tenantCompanyWhere(idCliente) },
+    where: { id: idPromocao, idCliente },
     select: { id: true },
   });
   return Boolean(promotion);
 }
 
-// Mutacao exige posse pelo tenant — nao casa idEmpresa nulo (evita editar
-// catalogo global/de outro tenant). Leitura continua usando promotionBelongsToTenant.
-async function promotionOwnedByTenant(idCliente: number, idPromocao: number) {
-  const promotion = await prisma.promocao.findFirst({
-    where: { id: idPromocao, empresa: { idCliente } },
-    select: { id: true },
-  });
-  return Boolean(promotion);
-}
+// Leitura e mutacao exigem a mesma posse desde que a campanha tem dono
+// proprio; as rotas continuam distinguindo os dois casos na mensagem.
+const promotionOwnedByTenant = promotionBelongsToTenant;
 
 async function assertCompanyInTenant(idCliente: number, idEmpresa: number | null | undefined) {
   if (idEmpresa == null) return;
@@ -106,18 +101,10 @@ async function assertCompanyInTenant(idCliente: number, idEmpresa: number | null
   if (!company) throw new Error('Empresa nao pertence ao cliente.');
 }
 
-// Plano nao tem idEmpresa: o vinculo com o tenant e via PlanoEmpresa. Planos
-// sem nenhuma empresa vinculada sao tratados como globais.
 async function assertPlanInTenant(idCliente: number, idPlano: number | null | undefined) {
   if (idPlano == null) return;
   const plan = await prisma.plano.findFirst({
-    where: {
-      id: idPlano,
-      OR: [
-        { planoEmpresas: { some: { empresa: { idCliente } } } },
-        { planoEmpresas: { none: {} } },
-      ],
-    },
+    where: { id: idPlano, idCliente },
     select: { id: true },
   });
   if (!plan) throw new Error('Plano nao pertence ao cliente.');
@@ -270,8 +257,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
             }
           : {}),
         ...(search ? { dsPromocao: { contains: search, mode: 'insensitive' } } : {}),
-        // AND para nao colidir com o OR do currentOnly.
-        AND: [tenantCompanyWhere(idCliente)],
+        idCliente,
       },
       include: includeDetails
         ? {
@@ -301,7 +287,8 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
     try {
       const data = normalizePromotionPayload(request.body);
       await assertCompanyInTenant(idCliente, data.idEmpresa);
-      return reply.code(201).send(await prisma.promocao.create({ data }));
+      // Tenant SEMPRE do token, nunca do body.
+      return reply.code(201).send(await prisma.promocao.create({ data: { ...data, idCliente } }));
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({

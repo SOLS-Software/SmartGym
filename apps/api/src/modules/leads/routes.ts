@@ -91,7 +91,7 @@ export async function registerLeadRoutes(app: FastifyInstance) {
       const idPlano = optionalNumber(parsed.data.idPlano);
       if (idPlano) {
         const plano = await prisma.plano.findFirst({
-          where: { id: idPlano, planoEmpresas: { some: { empresa: { idCliente } } } },
+          where: { id: idPlano, idCliente },
           select: { id: true },
         });
         if (!plano) return reply.code(404).send({ message: 'Plano nao encontrado.' });

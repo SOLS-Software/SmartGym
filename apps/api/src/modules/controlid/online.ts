@@ -21,6 +21,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { prisma } from '../../shared/prisma.js';
 import { creditCheckInPointsSafe } from '../../shared/loyalty.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
+import { alertarSePosturaFraca, catracaEmOperacao } from './events.js';
 
 // Codigos de evento da resposta (subconjunto que usamos).
 const EVENTO_ACESSO_NEGADO = 6;
@@ -306,6 +307,15 @@ export async function handleIdentificacaoOnline(
       'Identificacao online recusada: token do device invalido.',
     );
     return reply.code(401).send({ ok: false, error: 'token_invalido' });
+  }
+
+  // Postura de identidade: uma catraca ATIVADA sem token nem IP aceita esta
+  // identificacao sem prova de que veio mesmo dela — o mesmo vetor do /push,
+  // aqui capaz de forjar o check-in de um aluno real (basta o nrUsuarioCatraca
+  // dele). Registra o alerta; nao bloqueia (ver alertarSePosturaFraca). Catraca
+  // nao ativada cai no ramo de "sem empresa" abaixo e ja e negada.
+  if (catracaEmOperacao(catraca)) {
+    alertarSePosturaFraca(catraca, clientIp, request.log);
   }
 
   const idCliente = catraca.empresa?.idCliente ?? null;

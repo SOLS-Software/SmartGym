@@ -7,3 +7,29 @@ allowBuilds:
   esbuild: false
   prisma: false
   sharp: false
+# Overrides de segurança. Moradia correta desde o pnpm 10: o campo `pnpm.overrides`
+# do package.json raiz e IGNORADO pelo pnpm atual (ele avisa no install), e os pins
+# so sobreviviam gravados no lockfile — sumiriam na proxima regeneracao. Aqui eles
+# valem de novo. Versoes conferidas contra `pnpm audit` em 2026-09-09: fast-uri,
+# brace-expansion, js-yaml, sharp e undici foram apertados para as faixas ja
+# corrigidas (os ranges anteriores ainda resolviam versoes vulneraveis).
+overrides:
+  shell-quote: '>=1.8.4'
+  tar: '>=7.5.19 <8.0.0'
+  js-yaml@3: '>=3.15.2 <4.0.0'
+  js-yaml@4: '>=4.3.2 <5.0.0'
+  brace-expansion@1: '>=1.1.18 <2.0.0'
+  brace-expansion@2: '>=2.1.4 <3.0.0'
+  brace-expansion@5: '>=5.0.9 <6.0.0'
+  ws@6: '>=6.2.4 <7.0.0'
+  ws@7: '>=7.5.11 <8.0.0'
+  ws@8: '>=8.21.0 <9.0.0'
+  undici: '>=6.28.0 <7.0.0'
+  fast-uri: '>=3.1.6 <4.0.0'
+  postcss: '>=8.5.18 <9.0.0'
+  find-my-way: '>=9.7.0 <10.0.0'
+  uuid@3: '>=3.4.0 <4.0.0'
+  uuid@11: '>=11.1.1 <12.0.0'
+  '@babel/core': '>=7.29.6 <8.0.0'
+  esbuild: '>=0.28.1 <0.29.0'
+  sharp: '>=0.35.4 <0.36.0'

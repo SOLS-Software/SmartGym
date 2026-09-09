@@ -76,40 +76,33 @@ type PlanChildDelegate = {
 // Tenant isolation
 // ---------------------------------------------------------------------------
 
-// Plano nao tem idEmpresa: o vinculo com o tenant e via PlanoEmpresa. Planos
-// sem nenhuma empresa vinculada continuam visiveis (cadastro em andamento).
+// Plano pertence ao CLIENTE (tb_Planos.idCliente, desde 09/2026). Antes o dono
+// se deduzia por PlanoEmpresa e "plano sem filial vinculada" era lido como
+// global — o que fazia todo plano recem-criado, que nasce sem vinculo, ficar
+// visivel a todos os clientes junto com o preco dele.
 function planTenantWhere(idCliente: number) {
-  return {
-    OR: [
-      { planoEmpresas: { some: { empresa: { idCliente } } } },
-      { planoEmpresas: { none: {} } },
-    ],
-  };
+  return { idCliente };
 }
 
-// Filtro para models com idEmpresa opcional: registros com idEmpresa nulo sao
-// tratados como globais (visiveis a todos os tenants).
+// Filhos do plano (valor, atividade, produto, beneficio) tem idEmpresa
+// opcional. Como o PAI ja tem dono, nulo aqui significa "vale em todas as
+// filiais DESTE cliente" — nao mais "de todo mundo".
 function tenantCompanyWhere(idCliente: number) {
   return { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] };
 }
 
 async function planBelongsToTenant(idCliente: number, idPlano: number) {
   const plan = await prisma.plano.findFirst({
-    where: { id: idPlano, ...planTenantWhere(idCliente) },
+    where: { id: idPlano, idCliente },
     select: { id: true },
   });
   return Boolean(plan);
 }
 
-// Mutacao exige posse pelo tenant — nao casa plano global (sem empresa
-// vinculada). Leitura continua usando planBelongsToTenant.
-async function planOwnedByTenant(idCliente: number, idPlano: number) {
-  const plan = await prisma.plano.findFirst({
-    where: { id: idPlano, planoEmpresas: { some: { empresa: { idCliente } } } },
-    select: { id: true },
-  });
-  return Boolean(plan);
-}
+// Leitura e mutacao passaram a exigir a mesma coisa: ser dono. Continua como
+// funcao propria porque as rotas distinguem os dois casos na mensagem e no
+// codigo de resposta.
+const planOwnedByTenant = planBelongsToTenant;
 
 async function assertCompanyInTenant(idCliente: number, idEmpresa: number | null | undefined) {
   if (idEmpresa == null) return;
@@ -431,7 +424,8 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       if (existing) {
         return reply.code(400).send({ message: 'Já existe um plano com este nome.' });
       }
-      const plan = await prisma.plano.create({ data });
+      // Tenant SEMPRE do token, nunca do body.
+      const plan = await prisma.plano.create({ data: { ...data, idCliente } });
       return reply.code(201).send(plan);
     } catch (error) {
       const isPrismaUnique =

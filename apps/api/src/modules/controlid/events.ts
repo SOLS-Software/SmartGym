@@ -251,3 +251,45 @@ export function parseControlidPush(body: unknown): ControlidPushPayload {
   const events = rawEvents.map(normalizeEvent);
   return { device, events };
 }
+
+// Logger estrutural minimo: os guards abaixo servem os dois fluxos de device
+// (push/result e identificacao online) sem acoplar ao tipo do Fastify so para
+// registrar um warn.
+export type DeviceLogger = { warn: (obj: Record<string, unknown>, msg: string) => void };
+
+// Uma catraca so entra na TRILHA DE ACESSO depois de ATIVADA: vinculada a uma
+// unidade (idEmpresa) e nao inativa. Um equipamento apenas auto-registrado
+// (idEmpresa null, aguardando reivindicacao no painel) ou desativado nao esta em
+// operacao — os "eventos" que ele reporta nao contam. Fecha o abuso de
+// auto-registrar uma catraca fantasma por rota publica e despejar eventos
+// forjados de "acesso liberado" na trilha, contaminando frequencia e evasao.
+export function catracaEmOperacao(
+  catraca: { idEmpresa: number | null; boInativo: boolean } | null,
+): catraca is { idEmpresa: number; boInativo: boolean } {
+  return catraca != null && catraca.idEmpresa != null && !catraca.boInativo;
+}
+
+// Postura de identidade da catraca no push/identificacao. As rotas de device
+// sao publicas (o firmware nao manda JWT); a prova de que a requisicao veio
+// MESMO daquela catraca e o caToken (quando o firmware consegue enviar) ou o
+// anIpPermitido (quando o IP e fixo). Uma catraca ATIVADA sem NENHUM dos dois
+// aceita evento/identificacao sem prova — e e assim que se forja evento (ou
+// check-in, no modo online) "em nome dela". Nao bloqueamos aqui (derrubaria a
+// operacao de quem ainda nao provisionou token/IP), mas registramos o alerta: e
+// o gancho para o provisionamento fechar a lacuna. Basta configurar caToken OU
+// anIpPermitido na tela da catraca para a prova passar a ser exigida (ver
+// ipDoDeviceAutorizado e a checagem de token nos handlers).
+export function alertarSePosturaFraca(
+  catraca: { id: number; caToken?: string | null; anIpPermitido?: string | null },
+  clientIp: string,
+  log: DeviceLogger,
+) {
+  const temToken = (catraca.caToken ?? '').trim() !== '';
+  const temIp = (catraca.anIpPermitido ?? '').trim() !== '';
+  if (!temToken && !temIp) {
+    log.warn(
+      { idCatraca: catraca.id, ip: clientIp },
+      'Catraca ativada sem caToken nem anIpPermitido: requisicao aceita SEM prova de identidade. Configure um dos dois na tela da catraca para fechar a forja de eventos.',
+    );
+  }
+}

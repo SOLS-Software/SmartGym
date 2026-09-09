@@ -35,6 +35,12 @@ export type AuthenticatedUser = {
    */
   permissions?: string[];
   perfilAcesso?: { id: number; dsPerfil: string } | null;
+  /**
+   * Operação interna (SOLS). Só chega preenchido para quem é super-admin.
+   * Serve para a tela esconder o que ela não pode salvar — o cadastro de
+   * domínio corporativo, hoje. Quem barra de verdade é o servidor.
+   */
+  superAdmin?: boolean;
 };
 
 export type StoredSession = {

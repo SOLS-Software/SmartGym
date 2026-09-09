@@ -38,6 +38,13 @@ type CorporateDomain = {
 type Props = {
   idCliente?: number;
   allowedCompanyIds?: number[];
+  /**
+   * Cadastrar domínio é operação da plataforma (SOLS), não da academia: é o
+   * domínio que diz ao sistema QUAL CLIENTE É ESTE no login. A lista continua
+   * visível para todo gestor; só o formulário depende disto. O servidor
+   * responde 403 de qualquer jeito — aqui é para o botão não mentir.
+   */
+  canManageDomains?: boolean;
 };
 
 type Company = { id: number; dsEmpresa: string; caCNPJ: string; boInativo: boolean };
@@ -68,7 +75,11 @@ const COLOR_FIELDS: [keyof CustomTheme, string][] = [
   ['corFundo', 'Cor do Fundo'],
 ];
 
-export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) {
+export function ThemeRegistration({
+  idCliente,
+  allowedCompanyIds,
+  canManageDomains = false,
+}: Props = {}) {
   const domainUrlRef = useRef<HTMLInputElement>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const faviconFileInputRef = useRef<HTMLInputElement>(null);
@@ -105,9 +116,11 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
   const filteredCompanies = companies.filter((c) =>
     c.dsEmpresa.toLowerCase().includes(companySearch.toLowerCase()),
   );
-  const isDomainFormEnabled = isGestorMode
-    ? selectedDomainId !== null || isCreatingDomain
-    : selectedCompanyId !== null && (selectedDomainId !== null || isCreatingDomain);
+  const isDomainFormEnabled =
+    canManageDomains &&
+    (isGestorMode
+      ? selectedDomainId !== null || isCreatingDomain
+      : selectedCompanyId !== null && (selectedDomainId !== null || isCreatingDomain));
   const selectedCompany = companies.find((c) => c.id === selectedCompanyId);
   const paginatedDomains = paginateItems(domains, domainsPage);
 
@@ -563,10 +576,12 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
 
       <div className="grid-toolbar">
         <div />
-        <button className="new-button" onClick={handleNewDomain} type="button">
-          <Plus size={16} />
-          Novo domínio
-        </button>
+        {canManageDomains ? (
+          <button className="new-button" onClick={handleNewDomain} type="button">
+            <Plus size={16} />
+            Novo domínio
+          </button>
+        ) : null}
       </div>
 
       <div className="product-table" role="table" aria-label="Domínios">
@@ -604,7 +619,12 @@ export function ThemeRegistration({ idCliente, allowedCompanyIds }: Props = {}) 
       <GridPagination onChange={setDomainsPage} page={domainsPage} totalItems={domains.length} />
 
       <form className="theme-domain-form" onSubmit={handleSaveDomain}>
-        {!isDomainFormEnabled ? (
+        {!canManageDomains ? (
+          <div className="form-hint">
+            O domínio é o que identifica a sua academia no acesso. Para incluir ou alterar um,
+            fale com o suporte SOLS.
+          </div>
+        ) : !isDomainFormEnabled ? (
           <div className="form-hint">Selecione um domínio ou clique em Novo domínio.</div>
         ) : null}
         {domainFeedback ? <div className="form-feedback">{domainFeedback}</div> : null}

@@ -196,17 +196,8 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
             },
           }),
 
-          // Catalogo de planos da rede (inclui os globais, sem filial vinculada
-          // — mesma regra de /plans).
-          prisma.plano.count({
-            where: {
-              boInativo: false,
-              OR: [
-                { planoEmpresas: { some: { empresa: { idCliente } } } },
-                { planoEmpresas: { none: {} } },
-              ],
-            },
-          }),
+          // Catalogo de planos da rede — mesma regra de /plans.
+          prisma.plano.count({ where: { boInativo: false, idCliente } }),
 
           prisma.alunoCheckIn.count({
             where: {
@@ -261,7 +252,7 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
         const idsDePlano = porPlanoBruto.map((linha) => linha.idPlano);
         const planos = idsDePlano.length
           ? await prisma.plano.findMany({
-              where: { id: { in: idsDePlano } },
+              where: { id: { in: idsDePlano }, idCliente },
               select: { id: true, dsPlano: true },
             })
           : [];

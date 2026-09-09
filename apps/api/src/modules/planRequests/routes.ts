@@ -177,14 +177,10 @@ export async function registerPlanRequestRoutes(app: FastifyInstance) {
           if (!idPlanoDesejado) {
             return reply.code(400).send({ message: 'Escolha o plano desejado.' });
           }
-          // O plano tem que estar disponivel em alguma filial DESTE cliente —
-          // senao o aluno pediria um plano de outra academia.
+          // O plano tem que ser DESTE cliente — senao o aluno pediria um plano
+          // de outra academia.
           const desejado = await prisma.plano.findFirst({
-            where: {
-              id: idPlanoDesejado,
-              boInativo: false,
-              planoEmpresas: { some: { empresa: { idCliente } } },
-            },
+            where: { id: idPlanoDesejado, boInativo: false, idCliente },
             select: { id: true },
           });
           if (!desejado) return reply.code(404).send({ message: 'Plano nao encontrado.' });

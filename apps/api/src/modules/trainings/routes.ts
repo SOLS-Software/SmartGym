@@ -71,18 +71,24 @@ function clampLimit(limit: number | undefined) {
 }
 
 // ---------------------------------------------------------------------------
-// Tenant isolation: Treino.idEmpresa -> Empresa.idCliente. Registros com
-// idEmpresa nulo sao tratados como catalogo global (visiveis a todos).
+// Tenant isolation
+//
+// Treino pertence ao CLIENTE (tb_Treinos.idCliente, desde 09/2026). idEmpresa
+// segue opcional e significa "ficha modelo, valida em qualquer filial deste
+// cliente" — antes essa mesma ausencia era lida como GLOBAL, e a ficha montada
+// pelo professor de uma academia ficava legivel por todas as outras.
+//
+// tenantCompanyWhere continua com a semantica antiga porque ainda serve o
+// EXERCICIO, onde idEmpresa nulo e catalogo global de verdade (mantido pelo
+// super-admin, ver exercises/routes.ts).
 // ---------------------------------------------------------------------------
+
+function trainingTenantWhere(idCliente: number) {
+  return { idCliente };
+}
 
 function tenantCompanyWhere(idCliente: number) {
   return { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] };
-}
-
-// Mutacao exige posse pelo tenant — nao casa idEmpresa nulo (evita editar
-// catalogo global/de outro tenant). Leitura continua usando o filtro amplo.
-function tenantOwnedWhere(idCliente: number) {
-  return { empresa: { idCliente } };
 }
 
 async function assertCompanyInTenant(idCliente: number, idEmpresa: number | null | undefined) {
@@ -216,7 +222,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       where: {
         ...(includeInactive ? {} : { boInativo: false }),
         ...(search ? { dsTreino: { contains: search, mode: 'insensitive' } } : {}),
-        ...tenantCompanyWhere(idCliente),
+        ...trainingTenantWhere(idCliente),
       },
       orderBy: { dsTreino: 'asc' },
       take: clampLimit(parsedQuery.data.limit),
@@ -235,14 +241,15 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       const existing = await prisma.treino.findFirst({
         where: {
           dsTreino: { equals: data.dsTreino, mode: 'insensitive' },
-          ...tenantCompanyWhere(idCliente),
+          ...trainingTenantWhere(idCliente),
         },
         select: { id: true },
       });
       if (existing) {
         return reply.code(400).send({ message: 'Já existe um treino com este nome.' });
       }
-      const training = await prisma.treino.create({ data });
+      // Tenant SEMPRE do token, nunca do body.
+      const training = await prisma.treino.create({ data: { ...data, idCliente } });
       return reply.code(201).send(training);
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
@@ -262,7 +269,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       const id = Number(request.params.id);
       assertValidId(id, 'Treino invalido.');
       const current = await prisma.treino.findFirst({
-        where: { id, ...tenantOwnedWhere(idCliente) },
+        where: { id, ...trainingTenantWhere(idCliente) },
         select: { id: true },
       });
       if (!current) {
@@ -274,7 +281,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
         where: {
           dsTreino: { equals: data.dsTreino, mode: 'insensitive' },
           id: { not: id },
-          ...tenantCompanyWhere(idCliente),
+          ...trainingTenantWhere(idCliente),
         },
         select: { id: true },
       });
@@ -304,7 +311,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
       const current = await prisma.treino.findFirst({
-        where: { id, ...tenantOwnedWhere(idCliente) },
+        where: { id, ...trainingTenantWhere(idCliente) },
         select: { id: true },
       });
       if (!current) {
@@ -333,7 +340,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
       const training = await prisma.treino.findFirst({
-        where: { id: idTreino, ...tenantCompanyWhere(idCliente) },
+        where: { id: idTreino, ...trainingTenantWhere(idCliente) },
         select: { id: true },
       });
       if (!training) {
@@ -369,7 +376,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       assertValidId(idTreino, 'Treino invalido.');
 
       const training = await prisma.treino.findFirst({
-        where: { id: idTreino, ...tenantCompanyWhere(idCliente) },
+        where: { id: idTreino, ...trainingTenantWhere(idCliente) },
         select: { id: true, idEmpresa: true },
       });
 
@@ -422,7 +429,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       assertValidId(childId, 'Exercicio do treino invalido.');
 
       const training = await prisma.treino.findFirst({
-        where: { id: idTreino, ...tenantOwnedWhere(idCliente) },
+        where: { id: idTreino, ...trainingTenantWhere(idCliente) },
         select: { idEmpresa: true },
       });
 
@@ -482,7 +489,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       assertValidId(childId, 'Exercicio do treino invalido.');
 
       const training = await prisma.treino.findFirst({
-        where: { id: idTreino, ...tenantOwnedWhere(idCliente) },
+        where: { id: idTreino, ...trainingTenantWhere(idCliente) },
         select: { id: true },
       });
 

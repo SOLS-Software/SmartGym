@@ -5,6 +5,8 @@ import { prisma } from '../../shared/prisma.js';
 import { assertValidId, optionalNumber } from '../../shared/normalize.js';
 import {
   parseControlidPush,
+  catracaEmOperacao,
+  alertarSePosturaFraca,
   type ControlidDeviceInfo,
   type ControlidNormalizedEvent,
 } from './events.js';
@@ -1447,6 +1449,19 @@ async function handleControlidResultRequest(
     data: { dtUltimoPush: new Date(), anIp: clientIp || catraca.anIp },
   });
 
+  // Catraca ainda nao ativada (sem unidade ou inativa): atualizamos o "ultimo
+  // contato" acima para o gestor ve-la e reivindica-la, mas os eventos NAO
+  // entram na trilha. Ver catracaEmOperacao.
+  if (!catracaEmOperacao(catraca)) {
+    request.log.warn(
+      { deviceId, ip: clientIp, idCatraca: catraca.id, idEmpresa: catraca.idEmpresa },
+      'Result de catraca nao ativada (sem unidade ou inativa) — eventos descartados.',
+    );
+    return reply.code(200).send({ ok: true, received: events.length, persisted: 0 });
+  }
+
+  alertarSePosturaFraca(catraca, clientIp, request.log);
+
   const persisted = await persistEvents({
     events,
     idCatraca: catraca.id,
@@ -1543,9 +1558,28 @@ async function handleControlidPushRequest(request: FastifyRequest, reply: Fastif
       return reply.code(200).send({ ok: true, received: 0 });
     }
 
+    // Catraca inexistente/nao ativada (sem unidade ou inativa): metadata ja foi
+    // atualizada acima (para o painel), mas os eventos NAO entram na trilha.
+    // Fecha o auto-registro-e-despejo por rota publica. Ver catracaEmOperacao.
+    if (!catracaEmOperacao(catraca)) {
+      request.log.warn(
+        {
+          serial: device.caSerial,
+          ip: clientIp,
+          idCatraca: catraca?.id ?? null,
+          idEmpresa: catraca?.idEmpresa ?? null,
+          descartados: events.length,
+        },
+        'Push de catraca nao ativada (sem unidade, inativa ou nao cadastrada) — eventos descartados.',
+      );
+      return reply.code(200).send({ ok: true, received: events.length, persisted: 0 });
+    }
+
+    alertarSePosturaFraca(catraca, clientIp, request.log);
+
     const created = await persistEvents({
       events,
-      idCatraca: catraca?.id ?? null,
+      idCatraca: catraca.id,
       anIpOrigem: clientIp,
     });
 

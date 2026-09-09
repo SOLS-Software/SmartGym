@@ -5,6 +5,7 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyError } from 'fastify';
 import { validateEnv } from './config/env.js';
 import { registerAuthPlugin } from './plugins/auth.js';
+import { registerAuditPlugin } from './plugins/audit.js';
 import { registerSystemRoutes } from './modules/system/routes.js';
 import { registerAuthRoutes } from './modules/auth/routes.js';
 import { registerStudentRoutes } from './modules/students/routes.js';
@@ -37,19 +38,44 @@ import { registerLocalityRoutes } from './modules/localities/routes.js';
 
 validateEnv();
 
-// Numero de proxies CONFIAVEIS a frente da API (default 1: um load balancer /
-// PaaS terminando TLS). NUNCA usar `trustProxy: true` aqui: `true` manda o
-// Fastify confiar na cadeia inteira de X-Forwarded-For, e como esse header e
-// escrito pelo cliente, qualquer um forja `X-Forwarded-For: <aleatorio>` e ganha
-// um bucket novo de rate limit a cada request — derrubando o limite de 10/min do
-// /auth/login (brute force livre) e envenenando o IP nos logs. Com N hops, o
-// proxy-addr descarta as entradas mais a esquerda (as que o atacante controla) e
-// usa a que o proxy realmente anexou.
-const TRUST_PROXY_HOPS = Number(process.env.TRUST_PROXY_HOPS ?? 1);
+// Em quem confiar para ditar X-Forwarded-For (e, com ele, `request.ip`, que e o
+// que o rate limit e os logs usam). O header e escrito pelo cliente: confiar
+// errado deixa qualquer um forjar `X-Forwarded-For: <aleatorio>`, ganhar um
+// bucket novo de rate limit a cada request (brute force livre no /auth/login) e
+// envenenar o IP nos logs.
+//
+// O hop-count numerico (`trustProxy: <N>`, antigo TRUST_PROXY_HOPS) FOI REMOVIDO
+// no fastify 5.12 — CVE-2026-3635 / GHSA-3m5p-2c4r-xxw2: ele nao olha o endereco
+// de quem conectou, so a posicao na cadeia, entao um atacante que alcanca a
+// origem por fora do proxy forjava o header do mesmo jeito. A defesa correta e
+// confiar pelo ENDERECO do proxy: so um request VINDO do IP/CIDR do proxy pode
+// ditar o header.
+//
+// TRUST_PROXY aceita: lista de IP/CIDR separada por virgula (ex.: "10.0.0.0/8"),
+// presets do proxy-addr ("loopback", "linklocal", "uniquelocal"), ou "true"
+// (rede confiavel de ponta a ponta — use so se a origem NAO for alcancavel fora
+// do proxy). Vazio => false: nenhum X-Forwarded e crivel. Isso e o SEGURO, mas
+// atras de um proxy faz o rate limit agrupar todos pelo IP do proxy (um bucket
+// so) — em producao, configure o CIDR do proxy para o limite voltar a ser por
+// cliente.
+function resolveTrustProxy(): boolean | string[] {
+  const legado = (process.env.TRUST_PROXY_HOPS ?? '').trim();
+  const raw = (process.env.TRUST_PROXY ?? '').trim();
+  if (legado && !raw) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[trustProxy] TRUST_PROXY_HOPS (hop-count) foi descontinuado pelo fastify 5.12 e ignorado. ' +
+        'Defina TRUST_PROXY com o IP/CIDR do proxy (ex.: TRUST_PROXY=10.0.0.0/8) para o rate limit por IP funcionar.',
+    );
+  }
+  if (!raw || raw === 'false') return false;
+  if (raw === 'true') return true;
+  return raw.split(',').map((valor) => valor.trim()).filter(Boolean);
+}
 
 export const app = Fastify({
   logger: true,
-  trustProxy: Number.isFinite(TRUST_PROXY_HOPS) && TRUST_PROXY_HOPS >= 0 ? TRUST_PROXY_HOPS : 1,
+  trustProxy: resolveTrustProxy(),
 });
 
 // Algumas catracas Control iD enviam push como application/x-www-form-urlencoded
@@ -130,6 +156,10 @@ await app.register(multipart, {
 
 // Autenticacao JWT global: toda rota exige token, exceto a allowlist do plugin.
 await registerAuthPlugin(app);
+
+// Trilha de auditoria (LGPD art. 37/48): hook onResponse que registra acesso a
+// dado pessoal e eventos de seguranca. Depois do auth para enxergar request.user.
+registerAuditPlugin(app);
 
 // Erros nao tratados pelos handlers: loga o detalhe no servidor e responde
 // mensagem generica — nunca vazar stack trace ou erro interno (ex.: Prisma).

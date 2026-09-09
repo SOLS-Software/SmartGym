@@ -107,6 +107,26 @@ function normalizeThemeData(b: Record<string, unknown>) {
 
 const THEME_INCLUDE = { arquivoLogo: true, arquivoFavicon: true, clienteArquivoLogo: true, clienteArquivoFavicon: true } as const;
 
+// Cadastro de DOMINIO e operacao da plataforma (SOLS), nao do cliente.
+//
+// O dominio e o que resolve QUAL CLIENTE E ESTE: /auth/theme faz o de-para
+// urlDominio -> Cliente. Enquanto isto exigia apenas companies.write — a
+// permissao que o gestor da propria academia tem —, nada impedia o cliente A
+// de reivindicar o dominio pelo qual o cliente B entra. Mesmo racional de
+// POST /clients, que ja nascia restrito ao super-admin.
+//
+// A LEITURA (GET) continua com o cliente: a tela de configuracao mostra os
+// dominios da propria conta, e ver o proprio dominio nao muda nada.
+function assertPlatformAdmin(request: FastifyRequest, reply: FastifyReply): boolean {
+  if (!request.user.superAdmin) {
+    reply.code(403).send({
+      message: 'Dominio corporativo: cadastro restrito ao administrador do sistema.',
+    });
+    return false;
+  }
+  return true;
+}
+
 // Cliente e o proprio tenant: toda rota /clients/:id/** exige que o :id seja o
 // idCliente do usuario autenticado. Responde 403/404 e retorna false quando o
 // acesso e negado (404 para nao vazar a existencia de outros clientes).
@@ -306,7 +326,11 @@ export async function registerClientRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Cliente invalido.');
-      if (!assertTenantClient(request, reply, id)) return reply;
+      // Super-admin, e nao o dono do :id: quem cadastra dominio e a plataforma,
+      // inclusive para clientes que nao sao o seu.
+      if (!assertPlatformAdmin(request, reply)) return reply;
+      const cliente = await prisma.cliente.findUnique({ where: { id }, select: { id: true } });
+      if (!cliente) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const urlDominio = normalizeUrlDominio(request.body.urlDominio);
       const dominio = await prisma.dominioCorporativo.create({
         data: { idCliente: id, urlDominio: urlDominio.toLowerCase(), boSubdominio: toBool(request.body.boSubdominio ?? true), boAtivo: toBool(request.body.boAtivo ?? true) },
@@ -323,7 +347,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       const domainId = Number(request.params.domainId);
       assertValidId(id, 'Cliente invalido.');
       assertValidId(domainId, 'Dominio invalido.');
-      if (!assertTenantClient(request, reply, id)) return reply;
+      if (!assertPlatformAdmin(request, reply)) return reply;
       const urlDominio = normalizeUrlDominio(request.body.urlDominio);
       return prisma.dominioCorporativo.update({
         where: { id: domainId, idCliente: id },
@@ -340,7 +364,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       const domainId = Number(request.params.domainId);
       assertValidId(id, 'Cliente invalido.');
       assertValidId(domainId, 'Dominio invalido.');
-      if (!assertTenantClient(request, reply, id)) return reply;
+      if (!assertPlatformAdmin(request, reply)) return reply;
       const body = domainStatusBodySchema.safeParse(request.body);
       if (!body.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
       return prisma.dominioCorporativo.update({ where: { id: domainId, idCliente: id }, data: { boAtivo: toBool(body.data.boAtivo ?? true) } });

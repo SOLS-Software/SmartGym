@@ -108,6 +108,7 @@ export async function registerAuthPlugin(app: FastifyInstance) {
     try {
       await request.jwtVerify();
     } catch {
+      request.auditReason = 'token_invalido';
       return reply.code(401).send({ message: 'Sessao invalida ou expirada.' });
     }
 
@@ -134,6 +135,13 @@ export async function registerAuthPlugin(app: FastifyInstance) {
       },
     });
     if (!account || account.boInativo || account.nrTokenVersion !== (request.user.tv ?? 0)) {
+      // Distingue, na trilha, o uso de um token ja revogado (logout/reset) ou de
+      // conta desativada de um simples token malformado — sinal de sessao vazada.
+      request.auditReason = !account
+        ? 'conta_inexistente'
+        : account.boInativo
+          ? 'conta_inativa'
+          : 'sessao_revogada';
       return reply.code(401).send({ message: 'Sessao invalida ou expirada.' });
     }
 
@@ -144,10 +152,18 @@ export async function registerAuthPlugin(app: FastifyInstance) {
       return reply.code(403).send({ message: 'Acesso nao autorizado.' });
     }
 
-    // RBAC do funcionario. Gestor e super admin passam direto: o gestor e o
-    // dono da operacao (login proprio, multi-tenant) e o super admin e a
-    // operacao interna. Perfil inativo vale como perfil ausente.
-    if (request.user.role === 'employee' && !request.user.superAdmin) {
+    // RBAC de funcionario E de gestor. So o super admin (operacao interna SOLS)
+    // passa direto — e o unico papel legitimamente cross-tenant e sem perfil.
+    //
+    // O papel 'gestor' NAO e mais um bypass: antes, qualquer funcionario que
+    // passasse pelo /auth/gestor-login recebia role 'gestor' e escapava desta
+    // checagem inteira, ganhando acesso total sem depender de perfil nenhum.
+    // Agora o gestor responde ao mesmo RBAC do funcionario: o que ele alcanca
+    // sao as permissoes do perfil dele, lidas do banco a cada request. Um
+    // gerente com o perfil "Gerente" (todas as permissoes) segue vendo tudo; um
+    // funcionario comum que entre pela porta do gestor fica preso ao perfil
+    // dele. Perfil ausente ou inativo = nenhuma permissao (deny-by-default).
+    if (request.user.role !== 'student' && !request.user.superAdmin) {
       const profile = account.funcionario?.perfilAcesso;
       const granted = new Set(
         profile && !profile.boInativo ? profile.permissoes.map((item) => item.cnPermissao) : [],

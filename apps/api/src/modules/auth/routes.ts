@@ -11,7 +11,6 @@ import {
 import { HASH_TYPE_BCRYPT, dummyVerify, hashPassword, verifyPassword } from '../../shared/passwords.js';
 import { cpfHash, decryptCpfValue } from '../../shared/pii.js';
 import { TOKEN_EXPIRY_MOBILE, TOKEN_EXPIRY_WEB } from '../../plugins/auth.js';
-import { ALL_PERMISSIONS } from '../../plugins/permissions.js';
 import { getSupabaseClient, getSupabaseConfig, getClientSupabaseConfig } from '../../shared/supabase.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 import type {
@@ -61,6 +60,23 @@ function describeProfile(profile: ProfileWithPermissions | null) {
   return profile ? { id: profile.id, dsPerfil: profile.dsPerfil, boInativo: profile.boInativo } : null;
 }
 
+// Tenant resolvido pelo DOMINIO de acesso (window.location.hostname no web),
+// nunca por um idCliente vindo do corpo — a mesma disciplina de /public/leads e
+// /auth/theme. O mesmo CPF pode ter ficha em varios tenants (Aluno e
+// @@unique([idCliente, caCPFHash])); sem o tenant, o lookup por CPF caia sempre
+// na conta de menor id e trancava quem se cadastrou depois. Retorna null quando
+// o dominio nao vem (app mobile, que nao tem dominio) ou nao casa nenhum
+// cliente ativo — nesse caso o chamador desambigua pela senha.
+async function resolveTenantByDomain(caDominio: string | undefined): Promise<number | null> {
+  const url = (caDominio ?? '').trim().toLowerCase();
+  if (!url) return null;
+  const dominio = await prisma.dominioCorporativo.findFirst({
+    where: { urlDominio: url, boAtivo: true },
+    select: { idCliente: true },
+  });
+  return dominio?.idCliente ?? null;
+}
+
 export async function registerAuthRoutes(app: FastifyInstance) {
   // Limites restritos de rate limit para endpoints de autenticacao (anti brute
   // force / enumeracao). O limite global de 300/min continua valendo no resto.
@@ -74,9 +90,23 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       const cpf = normalizeRegisterCpf(request.body.login);
       const password = request.body.password ?? '';
 
-      const user = await prisma.usuario.findFirst({
+      // Tenant pelo dominio de acesso (web); null no mobile. Quando resolve um
+      // cliente, o lookup por CPF e escopado a ele — e assim que "entrar pela
+      // pagina da academia X" so alcanca a conta da academia X, e nao a de outro
+      // tenant que por acaso tem o mesmo CPF.
+      const idClienteDominio = await resolveTenantByDomain(request.body.caDominio);
+
+      // Todos os usuarios com aquele CPF (aluno OU funcionario), escopados ao
+      // cliente do dominio quando ha um. O mesmo CPF pode ter conta em varios
+      // tenants (Aluno e @@unique([idCliente, caCPFHash])); a SENHA desambigua
+      // qual e a conta de quem esta entrando — o findFirst por CPF de antes
+      // caia sempre na de menor id e trancava quem se cadastrou depois. Ordem
+      // estavel para o desempate (mesma senha em dois tenants, caso rarissimo)
+      // ser deterministico.
+      const candidatos = await prisma.usuario.findMany({
         where: {
           boInativo: false,
+          ...(idClienteDominio ? { idCliente: idClienteDominio } : {}),
           OR: [
             // CPF armazenado criptografado: lookup exato via HMAC (caCPFHash).
             { aluno: { caCPFHash: cpfHash(cpf), boInativo: false } },
@@ -99,47 +129,63 @@ export async function registerAuthRoutes(app: FastifyInstance) {
             },
           },
         },
+        orderBy: { id: 'asc' },
       });
 
-      if (!user) {
-        // Equaliza o tempo de resposta com o caminho de senha errada (bcrypt)
-        // para nao vazar existencia de conta por timing.
-        await dummyVerify(password);
-        throw new Error('Usuario ou senha invalidos.');
-      }
-
-      const currentPassword = await prisma.senha.findFirst({
-        where: { idUsuario: user.id, boInativo: false },
-        orderBy: { dtCadastro: 'desc' },
-      });
-
-      const { valid, needsRehash, expired } = await verifyPassword(password, currentPassword);
-
-      // Senha correta mas em formato legado apos o prazo (LEGACY_PASSWORD_DEADLINE):
-      // recusa e orienta a redefinir. So dispara com a senha certa, entao nao
-      // vira oraculo de enumeracao. Retorno direto (fora do catch generico) para
-      // a orientacao chegar ao usuario.
-      if (expired) {
-        return reply.code(403).send({
-          message: 'Por seguranca, redefina sua senha em "Esqueci minha senha".',
+      // Procura a conta cuja senha confere. `expired` (senha certa, mas formato
+      // legado ja vencido — ver LEGACY_PASSWORD_DEADLINE) so importa se for a
+      // conta certa: guardamos e so usamos se nenhuma outra autenticar.
+      let autenticado:
+        | { user: (typeof candidatos)[number]; senhaId: number | null; needsRehash: boolean }
+        | null = null;
+      let expirouAlguma = false;
+      for (const candidato of candidatos) {
+        const senha = await prisma.senha.findFirst({
+          where: { idUsuario: candidato.id, boInativo: false },
+          orderBy: { dtCadastro: 'desc' },
         });
+        const { valid, needsRehash, expired } = await verifyPassword(password, senha);
+        if (expired) {
+          expirouAlguma = true;
+          continue;
+        }
+        if (valid) {
+          autenticado = { user: candidato, senhaId: senha?.id ?? null, needsRehash };
+          break;
+        }
       }
 
-      if (!valid) {
+      if (!autenticado) {
+        // Timing: sem nenhum candidato, ainda gastamos um bcrypt para nao vazar
+        // existencia de conta (aqui a iteracao acima nao rodou nenhum verify).
+        if (candidatos.length === 0) {
+          await dummyVerify(password);
+        }
+        // Senha certa mas em formato legado vencido: orienta a redefinir. So
+        // dispara com a senha correta, entao nao vira oraculo de enumeracao.
+        if (expirouAlguma) {
+          return reply.code(403).send({
+            message: 'Por seguranca, redefina sua senha em "Esqueci minha senha".',
+          });
+        }
         throw new Error('Usuario ou senha invalidos.');
       }
+
+      const user = autenticado.user;
 
       // Rehash progressivo: registros legados (SHA-256 ou texto puro) sao
       // regravados com bcrypt no proprio login, sem acao do usuario.
-      if (needsRehash && currentPassword) {
+      if (autenticado.needsRehash && autenticado.senhaId) {
         await prisma.senha.update({
-          where: { id: currentPassword.id },
+          where: { id: autenticado.senhaId },
           data: { dsSenha: await hashPassword(password), cnTipoHash: HASH_TYPE_BCRYPT },
         });
       }
 
-      // Tenant do usuario: funcionario via empresa; aluno direto em Aluno.idCliente.
-      const idCliente = user.funcionario?.empresa?.idCliente ?? user.aluno?.idCliente ?? null;
+      // Tenant do usuario: gravado em Usuario.idCliente desde 09/2026. Antes
+      // era deduzido a cada login por funcionario.empresa/aluno, o que deixava
+      // sem tenant o funcionario ainda sem filial vinculada.
+      const idCliente = user.idCliente;
       const token = app.jwt.sign(
         {
           sub: user.id,
@@ -162,6 +208,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         login: user.dsLogin,
         name: user.aluno?.nmAluno ?? user.funcionario?.nmFuncionario ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',
+        // Operacao interna (SOLS). Vai para o cliente pelo mesmo motivo das
+        // permissoes: montar a tela. Quem barra de verdade e o servidor.
+        superAdmin: user.boSuperAdmin || undefined,
         // Permissoes efetivas do perfil. O web usa para montar o menu; a
         // AUTORIZACAO de verdade continua no servidor, a cada request (o hook
         // de auth le do banco). Aluno nao tem perfil: lista vazia.
@@ -191,9 +240,16 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
     try {
       const cpf = normalizeRegisterCpf(request.body.cpf);
-      const user = await prisma.usuario.findFirst({
+      const idClienteDominio = await resolveTenantByDomain(request.body.caDominio);
+
+      // Todas as contas com aquele CPF (escopadas ao cliente do dominio quando
+      // ha um). O mesmo CPF pode ter conta em varios tenants: cada uma recebe
+      // SEU proprio link, que reseta so ela. Antes, o findFirst mandava um unico
+      // email para a conta de menor id — e o reset atingia o tenant errado.
+      const contas = await prisma.usuario.findMany({
         where: {
           boInativo: false,
+          ...(idClienteDominio ? { idCliente: idClienteDominio } : {}),
           OR: [
             // CPF armazenado criptografado: lookup exato via HMAC (caCPFHash).
             { aluno: { caCPFHash: cpfHash(cpf), boInativo: false } },
@@ -203,37 +259,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         include: { aluno: true, funcionario: true },
       });
 
-      const email = user
-        ? user.dsLogin || user.aluno?.anEmail || user.funcionario?.anEmail || ''
-        : '';
-
-      if (!user || !email) {
+      if (contas.length === 0) {
         return reply.send(genericResponse);
       }
 
-      // Token single-use com expiracao de 1h: so o SHA-256 vai para o banco;
-      // o valor real trafega apenas no link enviado por email.
-      const resetToken = randomBytes(32).toString('hex');
-      const tokenHash = createHash('sha256').update(resetToken).digest('hex');
-
-      await prisma.$transaction([
-        // Invalida tokens abertos anteriores do usuario.
-        prisma.recuperacaoSenha.updateMany({
-          where: { idUsuario: user.id, dtUtilizacao: null },
-          data: { dtUtilizacao: new Date() },
-        }),
-        prisma.recuperacaoSenha.create({
-          data: {
-            idUsuario: user.id,
-            dsTokenHash: tokenHash,
-            dtExpiracao: new Date(Date.now() + 60 * 60 * 1000),
-          },
-        }),
-      ]);
-
       const webAppUrl = (process.env.WEB_APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
-      const resetUrl = `${webAppUrl}/redefinir-senha?token=${resetToken}`;
-
       const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT || 587),
@@ -241,13 +271,40 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
       } as SMTPTransport.Options);
 
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM,
-        to: email,
-        subject: 'Redefinicao de senha - SmartGym',
-        text: `Recebemos um pedido de redefinicao de senha da sua conta SmartGym. Acesse o link para criar uma nova senha (valido por 1 hora): ${resetUrl}\n\nSe voce nao solicitou, ignore este email — nenhuma acao foi tomada.`,
-        html: `<p>Recebemos um pedido de redefinicao de senha da sua conta SmartGym.</p><p><a href="${resetUrl}">Clique aqui para criar uma nova senha</a> (link valido por 1 hora).</p><p>Se voce nao solicitou, ignore este email — nenhuma acao foi tomada.</p>`,
-      });
+      for (const conta of contas) {
+        const email = conta.dsLogin || conta.aluno?.anEmail || conta.funcionario?.anEmail || '';
+        if (!email) continue;
+
+        // Token single-use com expiracao de 1h: so o SHA-256 vai para o banco;
+        // o valor real trafega apenas no link enviado por email.
+        const resetToken = randomBytes(32).toString('hex');
+        const tokenHash = createHash('sha256').update(resetToken).digest('hex');
+
+        await prisma.$transaction([
+          // Invalida tokens abertos anteriores desta conta.
+          prisma.recuperacaoSenha.updateMany({
+            where: { idUsuario: conta.id, dtUtilizacao: null },
+            data: { dtUtilizacao: new Date() },
+          }),
+          prisma.recuperacaoSenha.create({
+            data: {
+              idUsuario: conta.id,
+              dsTokenHash: tokenHash,
+              dtExpiracao: new Date(Date.now() + 60 * 60 * 1000),
+            },
+          }),
+        ]);
+
+        const resetUrl = `${webAppUrl}/redefinir-senha?token=${resetToken}`;
+
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM,
+          to: email,
+          subject: 'Redefinicao de senha - SmartGym',
+          text: `Recebemos um pedido de redefinicao de senha da sua conta SmartGym. Acesse o link para criar uma nova senha (valido por 1 hora): ${resetUrl}\n\nSe voce nao solicitou, ignore este email — nenhuma acao foi tomada.`,
+          html: `<p>Recebemos um pedido de redefinicao de senha da sua conta SmartGym.</p><p><a href="${resetUrl}">Clique aqui para criar uma nova senha</a> (link valido por 1 hora).</p><p>Se voce nao solicitou, ignore este email — nenhuma acao foi tomada.</p>`,
+        });
+      }
 
       return reply.send(genericResponse);
     } catch (error) {
@@ -320,6 +377,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         throw new Error('Selecione aluno ou funcionario.');
       }
 
+      // Escopa a ficha ao cliente do dominio: sem isso, o mesmo CPF em dois
+      // tenants mostraria sempre a ficha de menor id (nome + email mascarado do
+      // tenant errado). No mobile (sem dominio) segue o findFirst.
+      const idClienteDominio = await resolveTenantByDomain(request.query.caDominio);
+
       // Endpoint publico: resposta minimizada de proposito. Retorna apenas o
       // necessario para o auto-cadastro (nome para confirmacao visual + email
       // MASCARADO) e hasUser. NAO expoe CPF, data de nascimento, telefone nem o
@@ -330,7 +392,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       // (elimina o oraculo de tipo/existencia).
       if (type === 'student') {
         const student = await prisma.aluno.findFirst({
-          where: { caCPFHash: cpfHash(cpf), boInativo: false },
+          where: {
+            caCPFHash: cpfHash(cpf),
+            boInativo: false,
+            ...(idClienteDominio ? { idCliente: idClienteDominio } : {}),
+          },
           include: {
             usuarios: { where: { boInativo: false }, select: { id: true } },
           },
@@ -350,7 +416,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       }
 
       const employee = await prisma.funcionario.findFirst({
-        where: { caCPFHash: cpfHash(cpf), boInativo: false },
+        where: {
+          caCPFHash: cpfHash(cpf),
+          boInativo: false,
+          ...(idClienteDominio ? { empresa: { idCliente: idClienteDominio } } : {}),
+        },
         include: {
           usuarios: { where: { boInativo: false }, select: { id: true } },
         },
@@ -396,25 +466,38 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       const emailMatchesRecord = (recordEmail: string | null | undefined) =>
         !!recordEmail && recordEmail.trim().toLowerCase() === dsLogin.trim().toLowerCase();
 
+      // Tenant pelo dominio (web); null no mobile. Escopa a ficha ao cliente do
+      // dominio; sem dominio, e o email da ficha que desambigua o CPF entre
+      // tenants (ver o find por emailMatchesRecord abaixo).
+      const idClienteDominio = await resolveTenantByDomain(request.body.caDominio);
+
       const createdUser = await prisma.$transaction(async (transaction) => {
         if (type === 'student') {
-          const student = await transaction.aluno.findFirst({
-            where: { caCPFHash: cpfHash(cpf), boInativo: false },
+          // Todas as fichas com aquele CPF (escopadas ao cliente do dominio
+          // quando ha um). A ficha cujo email confere e a prova de titularidade;
+          // com o mesmo CPF em varios tenants, e ela que decide em qual a conta
+          // nasce — o findFirst de antes fixava a de menor id e podia recusar o
+          // cadastro legitimo no outro tenant.
+          const students = await transaction.aluno.findMany({
+            where: {
+              caCPFHash: cpfHash(cpf),
+              boInativo: false,
+              ...(idClienteDominio ? { idCliente: idClienteDominio } : {}),
+            },
             include: { usuarios: { where: { boInativo: false }, select: { id: true } } },
           });
 
+          const student = students.find((s) => emailMatchesRecord(s.anEmail));
           if (!student) {
-            throw new Error(CREDENTIAL_MISMATCH);
-          }
-          if (!emailMatchesRecord(student.anEmail)) {
             throw new Error(CREDENTIAL_MISMATCH);
           }
           if (student.usuarios.length > 0) {
             throw new Error('Este aluno ja possui usuario cadastrado.');
           }
 
+          // Tenant do usuario e o da ficha, nao algo vindo do body.
           const user = await transaction.usuario.create({
-            data: { idAluno: student.id, dsLogin, boInativo: false },
+            data: { idCliente: student.idCliente, idAluno: student.id, dsLogin, boInativo: false },
           });
           await transaction.senha.create({
             data: { idUsuario: user.id, dsSenha: await hashPassword(password), cnTipoHash: HASH_TYPE_BCRYPT, boTrocaObrigatoria: false },
@@ -423,23 +506,40 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           return { id: user.id, type, name: student.nmAluno, login: user.dsLogin };
         }
 
-        const employee = await transaction.funcionario.findFirst({
-          where: { caCPFHash: cpfHash(cpf), boInativo: false },
-          include: { usuarios: { where: { boInativo: false }, select: { id: true } } },
+        const employees = await transaction.funcionario.findMany({
+          where: {
+            caCPFHash: cpfHash(cpf),
+            boInativo: false,
+            ...(idClienteDominio ? { empresa: { idCliente: idClienteDominio } } : {}),
+          },
+          include: {
+            usuarios: { where: { boInativo: false }, select: { id: true } },
+            empresa: { select: { idCliente: true } },
+          },
         });
 
+        const employee = employees.find((e) => emailMatchesRecord(e.anEmail));
         if (!employee) {
-          throw new Error(CREDENTIAL_MISMATCH);
-        }
-        if (!emailMatchesRecord(employee.anEmail)) {
           throw new Error(CREDENTIAL_MISMATCH);
         }
         if (employee.usuarios.length > 0) {
           throw new Error('Este funcionario ja possui usuario cadastrado.');
         }
 
+        // Funcionario sem filial nao tem tenant, e usuario sem tenant e sessao
+        // que o resto do sistema recusa com 403 — melhor barrar no cadastro.
+        const idClienteDoFuncionario = employee.empresa?.idCliente;
+        if (!idClienteDoFuncionario) {
+          throw new Error('Funcionario sem unidade vinculada. Procure a recepcao.');
+        }
+
         const user = await transaction.usuario.create({
-          data: { idFuncionario: employee.id, dsLogin, boInativo: false },
+          data: {
+            idCliente: idClienteDoFuncionario,
+            idFuncionario: employee.id,
+            dsLogin,
+            boInativo: false,
+          },
         });
         await transaction.senha.create({
           data: { idUsuario: user.id, dsSenha: await hashPassword(password), cnTipoHash: HASH_TYPE_BCRYPT, boTrocaObrigatoria: false },
@@ -555,7 +655,26 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           boInativo: false,
           funcionario: { caCPFHash: cpfHash(cpf), boInativo: false },
         },
-        include: { funcionario: { include: { empresa: true } } },
+        include: {
+          funcionario: {
+            include: {
+              empresa: true,
+              // O perfil vem junto para a resposta montar o menu com as
+              // permissoes REAIS do gestor. Desde que o hook de auth aplica o
+              // RBAC ao gestor, o menu tem que refletir o perfil dele — nao mais
+              // a lista completa (que dava a impressao de acesso que o servidor
+              // agora nega).
+              perfilAcesso: {
+                select: {
+                  id: true,
+                  dsPerfil: true,
+                  boInativo: true,
+                  permissoes: { select: { cnPermissao: true } },
+                },
+              },
+            },
+          },
+        },
       });
 
       if (!user?.funcionario) {
@@ -621,11 +740,15 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         name: user.funcionario.nmFuncionario,
         type: 'employee' as const,
         idCliente,
+        superAdmin: user.boSuperAdmin || undefined,
         empresas,
-        // O gestor nao passa pelo RBAC de perfil (o hook o deixa passar): a
-        // lista completa aqui existe para o menu do web nao esconder nada dele.
-        perfilAcesso: null,
-        permissions: [...ALL_PERMISSIONS],
+        // Permissoes efetivas do perfil do gestor — as MESMAS que o hook aplica
+        // no servidor a cada request. O gestor deixou de ser bypass de RBAC: um
+        // gerente com o perfil "Gerente" (todas as permissoes) segue vendo tudo;
+        // quem entra pela porta do gestor sem um perfil amplo fica preso ao que
+        // o perfil concede. A autorizacao de verdade continua no servidor.
+        perfilAcesso: describeProfile(user.funcionario.perfilAcesso ?? null),
+        permissions: employeePermissions(user.funcionario.perfilAcesso ?? null),
       };
     } catch (error) {
       request.log.warn(error);
@@ -805,9 +928,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         id: user.id,
         idAluno: user.idAluno,
         idFuncionario: user.idFuncionario,
-        idCliente: user.funcionario?.empresa?.idCliente ?? user.aluno?.idCliente ?? null,
+        idCliente: user.idCliente,
         name: user.aluno?.nmAluno ?? user.funcionario?.nmFuncionario ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',
+        superAdmin: user.boSuperAdmin || undefined,
         perfilAcesso: describeProfile(user.funcionario?.perfilAcesso ?? null),
         // Reavaliado a cada verify: se o gerente mudou o perfil enquanto a
         // sessao estava aberta, o menu acompanha na proxima revalidacao.

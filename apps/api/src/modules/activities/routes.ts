@@ -134,17 +134,17 @@ function normalizeScheduleStudentPayload(scheduleId: number, payload: ScheduleSt
   };
 }
 
-// Atividade sem empresa (idEmpresa null) e tratada como catalogo global:
-// visivel e gerenciavel por qualquer tenant autenticado.
+// Atividade pertence ao CLIENTE (tb_Atividades.idCliente, desde 09/2026).
+// idEmpresa segue opcional e agora significa "vale em todas as filiais deste
+// cliente" — a aula que a rede inteira oferece. Antes, sem filial, a aula era
+// lida como GLOBAL e aparecia na grade de qualquer academia da instalacao.
 function activityTenantFilter(idCliente: number) {
-  return { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] };
+  return { idCliente };
 }
 
-// Mutacao exige posse pelo tenant — nao casa idEmpresa nulo (evita editar
-// catalogo global/de outro tenant). Leitura continua usando o filtro amplo.
-function activityTenantOwnedFilter(idCliente: number) {
-  return { empresa: { idCliente } };
-}
+// Leitura e mutacao exigem a mesma posse desde que a atividade tem dono
+// proprio. Mantido separado porque as rotas usam os dois nomes.
+const activityTenantOwnedFilter = activityTenantFilter;
 
 // Valida que a empresa informada no payload pertence ao tenant do usuario.
 async function assertEmpresaInTenant(idEmpresa: number, idCliente: number) {
@@ -271,7 +271,8 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       if (existing) {
         return reply.code(400).send({ message: 'Já existe uma atividade com este nome.' });
       }
-      return reply.code(201).send(await prisma.atividade.create({ data }));
+      // Tenant SEMPRE do token, nunca do body.
+      return reply.code(201).send(await prisma.atividade.create({ data: { ...data, idCliente } }));
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
