@@ -414,6 +414,7 @@ acesso seguinte, mas gravar o `idUsuario` autenticado seria um refinamento.
 | | |
 |---|---|
 | **Severidade + confiança** | Médio · CONFIRMADO |
+| **STATUS** | 📋 **DESENHO ENTREGUE 2026-09-09** em `docs/isolamento-tenant-proposta.md` (3 opções — Prisma extension / RLS / denormalização — com custos e recomendação faseada). **Não implementado**: é decisão de arquitetura do dono (apetite para RLS, quais filhos denormalizar). |
 | **Local** | transversal · `apps/api/src/plugins/auth.ts:197` (`getTenantId` morto) |
 
 **Cenário.** Só 15 dos 80 models têm coluna `idCliente`; os outros 65 alcançam o tenant pelo
@@ -441,6 +442,7 @@ Alternativa mais forte e mais cara: Postgres Row-Level Security por `idCliente` 
 | | |
 |---|---|
 | **Severidade + confiança** | Médio · CONFIRMADO |
+| **STATUS** | ✅ **CORRIGIDO 2026-09-09**: teste `plugins/routeCoverage.test.ts` fixado (instancia o app real, percorre `printRoutes`, falha se alguma rota ficar `unmapped`). |
 | **Local** | `apps/api/src/plugins/permissions.ts:198-307` |
 
 **Cenário.** Rodei a varredura que o projeto não tem (extraí as 320 rotas via
@@ -458,10 +460,18 @@ explícita — não só "alguma regra casou"). Já deixei o esqueleto do script 
 auditoria.
 | **Esforço** | P |
 
+**Correção aplicada (2026-09-09).** `plugins/routeCoverage.test.ts`: instancia o app real (env
+de fachada, sem conectar a nada), extrai as rotas de `app.printRoutes()` e afirma, para cada
+uma, que está coberta por regra intencional — pública (allowlist exportada de `auth.ts`),
+alcançável pelo aluno (`isStudentAllowed`) ou mapeada a permissão (`requiredPermission !==
+unmapped`). Usa o app real, não uma lista curada, para enxergar rotas novas automaticamente.
+Passou verde (>200 rotas, 0 unmapped). Falta plugar `pnpm test` no CI (não há CI no repo hoje).
+
 #### M-3. Sem direitos do titular e sem consentimento — inclusive para biometria (art. 11 e 18)
 | | |
 |---|---|
 | **Severidade + confiança** | Médio · CONFIRMADO |
+| **STATUS** | 🟡 **NÚCLEO TÉCNICO FEITO 2026-09-09** (exportação art. 18 + consentimento art. 8/11). Ver "Correção aplicada". **Travado por decisão de negócio**: eliminação/anonimização, retenção, ligar a checagem de consentimento no fluxo, bases legais, menores (art. 14). |
 | **Local** | schema (nenhuma tabela de consentimento) · `students/routes.ts` (biometria facial) |
 
 **Cenário.** Não há endpoint de exportação, eliminação, anonimização ou portabilidade, nem
@@ -479,10 +489,35 @@ para os direitos do art. 18.
 política de retenção do ex-aluno.
 | **Esforço** | G |
 
+**Correção aplicada (2026-09-09) — núcleo técnico.**
+- **Exportação (art. 18, II acesso + V portabilidade):** `GET /students/:id/lgpd-export`
+  (`students/routes.ts`) reúne num JSON a ficha (CPF decifrado), planos, avaliação física,
+  treinos, check-ins, pontos, avisos, solicitações, eventos de catraca e o **metadado** da
+  biometria — nunca o vetor. Escopado por tenant; o próprio aluno exporta os seus (o
+  `studentRbac` já libera o GET do dono), a equipe a pedido (students.read). Validado: aluno
+  exporta os seus, recebe **403** ao tentar o de outro aluno.
+- **Consentimento (art. 8 e art. 11):** `model Consentimento` (`tb_Consentimentos`, migration
+  `20260909133852_consentimento_lgpd`), **append-only** (histórico de concessão/revogação por
+  finalidade — rastreabilidade art. 37). `GET/POST /students/:id/consents`: o titular
+  concede/revoga biometria/push/comunicação pelo app (`studentRbac` libera o POST do dono).
+  Validado: conceder biometria (201), revogar push (201), finalidade inválida (400), GET
+  devolve estado atual + histórico. Testes: 321/321; typecheck limpo.
+
+**O que TRAVA por decisão de negócio (não implementado):**
+- **Eliminação / anonimização (art. 18, VI):** exige definir o que apagar vs. reter por
+  obrigação legal (o financeiro tem retenção fiscal própria) — decisão do controlador.
+- **Retenção:** por quanto tempo guardar dado de ex-aluno; sem isso não há rotina de expurgo.
+- **Ligar a CHECAGEM de consentimento** no fluxo de biometria/push (bloquear sem consentir)
+  depende da tela de captura no cadastro e da decisão de bloquear — a tabela e os endpoints já
+  existem; falta o gate e a UI.
+- **Bases legais por finalidade** (jurídico) e **menores de idade (art. 14)** — consentimento
+  do responsável para adolescentes.
+
 #### M-4. Reset de senha por e-mail vulnerável a account-takeover se a caixa for comprometida; sem 2º fator
 | | |
 |---|---|
 | **Severidade + confiança** | Médio · CONFIRMADO |
+| **STATUS** | ⏸️ **RISCO ACEITO 2026-09-09** (decisão do dono). A parte cross-tenant foi removida pelo A-2; o resíduo (quem lê a caixa reseta a conta) é aceitável para o porte, sem MFA. Reavaliar se o financeiro do aluno passar a ser tratado como sensível. |
 | **Local** | `apps/api/src/modules/auth/routes.ts:187-315` |
 
 **Cenário.** O fluxo em si é sólido: token de 256 bits, só o SHA-256 no banco, expiração de
@@ -503,7 +538,8 @@ parte cross-tenant.
 #### M-5. Service-role key do Supabase na API, sem segregação de bucket/path por tenant
 | | |
 |---|---|
-| **Severidade + confiança** | Médio · PLAUSÍVEL |
+| **Severidade + confiança** | Médio · PLAUSÍVEL → **REBAIXADO** (investigado 2026-09-09) |
+| **STATUS** | ⚠️ **SEM FURO ATIVO** — as 15 rotas de signed URL escopam por tenant; prefixo por path fica como defesa-em-profundidade de baixa prioridade (ver nota). |
 | **Local** | `apps/api/src/shared/supabase.ts` · `files.ts` |
 
 **Cenário.** A API usa a service-role key (bypassa RLS do Storage). As URLs assinadas expiram
@@ -512,6 +548,17 @@ confirmei: se os paths de arquivo embutem o tenant e se um `anCaminho` adulterad
 poderia gerar signed URL de arquivo de outro tenant. Como todo acesso a arquivo passa por
 uma consulta escopada por `idCliente` antes de assinar, o risco é indireto — mas a chave é
 única e sem segregação.
+
+**Investigação (2026-09-09).** Varri as **15** chamadas `createSignedUrl`/`download` do
+`apps/api/src`: todas carregam o registro (`alunoArquivo`, `funcionarioArquivo`,
+`empresaArquivo`, `promocaoArquivo`, `produtoArquivo`…) por um `findFirst` **escopado ao
+tenant** — direto (`empresa: { idCliente }`) ou pelo pai (`findTenantStudent`/
+`findTenantEmployee` antes), e o `anCaminho` vem sempre do banco, nunca do cliente (sem path
+traversal). **Não há furo ativo de cross-tenant em arquivos.** O risco residual da
+service-role key é o mesmo do M-1: uma rota FUTURA que esqueça o escopo. Prefixar todo path
+por `idCliente/` continua valendo como defesa-em-profundidade, mas: (a) não corrige nenhuma
+vulnerabilidade atual, e (b) exigiria migrar os arquivos já armazenados. Fica como melhoria de
+baixa prioridade, subsumida pelo mecanismo do M-1.
 
 **Impacto.** Uma falha de escopo em qualquer rota de arquivo vira leitura de mídia de outro
 tenant. Raio de dano da service-role key é o storage inteiro.
@@ -525,6 +572,7 @@ cliente sem normalização (path traversal).
 | | |
 |---|---|
 | **Severidade + confiança** | Médio · CONFIRMADO |
+| **STATUS** | ✅ **CORRIGIDO 2026-09-09**: script de rotação `packages/db/scripts/rotate-pii-key.ts` + procedimento em `docs/rotacao-chave-pii.md`. Ver "Correção aplicada". |
 | **Local** | `apps/api/src/shared/pii.ts:16-28` · `secrets.ts:20-29` |
 
 **Cenário.** `pii.ts` e `secrets.ts` derivam subchaves distintas por HKDF (`info` diferente)
@@ -541,33 +589,44 @@ já existe) e escrever o script de re-encriptação antes de precisar dele. Aval
 para credenciais de gateway (a troca é uma linha em `getKey()`, como o próprio comentário diz).
 | **Esforço** | M |
 
+**Correção aplicada (2026-09-09).** `packages/db/scripts/rotate-pii-key.ts`: script standalone
+que decifra com a chave ANTIGA e re-cifra com a NOVA (as duas ao mesmo tempo, que o `pii.ts` não
+suporta), e **recalcula os hashes de CPF** (que derivam da chave). Cobre `Aluno`/`Funcionario`
+(`caCPF`+`caCPFHash`), `AlunoBiometriaFacial` (`anEmbedding`) e `ContaRecebimento`
+(`caChavePix`, `caCredencial`). **Idempotente/retomável** (usa a auth tag do AES-GCM para pular
+o já migrado). Validado: dry-run contra a base detectou 13 alunos + 6 funcionários cifrados
+(decifrou com a chave real); round-trip provado isolado (re-cifra com nova chave → decifra de
+volta ao original; hash rotaciona). Procedimento (backup → downtime → dry-run → `--apply` →
+trocar env → validar) em `docs/rotacao-chave-pii.md`. **Pendências (decisão):** rotação sem
+downtime (exigiria o `pii.ts` conhecer duas chaves) e env dedicada para credenciais de gateway
+— ambas descritas no doc.
+
 ---
 
 ### BAIXO
 
-- **B-1. `/auth/theme` público sem rate limit próprio (BAIXO, CONFIRMADO)** —
-  `auth/routes.ts:480`. Faz consulta por domínio + gera signed URL do Supabase, sob o limite
-  global de 300/min, sem limite dedicado como as outras rotas de auth. O domínio é público, o
-  retorno é só tema; abuso é geração de signed URLs. Correção: `config.rateLimit` próprio.
-- **B-2. Sem `bodyLimit` explícito e sem `setNotFoundHandler` (BAIXO, CONFIRMADO)** —
-  `app.ts`. O default de 1 MB do Fastify vale para JSON, e o multipart tem limite de 10 MB;
-  mas o limite fica implícito. Sem `setNotFoundHandler`, 404s de rota vazam o formato padrão
-  (`"Route GET:/x not found"`) — enumeração leve de rotas. Correção: `bodyLimit` explícito e
-  404 genérico.
+- **B-1. `/auth/theme` público sem rate limit próprio — ✅ CORRIGIDO 2026-09-09.** Adicionado
+  `themeRateLimit` (30/min por IP) na rota. Validado em runtime: lote de 35 → 429. Cobre o
+  carregamento normal da página (o web chama no boot) e corta o abuso de gerar signed URLs.
+- **B-2. Sem `bodyLimit` explícito e sem `setNotFoundHandler` — ✅ CORRIGIDO 2026-09-09.**
+  `app.ts`: `bodyLimit: 1 MB` explícito (uploads vão por multipart, limite próprio de 10 MB) e
+  `setNotFoundHandler` que responde `{message:'Recurso nao encontrado.'}` no lugar do
+  `"Route GET:/x not found"`. Runtime: rota inexistente sob prefixo mapeado → 404 genérico;
+  rota totalmente desconhecida → 403/401 (deny-by-default do RBAC / auth), sem enumerar.
 - **B-3. Rate limit em memória não sobrevive a múltiplas instâncias (BAIXO, CONFIRMADO)** —
-  `app.ts:119`. `@fastify/rate-limit` sem store externo: com 2+ réplicas, o limite de
-  10/min do login é por instância. Correção: store Redis se escalar horizontalmente.
-- **B-4. `fetch` sem timeout em geocode e CompreFace (BAIXO, CONFIRMADO)** —
-  `localities/routes.ts:111`, `compreface.ts:34`. Asaas e Expo Push já usam
-  `AbortSignal.timeout`; geocode (Nominatim) e CompreFace não. Um provedor lento segura a
-  conexão. Sem SSRF (hosts fixos/env). Correção: `AbortSignal.timeout` nas duas.
+  `app.ts`. `@fastify/rate-limit` sem store externo: com 2+ réplicas, o limite de
+  10/min do login é por instância. **NÃO corrigido** — exige infra (Redis). Só relevante ao
+  escalar horizontalmente; documentar como pré-requisito desse momento.
+- **B-4. `fetch` sem timeout em geocode e CompreFace — ✅ CORRIGIDO 2026-09-09.**
+  `AbortSignal.timeout` adicionado: 8 s no geocode (`localities/routes.ts`) e 15 s no CompreFace
+  (`compreface.ts`). Asaas e Expo Push já tinham. Sem SSRF (hosts fixos/env).
 - **B-5. "Criptografia" da sessão no web usa chave embutida no bundle (BAIXO, CONFIRMADO)** —
   `apps/web/src/shared/auth/sessionUtils.ts:56`. A sessão em `localStorage` é AES-GCM com
   passphrase hardcoded no JS — é ofuscação, não segurança. O usuário pode virar o flag
   `superAdmin` no próprio storage. **Não é vulnerabilidade** porque o servidor decide tudo a
   partir do JWT assinado (`boSuperAdmin` do banco) e o item 5 de "correções recentes" está
-  correto — mas o rótulo "encrypted" na chave engana. Correção: renomear/documentar como
-  ofuscação; nunca mover decisão de servidor para esse flag.
+  correto — mas o rótulo "encrypted" na chave engana. **NÃO corrigido** (cosmético): resta
+  renomear/comentar como ofuscação; nunca mover decisão de servidor para esse flag.
 
 ---
 
@@ -684,7 +743,8 @@ alunos/funcionários/perfis → planos/treinos/promoções/atividades → empres
 | `tb_Alunos` | 490, 491, 492, 493, 494, 495 | `AUDIT Aluno B/A`, `AUDIT DupCPF TENANT-1/3`, `AUDIT RegDup T1` (494, cli 1) e `AUDIT RegDup T3` (495, cli 3) — mesmo CPF `44455566619` nos dois tenants, da validação A-2 |
 | `tb_Usuarios` (+ `tb_Senhas`) | 11, 12, 13, 14, 15, 16, 17 | logins `audit-*` (16 = `audit-gerente@`, C-1; 17 = `audit-reg-t3@`, criado pelo register PoC do A-2, `idCliente=3`) |
 | `tb_DominiosCorporativos` | 4, 5 | `audit-a.local`→cliente 1, `audit-b.local`→cliente 3 (criados para validar a resolução por domínio no A-2) |
-| `tb_Auditoria` | 1–6 | trilha **criada pela correção A-4** (migration `20260909124912_trilha_auditoria`); os 6 registros são dos testes de runtime (login, GET /students/491, 403, token_invalido). Tabela nova — pode truncar para começar limpa em produção. |
+| `tb_Auditoria` | vários | trilha **criada pela correção A-4** (migration `20260909124912_trilha_auditoria`); registros dos testes de runtime (login, GET /students/491, 403, token_invalido, e o próprio acesso ao lgpd-export/consents). Tabela nova — pode truncar para começar limpa em produção. |
+| `tb_Consentimentos` | 1, 2 | **criada pelo M-3** (migration `20260909133852_consentimento_lgpd`); 2 registros de teste (aluno 491: biometria concedida, push revogado). Tabela nova. |
 | `tb_Planos` | 10 | `AUDIT-PLANO-SECRETO-B` |
 | `tb_Treinos` | 6 | `AUDIT-TREINO-B` |
 | `tb_Promocoes` | 6 | `AUDIT-PROMO-B` |
