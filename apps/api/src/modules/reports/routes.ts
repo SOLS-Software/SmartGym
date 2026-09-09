@@ -11,6 +11,7 @@ import { clientErrorMessage } from '../../shared/errors.js';
 import { getStatusIdByName } from '../../shared/payments.js';
 import { registerOverviewRoutes } from './overview.js';
 import { registerDashboardRoutes } from './dashboards.js';
+import { registerSecuritySignalRoutes } from './security.js';
 import { matriculaAtivaWhere } from './vigencia.js';
 
 const inactiveQuerySchema = z.object({
@@ -42,6 +43,7 @@ function toNumber(value: unknown): number {
 export async function registerReportRoutes(app: FastifyInstance) {
   await registerOverviewRoutes(app);
   await registerDashboardRoutes(app);
+  registerSecuritySignalRoutes(app);
 
   app.get<{
     Querystring: { idEmpresa?: string; from?: string; to?: string };

@@ -349,7 +349,7 @@ Expo SDK (mobile); avaliar `deepmerge-ts` 8.x.
 | | |
 |---|---|
 | **Severidade + confiança** | Alto · CONFIRMADO |
-| **STATUS** | ✅ **CORRIGIDO 2026-09-09** (trilha de PII: leitura + escrita + eventos de segurança). Ver "Correção aplicada". Pendências de negócio: política de retenção/expurgo e alerta ativo (notificação). |
+| **STATUS** | ✅ **CORRIGIDO 2026-09-09** (trilha de PII + **detecção consultável** `/reports/security-signals`). Ver "Correção aplicada". Pendências: política de retenção/expurgo e **notificação** ativa em tempo real (a consulta já existe). |
 | **Local** | `packages/db/prisma/schema.prisma` (nenhum dos 80 models) |
 
 **Cenário.** Nenhuma tabela registra quem **leu** o quê. Há `idUsuarioCadastro`/
@@ -399,11 +399,15 @@ force detectável por IP+tempo**); token forjado em `/students/491` → `401` co
 **Pendências (decisão de negócio, não bloqueiam a trilha):** (1) **retenção** — a coluna
 `dtEvento` está indexada para o expurgo, mas por quanto tempo guardar o log de acesso é decisão
 do controlador (o financeiro tem obrigação legal própria; o log de acesso, não); a rotina de
-expurgo não foi automatizada. (2) **alerta ativo** — hoje a detecção é forense (consulta à
-trilha); disparar notificação em tempo real (N falhas de login por IP, uso de token revogado)
-é um passo seguinte. (3) **ator no login bem-sucedido** — o registro de `POST /auth/login 200`
-sai com ator nulo (no login o request ainda é anônimo); correlaciona-se por IP+tempo com o
-acesso seguinte, mas gravar o `idUsuario` autenticado seria um refinamento.
+expurgo não foi automatizada. (2) **alerta ativo** — ~~hoje a detecção é forense~~ **DETECÇÃO
+CONSULTÁVEL FEITA 2026-09-09**: `GET /reports/security-signals` (`modules/reports/security.ts`),
+restrito ao super-admin, agrega a trilha e lista IPs em brute force (falhas de login), uso de
+sessão/token revogado, acessos negados (403) por usuário e webhooks recusados. Validado em
+runtime (brute force de 7 falhas de um IP detectado; 403 do não-super-admin barrado e
+registrado). Falta só a **notificação em tempo real** (email/push) — a consulta já existe.
+(3) **ator no login bem-sucedido** — o registro de `POST /auth/login 200` sai com ator nulo
+(no login o request ainda é anônimo); correlaciona-se por IP+tempo com o acesso seguinte, mas
+gravar o `idUsuario` autenticado seria um refinamento.
 | **Esforço** | G |
 
 ---
