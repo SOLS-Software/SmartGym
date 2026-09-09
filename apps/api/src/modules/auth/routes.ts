@@ -82,6 +82,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
   // force / enumeracao). O limite global de 300/min continua valendo no resto.
   const authRateLimit = { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } };
   const lookupRateLimit = { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } };
+  // /auth/theme e publica e gera signed URL do Supabase a cada acerto de dominio.
+  // Sem teto proprio ela so respondia ao limite global de 300/min. 30/min por IP
+  // cobre o carregamento normal da pagina (o web chama no boot) e corta o abuso
+  // de gerar signed URLs em massa.
+  const themeRateLimit = { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } };
 
   app.post<{
     Body: LoginPayload;
@@ -558,7 +563,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
   app.get<{
     Querystring: ThemeQuery;
-  }>('/auth/theme', async (request, reply) => {
+  }>('/auth/theme', themeRateLimit, async (request, reply) => {
     try {
       const url = (request.query.url ?? '').trim().toLowerCase();
       if (!url) return reply.code(204).send();

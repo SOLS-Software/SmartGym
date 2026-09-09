@@ -76,6 +76,11 @@ function resolveTrustProxy(): boolean | string[] {
 export const app = Fastify({
   logger: true,
   trustProxy: resolveTrustProxy(),
+  // Teto do corpo JSON (o default do Fastify e 1 MB — explicitado aqui). Uploads
+  // de imagem NAO passam por aqui: vao por multipart, com fileSize proprio de 10
+  // MB (ver registro abaixo). O maior JSON legitimo e um lote de eventos de
+  // catraca (~dezenas de KB), entao 1 MB e folgado e corta payload absurdo cedo.
+  bodyLimit: 1_048_576,
 });
 
 // Algumas catracas Control iD enviam push como application/x-www-form-urlencoded
@@ -170,6 +175,13 @@ app.setErrorHandler((error: FastifyError, request, reply) => {
     return reply.code(statusCode).send({ message: 'Erro interno do servidor.' });
   }
   return reply.code(statusCode).send({ message: error.message });
+});
+
+// Rota inexistente: 404 generico. O default do Fastify responde
+// "Route GET:/x not found", que confirma o metodo e ajuda a mapear a superficie
+// da API por tentativa. A mensagem neutra nao nega nem confirma nada.
+app.setNotFoundHandler((_request, reply) => {
+  return reply.code(404).send({ message: 'Recurso nao encontrado.' });
 });
 
 await registerSystemRoutes(app);

@@ -51,6 +51,13 @@ export type StoredSession = {
 
 let _cachedKey: CryptoKey | null = null;
 
+// ATENCAO: isto e OFUSCACAO, nao seguranca. A passphrase esta embutida no bundle
+// que o navegador baixa, entao qualquer usuario decifra e reescreve a propria
+// sessao no localStorage — inclusive virar o flag `superAdmin`. Isso NAO e um
+// problema porque o flag so monta menu: o servidor decide toda autorizacao a
+// partir do JWT assinado (e do `boSuperAdmin` do banco), a cada request. NUNCA
+// mova uma decisao de servidor para um valor guardado aqui. O "encrypt" existe
+// so para o localStorage nao exibir a sessao em texto claro a um ombro curioso.
 async function getSessionCryptoKey(): Promise<CryptoKey> {
   if (_cachedKey) return _cachedKey;
   const passphrase = new TextEncoder().encode(

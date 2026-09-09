@@ -35,6 +35,9 @@ async function requestCompreface<T>(url: URL, formData: FormData): Promise<T> {
     method: 'POST',
     headers: { 'x-api-key': config.recognitionApiKey },
     body: formData,
+    // Reconhecimento/enroll facial e sincrono no fluxo de check-in; sem timeout
+    // um CompreFace lento trava a catraca e segura uma conexao do pool. 15s.
+    signal: AbortSignal.timeout(15000),
   });
 
   const responseText = await response.text();

@@ -110,6 +110,9 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
 
       const response = await fetch(url, {
         headers: { 'User-Agent': 'SmartGym/1.0 (contato@smartgym.app)' },
+        // Sem timeout, um Nominatim lento segura a conexao (e uma do pool) por
+        // tempo indefinido. 8s e folgado para geocodificacao.
+        signal: AbortSignal.timeout(8000),
       });
 
       if (!response.ok) {
