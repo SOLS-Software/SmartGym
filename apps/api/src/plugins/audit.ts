@@ -9,6 +9,7 @@
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { prisma } from '../shared/prisma.js';
+import { notifyOnAuditEvent } from '../shared/securityAlerts.js';
 import type { AuthTokenPayload } from './auth.js';
 
 declare module 'fastify' {
@@ -71,19 +72,22 @@ export function registerAuditPlugin(app: FastifyInstance) {
 
     // Fire-and-forget: a resposta JA foi enviada (onResponse). A trilha nunca
     // atrasa nem derruba o request; uma falha de escrita vira warning.
+    const evento = {
+      idUsuario: typeof user?.sub === 'number' ? user.sub : null,
+      idCliente: typeof user?.idCliente === 'number' ? user.idCliente : null,
+      cnPapel: typeof user?.role === 'string' ? user.role.slice(0, 20) : null,
+      cnMetodo: request.method.slice(0, 10),
+      dsRota: pathname.slice(0, 255),
+      nrStatus: reply.statusCode,
+      anIp: (request.ip ?? '').slice(0, 64) || null,
+      dsResultado: request.auditReason ? request.auditReason.slice(0, 100) : null,
+    };
     void prisma.auditoria
-      .create({
-        data: {
-          idUsuario: typeof user?.sub === 'number' ? user.sub : null,
-          idCliente: typeof user?.idCliente === 'number' ? user.idCliente : null,
-          cnPapel: typeof user?.role === 'string' ? user.role.slice(0, 20) : null,
-          cnMetodo: request.method.slice(0, 10),
-          dsRota: pathname.slice(0, 255),
-          nrStatus: reply.statusCode,
-          anIp: (request.ip ?? '').slice(0, 64) || null,
-          dsResultado: request.auditReason ? request.auditReason.slice(0, 100) : null,
-        },
-      })
+      .create({ data: evento })
       .catch((err) => request.log.warn({ err }, 'Falha ao gravar trilha de auditoria.'));
+
+    // Notificacao ativa (fire-and-forget, nunca lanca): evento critico vira
+    // email para o operador. No-op se SECURITY_ALERT_EMAIL nao estiver definido.
+    notifyOnAuditEvent(evento, request.log);
   });
 }
