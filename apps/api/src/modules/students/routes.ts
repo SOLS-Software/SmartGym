@@ -15,8 +15,10 @@ import {
   getComprefaceConfig,
   getStudentFacialSubject,
   addComprefaceSubjectExample,
+  deleteComprefaceSubject,
 } from '../../shared/compreface.js';
 import { assertAllowedUploadType, assertUploadBuffer, getStudentFilePath } from '../../shared/files.js';
+import { assertConsent } from '../../shared/consent.js';
 import { generateNextRecurringPayment } from '../../shared/payments.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 import { syncStudentNotifications } from '../../shared/notifications.js';
@@ -485,6 +487,118 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   });
 
   // ---------------------------------------------------------------------------
+  // LGPD — eliminação por anonimização (art. 18, VI)
+  //
+  // Decisão de negócio: ANONIMIZAR mantendo o financeiro. Apaga a PII e o dado
+  // sensível (biometria local + no CompreFace, avaliação física, arquivos) e
+  // embaralha a identidade da ficha, mas PRESERVA planos e pagamentos (retenção
+  // fiscal) — agora ligados a um titular sem identidade. Irreversível; operação
+  // da equipe (students.write) a pedido do titular. O acesso fica na trilha.
+  // ---------------------------------------------------------------------------
+  app.post<{ Params: { id: string } }>('/students/:id/anonymize', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+    try {
+      const idAluno = Number(request.params.id);
+      assertValidId(idAluno, 'Aluno invalido.');
+      if (!(await findTenantStudent(idAluno, idCliente))) {
+        return reply.code(404).send({ message: 'Registro nao encontrado.' });
+      }
+
+      // Coleta ANTES de apagar o que precisa ir para servicos externos.
+      const biometrias = await prisma.alunoBiometriaFacial.findMany({
+        where: { idAluno },
+        select: { dsSubject: true },
+      });
+      const arquivos = await prisma.alunoArquivo.findMany({
+        where: { idAluno },
+        select: { anCaminho: true },
+      });
+      const usuarios = await prisma.usuario.findMany({
+        where: { idAluno, idCliente },
+        select: { id: true },
+      });
+      const idsUsuario = usuarios.map((u) => u.id);
+
+      await prisma.$transaction(async (tx) => {
+        // Dado sensivel e PII sai; a ordem respeita as FKs para AlunoArquivo.
+        await tx.alunoBiometriaFacial.deleteMany({ where: { idAluno } });
+        await tx.alunoEvolucao.deleteMany({ where: { idAluno } });
+        await tx.alunoArquivo.deleteMany({ where: { idAluno } });
+        // Encerra o acesso: dispositivos de push fora, usuarios inativos e com a
+        // versao de sessao incrementada (derruba qualquer token vivo).
+        if (idsUsuario.length > 0) {
+          await tx.usuarioDispositivo.deleteMany({ where: { idUsuario: { in: idsUsuario } } });
+          await tx.usuario.updateMany({
+            where: { id: { in: idsUsuario } },
+            data: { boInativo: true, nrTokenVersion: { increment: 1 } },
+          });
+        }
+        // Embaralha a identidade da ficha; mantem o id (financeiro pende dele).
+        await tx.aluno.update({
+          where: { id: idAluno },
+          data: {
+            nmAluno: `Titular anonimizado #${idAluno}`,
+            caCPF: '',
+            caCPFHash: null,
+            anEmail: '',
+            nrDDD: 0,
+            nrContato: null,
+            anCEP: '',
+            anLogradouro: '',
+            anComplemento: '',
+            anBairro: '',
+            nrEndereco: null,
+            dtNascimento: null,
+            nrUsuarioCatraca: null,
+            boInativo: true,
+          },
+        });
+      });
+
+      // Servicos externos: best-effort, FORA da transacao. A anonimizacao do
+      // banco (o que a LGPD cobra) nao pode falhar por um provedor fora do ar; o
+      // que nao apagar aqui fica no log para reprocessar a mao.
+      const pendencias: string[] = [];
+      for (const bio of biometrias) {
+        if (!bio.dsSubject) continue;
+        try {
+          await deleteComprefaceSubject(bio.dsSubject);
+        } catch (err) {
+          request.log.warn({ err, subject: bio.dsSubject }, 'Anonimizacao: falha ao remover subject no CompreFace.');
+          pendencias.push(`compreface:${bio.dsSubject}`);
+        }
+      }
+      const caminhos = arquivos.map((a) => a.anCaminho).filter(Boolean);
+      if (caminhos.length > 0) {
+        try {
+          const { bucket } = getSupabaseConfig();
+          await getSupabaseClient().storage.from(bucket).remove(caminhos);
+        } catch (err) {
+          request.log.warn({ err }, 'Anonimizacao: falha ao remover arquivos do storage.');
+          pendencias.push(`storage:${caminhos.length} arquivo(s)`);
+        }
+      }
+
+      return {
+        idAluno,
+        anonimizado: true,
+        biometriasRemovidas: biometrias.length,
+        arquivosRemovidos: arquivos.length,
+        sessoesEncerradas: idsUsuario.length,
+        // Preserva o financeiro por retencao fiscal (decisao de negocio).
+        financeiroPreservado: true,
+        pendenciasExternas: pendencias,
+      };
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(400).send({
+        message: clientErrorMessage(error, 'Erro ao anonimizar o titular.'),
+      });
+    }
+  });
+
+  // ---------------------------------------------------------------------------
   // Students CRUD
   // ---------------------------------------------------------------------------
 
@@ -941,6 +1055,14 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
+      // Gate LGPD (art. 11) — ver shared/consent.ts.
+      await assertConsent(
+        prisma,
+        idAluno,
+        'biometria_facial',
+        'Consentimento de biometria facial nao registrado para este aluno.',
+      );
+
       if (data.idAlunoArquivo) {
         const studentFile = await prisma.alunoArquivo.findFirst({
           where: { id: data.idAlunoArquivo, idAluno, boInativo: false },
@@ -1016,6 +1138,15 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       if (!student) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
+
+      // Gate LGPD (art. 11): biometria facial e dado sensivel; sem consentimento
+      // vigente, nao cadastra. Ver shared/consent.ts (kill-switch de transicao).
+      await assertConsent(
+        prisma,
+        idAluno,
+        'biometria_facial',
+        'Consentimento de biometria facial nao registrado para este aluno.',
+      );
 
       const studentFile = await prisma.alunoArquivo.findFirst({
         where: { id: idAlunoArquivo, idAluno, boInativo: false },

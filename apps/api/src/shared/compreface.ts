@@ -76,6 +76,25 @@ export async function addComprefaceSubjectExample(
   );
 }
 
+// Remove TODOS os exemplos faciais de um subject no CompreFace. Usado na
+// anonimizacao do titular (LGPD art. 18, VI): sem isto o vetor biometrico
+// continuaria no provedor mesmo apos apagar o registro local. Best-effort — o
+// chamador trata a falha (a anonimizacao do banco nao pode depender do provedor).
+export async function deleteComprefaceSubject(subject: string): Promise<void> {
+  const config = getComprefaceConfig();
+  const url = new URL('/api/v1/recognition/faces', config.url);
+  url.searchParams.set('subject', subject);
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: { 'x-api-key': config.recognitionApiKey },
+    signal: AbortSignal.timeout(15000),
+  });
+  // 404 = subject ja nao existe no provedor: para a anonimizacao, e sucesso.
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`CompreFace respondeu ${response.status} ao remover o subject.`);
+  }
+}
+
 export async function recognizeComprefaceFace(buffer: Buffer, fileName: string) {
   const config = getComprefaceConfig();
   const url = new URL('/api/v1/recognition/recognize', config.url);

@@ -21,6 +21,7 @@ import { prisma } from '../../shared/prisma.js';
 import { clientErrorMessage } from '../../shared/errors.js';
 import { buildNotificationEmail, syncStudentNotifications } from '../../shared/notifications.js';
 import { sendExpoPush, type PushMessage } from '../../shared/push.js';
+import { consentEnforcementEnabled, hasActiveConsent } from '../../shared/consent.js';
 
 const dispatchQuerySchema = z.object({
   // Ensaio: percorre tudo, gera os avisos e RELATA o que enviaria, sem enviar.
@@ -144,6 +145,12 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
           (aviso: { dtEnvioPush: Date | null }) => aviso.dtEnvioPush === null,
         );
         if (pendentesPush.length === 0) continue;
+
+        // Gate LGPD (art. 8): sem consentimento vigente de 'push', o aluno nao
+        // recebe notificacao. Ver shared/consent.ts (kill-switch de transicao).
+        if (consentEnforcementEnabled() && !(await hasActiveConsent(prisma, aluno.id, 'push'))) {
+          continue;
+        }
 
         const aparelhos = await prisma.usuarioDispositivo.findMany({
           where: { boInativo: false, usuario: { idAluno: aluno.id, boInativo: false } },

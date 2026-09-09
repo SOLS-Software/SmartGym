@@ -475,7 +475,7 @@ Passou verde (>200 rotas, 0 unmapped). Falta plugar `pnpm test` no CI (não há 
 | | |
 |---|---|
 | **Severidade + confiança** | Médio · CONFIRMADO |
-| **STATUS** | 🟡 **NÚCLEO TÉCNICO FEITO 2026-09-09** (exportação art. 18 + consentimento art. 8/11). Ver "Correção aplicada". **Travado por decisão de negócio**: eliminação/anonimização, retenção, ligar a checagem de consentimento no fluxo, bases legais, menores (art. 14). |
+| **STATUS** | 🟢 **AMPLIADO 2026-09-09**: exportação (art. 18) + consentimento (art. 8/11) + **anonimização** (art. 18 VI, decisão: manter financeiro) + **gate ligado** (biometria/push exigem consentimento; kill-switch `CONSENT_ENFORCEMENT`). Restam por decisão: **retenção/expurgo automático**, bases legais, menores (art. 14). |
 | **Local** | schema (nenhuma tabela de consentimento) · `students/routes.ts` (biometria facial) |
 
 **Cenário.** Não há endpoint de exportação, eliminação, anonimização ou portabilidade, nem
@@ -507,15 +507,26 @@ política de retenção do ex-aluno.
   Validado: conceder biometria (201), revogar push (201), finalidade inválida (400), GET
   devolve estado atual + histórico. Testes: 321/321; typecheck limpo.
 
-**O que TRAVA por decisão de negócio (não implementado):**
-- **Eliminação / anonimização (art. 18, VI):** exige definir o que apagar vs. reter por
-  obrigação legal (o financeiro tem retenção fiscal própria) — decisão do controlador.
-- **Retenção:** por quanto tempo guardar dado de ex-aluno; sem isso não há rotina de expurgo.
-- **Ligar a CHECAGEM de consentimento** no fluxo de biometria/push (bloquear sem consentir)
-  depende da tela de captura no cadastro e da decisão de bloquear — a tabela e os endpoints já
-  existem; falta o gate e a UI.
+**Ampliação (2026-09-09) — decisões do dono tomadas e implementadas:**
+- **Eliminação por ANONIMIZAÇÃO (art. 18, VI)** — decisão: anonimizar mantendo o financeiro.
+  `POST /students/:id/anonymize` (students.write): apaga PII e dado sensível (biometria local
+  **+ no CompreFace**, avaliação física, arquivos no storage), embaralha a identidade da ficha
+  e encerra as sessões, mas **preserva planos/pagamentos** (retenção fiscal). Serviços externos
+  best-effort fora da transação; pendências vão para o log e a resposta. Validado: 494
+  anonimizado (PII zerada); 404 para aluno de outro tenant.
+- **Gate de consentimento LIGADO** — decisão: bloquear. `shared/consent.ts` + `assertConsent`
+  no enroll/criação de biometria (art. 11) e filtro no envio de push (art. 8). Kill-switch
+  `CONSENT_ENFORCEMENT=false` para a janela sem a tela de captura (default: ligado). Validado:
+  aluno sem consentimento → biometria bloqueada; com consentimento → grava. Teste unitário do
+  helper (kill-switch + estado).
+
+**Ainda por decisão de negócio (não implementado):**
+- **Retenção / expurgo automático:** por quanto tempo guardar dado de ex-aluno e rodar a
+  anonimização/expurgo em lote — decisão do controlador (a ação manual por titular já existe).
 - **Bases legais por finalidade** (jurídico) e **menores de idade (art. 14)** — consentimento
   do responsável para adolescentes.
+- **Tela de captura do consentimento** no cadastro/app (o backend já aceita; enquanto não vier,
+  `CONSENT_ENFORCEMENT=false` evita bloquear a operação).
 
 #### M-4. Reset de senha por e-mail vulnerável a account-takeover se a caixa for comprometida; sem 2º fator
 | | |
