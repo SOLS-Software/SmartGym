@@ -95,11 +95,15 @@ handlers e sinaliza `prisma.<modelDeTenant>.findMany/findFirst/update/delete` se
    `findMany`/`count`/`aggregate`/`groupBy` de model de tenant sem `idCliente`
    (escopo estreito p/ zero falso-positivo — hoje 25/25 escopadas; provado que
    pega uma violação injetada). `getTenantId()` morto removido de `plugins/auth.ts`.
-2. **Próximo trimestre (G):** implementar **B (RLS)** para os **15 models com
-   `idCliente`** — a defesa forte onde ela é barata (a coluna já existe). Role de
+2. **Próximo trimestre (G):** implementar **B (RLS)** para os models com
+   `idCliente` — a defesa forte onde ela é barata (a coluna já existe). Role de
    app sem `BYPASSRLS`, `SET LOCAL` por request, e um teste de integração que
    prova que sem `app.tenant` o role não lê nenhuma linha. Deixar os 65 filhos
    cobertos pela posse do pai nos handlers (como hoje), agora com a rede da fase 1.
+   → **PLANO + SQL PRONTOS (2026-09-09):** `docs/isolamento-tenant-rls.md` — as 16
+   tabelas, o role, o `SET LOCAL` via Prisma extension, o tratamento de
+   auth-lookup/super-admin e o runbook. Aplicar em **staging**, não na base
+   compartilhada.
 3. **Depois, se o risco justificar (G):** denormalizar `idCliente` nos filhos mais
    sensíveis (Pagamento, AlunoEvolucao, AlunoBiometriaFacial) e estender a RLS a
    eles — priorizando dado financeiro e sensível, não os 65 de uma vez.

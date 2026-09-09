@@ -422,7 +422,7 @@ gravar o `idUsuario` autenticado seria um refinamento.
 | | |
 |---|---|
 | **Severidade + confiança** | Médio · CONFIRMADO |
-| **STATUS** | 🟡 **FASE 1 FEITA + DESENHO ENTREGUE 2026-09-09**. Fase 1 (rede de proteção): teste `plugins/tenantScope.test.ts` que falha se uma listagem/agregação (`findMany`/`count`/`aggregate`/`groupBy`) de model de tenant nascer sem `idCliente` (hoje 25/25 escopadas); `getTenantId` morto removido. Fase 2 (RLS) e desenho completo (3 opções, custos) em `docs/isolamento-tenant-proposta.md` — **decisão de arquitetura do dono**. |
+| **STATUS** | 🟡 **FASE 1 FEITA + PLANO DA FASE 2 ENTREGUE 2026-09-09**. Fase 1 (rede de proteção): `plugins/tenantScope.test.ts` falha se listagem/agregação de model de tenant nascer sem `idCliente`; `getTenantId` morto removido. **Fase 2 (RLS): plano de implantação + SQL completo em `docs/isolamento-tenant-rls.md`** (role sem BYPASSRLS, políticas nas 16 tabelas, `SET LOCAL` via Prisma extension, auth-lookup/super-admin, runbook com o teste que prova o isolamento). Aplicar em **staging**, não na base compartilhada — execução é decisão do dono. |
 | **Local** | transversal · `apps/api/src/plugins/auth.ts:197` (`getTenantId` morto) |
 
 **Cenário.** Só 15 dos 80 models têm coluna `idCliente`; os outros 65 alcançam o tenant pelo
