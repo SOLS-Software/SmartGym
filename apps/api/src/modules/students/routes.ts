@@ -15,8 +15,8 @@ import {
   getComprefaceConfig,
   getStudentFacialSubject,
   addComprefaceSubjectExample,
-  deleteComprefaceSubject,
 } from '../../shared/compreface.js';
+import { anonymizeStudent } from '../../shared/anonymize.js';
 import { assertAllowedUploadType, assertUploadBuffer, getStudentFilePath } from '../../shared/files.js';
 import { assertConsent } from '../../shared/consent.js';
 import { generateNextRecurringPayment } from '../../shared/payments.js';
@@ -505,91 +505,9 @@ export async function registerStudentRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      // Coleta ANTES de apagar o que precisa ir para servicos externos.
-      const biometrias = await prisma.alunoBiometriaFacial.findMany({
-        where: { idAluno },
-        select: { dsSubject: true },
-      });
-      const arquivos = await prisma.alunoArquivo.findMany({
-        where: { idAluno },
-        select: { anCaminho: true },
-      });
-      const usuarios = await prisma.usuario.findMany({
-        where: { idAluno, idCliente },
-        select: { id: true },
-      });
-      const idsUsuario = usuarios.map((u) => u.id);
-
-      await prisma.$transaction(async (tx) => {
-        // Dado sensivel e PII sai; a ordem respeita as FKs para AlunoArquivo.
-        await tx.alunoBiometriaFacial.deleteMany({ where: { idAluno } });
-        await tx.alunoEvolucao.deleteMany({ where: { idAluno } });
-        await tx.alunoArquivo.deleteMany({ where: { idAluno } });
-        // Encerra o acesso: dispositivos de push fora, usuarios inativos e com a
-        // versao de sessao incrementada (derruba qualquer token vivo).
-        if (idsUsuario.length > 0) {
-          await tx.usuarioDispositivo.deleteMany({ where: { idUsuario: { in: idsUsuario } } });
-          await tx.usuario.updateMany({
-            where: { id: { in: idsUsuario } },
-            data: { boInativo: true, nrTokenVersion: { increment: 1 } },
-          });
-        }
-        // Embaralha a identidade da ficha; mantem o id (financeiro pende dele).
-        await tx.aluno.update({
-          where: { id: idAluno },
-          data: {
-            nmAluno: `Titular anonimizado #${idAluno}`,
-            caCPF: '',
-            caCPFHash: null,
-            anEmail: '',
-            nrDDD: 0,
-            nrContato: null,
-            anCEP: '',
-            anLogradouro: '',
-            anComplemento: '',
-            anBairro: '',
-            nrEndereco: null,
-            dtNascimento: null,
-            nrUsuarioCatraca: null,
-            boInativo: true,
-          },
-        });
-      });
-
-      // Servicos externos: best-effort, FORA da transacao. A anonimizacao do
-      // banco (o que a LGPD cobra) nao pode falhar por um provedor fora do ar; o
-      // que nao apagar aqui fica no log para reprocessar a mao.
-      const pendencias: string[] = [];
-      for (const bio of biometrias) {
-        if (!bio.dsSubject) continue;
-        try {
-          await deleteComprefaceSubject(bio.dsSubject);
-        } catch (err) {
-          request.log.warn({ err, subject: bio.dsSubject }, 'Anonimizacao: falha ao remover subject no CompreFace.');
-          pendencias.push(`compreface:${bio.dsSubject}`);
-        }
-      }
-      const caminhos = arquivos.map((a) => a.anCaminho).filter(Boolean);
-      if (caminhos.length > 0) {
-        try {
-          const { bucket } = getSupabaseConfig();
-          await getSupabaseClient().storage.from(bucket).remove(caminhos);
-        } catch (err) {
-          request.log.warn({ err }, 'Anonimizacao: falha ao remover arquivos do storage.');
-          pendencias.push(`storage:${caminhos.length} arquivo(s)`);
-        }
-      }
-
-      return {
-        idAluno,
-        anonimizado: true,
-        biometriasRemovidas: biometrias.length,
-        arquivosRemovidos: arquivos.length,
-        sessoesEncerradas: idsUsuario.length,
-        // Preserva o financeiro por retencao fiscal (decisao de negocio).
-        financeiroPreservado: true,
-        pendenciasExternas: pendencias,
-      };
+      // A logica de anonimizacao vive em shared/anonymize.ts (reusada pelo
+      // expurgo em lote); a rota so valida a posse por tenant acima.
+      return await anonymizeStudent(idAluno, idCliente, { log: request.log });
     } catch (error) {
       request.log.error(error);
       return reply.code(400).send({

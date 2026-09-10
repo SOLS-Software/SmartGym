@@ -47,9 +47,16 @@ const LIST_METHODS = ['findMany', 'count', 'aggregate', 'groupBy'];
 
 // Excecoes legitimas conhecidas: uma listagem de model de tenant que, por
 // desenho, nao e escopada por idCliente. Formato: `arquivo:linha` (a partir de
-// apps/api/src). Vazio hoje — se um caso legitimo surgir, adicione aqui COM o
-// motivo, para a excecao ser uma decisao e nao um descuido.
-const ALLOWLIST = new Set<string>([]);
+// apps/api/src). Se um caso legitimo surgir, adicione aqui COM o motivo, para a
+// excecao ser uma decisao e nao um descuido. (Refs sao por LINHA — se o arquivo
+// citado mudar, o teste volta a flagrar e as linhas devem ser reconferidas.)
+const ALLOWLIST = new Set<string>([
+  // Expurgo de retencao (LGPD): job de manutencao que varre ex-alunos de TODOS
+  // os tenants (ou de um so, via --tenant). Cross-tenant e o desenho, nao um
+  // esquecimento; a anonimizacao chamada em seguida e a mesma da rota.
+  'scripts/retention.ts:117', // prisma.aluno.count (contagem de elegiveis)
+  'scripts/retention.ts:118', // prisma.aluno.findMany (candidatos do lote)
+]);
 
 const SRC_ROOT = fileURLToPath(new URL('..', import.meta.url)); // apps/api/src
 const callRe = new RegExp(

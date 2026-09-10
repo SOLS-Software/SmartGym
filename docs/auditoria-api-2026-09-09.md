@@ -364,7 +364,7 @@ o upstream (Expo/Prisma) lançar correção; ao remover o pin, o CI já valida s
 | | |
 |---|---|
 | **Severidade + confiança** | Alto · CONFIRMADO |
-| **STATUS** | ✅ **CORRIGIDO 2026-09-09** (trilha de PII + detecção `/reports/security-signals` + **alerta ativo por email** `shared/securityAlerts.ts`). Pendência: só a política de retenção/expurgo da trilha. |
+| **STATUS** | ✅ **CORRIGIDO 2026-09-09** (trilha de PII + detecção `/reports/security-signals` + **alerta ativo por email** `shared/securityAlerts.ts`). **Retenção da trilha — mecanismo FEITO 2026-09-10** (`scripts/retention.ts` expurga `tb_Auditoria` além de `RETENTION_AUDITORIA_DIAS`; ver M-3 e `docs/retencao-expurgo.md`); resta o controlador definir o prazo. |
 | **Local** | `packages/db/prisma/schema.prisma` (nenhum dos 80 models) |
 
 **Cenário.** Nenhuma tabela registra quem **leu** o quê. Há `idUsuarioCadastro`/
@@ -542,9 +542,19 @@ política de retenção do ex-aluno.
   aluno sem consentimento → biometria bloqueada; com consentimento → grava. Teste unitário do
   helper (kill-switch + estado).
 
+**Retenção / expurgo automático — MECANISMO FEITO (2026-09-10).** O motor de expurgo em lote
+existe: `apps/api/src/scripts/retention.ts` reusa a **mesma** anonimização da rota (extraída
+para `apps/api/src/shared/anonymize.ts`, agora chamada pelos dois caminhos), roda em **dry-run
+por padrão** (só conta/lista sem escrever), tem guardas de prazo mínimo (recusa `--aluno-dias<365`
+e `--auditoria-dias<90`) e escopo por tenant/limite. Faz duas coisas: (1) anonimiza ex-alunos
+inativos, ainda com PII e sem plano vigente, parados há mais que `RETENTION_ALUNO_DIAS`;
+(2) expurga `tb_Auditoria` mais antiga que `RETENTION_AUDITORIA_DIAS` (em lotes por id) — isso
+fecha também o resíduo de retenção da trilha do **A-4**. Provado em dry-run contra o Neon de dev
+(253 alunos / 49 linhas de trilha, 0 elegíveis hoje — dado recente). Runbook e a política em
+`docs/retencao-expurgo.md`. **O que resta é decisão sua:** os PRAZOS (jurídico) — o código não os
+decide; os defaults (5 anos / 2 anos) são piso conservador, não recomendação legal.
+
 **Ainda por decisão de negócio (não implementado):**
-- **Retenção / expurgo automático:** por quanto tempo guardar dado de ex-aluno e rodar a
-  anonimização/expurgo em lote — decisão do controlador (a ação manual por titular já existe).
 - **Bases legais por finalidade** (jurídico) e **menores de idade (art. 14)** — consentimento
   do responsável para adolescentes.
 - **Tela de captura do consentimento** no cadastro/app (o backend já aceita; enquanto não vier,
