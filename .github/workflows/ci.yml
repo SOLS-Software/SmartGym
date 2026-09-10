@@ -1,0 +1,70 @@
+name: CI
+
+# Trava de regressao do que a auditoria de seguranca construiu (relatorio em
+# docs/auditoria-api-2026-09-09.md): typecheck dos pacotes, os testes da API
+# (rede de protecao de tenant do M-1, cobertura de autorizacao do M-2, cripto de
+# PII, RBAC do aluno, consentimento LGPD) e do mobile, e o `pnpm audit` (A-3).
+# Roda em push na master e em todo pull request.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# Uma execucao por ref: um push novo cancela a anterior ainda em andamento.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: typecheck + testes + audit
+    runs-on: ubuntu-latest
+    env:
+      # Env de fachada. NENHUM passo conecta a banco ou rede de dados: o Prisma
+      # generate le so o schema, e os testes setam a propria env (localhost) via
+      # `??=`. Nao ha segredo aqui e nunca deve haver — o CI nao toca o Neon.
+      DATABASE_URL: postgresql://user:pass@localhost:5432/db
+      CI: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        # A versao vem do campo `packageManager` do package.json (pnpm@10.33.2).
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Gerar Prisma Client
+        # O `allowBuilds` do pnpm-workspace.yaml impede o postinstall do prisma,
+        # entao geramos o client explicitamente (sem DB — le so o schema).
+        run: pnpm --filter @smartgym/db db:generate
+
+      - name: Typecheck
+        # `pnpm -r` (nao `turbo`) roda o tsc de cada pacote via pnpm direto,
+        # de forma deterministica e independente do runner de tasks.
+        run: pnpm -r run typecheck
+
+      - name: Testes da API (vitest)
+        run: pnpm --filter @smartgym/api test
+
+      - name: Testes do mobile (jest)
+        run: pnpm --filter @smartgym/mobile test
+
+      - name: Auditoria de dependencias
+        # Falha em qualquer vulnerabilidade NOVA high/critical nas deps de
+        # producao. As sem correcao viavel hoje (presas a upstream) estao na
+        # `auditConfig.ignoreGhsas` do pnpm-workspace.yaml — revisar quando o
+        # Expo/Prisma lancarem patch (ver A-3 no relatorio).
+        run: pnpm audit --prod --audit-level=high

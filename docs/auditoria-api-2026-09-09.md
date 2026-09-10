@@ -350,8 +350,15 @@ transitiva). Os três esperam o upstream (Expo/Prisma) atualizar — aceitos com
 
 **Ação operacional (produção atrás de proxy):** defina `TRUST_PROXY` com o IP/CIDR do
 load balancer/PaaS — sem isso o `trustProxy` é `false` e o rate limit passa a agrupar todos os
-clientes pelo IP do proxy (um único bucket). Pendente ainda: `pnpm audit` no CI; reavaliar
-`uuid`/`image-size`/`deepmerge-ts` quando o upstream lançar correção.
+clientes pelo IP do proxy (um único bucket).
+
+**`pnpm audit` no CI — FEITO (2026-09-10).** `.github/workflows/ci.yml` roda
+`pnpm audit --prod --audit-level=high` em push na master e em todo PR, travando o
+merge em qualquer vulnerabilidade **nova** de produção high/critical. As 4 sem
+correção viável hoje (`uuid@7`, `image-size` ×2, `deepmerge-ts`) foram listadas em
+`auditConfig.ignoreGhsas` no `pnpm-workspace.yaml` — assim o gate não trava
+eternamente nelas, mas volta a acusar se surgir uma nova. Reavaliar essas 4 quando
+o upstream (Expo/Prisma) lançar correção; ao remover o pin, o CI já valida sozinho.
 
 #### A-4. Sem trilha de auditoria: um vazamento é indetectável e não notificável (art. 37/48 LGPD)
 | | |
@@ -481,7 +488,10 @@ de fachada, sem conectar a nada), extrai as rotas de `app.printRoutes()` e afirm
 uma, que está coberta por regra intencional — pública (allowlist exportada de `auth.ts`),
 alcançável pelo aluno (`isStudentAllowed`) ou mapeada a permissão (`requiredPermission !==
 unmapped`). Usa o app real, não uma lista curada, para enxergar rotas novas automaticamente.
-Passou verde (>200 rotas, 0 unmapped). Falta plugar `pnpm test` no CI (não há CI no repo hoje).
+Passou verde (>200 rotas, 0 unmapped). **Plugado no CI (2026-09-10):**
+`.github/workflows/ci.yml` roda os testes da API (`pnpm --filter @smartgym/api test`,
+incluindo esta cobertura e a rede de tenant do M-1) e do mobile em push/PR — a
+regressão de autorização passa a quebrar o build.
 
 #### M-3. Sem direitos do titular e sem consentimento — inclusive para biometria (art. 11 e 18)
 | | |
@@ -718,8 +728,9 @@ downtime (exigiria o `pii.ts` conhecer duas chaves) e env dedicada para credenci
 2. **A-1** — ligar `CONTROLID_REQUIRE_TOKEN=true` e provisionar `caToken`/`anIpPermitido` nas
    catracas reais (config + operação, não código).
 3. **A-3** — bump de `next` e `nodemailer`; mover `pnpm.overrides` para `pnpm-workspace.yaml`
-   e regenerar o lockfile; adicionar `pnpm audit` ao CI.
+   e regenerar o lockfile; adicionar `pnpm audit` ao CI. ✅ **FEITO** (incl. CI 2026-09-10).
 4. **M-2** — fixar o teste de cobertura permissão×rota no CI (esqueleto já roda).
+   ✅ **FEITO** — teste + CI (2026-09-10).
 
 **Este mês (risco alto/médio, esforço médio):**
 5. **A-2** — decidir o login multi-tenant (seletor de academia ou tenant por domínio) e
