@@ -430,7 +430,7 @@ gravar o `idUsuario` autenticado seria um refinamento.
 | | |
 |---|---|
 | **Severidade + confiança** | Médio · CONFIRMADO |
-| **STATUS** | 🟡 **FASE 1 FEITA + PLANO DA FASE 2 ENTREGUE 2026-09-09**. Fase 1 (rede de proteção): `plugins/tenantScope.test.ts` falha se listagem/agregação de model de tenant nascer sem `idCliente`; `getTenantId` morto removido. **Fase 2 (RLS): plano de implantação + SQL completo em `docs/isolamento-tenant-rls.md`** (role sem BYPASSRLS, políticas nas 16 tabelas, `SET LOCAL` via Prisma extension, auth-lookup/super-admin, runbook com o teste que prova o isolamento). Aplicar em **staging**, não na base compartilhada — execução é decisão do dono. |
+| **STATUS** | 🟢 **FASE 1 FEITA + FASE 2 (RLS) APLICADA E PROVADA 2026-09-10**. Fase 1 (rede de proteção): `plugins/tenantScope.test.ts`; `getTenantId` removido. **Fase 2 (RLS):** role `smartgym_app` (sem BYPASSRLS) + `ENABLE RLS`/política nas 16 tabelas na base de dev, com o usuário autorizando; **isolamento provado** (sem `app.tenant` → 0; `=1` → 250 alunos; `=3` → 3; owner → 253). SQL idempotente em `packages/db/scripts/rls-tenant.sql`; detalhes e runbook em `docs/isolamento-tenant-rls.md`. **Dormant para o app** (conecta como owner/bypassrls → funciona sem mudança); **protege** quando o app usar `smartgym_app` + `SET LOCAL app.tenant` — passo de staging (muda o modelo de conexão), ainda não feito. |
 | **Local** | transversal · `apps/api/src/plugins/auth.ts:197` (`getTenantId` morto) |
 
 **Cenário.** Só 15 dos 80 models têm coluna `idCliente`; os outros 65 alcançam o tenant pelo

@@ -1,8 +1,18 @@
 # Plano de implantação: RLS de tenant no PostgreSQL (M-1, fase 2)
 
-> Deliverable para aplicar em **ambiente controlado** (staging próprio), **nunca**
-> direto na base Neon compartilhada de dev — RLS mal configurada derruba o acesso
-> de todos. Este é o plano + o SQL; a decisão de executar e quando é sua.
+> **STATUS (2026-09-10): RLS APLICADA E PROVADA na base de dev (Neon), com o
+> usuário autorizando.** Role `smartgym_app` (sem BYPASSRLS) criado; `ENABLE RLS`
+> + política `tenant_isolation` nas 16 tabelas; SQL idempotente em
+> `packages/db/scripts/rls-tenant.sql`. Prova: owner lê 253 alunos; `smartgym_app`
+> **sem** `app.tenant` lê **0**; `app.tenant=1` lê 250; `app.tenant=3` lê 3
+> (250+3=253). O app (que conecta como `neondb_owner`, com bypassrls) **continua
+> funcionando sem mudança** — confirmado (login + `GET /students` = 250).
+>
+> **A RLS está ativa mas DORMANT para o app:** o owner a ignora. Ela só
+> **protege** quando o app passar a conectar como `smartgym_app` e fizer
+> `SET LOCAL app.tenant` por request — o passo abaixo (app), que muda o modelo de
+> conexão e é o de maior risco; fazer em staging. Reproduzir a RLS em outro
+> ambiente: rodar `packages/db/scripts/rls-tenant.sql` + criar o role.
 
 ## Objetivo
 
