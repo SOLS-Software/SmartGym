@@ -671,10 +671,15 @@ downtime (exigiria o `pii.ts` conhecer duas chaves) e env dedicada para credenci
   `setNotFoundHandler` que responde `{message:'Recurso nao encontrado.'}` no lugar do
   `"Route GET:/x not found"`. Runtime: rota inexistente sob prefixo mapeado → 404 genérico;
   rota totalmente desconhecida → 403/401 (deny-by-default do RBAC / auth), sem enumerar.
-- **B-3. Rate limit em memória não sobrevive a múltiplas instâncias (BAIXO, CONFIRMADO)** —
-  `app.ts`. `@fastify/rate-limit` sem store externo: com 2+ réplicas, o limite de
-  10/min do login é por instância. **NÃO corrigido** — exige infra (Redis). Só relevante ao
-  escalar horizontalmente; documentar como pré-requisito desse momento.
+- **B-3. Rate limit em memória não sobrevive a múltiplas instâncias — ✅ RESOLVIDO 2026-09-10.**
+  `app.ts` + `config/rateLimitStore.ts`. Store distribuído **opcional** via `RATE_LIMIT_REDIS_URL`
+  (ou `REDIS_URL`), usando `ioredis` como store do `@fastify/rate-limit` — a contagem passa a ser
+  compartilhada entre réplicas (o limite de 10/min do login volta a ser global, não por instância).
+  **Sem a env, comportamento idêntico ao de hoje** (memória, instância única) — nenhuma mudança
+  para quem não escala. Resiliente: `skipOnError:true` só quando há Redis, então um Redis fora do
+  ar degrada para **fail-open** (sem limite distribuído), nunca derruba a requisição; timeouts
+  curtos + listener de `error` evitam travar/crashar no boot. Ativar é só setar a env ao escalar
+  horizontalmente. Teste: `config/rateLimitStore.test.ts` (precedência de env + fallback null).
 - **B-4. `fetch` sem timeout em geocode e CompreFace — ✅ CORRIGIDO 2026-09-09.**
   `AbortSignal.timeout` adicionado: 8 s no geocode (`localities/routes.ts`) e 15 s no CompreFace
   (`compreface.ts`). Asaas e Expo Push já tinham. Sem SSRF (hosts fixos/env).

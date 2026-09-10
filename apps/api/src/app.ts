@@ -2,6 +2,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
+import { getRateLimitRedis } from './config/rateLimitStore.js';
 import Fastify, { type FastifyError } from 'fastify';
 import { validateEnv } from './config/env.js';
 import { registerAuthPlugin } from './plugins/auth.js';
@@ -146,11 +147,21 @@ await app.register(cors, {
 await app.register(helmet);
 
 // Rate limit global por IP; os endpoints de auth tem limites mais restritos
-// via config.rateLimit na propria rota.
+// via config.rateLimit na propria rota. Com RATE_LIMIT_REDIS_URL setado (B-3), a
+// contagem e compartilhada entre instancias via Redis; sem a env, fica em memoria
+// (comportamento de instancia unica de sempre). skipOnError so quando ha Redis:
+// se ele cair, degrada para fail-open em vez de derrubar a requisicao.
+const rateLimitRedis = getRateLimitRedis(app.log);
 await app.register(rateLimit, {
   max: 300,
   timeWindow: '1 minute',
+  ...(rateLimitRedis ? { redis: rateLimitRedis, skipOnError: true } : {}),
 });
+if (rateLimitRedis) {
+  app.addHook('onClose', async () => {
+    await rateLimitRedis.quit().catch(() => {});
+  });
+}
 
 await app.register(multipart, {
   limits: {
