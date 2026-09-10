@@ -17,6 +17,7 @@ import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { getSessionClienteId } from '../../shared/auth/sessionUtils';
 import { studentRelatedTables } from './studentRelatedTables';
 import { PlanLockPanel } from './PlanLockPanel';
+import { StudentConsentPanel } from './StudentConsentPanel';
 import { formatPhone, getStudentNameError, isValidBirthDate, isValidEmail, normalizePersonName, toApiDate } from './studentValidation';
 
 const studentTabIcons = {
@@ -1094,6 +1095,13 @@ export function StudentRegistration() {
             icons={studentTabIcons}
             ariaLabel="Tabelas relacionadas do aluno"
           />
+        ) : null}
+
+        {/* Consentimento LGPD (art. 8/11): capturado na ficha, com o titular
+            presente. Backend append-only ja pronto — este painel destrava o
+            gate (CONSENT_ENFORCEMENT). Aparece so com um aluno selecionado. */}
+        {selectedStudentId !== null ? (
+          <StudentConsentPanel studentId={selectedStudentId} />
         ) : null}
 
         <RegistrationDrawer

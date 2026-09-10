@@ -78,6 +78,7 @@ export default function AlunoLayout() {
         <Tabs.Screen name="pontos" options={{ href: null }} />
         <Tabs.Screen name="evolucao" options={{ href: null }} />
         <Tabs.Screen name="perfil" options={{ href: null }} />
+        <Tabs.Screen name="consentimentos" options={{ href: null }} />
         <Tabs.Screen name="avisos" options={{ href: null }} />
         <Tabs.Screen name="calendario-empresa" options={{ href: null }} />
         <Tabs.Screen name="planos" options={{ href: null }} />

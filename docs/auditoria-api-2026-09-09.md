@@ -497,7 +497,7 @@ regressão de autorização passa a quebrar o build.
 | | |
 |---|---|
 | **Severidade + confiança** | Médio · CONFIRMADO |
-| **STATUS** | 🟢 **AMPLIADO 2026-09-09**: exportação (art. 18) + consentimento (art. 8/11) + **anonimização** (art. 18 VI, decisão: manter financeiro) + **gate ligado** (biometria/push exigem consentimento; kill-switch `CONSENT_ENFORCEMENT`). Restam por decisão: **retenção/expurgo automático**, bases legais, menores (art. 14). |
+| **STATUS** | 🟢 **AMPLIADO 2026-09-09 / 2026-09-10**: exportação (art. 18) + consentimento (art. 8/11) + **anonimização** (art. 18 VI, decisão: manter financeiro) + **gate ligado** (biometria/push exigem consentimento) + **retenção/expurgo (mecanismo)** + **tela de captura (app do aluno + ficha web)**. Restam por decisão: prazos de retenção, bases legais, menores (art. 14), texto do termo. |
 | **Local** | schema (nenhuma tabela de consentimento) · `students/routes.ts` (biometria facial) |
 
 **Cenário.** Não há endpoint de exportação, eliminação, anonimização ou portabilidade, nem
@@ -554,9 +554,20 @@ fecha também o resíduo de retenção da trilha do **A-4**. Provado em dry-run 
 `docs/retencao-expurgo.md`. **O que resta é decisão sua:** os PRAZOS (jurídico) — o código não os
 decide; os defaults (5 anos / 2 anos) são piso conservador, não recomendação legal.
 
+**Tela de captura de consentimento — FEITA (2026-09-10).** As duas superfícies existem, então a
+janela do kill-switch fechou: (1) **app do aluno** — `apps/mobile/app/(aluno)/consentimentos.tsx`
+(autoatendimento do titular, toggles por finalidade, acessível pelo menu "Mais › Privacidade");
+(2) **ficha da equipe (web)** — `apps/web/src/features/students/StudentConsentPanel.tsx`, montado
+no `StudentRegistration` (captura na recepção com o titular presente). Ambos batem nas 3
+finalidades do backend (`biometria_facial`, `push`, `comunicacao_email`), gravam `dsVersaoTermo='v1'`
+(texto genérico, refinar com o jurídico) e usam o `GET/POST /students/:id/consents` já existente.
+**Ação operacional:** remover qualquer `CONSENT_ENFORCEMENT=false` de produção — o gate volta a
+valer (alunos sem consentimento têm biometria/push bloqueados até consentirem, que é o correto).
+
 **Ainda por decisão de negócio (não implementado):**
 - **Bases legais por finalidade** (jurídico) e **menores de idade (art. 14)** — consentimento
   do responsável para adolescentes.
+- **Texto do termo por finalidade** — hoje genérico `v1`; o jurídico refina e sobe a versão.
 - **Tela de captura do consentimento** no cadastro/app (o backend já aceita; enquanto não vier,
   `CONSENT_ENFORCEMENT=false` evita bloquear a operação).
 

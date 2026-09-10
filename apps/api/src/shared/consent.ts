@@ -3,10 +3,12 @@
 // ser negadas para quem não tem o consentimento vigente.
 //
 // KILL-SWITCH: `CONSENT_ENFORCEMENT=false` desliga o gate. A decisão de negócio é
-// manter LIGADO (default). O switch existe só para a janela em que a tela de
-// captura do consentimento ainda não foi adicionada ao cadastro/app — sem ela,
-// ninguém tem consentimento e o gate bloquearia biometria/push de todos. Ligue a
-// captura e remova o switch.
+// manter LIGADO (default). O switch existia para a janela sem tela de captura —
+// essa janela FECHOU: a captura agora existe no app do aluno
+// (app/(aluno)/consentimentos.tsx) e na ficha da equipe
+// (StudentConsentPanel.tsx). Em produção, remover qualquer `CONSENT_ENFORCEMENT=false`
+// que tenha sido setado durante a janela — atentando que alunos sem consentimento
+// passam a ter biometria/push bloqueados até consentirem (comportamento LGPD correto).
 
 export function consentEnforcementEnabled(): boolean {
   return process.env.CONSENT_ENFORCEMENT !== 'false';
