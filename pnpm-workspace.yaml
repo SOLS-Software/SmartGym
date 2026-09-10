@@ -33,3 +33,13 @@ overrides:
   '@babel/core': '>=7.29.6 <8.0.0'
   esbuild: '>=0.28.1 <0.29.0'
   sharp: '>=0.35.4 <0.36.0'
+  # Transitivas do toolchain de build do Expo SDK 54 (build-time, nao runtime do
+  # app). Patch na mesma major — conferido em 2026-09-10 contra `pnpm audit`.
+  # NAO cobertos aqui de proposito: `uuid@7` (do @expo/config-plugins; so corrige
+  # em 11.x, salto de 4 majors que quebraria o Expo) e `image-size` (sem versao
+  # corrigida upstream). Ambos esperam o Expo atualizar.
+  browserslist: '>=4.28.7 <5.0.0'
+  baseline-browser-mapping: '>=2.11.0 <3.0.0'
+  nanoid@3: '>=3.3.18 <4.0.0'
+  '@xmldom/xmldom': '>=0.9.12 <0.10.0'
+  decode-uri-component: '>=0.5.0 <0.6.0'

@@ -334,16 +334,24 @@ regenerar o lockfile conferindo que os pins continuam. (c) Adicionar `pnpm audit
   avisa quem ainda tiver `TRUST_PROXY_HOPS` setado. `.env.example` atualizado.
 
 Resultado (`pnpm audit --prod`): **58 → 32** vulnerabilidades, **2 críticos → 0**, **apps/api
-sem nenhuma**. Restam **31 em apps/mobile** (cadeia Expo/React Native, build-time, sem
-superfície no servidor — exigem upgrade do Expo SDK) e **1 em packages/db** (`deepmerge-ts`,
-high, transitiva; patch em 8.x, um major — não forçado para não arriscar quebra). Validação:
-`pnpm --filter @smartgym/api test` 314/314; typecheck da API e do web limpos; smoke test da
-API com fastify 5.12 (health 200, login OK, rate limit 10/min → 429).
+sem nenhuma**. Validação: `pnpm --filter @smartgym/api test` 314/314; typecheck da API e do web
+limpos; smoke test da API com fastify 5.12 (health 200, login OK, rate limit 10/min → 429).
+
+**Rodada do mobile (2026-09-10): 32 → 4.** O Expo já estava no SDK 54 (o mais recente), então
+o "upgrade de SDK" não era o caminho — as 31 do mobile eram transitivas do toolchain de build
+(`@expo/cli`, `@expo/config-plugins`, metro), **sem superfície no runtime do app**, e eram 7
+pacotes distintos em vários paths. Overrides de patch (mesma major) resolveram 5:
+`browserslist` 4.28.9, `baseline-browser-mapping` 2.11.21, `nanoid` 3.3.18, `@xmldom/xmldom`
+0.9.12, `decode-uri-component` 0.5.0. Validação do mobile: typecheck limpo, **jest-expo 30/30**
+(exercita o transform). **Restam 3, sem correção viável:** `uuid@7` (preso ao
+`@expo/config-plugins` do SDK 54 — só corrige em 11.x, salto de 4 majors que quebraria o Expo),
+`image-size` (sem versão corrigida upstream), `deepmerge-ts` (db, patch só em 8.x, major
+transitiva). Os três esperam o upstream (Expo/Prisma) atualizar — aceitos com justificativa.
 
 **Ação operacional (produção atrás de proxy):** defina `TRUST_PROXY` com o IP/CIDR do
 load balancer/PaaS — sem isso o `trustProxy` é `false` e o rate limit passa a agrupar todos os
-clientes pelo IP do proxy (um único bucket). Pendente ainda: `pnpm audit` no CI; upgrade do
-Expo SDK (mobile); avaliar `deepmerge-ts` 8.x.
+clientes pelo IP do proxy (um único bucket). Pendente ainda: `pnpm audit` no CI; reavaliar
+`uuid`/`image-size`/`deepmerge-ts` quando o upstream lançar correção.
 
 #### A-4. Sem trilha de auditoria: um vazamento é indetectável e não notificável (art. 37/48 LGPD)
 | | |
