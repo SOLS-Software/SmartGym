@@ -80,6 +80,10 @@ vira um upgrade, não um rewrite).
    **domínio/subdomínio** (o `caDominio` que já resolvemos no achado A-2) para
    escolher o banco, e só então autenticar contra ele. Este é o ponto mais
    sensível: sem ele, um cliente siloado não consegue logar.
+   - ✅ **Feito (fundação, 2026-09-11):** `resolveTenantByDomain` foi extraído para
+     `apps/api/src/shared/tenantResolver.ts` (control-plane, reusado pelo auth) —
+     o primitivo `domínio → idCliente` que antecede o `getTenantDb`. Falta rotear
+     o *lookup de login* por `getTenantDb(idCliente)` (parte do item 2).
 2. **Rotear as queries pelo resolver.** Os call sites que hoje usam o singleton
    `prisma` passam a usar `getTenantDb(idCliente)` nos caminhos por-tenant.
    Grande, mecânico e arriscado — fazer por módulo, com a rede do M-1

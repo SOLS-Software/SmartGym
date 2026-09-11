@@ -13,6 +13,7 @@ import { cpfHash, decryptCpfValue } from '../../shared/pii.js';
 import { TOKEN_EXPIRY_MOBILE, TOKEN_EXPIRY_WEB } from '../../plugins/auth.js';
 import { getSupabaseClient, getSupabaseConfig, getClientSupabaseConfig } from '../../shared/supabase.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
+import { resolveTenantByDomain } from '../../shared/tenantResolver.js';
 import type {
   ForgotPasswordPayload,
   LoginPayload,
@@ -60,22 +61,10 @@ function describeProfile(profile: ProfileWithPermissions | null) {
   return profile ? { id: profile.id, dsPerfil: profile.dsPerfil, boInativo: profile.boInativo } : null;
 }
 
-// Tenant resolvido pelo DOMINIO de acesso (window.location.hostname no web),
-// nunca por um idCliente vindo do corpo — a mesma disciplina de /public/leads e
-// /auth/theme. O mesmo CPF pode ter ficha em varios tenants (Aluno e
-// @@unique([idCliente, caCPFHash])); sem o tenant, o lookup por CPF caia sempre
-// na conta de menor id e trancava quem se cadastrou depois. Retorna null quando
-// o dominio nao vem (app mobile, que nao tem dominio) ou nao casa nenhum
-// cliente ativo — nesse caso o chamador desambigua pela senha.
-async function resolveTenantByDomain(caDominio: string | undefined): Promise<number | null> {
-  const url = (caDominio ?? '').trim().toLowerCase();
-  if (!url) return null;
-  const dominio = await prisma.dominioCorporativo.findFirst({
-    where: { urlDominio: url, boAtivo: true },
-    select: { idCliente: true },
-  });
-  return dominio?.idCliente ?? null;
-}
+// resolveTenantByDomain foi extraido para shared/tenantResolver.ts: e o "quem e
+// o tenant" control-plane que tambem precede a escolha de conexao no
+// multi-tenancy de dados (docs/multi-tenancy-dados.md). O login continua usando
+// exatamente o mesmo criterio (achado A-2).
 
 export async function registerAuthRoutes(app: FastifyInstance) {
   // Limites restritos de rate limit para endpoints de autenticacao (anti brute
