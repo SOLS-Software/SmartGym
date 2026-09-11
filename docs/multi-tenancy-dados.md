@@ -49,6 +49,54 @@ vira um upgrade, não um rewrite).
 - **Plano de dados** = onde moram alunos/planos/pagamentos: no pool padrão (a
   maioria) ou no banco dedicado de um cliente siloado.
 
+## Fronteira dos dados: o que é do provedor × do cliente
+
+A separação é em **dois níveis** (decisão do dono, 2026-09-11): as tabelas do
+**provedor** ficam sempre no banco central; só as tabelas da **aplicação** vão
+para o banco do cliente. Há ainda um terceiro grupo — o **catálogo global**.
+
+**🔒 Provedor (control plane — central, sempre):**
+- Tenancy/infra: `tb_Clientes`, `tb_ClienteConexoes`, `tb_DominiosCorporativos`.
+- Logs: `tb_Auditoria` e, provavelmente, `tb_WebhookEventos`.
+- **Identidade/login enxuta** (ver abaixo): a credencial de acesso.
+
+**🏢 Aplicação (dados do cliente — vão para o banco dele):**
+- Todo o negócio: `tb_Alunos` (+ filhos), `tb_Empresas`, `tb_Funcionarios`,
+  `tb_Planos`/`tb_Pagamentos`, `tb_Atividades`, `tb_Treinos`, `tb_Promocoes`,
+  `tb_Leads`, `tb_Fornecedores`, `tb_Equipamentos`, `tb_ContasRecebimento`,
+  `tb_Consentimentos`, `tb_ClientesArquivos`, `tb_TemasCustomizados`,
+  `tb_PerfisAcesso` (RBAC), `tb_Catracas`/eventos, `tb_Produtos`, etc.
+
+**📚 Catálogo global (referência igual para todos):** `tb_UnidadesMedida`,
+`tb_Localidades`, `tb_AreasCorporais`, `tb_Esportes`, `tb_Exercicios` (+ filhos),
+`tb_FormasPagamento`, `tb_Niveis`, `tb_StatusPagamento`, `tb_TiposArquivo`… As
+tabelas da aplicação têm FK para elas, então precisam existir **dentro de cada
+banco de aplicação** — são semeadas iguais em cada banco, não ficam no central.
+*(Atenção: alguns "catálogos" são na verdade config por-tenant — `TipoCheckIn`,
+`Pontuacao`, `MotivoCancelamento` — e pertencem à aplicação. Falta uma passada
+fina de categorização por tabela no rollout.)*
+
+## Identidade enxuta central (decisão: híbrido)
+
+O login é do provedor, mas o **perfil** da pessoa é dado do cliente. Então a
+identidade é **partida**:
+
+- **No central**, uma identidade MÍNIMA: chave de login (email/CPF), hash de
+  senha, `idCliente` (para onde apontar) e o ponteiro lógico para o perfil
+  (`idAluno`/`idFuncionario`). É o que hoje está em `tb_Usuarios` + `tb_Senhas` +
+  `tb_RecuperacaoSenha` + `tb_UsuarioDispositivos`.
+- **No banco do cliente**, o perfil rico e o RBAC: `tb_Alunos`/`tb_Funcionarios`
+  e `tb_PerfisAcesso`/permissões.
+
+**Consequência:** o vínculo `Usuario → Aluno/Funcionario` deixa de ser FK (bancos
+diferentes) e vira **referência lógica** que o app resolve. Fluxo de login:
+
+1. Acha a identidade no central pela chave (email/CPF) — e/ou `resolveTenantByDomain`.
+2. Verifica a senha no central; lê `idCliente` + ponteiro do perfil.
+3. Emite o JWT com `idCliente` (como hoje).
+4. Nas requisições seguintes, `getTenantDb(idCliente)` carrega perfil/RBAC do
+   banco do cliente. As permissões passam a vir do banco do tenant, não do central.
+
 ## O que já foi construído (camada de parametrização)
 
 1. **`packages/db/scripts/cliente-conexoes.sql`** — tabela control-plane
@@ -84,19 +132,28 @@ vira um upgrade, não um rewrite).
      `apps/api/src/shared/tenantResolver.ts` (control-plane, reusado pelo auth) —
      o primitivo `domínio → idCliente` que antecede o `getTenantDb`. Falta rotear
      o *lookup de login* por `getTenantDb(idCliente)` (parte do item 2).
-2. **Rotear as queries pelo resolver.** Os call sites que hoje usam o singleton
-   `prisma` passam a usar `getTenantDb(idCliente)` nos caminhos por-tenant.
-   Grande, mecânico e arriscado — fazer por módulo, com a rede do M-1
-   (`tenantScope.test`) e testes de fumaça.
-3. **Migrations por tenant.** Cada banco dedicado precisa do schema e das
-   migrations. Provisionar cliente = criar banco + `prisma migrate deploy` +
-   seed. Deploy = rodar `migrate deploy` em **todos** os bancos do registro.
-4. **RLS.** No silo, a RLS (M-1 fase 2) vira defesa em profundidade (o isolamento
+2. **Partir a identidade (central enxuta).** Separar o que autentica (central:
+   chave de login, hash, `idCliente`, ponteiro do perfil) do perfil rico + RBAC
+   (banco do cliente). Envolve mudar o schema (`tb_Usuarios` deixa de ter FK para
+   `Aluno`/`Funcionario` — vira referência lógica) e o hook de auth passar a
+   carregar permissões do banco do tenant. Ver "Identidade enxuta central".
+3. **Rotear as queries pelo resolver.** Os call sites que hoje usam o singleton
+   `prisma` (dados de aplicação) passam a usar `getTenantDb(idCliente)`. Grande,
+   mecânico e arriscado — fazer por módulo, com a rede do M-1 (`tenantScope.test`)
+   e testes de fumaça. **Cuidado:** um `$transaction` não cruza dois clients — todo
+   o caminho de dados de um handler tem de estar num único banco. As tabelas do
+   provedor (control plane) continuam no `prisma` central; só as da aplicação vão
+   pelo resolver.
+4. **Migrations por tenant.** Cada banco dedicado precisa do schema (aplicação +
+   catálogo global semeado) e das migrations. Provisionar cliente = criar banco +
+   `prisma migrate deploy` + seed do catálogo. Deploy = rodar `migrate deploy` em
+   **todos** os bancos do registro. O schema do provedor (central) migra à parte.
+5. **RLS.** No silo, a RLS (M-1 fase 2) vira defesa em profundidade (o isolamento
    já é físico); no pool, continua sendo o isolamento. Manter a policy nos dois.
-5. **Pool de conexões.** N `PrismaClient` × pool multiplica conexões. Usar
+6. **Pool de conexões.** N `PrismaClient` × pool multiplica conexões. Usar
    `connection_limit` por client, o pooler do Neon, e avaliar LRU/eviction do
    cache de clients.
-6. **Storage por tenant.** `getTenantStorageConfig` já resolve; falta trocar os
+7. **Storage por tenant.** `getTenantStorageConfig` já resolve; falta trocar os
    call sites de `getSupabaseClient()`/`getSupabaseConfig()` por versões
    por-tenant e mover os arquivos ao migrar um cliente.
 
