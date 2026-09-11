@@ -67,12 +67,15 @@ function toConcretePath(url: string): string {
 describe('cobertura de autorizacao (permissao x rota)', () => {
   let routes: Route[];
 
+  // Instanciar o app REAL (registrar todos os plugins/rotas) pode passar dos 10s
+  // padrao do hook sob carga paralela da suite — o que falhava o arquivo de forma
+  // intermitente (flaky no CI). 30s de folga; o trabalho e o mesmo.
   beforeAll(async () => {
     setFakeEnv();
     const mod = await import('../app.js');
     await mod.app.ready();
     routes = flattenRoutes(mod.app.printRoutes({ commonPrefix: false }));
-  });
+  }, 30_000);
 
   it('extrai um numero plausivel de rotas do app', () => {
     expect(routes.length).toBeGreaterThan(200);
