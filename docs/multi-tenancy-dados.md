@@ -73,8 +73,14 @@ para o banco do cliente. Há ainda um terceiro grupo — o **catálogo global**.
 tabelas da aplicação têm FK para elas, então precisam existir **dentro de cada
 banco de aplicação** — são semeadas iguais em cada banco, não ficam no central.
 *(Atenção: alguns "catálogos" são na verdade config por-tenant — `TipoCheckIn`,
-`Pontuacao`, `MotivoCancelamento` — e pertencem à aplicação. Falta uma passada
-fina de categorização por tabela no rollout.)*
+`Pontuacao`, `MotivoCancelamento` — e pertencem à aplicação.)*
+
+**Codificado e guardado:** a classificação das 82 tabelas vive em
+`apps/api/src/shared/tenantTables.ts` (control-plane / application / catalog), e
+`tenantTables.test.ts` afirma — via DMMF do Prisma — que **todo** model do schema
+está classificado (tabela nova sem nível quebra o build). As classificações ainda
+a confirmar por decisão de domínio estão em `TIER_REVIEW` (ex.: `WebhookEvento`,
+`Cargo`, `Categoria`, `Frequencia`) — é a "passada fina" antes do rollout.
 
 ## Identidade enxuta central (decisão: híbrido)
 
