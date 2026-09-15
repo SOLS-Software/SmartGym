@@ -1,0 +1,133 @@
+# CompreFace no VPS — stack de reconhecimento facial.
+#
+# Baseado no compose oficial do Exadel (exadel-inc/CompreFace, versao 1.2.0),
+# com tres mudancas deliberadas para este uso, explicadas em cada ponto:
+#   1. a porta 8000 so escuta em 127.0.0.1, nunca na internet;
+#   2. a memoria da JVM e do uwsgi foi reduzida para caber num VPS de 8 GB;
+#   3. `SAVE_IMAGES_TO_DB` desligado — LGPD (ver nota no servico compreface-api).
+#
+# No Coolify: recurso do tipo "Docker Compose", com "Connect To Predefined
+# Network" LIGADO. E isso que coloca estes containers na mesma rede da API do
+# SmartGym e faz `COMPREFACE_URL=http://compreface-ui` resolver. Sem esse toggle,
+# cada stack fica na sua propria rede e a API nao enxerga o CompreFace.
+#
+# Depois de subir, o primeiro acesso a interface e por tunel SSH — nao por
+# navegador aberto na internet:
+#
+#   ssh -L 8000:127.0.0.1:8000 usuario@ip-do-vps
+#   # e abrir http://localhost:8000 na sua maquina
+#
+# La voce cria a conta de admin, cria um Application, dentro dele um servico do
+# tipo Recognition, e copia a API key: e ela que vai para
+# COMPREFACE_RECOGNITION_API_KEY na API do SmartGym. A chave da instalacao
+# antiga nao vem junto — esta e nova.
+
+services:
+  compreface-postgres-db:
+    image: ${registry:-exadel/}compreface-postgres-db:${POSTGRES_VERSION:-1.2.0}
+    container_name: compreface-postgres-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${postgres_username:-postgres}
+      - POSTGRES_PASSWORD=${postgres_password:?defina postgres_password}
+      - POSTGRES_DB=${postgres_db:-frs}
+    volumes:
+      # Este volume guarda os rostos cadastrados. Perde-lo significa recadastrar
+      # a biometria de TODOS os alunos, um por um, na recepcao. Ele e o segundo
+      # alvo do deploy/backup/backup.sh justamente por isso.
+      - postgres-data:/var/lib/postgresql/data
+    mem_limit: 512m
+
+  compreface-admin:
+    image: ${registry:-exadel/}compreface-admin:${ADMIN_VERSION:-1.2.0}
+    container_name: compreface-admin
+    restart: unless-stopped
+    depends_on:
+      - compreface-postgres-db
+      - compreface-api
+    environment:
+      - POSTGRES_USER=${postgres_username:-postgres}
+      - POSTGRES_PASSWORD=${postgres_password:?defina postgres_password}
+      - POSTGRES_URL=jdbc:postgresql://${postgres_domain:-compreface-postgres-db}:${postgres_port:-5432}/${postgres_db:-frs}
+      - SPRING_PROFILES_ACTIVE=dev
+      - ENABLE_EMAIL_SERVER=${enable_email_server:-false}
+      - EMAIL_HOST=${email_host:-}
+      - EMAIL_USERNAME=${email_username:-}
+      - EMAIL_FROM=${email_from:-}
+      - EMAIL_PASSWORD=${email_password:-}
+      # Oficial usa -Xmx1g. O admin so serve a interface de cadastro, que voce
+      # abre pontualmente por tunel: 512m sobra.
+      - ADMIN_JAVA_OPTS=${compreface_admin_java_options:--Xmx512m}
+      - MAX_FILE_SIZE=${max_file_size:-5MB}
+      - MAX_REQUEST_SIZE=${max_request_size:-10M}
+    mem_limit: 768m
+
+  compreface-api:
+    image: ${registry:-exadel/}compreface-api:${API_VERSION:-1.2.0}
+    container_name: compreface-api
+    restart: unless-stopped
+    depends_on:
+      - compreface-postgres-db
+    environment:
+      - POSTGRES_USER=${postgres_username:-postgres}
+      - POSTGRES_PASSWORD=${postgres_password:?defina postgres_password}
+      - POSTGRES_URL=jdbc:postgresql://${postgres_domain:-compreface-postgres-db}:${postgres_port:-5432}/${postgres_db:-frs}
+      - SPRING_PROFILES_ACTIVE=dev
+      # Oficial usa -Xmx4g. Num VPS de 8 GB que tambem roda a API e o painel do
+      # SmartGym, -Xmx4g nao "reserva" 4 GB, mas permite que a JVM cresca ate
+      # estourar a maquina — e quem morre e o kernel escolhendo uma vitima, nao
+      # a JVM com um erro legivel. 1g e folgado para uma academia; suba se o
+      # reconhecimento ficar lento com varias catracas simultaneas.
+      - API_JAVA_OPTS=${compreface_api_java_options:--Xmx1g}
+      # LGPD: com `false`, o CompreFace guarda apenas o vetor calculado do rosto,
+      # e nao a foto original. Menos dado biometrico bruto em repouso, num banco
+      # que nao e o seu e nao tem a cifragem do PII_ENCRYPTION_KEY.
+      # O custo dessa escolha: se um dia voce trocar a versao do modelo, nao da
+      # para recalcular os vetores localmente — o recadastro sai das fotos que
+      # ja estao no Supabase Storage. Se preferir a conveniencia ao minimalismo
+      # de dado, mude para `true` conscientemente.
+      - SAVE_IMAGES_TO_DB=${save_images_to_db:-false}
+      - MAX_FILE_SIZE=${max_file_size:-5MB}
+      - MAX_REQUEST_SIZE=${max_request_size:-10M}
+      - CONNECTION_TIMEOUT=${connection_timeout:-10000}
+      # A API do SmartGym corta em 15s (AbortSignal.timeout no compreface.ts).
+      # Manter o read_timeout do CompreFace ABAIXO disso faz o erro chegar como
+      # falha do CompreFace, com mensagem, em vez de timeout mudo do lado de ca.
+      - READ_TIMEOUT=${read_timeout:-12000}
+    mem_limit: 1536m
+
+  compreface-core:
+    image: ${registry:-exadel/}compreface-core:${CORE_VERSION:-1.2.0}
+    container_name: compreface-core
+    restart: unless-stopped
+    environment:
+      - ML_PORT=3000
+      - IMG_LENGTH_LIMIT=${max_detect_size:-640}
+      # 1 processo atende uma catraca com folga. Cada processo carrega os modelos
+      # inteiros na memoria, entao dobrar aqui dobra o consumo de RAM.
+      - UWSGI_PROCESSES=${uwsgi_processes:-1}
+      - UWSGI_THREADS=${uwsgi_threads:-1}
+    mem_limit: 3g
+
+  compreface-fe:
+    image: ${registry:-exadel/}compreface-fe:${FE_VERSION:-1.2.0}
+    container_name: compreface-ui
+    restart: unless-stopped
+    depends_on:
+      - compreface-api
+      - compreface-admin
+    environment:
+      - CLIENT_MAX_BODY_SIZE=${max_request_size:-10M}
+      - PROXY_READ_TIMEOUT=${read_timeout:-12000}
+      - PROXY_CONNECT_TIMEOUT=${connection_timeout:-10000}
+    ports:
+      # 127.0.0.1 na frente NAO e decoracao. O compose oficial publica "8000:80",
+      # que escuta em todas as interfaces: o painel de administracao do seu
+      # servico de biometria ficaria aberto na internet, atras de um login que
+      # voce acabou de criar. Preso ao loopback, o acesso e por tunel SSH.
+      # A API do SmartGym nao usa esta porta — ela fala pela rede interna.
+      - "127.0.0.1:8000:80"
+    mem_limit: 256m
+
+volumes:
+  postgres-data:

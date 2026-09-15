@@ -1,0 +1,16 @@
+# Fim de linha dos arquivos que rodam no Linux.
+#
+# O desenvolvimento e no Windows, com autocrlf ligado: o working copy recebe
+# CRLF. Para quase tudo isso e inofensivo, mas para um shell script e fatal —
+# o kernel le a shebang inteira, inclusive o \r, e responde
+# `bad interpreter: /usr/bin/env bash^M: no such file or directory`.
+#
+# Com `eol=lf`, estes arquivos ficam com LF tanto no repositorio quanto no
+# working copy do Windows, e sobrevivem a um scp direto para o VPS — nao so ao
+# clone feito no Linux pelo Coolify.
+
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.Dockerfile    text eol=lf
+.dockerignore   text eol=lf
+docker-compose.yml text eol=lf

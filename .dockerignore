@@ -1,0 +1,56 @@
+# O que NAO pode entrar no contexto de build das imagens.
+#
+# Os dois Dockerfiles (apps/api, apps/web) usam `COPY . .` a partir da raiz do
+# repositorio, porque e um workspace pnpm e o install precisa de todos os
+# manifestos. Sem este arquivo, esse COPY levaria junto:
+#
+#   - o `.env` da raiz, com DATABASE_URL, JWT_SECRET e PII_ENCRYPTION_KEY, que
+#     ficariam gravados numa camada da imagem — legiveis por qualquer um que
+#     tenha a imagem, mesmo que o arquivo seja apagado numa camada seguinte;
+#   - o `node_modules` montado no Windows, com binarios da plataforma errada
+#     (o Prisma engine, o esbuild), que quebram dentro do container Linux.
+#
+# `apps/mobile` NAO entra nesta lista de proposito: `pnpm install
+# --frozen-lockfile` confere o lockfile contra TODOS os pacotes do workspace, e
+# a ausencia de um deles faz o install falhar com divergencia de lockfile.
+
+node_modules
+**/node_modules
+
+# Os padroes sao relativos a RAIZ do contexto: `.env` sozinho casa apenas o
+# ./.env e deixa passar packages/db/.env e apps/mobile/.env. Verificado na
+# pratica em 15/09/2026 — sem o `**/`, os dois entraram na imagem, e o de
+# packages/db carrega a DATABASE_URL do banco em nuvem.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+.git
+.github
+.gitignore
+
+.turbo
+**/.turbo
+dist
+**/dist
+.next
+**/.next
+build
+**/build
+*.tsbuildinfo
+**/*.tsbuildinfo
+.expo
+**/.expo
+
+.vscode
+.claude
+docs
+*.md
+!README.md
+*.log
+Dockerfile
+**/Dockerfile
+.dockerignore
