@@ -18,7 +18,6 @@ const CONTROL_PLANE: readonly string[] = [
   'Cliente',
   'DominioCorporativo',
   'Auditoria',
-  'WebhookEvento', // REVISAR: se o webhook for tratado por-cliente, vira application
   'Usuario',
   'Senha',
   'RecuperacaoSenha',
@@ -36,16 +35,15 @@ const CATALOG: readonly string[] = [
   'ExercicioEquipamento',
   'FormaPagamento',
   'Localidade',
-  'MetodoTreino', // REVISAR
-  'Nivel', // REVISAR
+  'MetodoTreino',
+  'Nivel',
   'StatusPagamento',
-  'Tema', // REVISAR (tema base global vs TemaCustomizado por-tenant)
+  'Tema', // tema base global; a customizacao por-tenant e o TemaCustomizado (application)
   'TipoArquivo',
   'UnidadeMedida',
   'UnidadeTempo',
-  'Cargo', // REVISAR (pode ser config por-tenant)
-  'Categoria', // REVISAR (pode ser config por-tenant)
-  'Frequencia', // REVISAR (pode ser config por-tenant)
+  'Cargo', // decisao do dono: lista padrao (nao config por-tenant)
+  'Frequencia', // decisao do dono: lista padrao (nao config por-tenant)
 ];
 
 // 🏢 APLICAÇÃO — dados do cliente; vão para o banco dele. Inclui o negócio todo e
@@ -72,13 +70,16 @@ const APPLICATION: readonly string[] = [
   'Treino', 'TreinoExecucao', 'TreinoExercicio',
   // Config por-tenant (estavam sem idCliente, mas são do cliente):
   'TipoCheckIn', 'Pontuacao', 'MotivoCancelamento',
+  // Categoria: tem idEmpresa (escopo por-tenant). WebhookEvento: FK para
+  // ContaRecebimento/Pagamento (dados do cliente) — nao pode ficar no central.
+  'Categoria', 'WebhookEvento',
 ];
 
-// Classificações que dependem de decisão de domínio ainda a confirmar. Não muda o
-// comportamento; sinaliza o que revisar na "passada fina" antes do rollout.
-export const TIER_REVIEW: ReadonlySet<string> = new Set([
-  'WebhookEvento', 'MetodoTreino', 'Nivel', 'Tema', 'Cargo', 'Categoria', 'Frequencia',
-]);
+// Classificações que dependiam de decisão de domínio. RESOLVIDO 2026-09-15:
+// WebhookEvento e Categoria -> application (têm vínculo por-tenant); MetodoTreino,
+// Nivel, Tema, Cargo, Frequencia -> catalog (listas padrão, decisão do dono).
+// Vazio = nenhuma pendência de categorização.
+export const TIER_REVIEW: ReadonlySet<string> = new Set<string>([]);
 
 export const TABLE_TIERS: Readonly<Record<string, TenantTier>> = Object.freeze({
   ...Object.fromEntries(CONTROL_PLANE.map((m) => [m, 'control-plane' as const])),
