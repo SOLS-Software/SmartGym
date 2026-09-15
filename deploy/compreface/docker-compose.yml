@@ -14,8 +14,13 @@
 # Depois de subir, o primeiro acesso a interface e por tunel SSH — nao por
 # navegador aberto na internet:
 #
-#   ssh -L 8000:127.0.0.1:8000 usuario@ip-do-vps
-#   # e abrir http://localhost:8000 na sua maquina
+#   ssh -L 8001:127.0.0.1:8001 usuario@ip-do-vps
+#   # e abrir http://localhost:8001 na sua maquina
+#
+# A porta e 8001, e nao a 8000 do compose oficial, porque o DASHBOARD DO COOLIFY
+# ocupa a 8000 no host. Com 8000 aqui, este container simplesmente nao sobe.
+# Mudar a porta do Coolify seria a outra saida, mas a documentacao dele avisa
+# que errar isso tranca voce para fora do painel — mais barato mover o CompreFace.
 #
 # La voce cria a conta de admin, cria um Application, dentro dele um servico do
 # tipo Recognition, e copia a API key: e ela que vai para
@@ -121,12 +126,19 @@ services:
       - PROXY_READ_TIMEOUT=${read_timeout:-12000}
       - PROXY_CONNECT_TIMEOUT=${connection_timeout:-10000}
     ports:
-      # 127.0.0.1 na frente NAO e decoracao. O compose oficial publica "8000:80",
-      # que escuta em todas as interfaces: o painel de administracao do seu
-      # servico de biometria ficaria aberto na internet, atras de um login que
-      # voce acabou de criar. Preso ao loopback, o acesso e por tunel SSH.
-      # A API do SmartGym nao usa esta porta — ela fala pela rede interna.
-      - "127.0.0.1:8000:80"
+      # Duas mudancas em relacao ao "8000:80" do compose oficial.
+      #
+      # 127.0.0.1 na frente NAO e decoracao: o oficial escuta em todas as
+      # interfaces, e o painel de administracao do seu servico de biometria
+      # ficaria aberto na internet, atras de um login que voce acabou de criar.
+      # Preso ao loopback, o acesso e por tunel SSH.
+      #
+      # E 8001, nao 8000, porque o dashboard do Coolify ja ocupa a 8000 no host.
+      # Com 8000 aqui, o container nao sobe — conflito de porta, nao erro de app.
+      #
+      # A API do SmartGym nao usa esta porta: ela fala pela rede interna do
+      # Docker, em http://compreface-ui.
+      - "127.0.0.1:8001:80"
     mem_limit: 256m
 
 volumes:
