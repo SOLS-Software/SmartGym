@@ -12,6 +12,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
+import { getTenantDb } from '../../shared/tenantDataSource.js';
 import { assertValidId, optionalNumber } from '../../shared/normalize.js';
 import { clientErrorMessage } from '../../shared/errors.js';
 
@@ -73,6 +74,10 @@ export async function registerLeadRoutes(app: FastifyInstance) {
       if (!dominio) return reply.code(404).send({ message: 'Academia nao encontrada.' });
 
       const idCliente = dominio.idCliente;
+      // Rota publica: nao ha token, entao `request.tenantDb` caiu no central.
+      // O tenant so ficou conhecido agora, pelo dominio — e a partir daqui todo
+      // dado de negocio tem de sair do banco DELE.
+      const db = await getTenantDb(idCliente);
       const nrContato = digits(parsed.data.nrContato, 9);
       const anEmail = (parsed.data.anEmail ?? '').trim().toLowerCase().slice(0, 100);
 
@@ -81,7 +86,7 @@ export async function registerLeadRoutes(app: FastifyInstance) {
       // lead apontando para fora da academia.
       const idEmpresa = optionalNumber(parsed.data.idEmpresa);
       if (idEmpresa) {
-        const empresa = await prisma.empresa.findFirst({
+        const empresa = await db.empresa.findFirst({
           where: { id: idEmpresa, idCliente },
           select: { id: true },
         });
@@ -90,7 +95,7 @@ export async function registerLeadRoutes(app: FastifyInstance) {
 
       const idPlano = optionalNumber(parsed.data.idPlano);
       if (idPlano) {
-        const plano = await prisma.plano.findFirst({
+        const plano = await db.plano.findFirst({
           where: { id: idPlano, idCliente },
           select: { id: true },
         });
@@ -108,14 +113,14 @@ export async function registerLeadRoutes(app: FastifyInstance) {
       ];
 
       if (contato.length > 0) {
-        const jaExiste = await prisma.lead.findFirst({
+        const jaExiste = await db.lead.findFirst({
           where: { idCliente, boInativo: false, dtCadastro: { gte: desde }, OR: contato },
           select: { id: true },
         });
         if (jaExiste) return reply.code(201).send({ id: jaExiste.id, duplicado: true });
       }
 
-      const lead = await prisma.lead.create({
+      const lead = await db.lead.create({
         data: {
           idCliente,
           idEmpresa,
@@ -152,7 +157,7 @@ export async function registerLeadRoutes(app: FastifyInstance) {
       if (!parsed.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
 
       try {
-        return prisma.lead.findMany({
+        return request.tenantDb.lead.findMany({
           where: {
             idCliente,
             boInativo: false,
@@ -186,14 +191,14 @@ export async function registerLeadRoutes(app: FastifyInstance) {
     try {
       const idEmpresa = optionalNumber(parsed.data.idEmpresa);
       if (idEmpresa) {
-        const empresa = await prisma.empresa.findFirst({
+        const empresa = await request.tenantDb.empresa.findFirst({
           where: { id: idEmpresa, idCliente },
           select: { id: true },
         });
         if (!empresa) return reply.code(404).send({ message: 'Unidade nao encontrada.' });
       }
 
-      const lead = await prisma.lead.create({
+      const lead = await request.tenantDb.lead.create({
         data: {
           idCliente,
           idEmpresa,
@@ -227,7 +232,7 @@ export async function registerLeadRoutes(app: FastifyInstance) {
       const id = Number(request.params.id);
       assertValidId(id, 'Interessado invalido.');
 
-      const lead = await prisma.lead.findFirst({
+      const lead = await request.tenantDb.lead.findFirst({
         where: { id, idCliente },
         select: { id: true, cnStatus: true },
       });
@@ -237,7 +242,7 @@ export async function registerLeadRoutes(app: FastifyInstance) {
       // deste cliente — senao "convertido" apontaria para gente de fora.
       const idAluno = optionalNumber(parsed.data.idAluno);
       if (idAluno) {
-        const aluno = await prisma.aluno.findFirst({
+        const aluno = await request.tenantDb.aluno.findFirst({
           where: { id: idAluno, idCliente },
           select: { id: true },
         });
@@ -246,7 +251,7 @@ export async function registerLeadRoutes(app: FastifyInstance) {
 
       const idEmpresa = optionalNumber(parsed.data.idEmpresa);
       if (idEmpresa) {
-        const empresa = await prisma.empresa.findFirst({
+        const empresa = await request.tenantDb.empresa.findFirst({
           where: { id: idEmpresa, idCliente },
           select: { id: true },
         });
@@ -256,7 +261,7 @@ export async function registerLeadRoutes(app: FastifyInstance) {
       const mudouStatus =
         parsed.data.cnStatus !== undefined && parsed.data.cnStatus !== lead.cnStatus;
 
-      return await prisma.lead.update({
+      return await request.tenantDb.lead.update({
         where: { id },
         data: {
           ...(parsed.data.cnStatus !== undefined ? { cnStatus: parsed.data.cnStatus } : {}),

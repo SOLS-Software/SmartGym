@@ -26,7 +26,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Prisma } from '@smartgym/db';
 import { z } from 'zod';
-import { prisma } from '../../shared/prisma.js';
 import { clientErrorMessage } from '../../shared/errors.js';
 import { matriculaAtivaWhere, matriculaVigenteWhere } from './vigencia.js';
 import {
@@ -95,7 +94,7 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
       try {
         const idEmpresa = parsed.data.idEmpresa ?? null;
         if (idEmpresa) {
-          const empresa = await prisma.empresa.findFirst({
+          const empresa = await request.tenantDb.empresa.findFirst({
             where: { id: idEmpresa, idCliente },
             select: { id: true },
           });
@@ -122,7 +121,7 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
         ): Promise<LinhaAgregada[]> => {
           const limites = limitesDe(janelas);
           if (!limites) return Promise.resolve([]);
-          return prisma.$queryRaw<LinhaAgregada[]>(Prisma.sql`
+          return request.tenantDb.$queryRaw<LinhaAgregada[]>(Prisma.sql`
             SELECT
               ${chaveDoBalde(Prisma.sql`c."dtCadastro"`, unidade, fuso)} AS bucket,
               COUNT(*)::int AS total
@@ -156,18 +155,18 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
         ] = await Promise.all([
           // Cadastro: a flag do aluno. Fica ao lado da matricula vigente, e nao
           // no lugar dela, justamente porque sao perguntas diferentes.
-          prisma.aluno.groupBy({
+          request.tenantDb.aluno.groupBy({
             by: ['boInativo'],
             where: { idCliente },
             _count: { _all: true },
           }),
 
-          prisma.alunoPlano.count({ where: matriculaVigenteWhere(idCliente, agora) }),
+          request.tenantDb.alunoPlano.count({ where: matriculaVigenteWhere(idCliente, agora) }),
 
           // Trancadas: contrato em vigor, pausado hoje. Sai separado porque
           // somar com as ativas esconderia justamente o que o trancamento veio
           // tornar visivel — e subtrair viraria evasao, que e o erro antigo.
-          prisma.alunoPlano.count({
+          request.tenantDb.alunoPlano.count({
             where: {
               AND: [
                 matriculaVigenteWhere(idCliente, agora),
@@ -178,9 +177,9 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
 
           // Denominador da retencao: quem estava vigente no primeiro instante
           // do mes. Sem ele, "retencao" viraria de novo uma razao de cadastro.
-          prisma.alunoPlano.count({ where: matriculaVigenteWhere(idCliente, comecoDoMes) }),
+          request.tenantDb.alunoPlano.count({ where: matriculaVigenteWhere(idCliente, comecoDoMes) }),
 
-          prisma.alunoPlano.count({
+          request.tenantDb.alunoPlano.count({
             where: {
               boInativo: false,
               aluno: { idCliente },
@@ -188,7 +187,7 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
             },
           }),
 
-          prisma.alunoPlano.count({
+          request.tenantDb.alunoPlano.count({
             where: {
               boInativo: false,
               aluno: { idCliente },
@@ -197,9 +196,9 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
           }),
 
           // Catalogo de planos da rede — mesma regra de /plans.
-          prisma.plano.count({ where: { boInativo: false, idCliente } }),
+          request.tenantDb.plano.count({ where: { boInativo: false, idCliente } }),
 
-          prisma.alunoCheckIn.count({
+          request.tenantDb.alunoCheckIn.count({
             where: {
               boInativo: false,
               boPresencial: true,
@@ -212,7 +211,7 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
           // Total do MESMO periodo do grafico logo abaixo. O card antigo somava
           // "todos os check-ins de sempre" dos alunos amostrados: um numero que
           // so cresce, nao compara com nada e ainda dependia da amostra.
-          prisma.alunoCheckIn.count({
+          request.tenantDb.alunoCheckIn.count({
             where: {
               boInativo: false,
               boPresencial: true,
@@ -224,7 +223,7 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
             },
           }),
 
-          prisma.alunoPlano.groupBy({
+          request.tenantDb.alunoPlano.groupBy({
             by: ['idPlano'],
             where: matriculaVigenteWhere(idCliente, agora),
             _count: { _all: true },
@@ -234,7 +233,7 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
           serieDeCheckIns('month', meses),
 
           limiteMeses
-            ? prisma.$queryRaw<LinhaAgregada[]>(Prisma.sql`
+            ? request.tenantDb.$queryRaw<LinhaAgregada[]>(Prisma.sql`
                 SELECT
                   ${chaveDoBalde(Prisma.sql`a."dtCadastro"`, 'month', fuso)} AS bucket,
                   COUNT(*)::int AS total
@@ -251,7 +250,7 @@ export async function registerOverviewRoutes(app: FastifyInstance) {
         // aqui e apenas a traducao de id para rotulo.
         const idsDePlano = porPlanoBruto.map((linha) => linha.idPlano);
         const planos = idsDePlano.length
-          ? await prisma.plano.findMany({
+          ? await request.tenantDb.plano.findMany({
               where: { id: { in: idsDePlano }, idCliente },
               select: { id: true, dsPlano: true },
             })

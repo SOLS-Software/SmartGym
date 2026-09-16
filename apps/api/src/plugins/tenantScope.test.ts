@@ -51,11 +51,17 @@ const LIST_METHODS = ['findMany', 'count', 'aggregate', 'groupBy'];
 // excecao ser uma decisao e nao um descuido. (Refs sao por LINHA — se o arquivo
 // citado mudar, o teste volta a flagrar e as linhas devem ser reconferidas.)
 const ALLOWLIST = new Set<string>([
-  // Expurgo de retencao (LGPD): job de manutencao que varre ex-alunos de TODOS
-  // os tenants (ou de um so, via --tenant). Cross-tenant e o desenho, nao um
-  // esquecimento; a anonimizacao chamada em seguida e a mesma da rota.
-  'scripts/retention.ts:117', // prisma.aluno.count (contagem de elegiveis)
-  'scripts/retention.ts:118', // prisma.aluno.findMany (candidatos do lote)
+  // Expurgo de retencao (LGPD). O MOTIVO MUDOU em 09/2026: o job deixou de ser
+  // uma varredura cross-tenant. Com banco por cliente nao existe mais "varrer
+  // todos de uma vez", entao ele itera os tenants e consulta o banco de CADA um
+  // com `idCliente` no filtro — ou seja, esta escopado.
+  //
+  // Segue aqui porque a heuristica e TEXTUAL e so olha o argumento da chamada:
+  // o filtro vem de uma const `where` montada algumas linhas acima, e
+  // `count({ where })` nao tem a palavra idCliente dentro. Excecao de leitura,
+  // nao de escopo.
+  'scripts/retention.ts:143', // db.aluno.count — where com idCliente na linha 132
+  'scripts/retention.ts:144', // db.aluno.findMany — mesmo where
 ]);
 
 const SRC_ROOT = fileURLToPath(new URL('..', import.meta.url)); // apps/api/src

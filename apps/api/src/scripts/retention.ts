@@ -36,6 +36,7 @@
 
 import { prisma } from '../shared/prisma.js';
 import { anonymizeStudent } from '../shared/anonymize.js';
+import { getTenantDb } from '../shared/tenantDataSource.js';
 
 const DIA_MS = 86_400_000;
 
@@ -93,7 +94,32 @@ function log(msg = '') {
   console.log(msg);
 }
 
+// Lista de tenants a varrer. Com banco por cliente NAO existe mais "varrer
+// todos de uma vez": cada um pode estar num banco diferente, e um SELECT so
+// nunca alcancaria os dois. A lista de clientes e control-plane (fica sempre no
+// central); a varredura acontece uma vez por cliente, no banco DELE.
+async function tenantsParaVarrer(cfg: Config): Promise<number[]> {
+  if (cfg.tenant !== undefined) return [cfg.tenant];
+  const clientes = await prisma.cliente.findMany({ select: { id: true }, orderBy: { id: 'asc' } });
+  return clientes.map((c) => c.id);
+}
+
 async function processAlunos(cfg: Config, cutoff: Date) {
+  let restante = cfg.limit;
+  for (const idCliente of await tenantsParaVarrer(cfg)) {
+    if (restante <= 0) break;
+    restante -= await processAlunosDoTenant(cfg, cutoff, idCliente, restante);
+  }
+}
+
+/** Varre UM tenant, no banco dele. Devolve quantos candidatos o lote consumiu. */
+async function processAlunosDoTenant(
+  cfg: Config,
+  cutoff: Date,
+  idCliente: number,
+  limite: number,
+): Promise<number> {
+  const db = await getTenantDb(idCliente);
   log(`\n== ALUNOS ==  corte: inativos sem alteracao desde ${cutoff.toISOString().slice(0, 10)} (${cfg.alunoDias} dias)`);
 
   // Candidato: inativo, ainda com PII (caCPFHash != null => nao anonimizado),
@@ -103,7 +129,7 @@ async function processAlunos(cfg: Config, cutoff: Date) {
     boInativo: true,
     caCPFHash: { not: null },
     dtAlteracao: { lt: cutoff },
-    ...(cfg.tenant !== undefined ? { idCliente: cfg.tenant } : {}),
+    idCliente,
     NOT: {
       alunoPlanos: {
         some: {
@@ -114,16 +140,16 @@ async function processAlunos(cfg: Config, cutoff: Date) {
     },
   };
 
-  const total = await prisma.aluno.count({ where });
-  const candidatos = await prisma.aluno.findMany({
+  const total = await db.aluno.count({ where });
+  const candidatos = await db.aluno.findMany({
     where,
     select: { id: true, idCliente: true, dtAlteracao: true },
     orderBy: { dtAlteracao: 'asc' },
-    take: cfg.limit,
+    take: limite,
   });
 
   log(`   elegiveis: ${total}  |  neste lote (limit ${cfg.limit}): ${candidatos.length}`);
-  if (candidatos.length === 0) return;
+  if (candidatos.length === 0) return 0;
 
   if (!cfg.apply) {
     const amostra = candidatos.slice(0, 10);
@@ -131,7 +157,7 @@ async function processAlunos(cfg: Config, cutoff: Date) {
       log(`   [dry-run] anonimizaria aluno #${a.id} (cliente ${a.idCliente}, parado desde ${a.dtAlteracao.toISOString().slice(0, 10)})`);
     }
     if (candidatos.length > amostra.length) log(`   ... +${candidatos.length - amostra.length} (amostra de 10)`);
-    return;
+    return candidatos.length;
   }
 
   let ok = 0;
@@ -150,6 +176,7 @@ async function processAlunos(cfg: Config, cutoff: Date) {
     log(`   pendencias externas (reprocessar a mao):`);
     for (const p of pendencias) log(`     - ${p}`);
   }
+  return candidatos.length;
 }
 
 async function processAuditoria(cfg: Config, cutoff: Date) {

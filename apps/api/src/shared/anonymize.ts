@@ -1,4 +1,5 @@
 import { prisma } from './prisma.js';
+import { getTenantDb } from './tenantDataSource.js';
 import { deleteComprefaceSubject } from './compreface.js';
 import { getSupabaseConfig, getSupabaseClient } from './supabase.js';
 
@@ -40,12 +41,16 @@ export async function anonymizeStudent(
 ): Promise<AnonymizeResult> {
   const { log, skipExternal = false } = opts;
 
+  // A ficha e os filhos dela sao dado de APLICACAO (banco do tenant); usuario e
+  // dispositivo sao IDENTIDADE (central). Os dois clients coexistem aqui.
+  const db = await getTenantDb(idCliente);
+
   // Coleta ANTES de apagar o que precisa ir para servicos externos.
-  const biometrias = await prisma.alunoBiometriaFacial.findMany({
+  const biometrias = await db.alunoBiometriaFacial.findMany({
     where: { idAluno },
     select: { dsSubject: true },
   });
-  const arquivos = await prisma.alunoArquivo.findMany({
+  const arquivos = await db.alunoArquivo.findMany({
     where: { idAluno },
     select: { anCaminho: true },
   });
@@ -55,20 +60,31 @@ export async function anonymizeStudent(
   });
   const idsUsuario = usuarios.map((u) => u.id);
 
-  await prisma.$transaction(async (tx) => {
-    // Dado sensivel e PII sai; a ordem respeita as FKs para AlunoArquivo.
-    await tx.alunoBiometriaFacial.deleteMany({ where: { idAluno } });
-    await tx.alunoEvolucao.deleteMany({ where: { idAluno } });
-    await tx.alunoArquivo.deleteMany({ where: { idAluno } });
-    // Encerra o acesso: dispositivos de push fora, usuarios inativos e com a
-    // versao de sessao incrementada (derruba qualquer token vivo).
-    if (idsUsuario.length > 0) {
+  // DUAS TRANSACOES, e a ordem importa. Isto era uma transacao so; com banco
+  // por tenant ela deixa de existir — identidade mora no central e a ficha no
+  // banco do cliente, e nenhum $transaction cruza dois bancos (a guarda de
+  // tenantTx.ts lanca se alguem tentar). Entao ha um instante em que so metade
+  // aconteceu, e a unica decisao livre e QUAL metade.
+  //
+  // Revogar o acesso vem PRIMEIRO. Se a segunda metade falhar, a pessoa fica
+  // sem entrar e o dado dela continua la — recuperavel, e o job tenta de novo.
+  // Na ordem inversa, uma falha deixaria ficha anonimizada com sessao viva: o
+  // pior dos dois mundos, e justamente o que a LGPD cobra que nao aconteca.
+  if (idsUsuario.length > 0) {
+    await prisma.$transaction(async (tx) => {
       await tx.usuarioDispositivo.deleteMany({ where: { idUsuario: { in: idsUsuario } } });
       await tx.usuario.updateMany({
         where: { id: { in: idsUsuario } },
         data: { boInativo: true, nrTokenVersion: { increment: 1 } },
       });
-    }
+    });
+  }
+
+  await db.$transaction(async (tx) => {
+    // Dado sensivel e PII sai; a ordem respeita as FKs para AlunoArquivo.
+    await tx.alunoBiometriaFacial.deleteMany({ where: { idAluno } });
+    await tx.alunoEvolucao.deleteMany({ where: { idAluno } });
+    await tx.alunoArquivo.deleteMany({ where: { idAluno } });
     // Embaralha a identidade da ficha; mantem o id (financeiro pende dele).
     await tx.aluno.update({
       where: { id: idAluno },

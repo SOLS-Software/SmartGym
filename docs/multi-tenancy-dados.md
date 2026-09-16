@@ -225,6 +225,40 @@ client antigo com carência de 30 s para requests em voo, e
 ganhou `--enable`: sem ele o registro era porta de mão única — `--disable`
 gravava `false` e nada jamais voltava para `true`.
 
+## O muro dos 50: portas de entrada sem âncora central
+
+O roteamento desceu de 533 para **50** acessos, e o que sobrou não é trabalho
+repetitivo — é o mesmo problema de arquitetura aparecendo em três lugares:
+
+| Onde | Quem bate na porta | O que procura primeiro |
+|---|---|---|
+| `controlid/*` (37) | a catraca, com o serial do aparelho | `tb_Catracas` pelo `caSerial` |
+| `webhooks` (10) | o Asaas, com o token na URL | `tb_ContasRecebimento` pelo `caTokenWebhook` |
+| `auth` (3) | a pessoa, com CPF e senha | `tb_Alunos` / `tb_Funcionarios` pelo `caCPFHash` |
+
+As três são **públicas** e as três precisam descobrir *quem é o tenant* a partir
+de um dado que mora numa tabela de **aplicação** — isto é, dentro do banco que
+só dá para abrir depois de saber quem é o tenant. Com um banco só, isso nunca
+apareceu. Com banco por cliente, é um ovo-e-galinha: não existe "procurar o
+serial em todos os bancos".
+
+Repare que a rota pública de **lead não** está na lista: ela descobre o tenant
+pelo **domínio**, e domínio é control-plane. Esse é o formato da solução — toda
+porta de entrada precisa de uma chave que viva no central.
+
+**Decisão pendente do dono.** Para cada porta, uma âncora central:
+
+1. **Catraca** — índice `caSerial → idCliente` no control-plane (ou mover
+   `tb_Catracas` inteira para lá; o equipamento é infra, não dado de negócio).
+2. **Webhook** — o token já é sorteado por nós na emissão: gravar o par
+   `caTokenWebhook → idCliente` no control-plane resolve sem mexer na conta.
+3. **Login** — é o item 2 do rollout ("identidade enxuta central"), já
+   desenhado: a chave de login e o `idCliente` ficam no central, o perfil rico
+   vai para o banco do cliente.
+
+Enquanto isso não existir, **nenhum cliente com catraca ou cobrança pode ser
+siloado** — e é por isso que a trava de `ROTEAMENTO_COMPLETO` continua fechada.
+
 ## Segurança
 
 - **Credenciais cifradas em repouso** (`secrets.ts`, AES-256-GCM, chave mestre

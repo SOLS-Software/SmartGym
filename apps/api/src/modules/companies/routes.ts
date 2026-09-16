@@ -582,7 +582,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         conditions.push(Prisma.sql`"dsEmpresa" ILIKE ${`%${search}%`}`);
       }
     }
-    return prisma.$queryRaw`
+    return request.tenantDb.$queryRaw`
       SELECT ${COMPANY_SELECT_COLUMNS} FROM "tb_Empresas"
       WHERE ${Prisma.join(conditions, ' AND ')}
       ORDER BY "dsEmpresa" ASC

@@ -16,6 +16,7 @@
 //
 // Todas caem em `reports.read` pelo padrao /reports(/|$) de plugins/permissions.
 import type { FastifyInstance } from 'fastify';
+import type { PrismaClient } from '@smartgym/db';
 import { Prisma } from '@smartgym/db';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
@@ -49,12 +50,10 @@ function toNumber(valor: unknown): number {
 }
 
 /** Valida a filial e devolve o id, ou null quando o relatorio olha a rede. */
-async function resolverEmpresa(
-  idCliente: number,
-  idEmpresa: number | undefined,
-): Promise<number | null | 'nao-encontrada'> {
+async function resolverEmpresa(db: PrismaClient, idCliente: number,
+  idEmpresa: number | undefined,): Promise<number | null | 'nao-encontrada'> {
   if (!idEmpresa) return null;
-  const empresa = await prisma.empresa.findFirst({
+  const empresa = await db.empresa.findFirst({
     where: { id: idEmpresa, idCliente },
     select: { id: true },
   });
@@ -86,7 +85,7 @@ export async function registerDashboardRoutes(app: FastifyInstance) {
       // ainda ter base de comparacao.
       const janela = new Date(agora.getFullYear(), agora.getMonth() - SAFRAS, 1);
 
-      const linhas = await prisma.alunoPlano.findMany({
+      const linhas = await request.tenantDb.alunoPlano.findMany({
         where: { boInativo: false, aluno: { idCliente } },
         select: { dtAdmissao: true, dtCadastro: true, dtEncerramento: true },
       });
@@ -108,7 +107,7 @@ export async function registerDashboardRoutes(app: FastifyInstance) {
       // aqui e o que as matriculas que ja terminaram de fato renderam. E um
       // numero menor e mais chato, e e verdade.
       const idPago = await getStatusIdByName(prisma, 'Pago');
-      const realizado = await prisma.pagamento.aggregate({
+      const realizado = await request.tenantDb.pagamento.aggregate({
         where: {
           boInativo: false,
           empresa: { idCliente },
@@ -163,7 +162,7 @@ export async function registerDashboardRoutes(app: FastifyInstance) {
       if (!parsed.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
 
       try {
-        const empresa = await resolverEmpresa(idCliente, parsed.data.idEmpresa);
+        const empresa = await resolverEmpresa(request.tenantDb, idCliente, parsed.data.idEmpresa);
         if (empresa === 'nao-encontrada') {
           return reply.code(404).send({ message: 'Empresa nao encontrada.' });
         }
@@ -179,7 +178,7 @@ export async function registerDashboardRoutes(app: FastifyInstance) {
         ]);
 
         const [vencidos, aVencer, liquidados, formasDePagamento] = await Promise.all([
-          prisma.pagamento.findMany({
+          request.tenantDb.pagamento.findMany({
             where: {
               ...base,
               ...(idPendente ? { idStatusPagamento: idPendente } : {}),
@@ -187,7 +186,7 @@ export async function registerDashboardRoutes(app: FastifyInstance) {
             },
             select: { vlPrevisto: true, dtVencimento: true, idAlunoPlano: true },
           }),
-          prisma.pagamento.findMany({
+          request.tenantDb.pagamento.findMany({
             where: {
               ...base,
               ...(idPendente ? { idStatusPagamento: idPendente } : {}),
@@ -197,7 +196,7 @@ export async function registerDashboardRoutes(app: FastifyInstance) {
           }),
           // Pontualidade: das parcelas liquidadas nos ultimos 90 dias, quantas
           // sairam no prazo. Diz se a inadimplencia e cronica ou pontual.
-          prisma.pagamento.findMany({
+          request.tenantDb.pagamento.findMany({
             where: {
               ...base,
               ...(idPago ? { idStatusPagamento: idPago } : {}),
@@ -205,7 +204,7 @@ export async function registerDashboardRoutes(app: FastifyInstance) {
             },
             select: { vlPago: true, vlPrevisto: true, dtPagamento: true, dtVencimento: true },
           }),
-          prisma.pagamento.groupBy({
+          request.tenantDb.pagamento.groupBy({
             by: ['idFormaPagamento'],
             where: {
               ...base,
@@ -272,7 +271,7 @@ export async function registerDashboardRoutes(app: FastifyInstance) {
           .map((linha) => linha.idFormaPagamento)
           .filter((id): id is number => id !== null);
         const formas = idsDeForma.length
-          ? await prisma.formaPagamento.findMany({
+          ? await request.tenantDb.formaPagamento.findMany({
               where: { id: { in: idsDeForma } },
               select: { id: true, dsFormaPagamento: true },
             })
@@ -332,7 +331,7 @@ export async function registerDashboardRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
 
     try {
-      const empresa = await resolverEmpresa(idCliente, parsed.data.idEmpresa);
+      const empresa = await resolverEmpresa(request.tenantDb, idCliente, parsed.data.idEmpresa);
       if (empresa === 'nao-encontrada') {
         return reply.code(404).send({ message: 'Empresa nao encontrada.' });
       }
@@ -340,7 +339,7 @@ export async function registerDashboardRoutes(app: FastifyInstance) {
       const agora = new Date();
       const janela = new Date(agora.getFullYear(), agora.getMonth() - SAFRAS + 1, 1);
 
-      const leads = await prisma.lead.findMany({
+      const leads = await request.tenantDb.lead.findMany({
         where: {
           boInativo: false,
           idCliente,
@@ -458,7 +457,7 @@ export async function registerDashboardRoutes(app: FastifyInstance) {
       if (!parsed.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
 
       try {
-        const empresa = await resolverEmpresa(idCliente, parsed.data.idEmpresa);
+        const empresa = await resolverEmpresa(request.tenantDb, idCliente, parsed.data.idEmpresa);
         if (empresa === 'nao-encontrada') {
           return reply.code(404).send({ message: 'Empresa nao encontrada.' });
         }
@@ -475,7 +474,7 @@ export async function registerDashboardRoutes(app: FastifyInstance) {
         // dia seguinte e o pico da noite aparece de manha.
         //
         // dow do Postgres: 0 = domingo. Mantido como vem; a tela rotula.
-        const mapa = await prisma.$queryRaw<Array<{ dia: number; hora: number; total: number }>>(
+        const mapa = await request.tenantDb.$queryRaw<Array<{ dia: number; hora: number; total: number }>>(
           Prisma.sql`
             SELECT
               EXTRACT(DOW FROM c."dtCadastro" AT TIME ZONE 'UTC' AT TIME ZONE ${fusoSeguro})::int AS dia,
@@ -495,7 +494,7 @@ export async function registerDashboardRoutes(app: FastifyInstance) {
         );
 
         // Turmas do periodo, com capacidade, inscritos e presenca.
-        const turmas = await prisma.atividadeAgenda.findMany({
+        const turmas = await request.tenantDb.atividadeAgenda.findMany({
           where: {
             boInativo: false,
             empresa: { idCliente },
