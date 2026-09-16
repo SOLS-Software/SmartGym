@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
-import { prisma } from '../../shared/prisma.js';
+import type { PrismaClient } from '@smartgym/db';
 import {
   normalizePlanPayload,
   assertOrdemDasDatas,
@@ -91,8 +91,8 @@ function tenantCompanyWhere(idCliente: number) {
   return { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] };
 }
 
-async function planBelongsToTenant(idCliente: number, idPlano: number) {
-  const plan = await prisma.plano.findFirst({
+async function planBelongsToTenant(db: PrismaClient, idCliente: number, idPlano: number) {
+  const plan = await db.plano.findFirst({
     where: { id: idPlano, idCliente },
     select: { id: true },
   });
@@ -104,54 +104,57 @@ async function planBelongsToTenant(idCliente: number, idPlano: number) {
 // codigo de resposta.
 const planOwnedByTenant = planBelongsToTenant;
 
-async function assertCompanyInTenant(idCliente: number, idEmpresa: number | null | undefined) {
+async function assertCompanyInTenant(db: PrismaClient, idCliente: number, idEmpresa: number | null | undefined) {
   if (idEmpresa == null) return;
-  const company = await prisma.empresa.findFirst({
+  const company = await db.empresa.findFirst({
     where: { id: idEmpresa, idCliente },
     select: { id: true },
   });
   if (!company) throw new Error('Empresa nao pertence ao cliente.');
 }
 
-async function assertProductInTenant(idCliente: number, idProduto: number | null | undefined) {
+async function assertProductInTenant(db: PrismaClient, idCliente: number, idProduto: number | null | undefined) {
   if (idProduto == null) return;
-  const product = await prisma.produto.findFirst({
+  const product = await db.produto.findFirst({
     where: { id: idProduto, ...tenantCompanyWhere(idCliente) },
     select: { id: true },
   });
   if (!product) throw new Error('Produto nao pertence ao cliente.');
 }
 
-async function assertActivityInTenant(idCliente: number, idAtividade: number | null | undefined) {
+async function assertActivityInTenant(db: PrismaClient, idCliente: number, idAtividade: number | null | undefined) {
   if (idAtividade == null) return;
-  const activity = await prisma.atividade.findFirst({
+  const activity = await db.atividade.findFirst({
     where: { id: idAtividade, ...tenantCompanyWhere(idCliente) },
     select: { id: true },
   });
   if (!activity) throw new Error('Atividade nao pertence ao cliente.');
 }
 
-async function assertPromotionInTenant(idCliente: number, idPromocao: number | null | undefined) {
+async function assertPromotionInTenant(db: PrismaClient, idCliente: number, idPromocao: number | null | undefined) {
   if (idPromocao == null) return;
-  const promotion = await prisma.promocao.findFirst({
+  const promotion = await db.promocao.findFirst({
     where: { id: idPromocao, ...tenantCompanyWhere(idCliente) },
     select: { id: true },
   });
   if (!promotion) throw new Error('Promocao nao pertence ao cliente.');
 }
 
+// O delegate nao pode ser resolvido no carregamento do modulo: com banco por
+// tenant, o client certo so existe no request. A config guarda COMO chegar ao
+// delegate, e nao o delegate.
 function asPlanChildDelegate(delegate: unknown) {
   return delegate as PlanChildDelegate;
 }
 
 const planChildResourceConfig = {
   values: {
-    delegate: asPlanChildDelegate(prisma.planoValor),
+    delegate: (db: PrismaClient) => asPlanChildDelegate(db.planoValor),
     childWhere(planId: number): Record<string, unknown> {
       return { idPlano: planId };
     },
-    async assertTenant(idCliente: number, payload: CompanyChildPayload) {
-      await assertCompanyInTenant(idCliente, optionalNumber(payload.idEmpresa));
+    async assertTenant(db: PrismaClient, idCliente: number, payload: CompanyChildPayload) {
+      await assertCompanyInTenant(db, idCliente, optionalNumber(payload.idEmpresa));
     },
     normalize(planId: number, payload: CompanyChildPayload) {
       return {
@@ -163,13 +166,13 @@ const planChildResourceConfig = {
     },
   },
   products: {
-    delegate: asPlanChildDelegate(prisma.planoProduto),
+    delegate: (db: PrismaClient) => asPlanChildDelegate(db.planoProduto),
     childWhere(planId: number): Record<string, unknown> {
       return { idPlano: planId };
     },
-    async assertTenant(idCliente: number, payload: CompanyChildPayload) {
-      await assertCompanyInTenant(idCliente, optionalNumber(payload.idEmpresa));
-      await assertProductInTenant(idCliente, optionalNumber(payload.idProduto));
+    async assertTenant(db: PrismaClient, idCliente: number, payload: CompanyChildPayload) {
+      await assertCompanyInTenant(db, idCliente, optionalNumber(payload.idEmpresa));
+      await assertProductInTenant(db, idCliente, optionalNumber(payload.idProduto));
     },
     normalize(planId: number, payload: CompanyChildPayload) {
       return {
@@ -181,12 +184,12 @@ const planChildResourceConfig = {
     },
   },
   companies: {
-    delegate: asPlanChildDelegate(prisma.planoEmpresa),
+    delegate: (db: PrismaClient) => asPlanChildDelegate(db.planoEmpresa),
     childWhere(planId: number): Record<string, unknown> {
       return { idPlano: planId };
     },
-    async assertTenant(idCliente: number, payload: CompanyChildPayload) {
-      await assertCompanyInTenant(idCliente, optionalNumber(payload.idEmpresa));
+    async assertTenant(db: PrismaClient, idCliente: number, payload: CompanyChildPayload) {
+      await assertCompanyInTenant(db, idCliente, optionalNumber(payload.idEmpresa));
     },
     normalize(planId: number, payload: CompanyChildPayload) {
       return {
@@ -197,13 +200,13 @@ const planChildResourceConfig = {
     },
   },
   activities: {
-    delegate: asPlanChildDelegate(prisma.planoAtividade),
+    delegate: (db: PrismaClient) => asPlanChildDelegate(db.planoAtividade),
     childWhere(planId: number): Record<string, unknown> {
       return { idPlano: planId };
     },
-    async assertTenant(idCliente: number, payload: CompanyChildPayload) {
-      await assertCompanyInTenant(idCliente, optionalNumber(payload.idEmpresa));
-      await assertActivityInTenant(idCliente, optionalNumber(payload.idAtividade));
+    async assertTenant(db: PrismaClient, idCliente: number, payload: CompanyChildPayload) {
+      await assertCompanyInTenant(db, idCliente, optionalNumber(payload.idEmpresa));
+      await assertActivityInTenant(db, idCliente, optionalNumber(payload.idAtividade));
     },
     normalize(planId: number, payload: CompanyChildPayload) {
       return {
@@ -215,13 +218,13 @@ const planChildResourceConfig = {
     },
   },
   benefits: {
-    delegate: asPlanChildDelegate(prisma.planoBeneficio),
+    delegate: (db: PrismaClient) => asPlanChildDelegate(db.planoBeneficio),
     childWhere(planId: number): Record<string, unknown> {
       return { idPlano: planId };
     },
-    async assertTenant(idCliente: number, payload: CompanyChildPayload) {
-      await assertCompanyInTenant(idCliente, optionalNumber(payload.idEmpresa));
-      await assertProductInTenant(idCliente, optionalNumber(payload.idProduto));
+    async assertTenant(db: PrismaClient, idCliente: number, payload: CompanyChildPayload) {
+      await assertCompanyInTenant(db, idCliente, optionalNumber(payload.idEmpresa));
+      await assertProductInTenant(db, idCliente, optionalNumber(payload.idProduto));
     },
     normalize(planId: number, payload: CompanyChildPayload) {
       const cnTipo = String(payload.cnTipo ?? 'produto').trim().toLowerCase();
@@ -256,13 +259,13 @@ const planChildResourceConfig = {
     },
   },
   'promotion-plans': {
-    delegate: asPlanChildDelegate(prisma.promocaoPlano),
+    delegate: (db: PrismaClient) => asPlanChildDelegate(db.promocaoPlano),
     childWhere(planId: number): Record<string, unknown> {
       return { idPlano: planId };
     },
-    async assertTenant(idCliente: number, payload: CompanyChildPayload) {
-      await assertCompanyInTenant(idCliente, optionalNumber(payload.idEmpresa));
-      await assertPromotionInTenant(idCliente, optionalNumber(payload.idPromocao));
+    async assertTenant(db: PrismaClient, idCliente: number, payload: CompanyChildPayload) {
+      await assertCompanyInTenant(db, idCliente, optionalNumber(payload.idEmpresa));
+      await assertPromotionInTenant(db, idCliente, optionalNumber(payload.idPromocao));
     },
     normalize(planId: number, payload: CompanyChildPayload) {
       const dtInicio = optionalDate(payload.dtInicio) ?? new Date();
@@ -288,14 +291,14 @@ const planChildResourceConfig = {
     },
   },
   'promotion-products': {
-    delegate: asPlanChildDelegate(prisma.promocaoProduto),
+    delegate: (db: PrismaClient) => asPlanChildDelegate(db.promocaoProduto),
     childWhere(planId: number): Record<string, unknown> {
       return { promocao: { promocaoPlanos: { some: { idPlano: planId } } } };
     },
-    async assertTenant(idCliente: number, payload: CompanyChildPayload) {
-      await assertCompanyInTenant(idCliente, optionalNumber(payload.idEmpresa));
-      await assertPromotionInTenant(idCliente, optionalNumber(payload.idPromocao));
-      await assertProductInTenant(idCliente, optionalNumber(payload.idProduto));
+    async assertTenant(db: PrismaClient, idCliente: number, payload: CompanyChildPayload) {
+      await assertCompanyInTenant(db, idCliente, optionalNumber(payload.idEmpresa));
+      await assertPromotionInTenant(db, idCliente, optionalNumber(payload.idPromocao));
+      await assertProductInTenant(db, idCliente, optionalNumber(payload.idProduto));
     },
     normalize(_planId: number, payload: CompanyChildPayload) {
       return {
@@ -310,9 +313,9 @@ const planChildResourceConfig = {
 } satisfies Record<
   PlanChildResource,
   {
-    delegate: PlanChildDelegate;
+    delegate: (db: PrismaClient) => PlanChildDelegate;
     childWhere(planId: number): Record<string, unknown>;
-    assertTenant(idCliente: number, payload: CompanyChildPayload): Promise<void>;
+    assertTenant(db: PrismaClient, idCliente: number, payload: CompanyChildPayload): Promise<void>;
     normalize(planId: number, payload: CompanyChildPayload): Record<string, unknown>;
   }
 >;
@@ -325,8 +328,8 @@ function getPlanChildResourceConfig(resource: string) {
   return config;
 }
 
-async function getPromotionIdsByPlan(idPlano: number) {
-  const records = await prisma.promocaoPlano.findMany({
+async function getPromotionIdsByPlan(db: PrismaClient, idPlano: number) {
+  const records = await db.promocaoPlano.findMany({
     where: { idPlano },
     select: { idPromocao: true },
   });
@@ -336,9 +339,9 @@ async function getPromotionIdsByPlan(idPlano: number) {
     .filter((idPromocao): idPromocao is number => Number.isInteger(idPromocao));
 }
 
-async function assertPromotionBelongsToPlan(idPlano: number, idPromocao: number) {
+async function assertPromotionBelongsToPlan(db: PrismaClient, idPlano: number, idPromocao: number) {
   assertValidId(idPromocao, 'Promocao invalida.');
-  const relation = await prisma.promocaoPlano.findFirst({
+  const relation = await db.promocaoPlano.findFirst({
     where: { idPlano, idPromocao },
     select: { id: true },
   });
@@ -366,7 +369,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
     const includeDetails = parsedQuery.data.includeDetails === 'true';
     const search = parsedQuery.data.search?.trim();
 
-    return prisma.plano.findMany({
+    return request.tenantDb.plano.findMany({
       take: clampLimit(parsedQuery.data.limit),
       where: {
         ...(includeInactive ? {} : { boInativo: false }),
@@ -414,7 +417,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const data = normalizePlanPayload(request.body);
-      const existing = await prisma.plano.findFirst({
+      const existing = await request.tenantDb.plano.findFirst({
         where: {
           dsPlano: { equals: data.dsPlano, mode: 'insensitive' },
           ...planTenantWhere(idCliente),
@@ -425,7 +428,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
         return reply.code(400).send({ message: 'Já existe um plano com este nome.' });
       }
       // Tenant SEMPRE do token, nunca do body.
-      const plan = await prisma.plano.create({ data: { ...data, idCliente } });
+      const plan = await request.tenantDb.plano.create({ data: { ...data, idCliente } });
       return reply.code(201).send(plan);
     } catch (error) {
       const isPrismaUnique =
@@ -449,11 +452,11 @@ export async function registerPlanRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Plano invalido.');
-      if (!(await planOwnedByTenant(idCliente, id))) {
+      if (!(await planOwnedByTenant(request.tenantDb, idCliente, id))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const data = normalizePlanPayload(request.body);
-      const existing = await prisma.plano.findFirst({
+      const existing = await request.tenantDb.plano.findFirst({
         where: {
           dsPlano: { equals: data.dsPlano, mode: 'insensitive' },
           id: { not: id },
@@ -464,7 +467,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       if (existing) {
         return reply.code(400).send({ message: 'Já existe um plano com este nome.' });
       }
-      return prisma.plano.update({ where: { id }, data });
+      return request.tenantDb.plano.update({ where: { id }, data });
     } catch (error) {
       const isPrismaUnique =
         error instanceof Error &&
@@ -491,11 +494,11 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       if (!parsedBody.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      if (!(await planOwnedByTenant(idCliente, id))) {
+      if (!(await planOwnedByTenant(request.tenantDb, idCliente, id))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const boInativo = toBool(parsedBody.data.boInativo);
-      return prisma.plano.update({ where: { id }, data: { boInativo } });
+      return request.tenantDb.plano.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do plano.' });
     }
@@ -513,10 +516,10 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       if (!parsedQuery.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      if (!(await planBelongsToTenant(idCliente, idPlano))) {
+      if (!(await planBelongsToTenant(request.tenantDb, idCliente, idPlano))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.planoValor.findMany({
+      return request.tenantDb.planoValor.findMany({
         where: { idPlano, ...tenantCompanyWhere(idCliente) },
         orderBy: { dtCadastro: 'desc' },
         take: clampLimit(parsedQuery.data.limit),
@@ -538,10 +541,10 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       if (!parsedQuery.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      if (!(await planBelongsToTenant(idCliente, idPlano))) {
+      if (!(await planBelongsToTenant(request.tenantDb, idCliente, idPlano))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.planoProduto.findMany({
+      return request.tenantDb.planoProduto.findMany({
         where: { idPlano, ...tenantCompanyWhere(idCliente) },
         orderBy: { dtCadastro: 'desc' },
         take: clampLimit(parsedQuery.data.limit),
@@ -563,10 +566,10 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       if (!parsedQuery.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      if (!(await planBelongsToTenant(idCliente, idPlano))) {
+      if (!(await planBelongsToTenant(request.tenantDb, idCliente, idPlano))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.planoEmpresa.findMany({
+      return request.tenantDb.planoEmpresa.findMany({
         where: { idPlano, empresa: { idCliente } },
         orderBy: { dtCadastro: 'desc' },
         take: clampLimit(parsedQuery.data.limit),
@@ -584,11 +587,11 @@ export async function registerPlanRoutes(app: FastifyInstance) {
     try {
       const idPlano = Number(request.params.id);
       assertValidId(idPlano, 'Plano invalido.');
-      if (!(await planBelongsToTenant(idCliente, idPlano))) {
+      if (!(await planBelongsToTenant(request.tenantDb, idCliente, idPlano))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      return prisma.planoBeneficio.findMany({
+      return request.tenantDb.planoBeneficio.findMany({
         where: { idPlano },
         include: {
           empresa: { select: { id: true, dsEmpresa: true } },
@@ -613,10 +616,10 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       if (!parsedQuery.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      if (!(await planBelongsToTenant(idCliente, idPlano))) {
+      if (!(await planBelongsToTenant(request.tenantDb, idCliente, idPlano))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.planoAtividade.findMany({
+      return request.tenantDb.planoAtividade.findMany({
         where: { idPlano, ...tenantCompanyWhere(idCliente) },
         orderBy: { dtCadastro: 'desc' },
         take: clampLimit(parsedQuery.data.limit),
@@ -640,10 +643,10 @@ export async function registerPlanRoutes(app: FastifyInstance) {
         if (!parsedQuery.success) {
           return reply.code(400).send({ message: 'Parametros invalidos.' });
         }
-        if (!(await planBelongsToTenant(idCliente, idPlano))) {
+        if (!(await planBelongsToTenant(request.tenantDb, idCliente, idPlano))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
-        return prisma.promocaoPlano.findMany({
+        return request.tenantDb.promocaoPlano.findMany({
           where: { idPlano, ...tenantCompanyWhere(idCliente) },
           orderBy: { dtCadastro: 'desc' },
           take: clampLimit(parsedQuery.data.limit),
@@ -668,16 +671,16 @@ export async function registerPlanRoutes(app: FastifyInstance) {
         if (!parsedQuery.success) {
           return reply.code(400).send({ message: 'Parametros invalidos.' });
         }
-        if (!(await planBelongsToTenant(idCliente, idPlano))) {
+        if (!(await planBelongsToTenant(request.tenantDb, idCliente, idPlano))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
-        const promotionIds = await getPromotionIdsByPlan(idPlano);
+        const promotionIds = await getPromotionIdsByPlan(request.tenantDb, idPlano);
 
         if (promotionIds.length === 0) {
           return [];
         }
 
-        return prisma.promocaoProduto.findMany({
+        return request.tenantDb.promocaoProduto.findMany({
           where: { idPromocao: { in: promotionIds }, ...tenantCompanyWhere(idCliente) },
           orderBy: { dtCadastro: 'desc' },
           take: clampLimit(parsedQuery.data.limit),
@@ -703,16 +706,16 @@ export async function registerPlanRoutes(app: FastifyInstance) {
         if (!parsedQuery.success) {
           return reply.code(400).send({ message: 'Parametros invalidos.' });
         }
-        if (!(await planBelongsToTenant(idCliente, idPlano))) {
+        if (!(await planBelongsToTenant(request.tenantDb, idCliente, idPlano))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
-        const promotionIds = await getPromotionIdsByPlan(idPlano);
+        const promotionIds = await getPromotionIdsByPlan(request.tenantDb, idPlano);
 
         if (promotionIds.length === 0) {
           return [];
         }
 
-        return prisma.promocaoArquivo.findMany({
+        return request.tenantDb.promocaoArquivo.findMany({
           where: { idPromocao: { in: promotionIds } },
           orderBy: { dtCadastro: 'desc' },
           take: clampLimit(parsedQuery.data.limit),
@@ -734,7 +737,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       try {
         const idPlano = Number(request.params.id);
         assertValidId(idPlano, 'Plano invalido.');
-        if (!(await planBelongsToTenant(idCliente, idPlano))) {
+        if (!(await planBelongsToTenant(request.tenantDb, idCliente, idPlano))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
 
@@ -746,7 +749,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
 
         const fields = file.fields as Record<string, unknown>;
         const idPromocao = Number(getMultipartFieldValue(fields, 'idPromocao'));
-        await assertPromotionBelongsToPlan(idPlano, idPromocao);
+        await assertPromotionBelongsToPlan(request.tenantDb, idPlano, idPromocao);
 
         const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
         const idTiposArquivos = rawFileTypeId ? Number(rawFileTypeId) : null;
@@ -766,7 +769,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
           throw new Error(uploadError.message);
         }
 
-        const promotionFile = await prisma.promocaoArquivo.create({
+        const promotionFile = await request.tenantDb.promocaoArquivo.create({
           data: {
             idPromocao,
             idTiposArquivos,
@@ -798,11 +801,11 @@ export async function registerPlanRoutes(app: FastifyInstance) {
         assertValidId(idPlano, 'Plano invalido.');
         assertValidId(fileId, 'Arquivo invalido.');
 
-        if (!(await planOwnedByTenant(idCliente, idPlano))) {
+        if (!(await planOwnedByTenant(request.tenantDb, idCliente, idPlano))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
 
-        const current = await prisma.promocaoArquivo.findFirst({
+        const current = await request.tenantDb.promocaoArquivo.findFirst({
           where: { id: fileId, promocao: { promocaoPlanos: { some: { idPlano } } } },
         });
 
@@ -818,7 +821,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
 
         const fields = file.fields as Record<string, unknown>;
         const idPromocao = Number(getMultipartFieldValue(fields, 'idPromocao') || current.idPromocao);
-        await assertPromotionBelongsToPlan(idPlano, idPromocao);
+        await assertPromotionBelongsToPlan(request.tenantDb, idPlano, idPromocao);
 
         const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
         if (rawFileTypeId) {
@@ -837,7 +840,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
           throw new Error(uploadError.message);
         }
 
-        return prisma.promocaoArquivo.update({
+        return request.tenantDb.promocaoArquivo.update({
           where: { id: fileId },
           data: {
             idPromocao,
@@ -866,11 +869,11 @@ export async function registerPlanRoutes(app: FastifyInstance) {
         assertValidId(idPlano, 'Plano invalido.');
         assertValidId(fileId, 'Arquivo invalido.');
 
-        if (!(await planBelongsToTenant(idCliente, idPlano))) {
+        if (!(await planBelongsToTenant(request.tenantDb, idCliente, idPlano))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
 
-        const promotionFile = await prisma.promocaoArquivo.findFirst({
+        const promotionFile = await request.tenantDb.promocaoArquivo.findFirst({
           where: {
             id: fileId,
             boInativo: false,
@@ -913,11 +916,11 @@ export async function registerPlanRoutes(app: FastifyInstance) {
         assertValidId(idPlano, 'Plano invalido.');
         assertValidId(fileId, 'Arquivo invalido.');
 
-        if (!(await planOwnedByTenant(idCliente, idPlano))) {
+        if (!(await planOwnedByTenant(request.tenantDb, idCliente, idPlano))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
 
-        const current = await prisma.promocaoArquivo.findFirst({
+        const current = await request.tenantDb.promocaoArquivo.findFirst({
           where: { id: fileId, promocao: { promocaoPlanos: { some: { idPlano } } } },
           select: { id: true },
         });
@@ -926,7 +929,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
           return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
         }
 
-        return prisma.promocaoArquivo.update({
+        return request.tenantDb.promocaoArquivo.update({
           where: { id: fileId },
           data: { boInativo: true },
         });
@@ -950,19 +953,19 @@ export async function registerPlanRoutes(app: FastifyInstance) {
     try {
       const idPlano = Number(request.params.id);
       assertValidId(idPlano, 'Plano invalido.');
-      if (!(await planBelongsToTenant(idCliente, idPlano))) {
+      if (!(await planBelongsToTenant(request.tenantDb, idCliente, idPlano))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const config = getPlanChildResourceConfig(request.params.resource);
       if (!childBodySchema.safeParse(request.body).success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      await config.assertTenant(idCliente, request.body);
+      await config.assertTenant(request.tenantDb, idCliente, request.body);
       if (request.params.resource === 'promotion-products') {
         const idPromocao = optionalNumber(request.body.idPromocao);
-        await assertPromotionBelongsToPlan(idPlano, Number(idPromocao));
+        await assertPromotionBelongsToPlan(request.tenantDb, idPlano, Number(idPromocao));
       }
-      const record = await config.delegate.create({
+      const record = await config.delegate(request.tenantDb).create({
         data: config.normalize(idPlano, request.body),
       });
       return reply.code(201).send(record);
@@ -984,11 +987,11 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idPlano, 'Plano invalido.');
       assertValidId(childId, 'Registro invalido.');
-      if (!(await planOwnedByTenant(idCliente, idPlano))) {
+      if (!(await planOwnedByTenant(request.tenantDb, idCliente, idPlano))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const config = getPlanChildResourceConfig(request.params.resource);
-      const current = await config.delegate.findFirst({
+      const current = await config.delegate(request.tenantDb).findFirst({
         where: { id: childId, ...config.childWhere(idPlano) },
       });
       if (!current) {
@@ -997,12 +1000,12 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       if (!childBodySchema.safeParse(request.body).success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      await config.assertTenant(idCliente, request.body);
+      await config.assertTenant(request.tenantDb, idCliente, request.body);
       if (request.params.resource === 'promotion-products') {
         const idPromocao = optionalNumber(request.body.idPromocao);
-        await assertPromotionBelongsToPlan(idPlano, Number(idPromocao));
+        await assertPromotionBelongsToPlan(request.tenantDb, idPlano, Number(idPromocao));
       }
-      return config.delegate.update({
+      return config.delegate(request.tenantDb).update({
         where: { id: childId },
         data: config.normalize(idPlano, request.body),
       });
@@ -1024,7 +1027,7 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idPlano, 'Plano invalido.');
       assertValidId(childId, 'Registro invalido.');
-      if (!(await planOwnedByTenant(idCliente, idPlano))) {
+      if (!(await planOwnedByTenant(request.tenantDb, idCliente, idPlano))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const config = getPlanChildResourceConfig(request.params.resource);
@@ -1032,13 +1035,13 @@ export async function registerPlanRoutes(app: FastifyInstance) {
       if (!parsedBody.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      const current = await config.delegate.findFirst({
+      const current = await config.delegate(request.tenantDb).findFirst({
         where: { id: childId, ...config.childWhere(idPlano) },
       });
       if (!current) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return config.delegate.update({
+      return config.delegate(request.tenantDb).update({
         where: { id: childId },
         data: { boInativo: toBool(parsedBody.data.boInativo) },
       });

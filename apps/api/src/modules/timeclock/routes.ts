@@ -11,7 +11,6 @@
 //    e trabalho de gerente e exige employees.read / employees.write.
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { prisma } from '../../shared/prisma.js';
 import { assertValidId, optionalNumber } from '../../shared/normalize.js';
 import { clientErrorMessage } from '../../shared/errors.js';
 import { buildTimeSheet, formatMinutes, nextPunchType } from '../../shared/timeclock.js';

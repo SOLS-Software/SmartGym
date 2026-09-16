@@ -12,7 +12,6 @@ import {
   requiredWithin,
 } from '../../shared/normalize.js';
 import { LIMITES } from '@smartgym/shared';
-import { prisma } from '../../shared/prisma.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { assertAllowedUploadType, assertUploadBuffer, getPromotionFilePath } from '../../shared/files.js';
 import type { CompanyChildPayload } from '../../shared/api-types.js';

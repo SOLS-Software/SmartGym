@@ -47,6 +47,34 @@ export function collectTsFiles(dir: string = SRC_ROOT): string[] {
   return out;
 }
 
+// SQL CRU. `prisma.$queryRaw` nao casa com `prisma.<model>`, entao a varredura
+// por model sozinha tem um buraco — e um medidor furado da falsa confianca, que
+// e exatamente o defeito que este rollout existe para fechar. Aqui casamos o
+// nome FISICO da tabela (o @@map do schema) dentro do SQL que segue a chamada.
+const RAW_RE = /\bprisma\.\$(queryRaw|executeRaw)(?:Unsafe)?\b/g;
+
+// Quanto do texto apos a chamada e inspecionado atras do nome da tabela. Folgado
+// o bastante para um SELECT com varios JOINs.
+const JANELA_SQL = 1200;
+
+/** Nome fisico -> model, apenas para tabelas de aplicacao/catalogo. */
+function tabelasDeTenant(): Map<string, string> {
+  const schema = readFileSync(
+    fileURLToPath(new URL('../../../../packages/db/prisma/schema.prisma', import.meta.url)),
+    'utf8',
+  );
+  const mapa = new Map<string, string>();
+  const modelRe = /model\s+([A-Za-z0-9_]+)\s*\{([\s\S]*?)\n\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = modelRe.exec(schema))) {
+    const model = m[1] ?? '';
+    if (!MODELS_DE_TENANT.has(model.charAt(0).toLowerCase() + model.slice(1))) continue;
+    const tabela = /@@map\("([^"]+)"\)/.exec(m[2] ?? '')?.[1];
+    if (tabela) mapa.set(tabela, model);
+  }
+  return mapa;
+}
+
 export type AcessoPendente = {
   arquivo: string;
   linha: number;
@@ -56,9 +84,12 @@ export type AcessoPendente = {
 
 export function acessosPendentes(): AcessoPendente[] {
   const pendentes: AcessoPendente[] = [];
+  const tabelas = tabelasDeTenant();
+
   for (const file of collectTsFiles()) {
     const src = readFileSync(file, 'utf8');
     const rel = file.slice(SRC_ROOT.length).replace(/\\/g, '/').replace(/^\//, '');
+
     CHAMADA_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = CHAMADA_RE.exec(src))) {
@@ -67,6 +98,16 @@ export function acessosPendentes(): AcessoPendente[] {
       const linha = src.slice(0, m.index).split('\n').length;
       if (ALLOWLIST.has(`${rel}:${linha}`)) continue;
       pendentes.push({ arquivo: rel, linha, model, operacao: m[2] ?? '' });
+    }
+
+    RAW_RE.lastIndex = 0;
+    while ((m = RAW_RE.exec(src))) {
+      const sql = src.slice(m.index, m.index + JANELA_SQL);
+      const alvo = [...tabelas].find(([tabela]) => sql.includes(`"${tabela}"`));
+      if (!alvo) continue; // SQL de control-plane: fica no central de proposito.
+      const linha = src.slice(0, m.index).split('\n').length;
+      if (ALLOWLIST.has(`${rel}:${linha}`)) continue;
+      pendentes.push({ arquivo: rel, linha, model: alvo[1], operacao: `$${m[1]}` });
     }
   }
   return pendentes;

@@ -3,7 +3,6 @@ import type { FastifyInstance } from 'fastify';
 import type { PrismaClient } from '@smartgym/db';
 import { z } from 'zod';
 import { Prisma } from '@smartgym/db';
-import { prisma } from '../../shared/prisma.js';
 import { normalizeLocalidadePayload, assertValidId } from '../../shared/normalize.js';
 import type { LocalidadePayload } from '../../shared/api-types.js';
 import { clientErrorMessage } from '../../shared/errors.js';
@@ -153,7 +152,7 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
       ? Prisma.sql` AND "nmLocalidade" ILIKE ${`%${search}%`}`
       : Prisma.empty;
 
-    return prisma.$queryRaw<LocalidadeRow[]>(Prisma.sql`
+    return request.tenantDb.$queryRaw<LocalidadeRow[]>(Prisma.sql`
       SELECT ${SELECT_COLUMNS} FROM "tb_Localidades"
       WHERE "idEmpresa" IN (SELECT id FROM "tb_Empresas" WHERE "idCliente" = ${idCliente})${searchFilter}
       ORDER BY "nmLocalidade" ASC
@@ -169,7 +168,7 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
     try {
       const data = normalizeLocalidadePayload(request.body);
       await assertCompanyInTenant(request.tenantDb, data.idEmpresa, idCliente);
-      const rows = await prisma.$queryRaw<LocalidadeRow[]>(Prisma.sql`
+      const rows = await request.tenantDb.$queryRaw<LocalidadeRow[]>(Prisma.sql`
         INSERT INTO "tb_Localidades"
           ("idEmpresa", "nmLocalidade", "dsLocalidade", "cnLocalidadeTP", "geoLocalidade", "dtAlteracao", "boInativo")
         VALUES (${data.idEmpresa}, ${data.nmLocalidade}, ${data.dsLocalidade}, ${data.cnLocalidadeTP},
@@ -198,7 +197,7 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
       const data = normalizeLocalidadePayload(request.body);
       await assertCompanyInTenant(request.tenantDb, data.idEmpresa, idCliente);
 
-      const rows = await prisma.$queryRaw<LocalidadeRow[]>(Prisma.sql`
+      const rows = await request.tenantDb.$queryRaw<LocalidadeRow[]>(Prisma.sql`
         UPDATE "tb_Localidades"
         SET "idEmpresa" = ${data.idEmpresa}, "nmLocalidade" = ${data.nmLocalidade},
             "dsLocalidade" = ${data.dsLocalidade}, "cnLocalidadeTP" = ${data.cnLocalidadeTP},
@@ -233,7 +232,7 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
       if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const boInativo = toBool(request.body.boInativo);
 
-      const rows = await prisma.$queryRaw<LocalidadeRow[]>(Prisma.sql`
+      const rows = await request.tenantDb.$queryRaw<LocalidadeRow[]>(Prisma.sql`
         UPDATE "tb_Localidades" SET "boInativo" = ${boInativo}, "dtAlteracao" = now()
         WHERE id = ${id}
         RETURNING ${SELECT_COLUMNS}

@@ -24,7 +24,13 @@ import {
 
 // CATRACA: o total medido hoje. So desce. Ao rotear um modulo, baixe o numero
 // junto — e o commit que registra o progresso do rollout.
-const TETO = 361;
+//
+// A UNICA razao legitima para SUBIR e a varredura ficar mais rigorosa, nunca o
+// codigo regredir. Aconteceu uma vez: `prisma.$queryRaw` nao casava com
+// `prisma.<model>` e 8 consultas cruas em tabela de tenant passavam batido. Ao
+// fechar esse buraco o numero subiu sozinho — medidor furado da falsa
+// confianca, que e justamente o defeito que este rollout existe para fechar.
+const TETO = 283;
 
 describe('rollout multi-tenant — acessos a dado de tenant pelo client central', () => {
   it('a heuristica continua casando (nao virou um teste vazio)', () => {

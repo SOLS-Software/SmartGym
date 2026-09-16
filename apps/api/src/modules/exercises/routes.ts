@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
-import { prisma } from '../../shared/prisma.js';
+import type { PrismaClient } from '@smartgym/db';
 import { normalizeExercisePayload, assertValidId } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { assertAllowedUploadType, assertUploadBuffer, getExerciseFilePath } from '../../shared/files.js';
@@ -81,8 +81,8 @@ function equipmentVisibleWhere(idCliente: number) {
   return { OR: [{ idCliente: null }, { idCliente }] };
 }
 
-async function exerciseBelongsToTenant(idCliente: number, idExercicio: number) {
-  const exercise = await prisma.exercicio.findFirst({
+async function exerciseBelongsToTenant(db: PrismaClient, idCliente: number, idExercicio: number) {
+  const exercise = await db.exercicio.findFirst({
     where: { id: idExercicio, ...tenantCompanyWhere(idCliente) },
     select: { id: true },
   });
@@ -97,12 +97,10 @@ async function exerciseBelongsToTenant(idCliente: number, idExercicio: number) {
 // super-admin (SOLS) — mesmo criterio das tabelas de dominio globais em
 // auxiliary/routes.ts (GLOBAL_DOMAIN_PATHS). Fora isso o super-admin continua
 // preso ao proprio tenant: nao alcanca exercicio de empresa de outro cliente.
-async function exerciseOwnedByTenant(
-  idCliente: number,
+async function exerciseOwnedByTenant(db: PrismaClient, idCliente: number,
   idExercicio: number,
-  isSuperAdmin = false,
-) {
-  const exercise = await prisma.exercicio.findFirst({
+  isSuperAdmin = false,) {
+  const exercise = await db.exercicio.findFirst({
     where: isSuperAdmin
       ? { id: idExercicio, OR: [{ idEmpresa: null }, { empresa: { idCliente } }] }
       : { id: idExercicio, empresa: { idCliente } },
@@ -111,16 +109,16 @@ async function exerciseOwnedByTenant(
   return Boolean(exercise);
 }
 
-async function assertCompanyInTenant(idCliente: number, idEmpresa: number | null | undefined) {
+async function assertCompanyInTenant(db: PrismaClient, idCliente: number, idEmpresa: number | null | undefined) {
   if (idEmpresa == null) return;
-  const company = await prisma.empresa.findFirst({
+  const company = await db.empresa.findFirst({
     where: { id: idEmpresa, idCliente },
     select: { id: true },
   });
   if (!company) throw new Error('Empresa nao pertence ao cliente.');
 }
 
-async function attachExerciseCovers<T extends { id: number }>(exercises: T[], idCliente: number) {
+async function attachExerciseCovers<T extends { id: number }>(db: PrismaClient, exercises: T[], idCliente: number) {
   if (exercises.length === 0) {
     return exercises.map((exercise) => ({
       ...exercise,
@@ -133,11 +131,11 @@ async function attachExerciseCovers<T extends { id: number }>(exercises: T[], id
   const exerciseIds = exercises.map((exercise) => exercise.id);
 
   const [files, areaLinks, equipmentLinks] = await Promise.all([
-    prisma.exercicioArquivo.findMany({
+    db.exercicioArquivo.findMany({
       where: { idExercicio: { in: exerciseIds }, boInativo: false },
       orderBy: { dtCadastro: 'asc' },
     }),
-    prisma.exercicioAreaCorporal.findMany({
+    db.exercicioAreaCorporal.findMany({
       where: { idExercicio: { in: exerciseIds }, boInativo: false },
       include: { areaCorporal: true },
     }),
@@ -146,7 +144,7 @@ async function attachExerciseCovers<T extends { id: number }>(exercises: T[], id
     // por exercicio na tela. O filtro de tenant e o mesmo do
     // GET /exercises/:id/equipment: exercicio de catalogo e visto por todos os
     // clientes e nao pode expor o parque de quem vinculou primeiro.
-    prisma.exercicioEquipamento.findMany({
+    db.exercicioEquipamento.findMany({
       where: {
         idExercicio: { in: exerciseIds },
         boInativo: false,
@@ -228,7 +226,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       ? parsedQuery.data.ids.split(',').map(Number).filter(Number.isFinite)
       : undefined;
 
-    const exercises = await prisma.exercicio.findMany({
+    const exercises = await request.tenantDb.exercicio.findMany({
       where: {
         ...(search ? { dsExercicio: { contains: search, mode: 'insensitive' } } : {}),
         ...(ids ? { id: { in: ids } } : {}),
@@ -240,7 +238,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       skip: parsedQuery.data.offset,
     });
 
-    return includeCover ? attachExerciseCovers(exercises, idCliente) : exercises;
+    return includeCover ? attachExerciseCovers(request.tenantDb, exercises, idCliente) : exercises;
   });
 
   app.post<{
@@ -250,8 +248,8 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const data = normalizeExercisePayload(request.body);
-      await assertCompanyInTenant(idCliente, data.idEmpresa);
-      const exercise = await prisma.exercicio.create({ data });
+      await assertCompanyInTenant(request.tenantDb, idCliente, data.idEmpresa);
+      const exercise = await request.tenantDb.exercicio.create({ data });
       return reply.code(201).send(exercise);
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
@@ -270,12 +268,12 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Exercicio invalido.');
-      if (!(await exerciseOwnedByTenant(idCliente, id, request.user.superAdmin === true))) {
+      if (!(await exerciseOwnedByTenant(request.tenantDb, idCliente, id, request.user.superAdmin === true))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const data = normalizeExercisePayload(request.body);
-      await assertCompanyInTenant(idCliente, data.idEmpresa);
-      return prisma.exercicio.update({ where: { id }, data });
+      await assertCompanyInTenant(request.tenantDb, idCliente, data.idEmpresa);
+      return request.tenantDb.exercicio.update({ where: { id }, data });
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
@@ -297,11 +295,11 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       if (!parsedBody.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      if (!(await exerciseOwnedByTenant(idCliente, id, request.user.superAdmin === true))) {
+      if (!(await exerciseOwnedByTenant(request.tenantDb, idCliente, id, request.user.superAdmin === true))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const boInativo = toBool(parsedBody.data.boInativo);
-      return prisma.exercicio.update({ where: { id }, data: { boInativo } });
+      return request.tenantDb.exercicio.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do exercicio.' });
     }
@@ -321,10 +319,10 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       if (!parsedQuery.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+      if (!(await exerciseBelongsToTenant(request.tenantDb, idCliente, idExercicio))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.exercicioArquivo.findMany({
+      return request.tenantDb.exercicioArquivo.findMany({
         where: { idExercicio, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
         take: clampLimit(parsedQuery.data.limit),
@@ -345,7 +343,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       const idExercicio = Number(request.params.id);
       assertValidId(idExercicio, 'Exercicio invalido.');
 
-      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+      if (!(await exerciseBelongsToTenant(request.tenantDb, idCliente, idExercicio))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
@@ -368,7 +366,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
         throw new Error(uploadError.message);
       }
 
-      const exerciseFile = await prisma.exercicioArquivo.create({
+      const exerciseFile = await request.tenantDb.exercicioArquivo.create({
         data: {
           idExercicio,
           dsArquivo: file.filename,
@@ -398,11 +396,11 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(fileId, 'Arquivo invalido.');
 
-      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+      if (!(await exerciseBelongsToTenant(request.tenantDb, idCliente, idExercicio))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const exerciseFile = await prisma.exercicioArquivo.findFirst({
+      const exerciseFile = await request.tenantDb.exercicioArquivo.findFirst({
         where: { id: fileId, idExercicio, boInativo: false },
       });
 
@@ -439,11 +437,11 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(fileId, 'Arquivo invalido.');
 
-      if (!(await exerciseOwnedByTenant(idCliente, idExercicio, request.user.superAdmin === true))) {
+      if (!(await exerciseOwnedByTenant(request.tenantDb, idCliente, idExercicio, request.user.superAdmin === true))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const existingFile = await prisma.exercicioArquivo.findFirst({
+      const existingFile = await request.tenantDb.exercicioArquivo.findFirst({
         where: { id: fileId, idExercicio, boInativo: false },
       });
 
@@ -451,7 +449,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
       }
 
-      return prisma.exercicioArquivo.update({
+      return request.tenantDb.exercicioArquivo.update({
         where: { id: fileId },
         data: { boInativo: true },
       });
@@ -476,10 +474,10 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       if (!parsedQuery.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+      if (!(await exerciseBelongsToTenant(request.tenantDb, idCliente, idExercicio))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.exercicioEquipamento.findMany({
+      return request.tenantDb.exercicioEquipamento.findMany({
         // O vinculo so e devolvido se o EQUIPAMENTO tambem for visivel ao
         // tenant. Sem este filtro, um exercicio de catalogo (idEmpresa nulo,
         // visivel a todos) exporia o parque de quem vinculou primeiro: o
@@ -513,14 +511,14 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(idEquipamento, 'Equipamento invalido.');
 
-      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+      if (!(await exerciseBelongsToTenant(request.tenantDb, idCliente, idExercicio))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
       // O equipamento tambem precisa ser alcancavel pelo tenant: sem isto da
       // para vincular equipamento de OUTRO cliente so chutando o id, e o nome
       // dele volta no 201 e na listagem.
-      const equipment = await prisma.equipamento.findFirst({
+      const equipment = await request.tenantDb.equipamento.findFirst({
         where: { id: idEquipamento, ...equipmentVisibleWhere(idCliente) },
         select: { id: true },
       });
@@ -528,7 +526,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Equipamento nao encontrado.' });
       }
 
-      const existing = await prisma.exercicioEquipamento.findFirst({
+      const existing = await request.tenantDb.exercicioEquipamento.findFirst({
         where: { idExercicio, idEquipamento, boInativo: false },
       });
 
@@ -536,7 +534,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
         return reply.code(409).send({ message: 'Equipamento ja vinculado a este exercicio.' });
       }
 
-      const link = await prisma.exercicioEquipamento.create({
+      const link = await request.tenantDb.exercicioEquipamento.create({
         data: { idExercicio, idEquipamento },
         include: { equipamento: true },
       });
@@ -560,11 +558,11 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(linkId, 'Vinculo invalido.');
 
-      if (!(await exerciseOwnedByTenant(idCliente, idExercicio, request.user.superAdmin === true))) {
+      if (!(await exerciseOwnedByTenant(request.tenantDb, idCliente, idExercicio, request.user.superAdmin === true))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const existing = await prisma.exercicioEquipamento.findFirst({
+      const existing = await request.tenantDb.exercicioEquipamento.findFirst({
         where: { id: linkId, idExercicio },
       });
 
@@ -572,7 +570,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Vinculo nao encontrado.' });
       }
 
-      return prisma.exercicioEquipamento.update({
+      return request.tenantDb.exercicioEquipamento.update({
         where: { id: linkId },
         data: { boInativo: true },
       });
@@ -597,10 +595,10 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       if (!parsedQuery.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+      if (!(await exerciseBelongsToTenant(request.tenantDb, idCliente, idExercicio))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.exercicioAreaCorporal.findMany({
+      return request.tenantDb.exercicioAreaCorporal.findMany({
         where: { idExercicio, boInativo: false },
         include: { areaCorporal: true },
         orderBy: { dtCadastro: 'desc' },
@@ -628,11 +626,11 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(idAreaCorporal, 'Area corporal invalida.');
 
-      if (!(await exerciseBelongsToTenant(idCliente, idExercicio))) {
+      if (!(await exerciseBelongsToTenant(request.tenantDb, idCliente, idExercicio))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const existing = await prisma.exercicioAreaCorporal.findFirst({
+      const existing = await request.tenantDb.exercicioAreaCorporal.findFirst({
         where: { idExercicio, idAreaCorporal, boInativo: false },
       });
 
@@ -640,7 +638,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
         return reply.code(409).send({ message: 'Area ja vinculada a este exercicio.' });
       }
 
-      const link = await prisma.exercicioAreaCorporal.create({
+      const link = await request.tenantDb.exercicioAreaCorporal.create({
         data: { idExercicio, idAreaCorporal },
         include: { areaCorporal: true },
       });
@@ -664,11 +662,11 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
       assertValidId(idExercicio, 'Exercicio invalido.');
       assertValidId(linkId, 'Vinculo invalido.');
 
-      if (!(await exerciseOwnedByTenant(idCliente, idExercicio, request.user.superAdmin === true))) {
+      if (!(await exerciseOwnedByTenant(request.tenantDb, idCliente, idExercicio, request.user.superAdmin === true))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const existing = await prisma.exercicioAreaCorporal.findFirst({
+      const existing = await request.tenantDb.exercicioAreaCorporal.findFirst({
         where: { id: linkId, idExercicio },
       });
 
@@ -676,7 +674,7 @@ export async function registerExerciseRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Vinculo nao encontrado.' });
       }
 
-      return prisma.exercicioAreaCorporal.update({
+      return request.tenantDb.exercicioAreaCorporal.update({
         where: { id: linkId },
         data: { boInativo: true },
       });

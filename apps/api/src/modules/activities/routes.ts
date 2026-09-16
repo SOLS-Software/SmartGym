@@ -1,5 +1,6 @@
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
+import type { PrismaClient } from '@smartgym/db';
 import { z } from 'zod';
 import {
   assertOrdemDasDatas,
@@ -10,7 +11,6 @@ import {
   requiredWithin,
 } from '../../shared/normalize.js';
 import { LIMITES } from '@smartgym/shared';
-import { prisma } from '../../shared/prisma.js';
 import { clientErrorMessage } from '../../shared/errors.js';
 
 // Data ISO (YYYY-MM-DD) em querystring; string vazia e tratada como ausente.
@@ -147,8 +147,8 @@ function activityTenantFilter(idCliente: number) {
 const activityTenantOwnedFilter = activityTenantFilter;
 
 // Valida que a empresa informada no payload pertence ao tenant do usuario.
-async function assertEmpresaInTenant(idEmpresa: number, idCliente: number) {
-  const empresa = await prisma.empresa.findFirst({
+async function assertEmpresaInTenant(db: PrismaClient, idEmpresa: number, idCliente: number) {
+  const empresa = await db.empresa.findFirst({
     where: { id: idEmpresa, idCliente },
     select: { id: true },
   });
@@ -158,15 +158,15 @@ async function assertEmpresaInTenant(idEmpresa: number, idCliente: number) {
 }
 
 // Cadeia de tenant: agenda deve pertencer a atividade e a uma empresa do cliente.
-async function findScheduleInTenant(activityId: number, scheduleId: number, idCliente: number) {
-  return prisma.atividadeAgenda.findFirst({
+async function findScheduleInTenant(db: PrismaClient, activityId: number, scheduleId: number, idCliente: number) {
+  return db.atividadeAgenda.findFirst({
     where: { id: scheduleId, idAtividade: activityId, empresa: { idCliente } },
     select: { id: true },
   });
 }
 
-async function assertScheduleNotPast(scheduleId: number) {
-  const schedule = await prisma.atividadeAgenda.findUnique({
+async function assertScheduleNotPast(db: PrismaClient, scheduleId: number) {
+  const schedule = await db.atividadeAgenda.findUnique({
     where: { id: scheduleId },
     select: { dtFinal: true },
   });
@@ -206,7 +206,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
     const { dtInicio, dtFim } = request.query;
     const dateRangeFilter = buildDateRangeFilter(dtInicio, dtFim);
 
-    return prisma.atividade.findMany({
+    return request.tenantDb.atividade.findMany({
       where: {
         ...activityTenantFilter(idCliente),
         ...(includeInactive ? {} : { boInativo: false }),
@@ -260,8 +260,8 @@ export async function registerActivityRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const data = normalizeActivityPayload(request.body);
-      if (data.idEmpresa) await assertEmpresaInTenant(data.idEmpresa, idCliente);
-      const existing = await prisma.atividade.findFirst({
+      if (data.idEmpresa) await assertEmpresaInTenant(request.tenantDb, data.idEmpresa, idCliente);
+      const existing = await request.tenantDb.atividade.findFirst({
         where: {
           dsAtividade: { equals: data.dsAtividade, mode: 'insensitive' },
           ...activityTenantFilter(idCliente),
@@ -272,7 +272,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
         return reply.code(400).send({ message: 'Já existe uma atividade com este nome.' });
       }
       // Tenant SEMPRE do token, nunca do body.
-      return reply.code(201).send(await prisma.atividade.create({ data: { ...data, idCliente } }));
+      return reply.code(201).send(await request.tenantDb.atividade.create({ data: { ...data, idCliente } }));
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
@@ -290,7 +290,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Atividade invalida.');
-      const current = await prisma.atividade.findFirst({
+      const current = await request.tenantDb.atividade.findFirst({
         where: { id, ...activityTenantOwnedFilter(idCliente) },
         select: { id: true },
       });
@@ -298,8 +298,8 @@ export async function registerActivityRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const data = normalizeActivityPayload(request.body);
-      if (data.idEmpresa) await assertEmpresaInTenant(data.idEmpresa, idCliente);
-      const existing = await prisma.atividade.findFirst({
+      if (data.idEmpresa) await assertEmpresaInTenant(request.tenantDb, data.idEmpresa, idCliente);
+      const existing = await request.tenantDb.atividade.findFirst({
         where: {
           dsAtividade: { equals: data.dsAtividade, mode: 'insensitive' },
           id: { not: id },
@@ -310,7 +310,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       if (existing) {
         return reply.code(400).send({ message: 'Já existe uma atividade com este nome.' });
       }
-      return prisma.atividade.update({ where: { id }, data });
+      return request.tenantDb.atividade.update({ where: { id }, data });
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
@@ -331,14 +331,14 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       if (!statusBodySchema.safeParse(request.body).success) {
         return reply.code(400).send({ message: 'Dados invalidos.' });
       }
-      const current = await prisma.atividade.findFirst({
+      const current = await request.tenantDb.atividade.findFirst({
         where: { id, ...activityTenantOwnedFilter(idCliente) },
         select: { id: true },
       });
       if (!current) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.atividade.update({
+      return request.tenantDb.atividade.update({
         where: { id },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -355,14 +355,14 @@ export async function registerActivityRoutes(app: FastifyInstance) {
     try {
       const idAtividade = Number(request.params.id);
       assertValidId(idAtividade, 'Atividade invalida.');
-      const activity = await prisma.atividade.findFirst({
+      const activity = await request.tenantDb.atividade.findFirst({
         where: { id: idAtividade, ...activityTenantFilter(idCliente) },
         select: { id: true },
       });
       if (!activity) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.atividadeAgenda.findMany({
+      return request.tenantDb.atividadeAgenda.findMany({
         where: { idAtividade, empresa: { idCliente } },
         orderBy: { dtCadastro: 'desc' },
       });
@@ -382,7 +382,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
     try {
       const idAtividade = Number(request.params.id);
       assertValidId(idAtividade, 'Atividade invalida.');
-      const activity = await prisma.atividade.findFirst({
+      const activity = await request.tenantDb.atividade.findFirst({
         where: { id: idAtividade, ...activityTenantFilter(idCliente) },
         select: { id: true },
       });
@@ -390,8 +390,8 @@ export async function registerActivityRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const data = normalizeActivitySchedulePayload(idAtividade, request.body);
-      await assertEmpresaInTenant(data.idEmpresa, idCliente);
-      return reply.code(201).send(await prisma.atividadeAgenda.create({ data }));
+      await assertEmpresaInTenant(request.tenantDb, data.idEmpresa, idCliente);
+      return reply.code(201).send(await request.tenantDb.atividadeAgenda.create({ data }));
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
@@ -411,13 +411,13 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       const scheduleId = Number(request.params.scheduleId);
       assertValidId(idAtividade, 'Atividade invalida.');
       assertValidId(scheduleId, 'Agenda invalida.');
-      const current = await findScheduleInTenant(idAtividade, scheduleId, idCliente);
+      const current = await findScheduleInTenant(request.tenantDb, idAtividade, scheduleId, idCliente);
       if (!current) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const data = normalizeActivitySchedulePayload(idAtividade, request.body);
-      await assertEmpresaInTenant(data.idEmpresa, idCliente);
-      return prisma.atividadeAgenda.update({
+      await assertEmpresaInTenant(request.tenantDb, data.idEmpresa, idCliente);
+      return request.tenantDb.atividadeAgenda.update({
         where: { id: scheduleId },
         data,
       });
@@ -443,11 +443,11 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       if (!statusBodySchema.safeParse(request.body).success) {
         return reply.code(400).send({ message: 'Dados invalidos.' });
       }
-      const current = await findScheduleInTenant(idAtividade, scheduleId, idCliente);
+      const current = await findScheduleInTenant(request.tenantDb, idAtividade, scheduleId, idCliente);
       if (!current) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.atividadeAgenda.update({
+      return request.tenantDb.atividadeAgenda.update({
         where: { id: scheduleId },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -468,12 +468,12 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       const scheduleId = Number(request.params.scheduleId);
       assertValidId(idAtividade, 'Atividade invalida.');
       assertValidId(scheduleId, 'Agenda invalida.');
-      const schedule = await findScheduleInTenant(idAtividade, scheduleId, idCliente);
+      const schedule = await findScheduleInTenant(request.tenantDb, idAtividade, scheduleId, idCliente);
       if (!schedule) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      return prisma.funcionarioAtividadeAgenda.findMany({
+      return request.tenantDb.funcionarioAtividadeAgenda.findMany({
         where: { idAtividadeAgenda: scheduleId },
         orderBy: { dtCadastro: 'desc' },
       });
@@ -495,14 +495,14 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       const scheduleId = Number(request.params.scheduleId);
       assertValidId(idAtividade, 'Atividade invalida.');
       assertValidId(scheduleId, 'Agenda invalida.');
-      const schedule = await findScheduleInTenant(idAtividade, scheduleId, idCliente);
+      const schedule = await findScheduleInTenant(request.tenantDb, idAtividade, scheduleId, idCliente);
       if (!schedule) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
       const data = normalizeScheduleEmployeePayload(scheduleId, request.body);
-      await assertEmpresaInTenant(data.idEmpresa, idCliente);
-      return reply.code(201).send(await prisma.funcionarioAtividadeAgenda.create({ data }));
+      await assertEmpresaInTenant(request.tenantDb, data.idEmpresa, idCliente);
+      return reply.code(201).send(await request.tenantDb.funcionarioAtividadeAgenda.create({ data }));
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
@@ -524,12 +524,12 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       assertValidId(idAtividade, 'Atividade invalida.');
       assertValidId(scheduleId, 'Agenda invalida.');
       assertValidId(employeeScheduleId, 'Funcionario da agenda invalido.');
-      const schedule = await findScheduleInTenant(idAtividade, scheduleId, idCliente);
+      const schedule = await findScheduleInTenant(request.tenantDb, idAtividade, scheduleId, idCliente);
       if (!schedule) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const current = await prisma.funcionarioAtividadeAgenda.findFirst({
+      const current = await request.tenantDb.funcionarioAtividadeAgenda.findFirst({
         where: { id: employeeScheduleId, idAtividadeAgenda: scheduleId },
         select: { id: true },
       });
@@ -538,8 +538,8 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       }
 
       const data = normalizeScheduleEmployeePayload(scheduleId, request.body);
-      await assertEmpresaInTenant(data.idEmpresa, idCliente);
-      return prisma.funcionarioAtividadeAgenda.update({
+      await assertEmpresaInTenant(request.tenantDb, data.idEmpresa, idCliente);
+      return request.tenantDb.funcionarioAtividadeAgenda.update({
         where: { id: employeeScheduleId },
         data,
       });
@@ -567,12 +567,12 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       if (!statusBodySchema.safeParse(request.body).success) {
         return reply.code(400).send({ message: 'Dados invalidos.' });
       }
-      const schedule = await findScheduleInTenant(idAtividade, scheduleId, idCliente);
+      const schedule = await findScheduleInTenant(request.tenantDb, idAtividade, scheduleId, idCliente);
       if (!schedule) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const current = await prisma.funcionarioAtividadeAgenda.findFirst({
+      const current = await request.tenantDb.funcionarioAtividadeAgenda.findFirst({
         where: { id: employeeScheduleId, idAtividadeAgenda: scheduleId },
         select: { id: true },
       });
@@ -580,7 +580,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Funcionario da agenda nao encontrado.' });
       }
 
-      return prisma.funcionarioAtividadeAgenda.update({
+      return request.tenantDb.funcionarioAtividadeAgenda.update({
         where: { id: employeeScheduleId },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -601,12 +601,12 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       const scheduleId = Number(request.params.scheduleId);
       assertValidId(idAtividade, 'Atividade invalida.');
       assertValidId(scheduleId, 'Agenda invalida.');
-      const schedule = await findScheduleInTenant(idAtividade, scheduleId, idCliente);
+      const schedule = await findScheduleInTenant(request.tenantDb, idAtividade, scheduleId, idCliente);
       if (!schedule) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      return prisma.alunoAtividadeAgenda.findMany({
+      return request.tenantDb.alunoAtividadeAgenda.findMany({
         where: { idAtividadeAgenda: scheduleId },
         orderBy: { dtCadastro: 'desc' },
       });
@@ -628,15 +628,15 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       const scheduleId = Number(request.params.scheduleId);
       assertValidId(idAtividade, 'Atividade invalida.');
       assertValidId(scheduleId, 'Agenda invalida.');
-      const schedule = await findScheduleInTenant(idAtividade, scheduleId, idCliente);
+      const schedule = await findScheduleInTenant(request.tenantDb, idAtividade, scheduleId, idCliente);
       if (!schedule) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      await assertScheduleNotPast(scheduleId);
+      await assertScheduleNotPast(request.tenantDb, scheduleId);
 
       const data = normalizeScheduleStudentPayload(scheduleId, request.body);
-      await assertEmpresaInTenant(data.idEmpresa, idCliente);
-      return reply.code(201).send(await prisma.alunoAtividadeAgenda.create({ data }));
+      await assertEmpresaInTenant(request.tenantDb, data.idEmpresa, idCliente);
+      return reply.code(201).send(await request.tenantDb.alunoAtividadeAgenda.create({ data }));
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
@@ -658,12 +658,12 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       assertValidId(idAtividade, 'Atividade invalida.');
       assertValidId(scheduleId, 'Agenda invalida.');
       assertValidId(studentScheduleId, 'Aluno da agenda invalido.');
-      const schedule = await findScheduleInTenant(idAtividade, scheduleId, idCliente);
+      const schedule = await findScheduleInTenant(request.tenantDb, idAtividade, scheduleId, idCliente);
       if (!schedule) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const current = await prisma.alunoAtividadeAgenda.findFirst({
+      const current = await request.tenantDb.alunoAtividadeAgenda.findFirst({
         where: { id: studentScheduleId, idAtividadeAgenda: scheduleId },
         select: { id: true },
       });
@@ -672,8 +672,8 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       }
 
       const data = normalizeScheduleStudentPayload(scheduleId, request.body);
-      await assertEmpresaInTenant(data.idEmpresa, idCliente);
-      return prisma.alunoAtividadeAgenda.update({
+      await assertEmpresaInTenant(request.tenantDb, data.idEmpresa, idCliente);
+      return request.tenantDb.alunoAtividadeAgenda.update({
         where: { id: studentScheduleId },
         data,
       });
@@ -701,12 +701,12 @@ export async function registerActivityRoutes(app: FastifyInstance) {
       if (!statusBodySchema.safeParse(request.body).success) {
         return reply.code(400).send({ message: 'Dados invalidos.' });
       }
-      const schedule = await findScheduleInTenant(idAtividade, scheduleId, idCliente);
+      const schedule = await findScheduleInTenant(request.tenantDb, idAtividade, scheduleId, idCliente);
       if (!schedule) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const current = await prisma.alunoAtividadeAgenda.findFirst({
+      const current = await request.tenantDb.alunoAtividadeAgenda.findFirst({
         where: { id: studentScheduleId, idAtividadeAgenda: scheduleId },
         select: { id: true },
       });
@@ -714,7 +714,7 @@ export async function registerActivityRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Aluno da agenda nao encontrado.' });
       }
 
-      return prisma.alunoAtividadeAgenda.update({
+      return request.tenantDb.alunoAtividadeAgenda.update({
         where: { id: studentScheduleId },
         data: { boInativo: toBool(request.body.boInativo) },
       });

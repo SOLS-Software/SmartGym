@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
-import { prisma } from '../../shared/prisma.js';
 
 const limitQuerySchema = z.object({
   limit: z.preprocess(
