@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "dsStatusPagamento": "Pendente",
+    "boInativo": false
+  },
+  {
+    "id": 2,
+    "dsStatusPagamento": "Pago",
+    "boInativo": false
+  },
+  {
+    "id": 3,
+    "dsStatusPagamento": "Cancelado",
+    "boInativo": false
+  }
+]

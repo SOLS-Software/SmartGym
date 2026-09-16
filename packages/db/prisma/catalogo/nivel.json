@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "dsNivel": "Iniciante",
+    "boInativo": false
+  },
+  {
+    "id": 2,
+    "dsNivel": "Intermediário",
+    "boInativo": false
+  },
+  {
+    "id": 3,
+    "dsNivel": "Avançado",
+    "boInativo": false
+  }
+]

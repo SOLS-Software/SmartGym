@@ -1,0 +1,604 @@
+[
+  {
+    "id": 1,
+    "idEmpresa": null,
+    "dsExercicio": "Supino Reto",
+    "dsInstrucao": "Exercício básico de empurrar horizontal, executado em banco reto com barra. É o principal construtor de força e massa do peitoral maior, com participação do deltoide anterior (ombro) e do tríceps como músculos auxiliares.\n\nComo executar:\n1. Deite no banco reto com os olhos alinhados sob a barra, pés firmes no chão e glúteos, costas e cabeça apoiados no banco.\n2. Segure a barra com pegada pronada um pouco mais aberta que a largura dos ombros e retraia as escápulas, mantendo o peito estufado.\n3. Retire a barra do suporte e estabilize-a acima da linha do peito, com os cotovelos estendidos sem travar.\n4. Desça a barra de forma controlada até tocar levemente a parte média do peito, com os cotovelos entre 45 e 75 graus em relação ao tronco. Inspire na descida.\n5. Empurre a barra de volta à posição inicial expirando na subida, sem estender os cotovelos de forma brusca.\n6. Mantenha o quadril apoiado no banco durante toda a série e use suporte de segurança ou parceiro em cargas altas.",
+    "boInativo": false
+  },
+  {
+    "id": 2,
+    "idEmpresa": null,
+    "dsExercicio": "Supino Inclinado",
+    "dsInstrucao": "Variação do supino com o banco entre 30 e 45 graus. A inclinação desloca a ênfase para a porção clavicular (superior) do peitoral e aumenta a participação do deltoide anterior.\n\nComo executar:\n1. Ajuste o banco entre 30 e 45 graus e deite com os pés firmes no chão, glúteos e costas apoiados.\n2. Segure a barra com pegada pronada pouco mais aberta que os ombros e retraia as escápulas.\n3. Desça a barra de forma controlada até a altura da parte alta do peito, próxima às clavículas.\n4. Empurre até estender os cotovelos, sem tirar o quadril do banco.\n5. Evite inclinações acima de 45 graus: o ombro passa a assumir o trabalho no lugar do peitoral.",
+    "boInativo": false
+  },
+  {
+    "id": 3,
+    "idEmpresa": null,
+    "dsExercicio": "Supino Declinado",
+    "dsInstrucao": "Supino com o banco inclinado para baixo, entre 15 e 30 graus. Prioriza a porção esternocostal (inferior) do peitoral e reduz a exigência sobre o ombro.\n\nComo executar:\n1. Deite no banco declinado e prenda as pernas nos apoios antes de retirar a barra.\n2. Pegada pronada pouco mais aberta que os ombros, escápulas retraídas.\n3. Desça a barra até a parte inferior do peito, controlando a descida.\n4. Empurre de volta até estender os cotovelos, expirando na subida.\n5. Peça ajuda para retirar e devolver a barra: nesta posição a saída sozinho é desconfortável.",
+    "boInativo": false
+  },
+  {
+    "id": 4,
+    "idEmpresa": null,
+    "dsExercicio": "Supino com Halteres",
+    "dsInstrucao": "Supino executado com um halter em cada mão. A amplitude é maior que na barra e cada lado trabalha de forma independente, corrigindo assimetrias de força.\n\nComo executar:\n1. Sente no banco com os halteres sobre as coxas e deite impulsionando-os com os joelhos até a posição inicial.\n2. Posicione os halteres na linha do peito, palmas voltadas para a frente e escápulas retraídas.\n3. Desça de forma controlada até sentir alongamento no peitoral, com os cotovelos pouco abaixo da linha dos ombros.\n4. Empurre os halteres para cima aproximando-os levemente, sem batê-los um no outro.\n5. Para encerrar, traga os halteres às coxas e sente antes de soltá-los.",
+    "boInativo": false
+  },
+  {
+    "id": 5,
+    "idEmpresa": null,
+    "dsExercicio": "Crucifixo Reto",
+    "dsInstrucao": "Exercício de isolamento do peitoral em banco reto, com abertura e fechamento dos braços em arco. Trabalha a adução horizontal do ombro com pouca participação do tríceps.\n\nComo executar:\n1. Deite no banco reto com um halter em cada mão, braços estendidos acima do peito e palmas voltadas uma para a outra.\n2. Mantenha os cotovelos levemente flexionados e fixos nesse ângulo durante todo o movimento.\n3. Abra os braços em arco até que os halteres fiquem na linha do peito, sentindo o alongamento.\n4. Feche o arco contraindo o peitoral, sem deixar os halteres se tocarem no topo.\n5. Use carga menor que a do supino: o braço de alavanca longo sobrecarrega a articulação do ombro.",
+    "boInativo": false
+  },
+  {
+    "id": 6,
+    "idEmpresa": null,
+    "dsExercicio": "Crucifixo Inclinado",
+    "dsInstrucao": "Crucifixo com o banco entre 30 e 45 graus, deslocando a ênfase do isolamento para a porção superior do peitoral.\n\nComo executar:\n1. Ajuste o banco entre 30 e 45 graus e deite com um halter em cada mão sobre o peito.\n2. Estenda os braços mantendo cotovelos levemente flexionados e palmas frente a frente.\n3. Abra em arco até a linha dos ombros, controlando a descida.\n4. Feche o arco contraindo o peitoral superior.\n5. Mantenha as escápulas apoiadas no banco: soltá-las joga a carga para o ombro.",
+    "boInativo": false
+  },
+  {
+    "id": 7,
+    "idEmpresa": null,
+    "dsExercicio": "Crossover",
+    "dsInstrucao": "Adução dos braços em polias opostas, em pé. A tensão do cabo é constante em toda a amplitude, o que diferencia o exercício do crucifixo com halteres.\n\nComo executar:\n1. Ajuste as polias na altura alta e segure um pegador em cada mão, com os cotovelos levemente flexionados.\n2. Dê um passo à frente, tronco levemente inclinado e abdômen contraído.\n3. Traga as mãos para a frente e para baixo, cruzando-as levemente na altura do quadril.\n4. Contraia o peitoral no fim do movimento e volte controlando, sem deixar a carga bater.\n5. Variar a altura da polia muda a ênfase: alta para a porção inferior, baixa para a superior.",
+    "boInativo": false
+  },
+  {
+    "id": 8,
+    "idEmpresa": null,
+    "dsExercicio": "Peck Deck",
+    "dsInstrucao": "Adução horizontal dos ombros em máquina sentada, com trajetória guiada. É a forma mais segura de isolar o peitoral, indicada para iniciantes e para finalizar o treino.\n\nComo executar:\n1. Ajuste o banco de modo que os pegadores fiquem na altura do peito quando você estiver sentado.\n2. Apoie as costas no encosto, pés no chão e segure os pegadores com os cotovelos levemente flexionados.\n3. Feche os braços à frente do corpo contraindo o peitoral.\n4. Volte controlando até sentir o alongamento, sem deixar a carga encostar entre as repetições.\n5. Evite empurrar com os punhos: a força deve sair do peito, não do antebraço.",
+    "boInativo": false
+  },
+  {
+    "id": 9,
+    "idEmpresa": null,
+    "dsExercicio": "Flexão de Braço",
+    "dsInstrucao": "Exercício de empurrar horizontal com o peso do próprio corpo. Trabalha peitoral, tríceps e ombro e exige estabilização do tronco, o que recruta o abdômen.\n\nComo executar:\n1. Apoie as mãos no chão pouco mais abertas que a largura dos ombros, corpo alinhado da cabeça aos calcanhares.\n2. Contraia abdômen e glúteos para não deixar o quadril cair nem subir.\n3. Desça o corpo até o peito ficar próximo ao chão, com os cotovelos a cerca de 45 graus do tronco.\n4. Empurre o chão até estender os cotovelos, mantendo o alinhamento do corpo.\n5. Para facilitar, apoie os joelhos no chão; para dificultar, eleve os pés em um banco.",
+    "boInativo": false
+  },
+  {
+    "id": 10,
+    "idEmpresa": null,
+    "dsExercicio": "Pullover",
+    "dsInstrucao": "Movimento de arco acima da cabeça, deitado. Trabalha peitoral e grande dorsal ao mesmo tempo e alonga a caixa torácica, sendo comum como transição entre treino de peito e de costas.\n\nComo executar:\n1. Deite no banco reto segurando um halter com as duas mãos, palmas apoiadas na parte interna do peso.\n2. Estenda os braços acima do peito com os cotovelos levemente flexionados.\n3. Leve o halter para trás da cabeça em arco, até sentir o alongamento do peitoral e do dorsal.\n4. Traga de volta pelo mesmo caminho, sem estender demais os cotovelos.\n5. Não force a amplitude para trás além do confortável: o ombro fica em posição vulnerável.",
+    "boInativo": false
+  },
+  {
+    "id": 11,
+    "idEmpresa": null,
+    "dsExercicio": "Puxada Frontal",
+    "dsInstrucao": "Puxada vertical na polia alta, sentado, com a barra descendo à frente do corpo. É o principal exercício de largura das costas e a alternativa acessível à barra fixa.\n\nComo executar:\n1. Sente na máquina e ajuste o apoio das coxas para que o quadril não suba durante a puxada.\n2. Segure a barra com pegada pronada pouco mais aberta que os ombros.\n3. Incline o tronco levemente para trás e puxe a barra até a altura do queixo ou da clavícula.\n4. Concentre o esforço em levar os cotovelos para baixo e para trás, aproximando as escápulas.\n5. Suba controlando até estender os braços, sem soltar a carga de uma vez.",
+    "boInativo": false
+  },
+  {
+    "id": 12,
+    "idEmpresa": null,
+    "dsExercicio": "Puxada Aberta",
+    "dsInstrucao": "Puxada na polia alta com pegada bem mais aberta que a largura dos ombros. A amplitude é menor, mas o recrutamento do grande dorsal na porção externa é maior.\n\nComo executar:\n1. Sente na máquina com as coxas travadas sob o apoio.\n2. Segure a barra com pegada pronada bem aberta, além da largura dos ombros.\n3. Puxe a barra até a clavícula mantendo o tronco quase vertical.\n4. Leve os cotovelos para baixo em direção às costelas e junte as escápulas no fim.\n5. Volte controlando até a extensão completa dos braços.",
+    "boInativo": false
+  },
+  {
+    "id": 13,
+    "idEmpresa": null,
+    "dsExercicio": "Puxada Fechada",
+    "dsInstrucao": "Puxada na polia alta com pegada estreita ou neutra. A amplitude aumenta e o exercício enfatiza a espessura das costas e a participação do bíceps.\n\nComo executar:\n1. Sente com as coxas travadas e prenda o triângulo ou uma barra curta na polia alta.\n2. Segure com as mãos próximas, palmas voltadas uma para a outra.\n3. Puxe até o pegador chegar à parte alta do peito, com o tronco levemente inclinado para trás.\n4. Aproxime as escápulas no fim do movimento e segure a contração por um instante.\n5. Suba controlando, deixando o dorsal alongar por completo.",
+    "boInativo": false
+  },
+  {
+    "id": 14,
+    "idEmpresa": null,
+    "dsExercicio": "Barra Fixa",
+    "dsInstrucao": "Puxada vertical com o peso do próprio corpo. É o exercício mais completo para o dorsal e um dos melhores indicadores de força relativa.\n\nComo executar:\n1. Segure a barra com pegada pronada pouco mais aberta que os ombros e deixe o corpo pendurado.\n2. Antes de puxar, deprima as escápulas — o movimento começa nas costas, não nos braços.\n3. Puxe o corpo até o queixo ultrapassar a barra, levando os cotovelos para baixo.\n4. Desça controlando até estender os braços por completo.\n5. Se ainda não conseguir a repetição completa, use elástico de assistência ou a máquina graviton.",
+    "boInativo": false
+  },
+  {
+    "id": 15,
+    "idEmpresa": null,
+    "dsExercicio": "Remada Curvada",
+    "dsInstrucao": "Remada com barra e tronco inclinado à frente. Constrói espessura de costas e exige forte estabilização da lombar, sendo um dos exercícios básicos de puxada horizontal.\n\nComo executar:\n1. Em pé, pés na largura do quadril, segure a barra com pegada pronada pouco mais aberta que os ombros.\n2. Incline o tronco entre 45 e 70 graus mantendo a coluna neutra e os joelhos levemente flexionados.\n3. Puxe a barra em direção ao umbigo ou à parte baixa do abdômen, com os cotovelos junto ao corpo.\n4. Junte as escápulas no topo e desça controlando até estender os braços.\n5. Não use impulso de tronco: se precisar jogar as costas, a carga está alta demais.",
+    "boInativo": false
+  },
+  {
+    "id": 16,
+    "idEmpresa": null,
+    "dsExercicio": "Remada Baixa",
+    "dsInstrucao": "Puxada horizontal sentado na polia baixa. Trabalha a espessura das costas com a coluna apoiada em posição estável, o que reduz a exigência sobre a lombar.\n\nComo executar:\n1. Sente na máquina com os pés apoiados na plataforma e joelhos levemente flexionados.\n2. Segure o triângulo com o tronco ereto e os braços estendidos à frente.\n3. Puxe o pegador em direção ao abdômen, levando os cotovelos para trás junto ao corpo.\n4. Junte as escápulas no fim do movimento, sem inclinar o tronco para trás.\n5. Volte controlando, deixando as escápulas se afastarem sem arredondar a lombar.",
+    "boInativo": false
+  },
+  {
+    "id": 17,
+    "idEmpresa": null,
+    "dsExercicio": "Remada Unilateral",
+    "dsInstrucao": "Remada com halter, um lado por vez, apoiado no banco. O apoio elimina a sobrecarga da lombar e permite corrigir diferenças de força entre os lados.\n\nComo executar:\n1. Apoie um joelho e a mão do mesmo lado no banco, mantendo as costas paralelas ao chão.\n2. Segure o halter com a outra mão, braço estendido e escápula solta.\n3. Puxe o halter em direção ao quadril, com o cotovelo rente ao corpo.\n4. Contraia a escápula no topo e desça controlando até o alongamento completo.\n5. Mantenha o quadril nivelado: girar o tronco para levantar mais peso tira o dorsal do movimento.",
+    "boInativo": false
+  },
+  {
+    "id": 18,
+    "idEmpresa": null,
+    "dsExercicio": "Remada Cavalinho",
+    "dsInstrucao": "Remada em máquina com apoio de peito ou barra em T, com pegada neutra. Combina a espessura da remada curvada com menor exigência da lombar.\n\nComo executar:\n1. Posicione-se na máquina com o peito apoiado e os pés firmes na plataforma.\n2. Segure os pegadores com as palmas voltadas uma para a outra e braços estendidos.\n3. Puxe os pegadores em direção às costelas, com os cotovelos junto ao corpo.\n4. Junte as escápulas no fim e volte controlando até a extensão completa.\n5. Mantenha o peito colado no apoio durante toda a série.",
+    "boInativo": false
+  },
+  {
+    "id": 19,
+    "idEmpresa": null,
+    "dsExercicio": "Pulldown",
+    "dsInstrucao": null,
+    "boInativo": true
+  },
+  {
+    "id": 20,
+    "idEmpresa": null,
+    "dsExercicio": "Levantamento Terra",
+    "dsInstrucao": "Levantamento da barra do chão até a extensão completa de quadril e joelhos. É o exercício que move mais carga total do treino e recruta praticamente toda a cadeia posterior.\n\nComo executar:\n1. Posicione os pés na largura do quadril, com a barra sobre o meio do pé.\n2. Flexione quadril e joelhos, segure a barra pouco fora das pernas e trave a coluna em posição neutra, peito aberto.\n3. Empurre o chão com as pernas mantendo a barra rente ao corpo, sem arredondar as costas.\n4. Estenda quadril e joelhos ao mesmo tempo até ficar totalmente ereto, sem hiperestender a lombar.\n5. Desça pelo mesmo caminho, levando o quadril para trás primeiro.",
+    "boInativo": false
+  },
+  {
+    "id": 21,
+    "idEmpresa": null,
+    "dsExercicio": "Desenvolvimento com Halteres",
+    "dsInstrucao": "Empurrar vertical acima da cabeça com halteres. Trabalha principalmente o deltoide anterior e lateral, com amplitude maior que a versão com barra.\n\nComo executar:\n1. Sente em um banco com encosto quase vertical e apoie as costas.\n2. Leve os halteres à altura dos ombros, palmas voltadas para a frente e cotovelos abaixo dos punhos.\n3. Empurre para cima até quase estender os cotovelos, aproximando levemente os halteres.\n4. Desça controlando até os cotovelos ficarem na linha dos ombros.\n5. Mantenha o abdômen contraído para não arquear a lombar no encosto.",
+    "boInativo": false
+  },
+  {
+    "id": 22,
+    "idEmpresa": null,
+    "dsExercicio": "Desenvolvimento com Barra",
+    "dsInstrucao": "Empurrar vertical com barra, sentado ou em pé. Permite mais carga que a versão com halteres e é o exercício básico de força para os ombros.\n\nComo executar:\n1. Segure a barra com pegada pronada pouco mais aberta que os ombros, na altura das clavículas.\n2. Contraia abdômen e glúteos para estabilizar o tronco.\n3. Empurre a barra acima da cabeça em linha reta, afastando levemente a cabeça na passagem.\n4. Estenda os cotovelos com a barra alinhada sobre o meio do pé e desça controlando.\n5. Prefira a versão à frente: o desenvolvimento por trás da nuca força a rotação externa do ombro.",
+    "boInativo": false
+  },
+  {
+    "id": 23,
+    "idEmpresa": null,
+    "dsExercicio": "Elevação Lateral",
+    "dsInstrucao": "Abdução do ombro com halteres. É o exercício de isolamento do deltoide lateral, responsável pela largura visual dos ombros.\n\nComo executar:\n1. Em pé, pés na largura do quadril, um halter em cada mão ao lado do corpo.\n2. Mantenha os cotovelos levemente flexionados e fixos nesse ângulo.\n3. Eleve os braços pelos lados até a altura dos ombros, sem passar da linha.\n4. Desça controlando, resistindo à descida, sem deixar os halteres caírem.\n5. Use carga baixa: usar impulso de tronco transfere o trabalho para o trapézio.",
+    "boInativo": false
+  },
+  {
+    "id": 24,
+    "idEmpresa": null,
+    "dsExercicio": "Elevação Frontal",
+    "dsInstrucao": "Flexão do ombro à frente do corpo, com halteres, barra ou anilha. Isola o deltoide anterior e a porção clavicular do peitoral.\n\nComo executar:\n1. Em pé, segure os halteres à frente das coxas com as palmas voltadas para o corpo.\n2. Eleve um braço (ou os dois) à frente até a altura dos ombros, cotovelo quase estendido.\n3. Pare na altura dos ombros e desça controlando.\n4. Mantenha o tronco imóvel, sem balançar para gerar impulso.\n5. Se o treino já tem muito desenvolvimento e supino, este exercício costuma ser dispensável.",
+    "boInativo": false
+  },
+  {
+    "id": 25,
+    "idEmpresa": null,
+    "dsExercicio": "Crucifixo Invertido",
+    "dsInstrucao": "Abertura dos braços com o tronco inclinado à frente. Isola o deltoide posterior, região quase sempre subtreinada, e ajuda a equilibrar a postura dos ombros.\n\nComo executar:\n1. Sente na ponta do banco e incline o tronco sobre as coxas, ou fique em pé com o tronco a 90 graus.\n2. Segure um halter em cada mão sob o peito, cotovelos levemente flexionados.\n3. Abra os braços pelos lados até a altura dos ombros, liderando o movimento com os cotovelos.\n4. Junte as escápulas no fim e desça controlando.\n5. Use carga leve: com peso alto o trapézio assume o movimento.",
+    "boInativo": false
+  },
+  {
+    "id": 26,
+    "idEmpresa": null,
+    "dsExercicio": "Encolhimento",
+    "dsInstrucao": "Elevação dos ombros em direção às orelhas, com carga nas mãos. É o exercício direto para a porção superior do trapézio.\n\nComo executar:\n1. Em pé, segure um halter em cada mão (ou uma barra à frente das coxas), braços estendidos.\n2. Mantenha os cotovelos praticamente estendidos durante todo o movimento.\n3. Eleve os ombros o mais alto possível, em linha reta, sem girá-los.\n4. Segure a contração no topo por um instante e desça controlando.\n5. Não role os ombros para trás: o movimento circular não acrescenta nada e estressa a articulação.",
+    "boInativo": false
+  },
+  {
+    "id": 27,
+    "idEmpresa": null,
+    "dsExercicio": "Arnold Press",
+    "dsInstrucao": "Desenvolvimento com rotação dos punhos durante a subida. A rotação faz o deltoide anterior e o lateral trabalharem em sequência dentro da mesma repetição.\n\nComo executar:\n1. Sente no banco com encosto e segure os halteres à frente do peito, palmas voltadas para você.\n2. Comece a subir girando os punhos para fora, até as palmas ficarem voltadas para a frente.\n3. Termine a subida com os braços quase estendidos acima da cabeça.\n4. Desça refazendo a rotação no sentido inverso, até voltar com as palmas para o corpo.\n5. Use carga menor que a do desenvolvimento comum: a rotação exige mais controle.",
+    "boInativo": false
+  },
+  {
+    "id": 28,
+    "idEmpresa": null,
+    "dsExercicio": "Remada Alta",
+    "dsInstrucao": "Puxada vertical da barra rente ao corpo até a altura do peito. Trabalha deltoide lateral e trapézio ao mesmo tempo.\n\nComo executar:\n1. Em pé, segure a barra com pegada pronada na largura dos ombros, braços estendidos à frente das coxas.\n2. Puxe a barra para cima rente ao corpo, liderando o movimento com os cotovelos.\n3. Suba até a barra chegar à altura da parte alta do peito, com os cotovelos acima das mãos.\n4. Desça controlando até estender os braços.\n5. Não suba além da linha do peito nem use pegada muito fechada: a combinação comprime o ombro.",
+    "boInativo": false
+  },
+  {
+    "id": 29,
+    "idEmpresa": null,
+    "dsExercicio": "Rosca Direta",
+    "dsInstrucao": "Flexão de cotovelo com barra, em pé. É o exercício básico de bíceps e permite mais carga que as variações com halteres.\n\nComo executar:\n1. Em pé, pés na largura do quadril, segure a barra com pegada supinada na largura dos ombros.\n2. Mantenha os cotovelos colados ao tronco e o abdômen contraído.\n3. Flexione os cotovelos levando a barra até a altura dos ombros.\n4. Desça controlando até estender os braços por completo.\n5. Se o cotovelo sair para a frente ou o tronco balançar, reduza a carga.",
+    "boInativo": false
+  },
+  {
+    "id": 30,
+    "idEmpresa": null,
+    "dsExercicio": "Rosca Alternada",
+    "dsInstrucao": "Rosca com halteres, um braço por vez, com supinação do punho. Permite maior amplitude e concentração em cada lado.\n\nComo executar:\n1. Em pé ou sentado, segure um halter em cada mão com as palmas voltadas para o corpo.\n2. Flexione um cotovelo girando o punho para fora durante a subida, até a palma ficar voltada para cima.\n3. Suba até a altura do ombro e contraia o bíceps.\n4. Desça controlando e desfazendo a rotação, e repita com o outro braço.\n5. Mantenha o cotovelo parado ao lado do tronco: ele não deve avançar durante a subida.",
+    "boInativo": false
+  },
+  {
+    "id": 31,
+    "idEmpresa": null,
+    "dsExercicio": "Rosca Martelo",
+    "dsInstrucao": "Rosca com pegada neutra, palmas voltadas uma para a outra. Enfatiza o braquial e o braquiorradial, aumentando a espessura do braço.\n\nComo executar:\n1. Em pé, segure um halter em cada mão com as palmas voltadas para o corpo.\n2. Mantenha essa pegada fixa durante todo o movimento, sem girar o punho.\n3. Flexione os cotovelos até os halteres chegarem à altura dos ombros.\n4. Desça controlando até a extensão completa.\n5. Pode ser feito alternado ou com os dois braços ao mesmo tempo.",
+    "boInativo": false
+  },
+  {
+    "id": 32,
+    "idEmpresa": null,
+    "dsExercicio": "Rosca Scott",
+    "dsInstrucao": "Rosca com os braços apoiados no banco inclinado. O apoio elimina o impulso e coloca o bíceps em alongamento na posição inicial.\n\nComo executar:\n1. Ajuste o banco Scott de modo que a axila fique apoiada na borda superior do apoio.\n2. Segure a barra W com pegada supinada e braços apoiados no acolchoado.\n3. Flexione os cotovelos até a barra chegar próxima aos ombros.\n4. Desça controlando até quase estender os cotovelos, sem soltar a tensão.\n5. Não estenda de forma brusca no final: a posição alongada com carga é onde ocorrem as lesões.",
+    "boInativo": false
+  },
+  {
+    "id": 33,
+    "idEmpresa": null,
+    "dsExercicio": "Rosca Concentrada",
+    "dsInstrucao": "Rosca com um braço apoiado na face interna da coxa, sentado. É o isolamento mais estrito do bíceps, usado para finalizar o treino de braço.\n\nComo executar:\n1. Sente na ponta do banco com as pernas afastadas e segure um halter com uma das mãos.\n2. Apoie a parte de trás do braço na face interna da coxa do mesmo lado.\n3. Flexione o cotovelo levando o halter até o ombro, sem tirar o braço do apoio.\n4. Contraia o bíceps no topo e desça controlando até estender o braço.\n5. Complete todas as repetições de um lado antes de trocar.",
+    "boInativo": false
+  },
+  {
+    "id": 34,
+    "idEmpresa": null,
+    "dsExercicio": "Rosca Inversa",
+    "dsInstrucao": "Rosca com pegada pronada, palmas para baixo. Desloca o esforço para o braquiorradial e os extensores do antebraço.\n\nComo executar:\n1. Em pé, segure a barra com pegada pronada na largura dos ombros.\n2. Mantenha os cotovelos junto ao tronco e os punhos firmes, sem deixá-los cair.\n3. Flexione os cotovelos até a barra chegar à altura do peito.\n4. Desça controlando até estender os braços.\n5. A carga será bem menor que na rosca direta — é o esperado nesta pegada.",
+    "boInativo": false
+  },
+  {
+    "id": 35,
+    "idEmpresa": null,
+    "dsExercicio": "Rosca 21",
+    "dsInstrucao": "Série de 21 repetições dividida em três amplitudes parciais de sete. Aumenta muito o tempo sob tensão do bíceps e é usada como técnica de intensificação.\n\nComo executar:\n1. Segure a barra com pegada supinada, em pé, cotovelos junto ao tronco.\n2. Faça 7 repetições da posição estendida até a metade do movimento (altura do cotovelo).\n3. Faça 7 repetições da metade até a altura dos ombros.\n4. Faça 7 repetições completas, da extensão até os ombros, sem descanso entre os blocos.\n5. Use carga bem abaixo da rosca direta habitual: são 21 repetições contínuas.",
+    "boInativo": false
+  },
+  {
+    "id": 36,
+    "idEmpresa": null,
+    "dsExercicio": "Rosca no Cabo",
+    "dsInstrucao": "Rosca executada na polia baixa. O cabo mantém tensão constante inclusive na posição inicial, onde a barra livre perde carga.\n\nComo executar:\n1. Prenda uma barra na polia baixa e fique em pé de frente para o aparelho.\n2. Segure com pegada supinada, braços estendidos e cotovelos junto ao tronco.\n3. Flexione os cotovelos até a barra chegar à altura dos ombros.\n4. Desça controlando, sem deixar a carga bater no fim do curso.\n5. Fique próximo ao aparelho para o cabo não puxar o cotovelo para trás.",
+    "boInativo": false
+  },
+  {
+    "id": 37,
+    "idEmpresa": null,
+    "dsExercicio": "Tríceps Pulley",
+    "dsInstrucao": "Extensão de cotovelo na polia alta com barra reta. É o exercício mais usado para tríceps por ser seguro, simples e manter tensão constante.\n\nComo executar:\n1. Fique em pé de frente para a polia alta e segure a barra com pegada pronada na largura dos ombros.\n2. Cole os cotovelos ao tronco e incline levemente o corpo à frente.\n3. Estenda os cotovelos empurrando a barra para baixo até os braços ficarem retos.\n4. Contraia o tríceps no fim e volte controlando até os cotovelos formarem 90 graus.\n5. Os cotovelos devem ficar parados: se abrirem para os lados, reduza a carga.",
+    "boInativo": false
+  },
+  {
+    "id": 38,
+    "idEmpresa": null,
+    "dsExercicio": "Tríceps Corda",
+    "dsInstrucao": "Extensão na polia alta com corda, permitindo abrir as mãos no fim do movimento. A abertura aumenta a contração da cabeça lateral do tríceps.\n\nComo executar:\n1. Prenda a corda na polia alta e segure as pontas com pegada neutra.\n2. Cole os cotovelos ao tronco, com o corpo levemente inclinado à frente.\n3. Estenda os cotovelos empurrando a corda para baixo.\n4. No fim do movimento, afaste as mãos abrindo a corda e contraia o tríceps.\n5. Volte controlando, juntando as mãos, até os cotovelos formarem 90 graus.",
+    "boInativo": false
+  },
+  {
+    "id": 39,
+    "idEmpresa": null,
+    "dsExercicio": "Tríceps Francês",
+    "dsInstrucao": "Extensão de cotovelo com o braço acima da cabeça. A posição alonga a cabeça longa do tríceps, que fica pouco recrutada nos exercícios de pulley.\n\nComo executar:\n1. Sentado ou em pé, segure um halter com as duas mãos acima da cabeça, braços estendidos.\n2. Mantenha os cotovelos apontados para cima e próximos da cabeça.\n3. Flexione os cotovelos levando o halter para trás da nuca, de forma controlada.\n4. Estenda os cotovelos de volta até os braços ficarem retos, sem travar.\n5. Não deixe os cotovelos abrirem para os lados: isso tira a tensão do tríceps.",
+    "boInativo": false
+  },
+  {
+    "id": 40,
+    "idEmpresa": null,
+    "dsExercicio": "Tríceps Testa",
+    "dsInstrucao": "Extensão de cotovelo deitado, com a barra descendo até a altura da testa. Combina boa carga com alongamento da cabeça longa do tríceps.\n\nComo executar:\n1. Deite no banco reto segurando a barra W com pegada pronada, braços estendidos sobre o peito.\n2. Incline levemente os braços em direção à cabeça, para manter tensão no tríceps.\n3. Flexione os cotovelos descendo a barra até próximo da testa, mantendo os cotovelos parados.\n4. Estenda os cotovelos de volta à posição inicial.\n5. Se sentir desconforto no cotovelo, troque a barra reta pela W ou reduza a carga.",
+    "boInativo": false
+  },
+  {
+    "id": 41,
+    "idEmpresa": null,
+    "dsExercicio": "Tríceps Banco",
+    "dsInstrucao": "Extensão de cotovelo com o peso do corpo, mãos apoiadas atrás em um banco. Alternativa sem equipamento de carga, útil para finalizar o treino.\n\nComo executar:\n1. Sente na borda do banco e apoie as mãos ao lado do quadril, dedos voltados para a frente.\n2. Deslize o quadril para fora do banco, sustentando o corpo com os braços.\n3. Desça flexionando os cotovelos até formarem cerca de 90 graus, mantendo-os apontados para trás.\n4. Empurre o banco até estender os braços.\n5. Não desça além dos 90 graus: a posição profunda força a cápsula anterior do ombro.",
+    "boInativo": false
+  },
+  {
+    "id": 42,
+    "idEmpresa": null,
+    "dsExercicio": "Mergulho Paralela",
+    "dsInstrucao": "Flexão e extensão de cotovelo suspenso em barras paralelas. Trabalha tríceps e peitoral inferior com o peso do próprio corpo e permite muita sobrecarga.\n\nComo executar:\n1. Apoie-se nas paralelas com os braços estendidos e o corpo suspenso.\n2. Para focar o tríceps, mantenha o tronco vertical; para focar o peitoral, incline-o à frente.\n3. Desça flexionando os cotovelos até formarem cerca de 90 graus.\n4. Empurre até estender os braços, sem travar os cotovelos.\n5. Se ainda não sustentar o peso do corpo, use a máquina assistida ou elástico.",
+    "boInativo": false
+  },
+  {
+    "id": 43,
+    "idEmpresa": null,
+    "dsExercicio": "Tríceps Coice",
+    "dsInstrucao": "Extensão de cotovelo com o tronco inclinado e o braço paralelo ao corpo. Isolamento de baixa carga, indicado para finalizar o treino com foco na contração.\n\nComo executar:\n1. Apoie um joelho e uma mão no banco, com as costas paralelas ao chão.\n2. Segure o halter com a outra mão e leve o cotovelo para trás, colado ao tronco, formando 90 graus.\n3. Estenda o cotovelo levando o halter para trás, até o braço ficar reto.\n4. Contraia o tríceps no fim e volte controlando aos 90 graus.\n5. O ombro e o cotovelo ficam imóveis: só o antebraço se move.",
+    "boInativo": false
+  },
+  {
+    "id": 44,
+    "idEmpresa": null,
+    "dsExercicio": "Agachamento Livre",
+    "dsInstrucao": "Agachamento com barra apoiada nas costas. É o exercício mais completo para membros inferiores e exige estabilização de tronco, quadril e tornozelo.\n\nComo executar:\n1. Apoie a barra sobre o trapézio, retire do suporte e afaste-se dois passos.\n2. Posicione os pés na largura dos ombros, com as pontas levemente para fora.\n3. Desça empurrando o quadril para trás e flexionando os joelhos, mantendo a coluna neutra e o peito aberto.\n4. Desça até as coxas ficarem pelo menos paralelas ao chão, com os joelhos alinhados às pontas dos pés.\n5. Suba empurrando o chão com os pés inteiros, estendendo quadril e joelhos ao mesmo tempo.",
+    "boInativo": false
+  },
+  {
+    "id": 45,
+    "idEmpresa": null,
+    "dsExercicio": "Agachamento Smith",
+    "dsInstrucao": "Agachamento na barra guiada. A trajetória fixa reduz a exigência de equilíbrio e permite variar a posição dos pés para alterar a ênfase muscular.\n\nComo executar:\n1. Posicione a barra sobre o trapézio e destrave os ganchos do Smith.\n2. Coloque os pés um pouco à frente da linha do corpo, na largura dos ombros.\n3. Desça flexionando quadril e joelhos até as coxas ficarem paralelas ao chão.\n4. Suba empurrando com os pés, sem travar os joelhos no topo.\n5. Pés mais à frente enfatizam glúteo e posterior; mais embaixo, quadríceps.",
+    "boInativo": false
+  },
+  {
+    "id": 46,
+    "idEmpresa": null,
+    "dsExercicio": "Leg Press",
+    "dsInstrucao": "Empurrar a plataforma com as pernas em máquina inclinada. Permite alta carga para os membros inferiores com a coluna apoiada e sem exigência de equilíbrio.\n\nComo executar:\n1. Sente na máquina com as costas e o quadril totalmente apoiados no encosto.\n2. Posicione os pés na plataforma na largura dos ombros, na altura média.\n3. Destrave a máquina e desça controlando até os joelhos formarem cerca de 90 graus.\n4. Empurre a plataforma até quase estender os joelhos, sem travá-los.\n5. Não deixe o quadril descolar do encosto na descida: é assim que se lesiona a lombar aqui.",
+    "boInativo": false
+  },
+  {
+    "id": 47,
+    "idEmpresa": null,
+    "dsExercicio": "Cadeira Extensora",
+    "dsInstrucao": "Extensão de joelho em máquina sentada. É o isolamento direto do quadríceps, muito usado para pré-exaustão ou finalização do treino de perna.\n\nComo executar:\n1. Sente na máquina com as costas apoiadas e ajuste o rolo logo acima dos tornozelos.\n2. Alinhe o eixo da máquina com a articulação do joelho.\n3. Estenda os joelhos até as pernas ficarem retas, contraindo o quadríceps no topo.\n4. Desça controlando até a posição inicial, sem deixar a carga bater.\n5. Evite cargas muito altas com extensão completa e rápida: sobrecarrega a patela.",
+    "boInativo": false
+  },
+  {
+    "id": 48,
+    "idEmpresa": null,
+    "dsExercicio": "Cadeira Flexora",
+    "dsInstrucao": "Flexão de joelho em máquina sentada. Isola os isquiotibiais na posição em que o quadril está flexionado, complementando a mesa flexora.\n\nComo executar:\n1. Sente na máquina com as costas apoiadas e trave o apoio sobre as coxas.\n2. Ajuste o rolo para ficar logo acima da parte de trás dos tornozelos.\n3. Flexione os joelhos puxando o rolo para baixo e para trás.\n4. Contraia o posterior no fim e volte controlando até quase estender as pernas.\n5. Mantenha o quadril colado no assento durante toda a série.",
+    "boInativo": false
+  },
+  {
+    "id": 49,
+    "idEmpresa": null,
+    "dsExercicio": "Mesa Flexora",
+    "dsInstrucao": "Flexão de joelho deitado de bruços. Trabalha os isquiotibiais com o quadril estendido, posição complementar à da cadeira flexora.\n\nComo executar:\n1. Deite de bruços na mesa com os joelhos logo além da borda do apoio.\n2. Ajuste o rolo para apoiar logo acima da parte de trás dos tornozelos.\n3. Segure os pegadores e flexione os joelhos levando o rolo em direção aos glúteos.\n4. Contraia o posterior no fim e desça controlando até quase estender as pernas.\n5. Não levante o quadril na subida: fazer isso tira a carga do posterior.",
+    "boInativo": false
+  },
+  {
+    "id": 50,
+    "idEmpresa": null,
+    "dsExercicio": "Stiff",
+    "dsInstrucao": "Flexão de quadril com as pernas quase estendidas e a barra descendo rente às pernas. Alonga e fortalece os isquiotibiais e os glúteos com ênfase na fase excêntrica.\n\nComo executar:\n1. Em pé, pés na largura do quadril, segure a barra à frente das coxas com pegada pronada.\n2. Mantenha os joelhos levemente flexionados e fixos nesse ângulo.\n3. Empurre o quadril para trás descendo a barra rente às pernas, com a coluna neutra.\n4. Desça até sentir o alongamento do posterior, sem arredondar a lombar.\n5. Suba estendendo o quadril e contraindo os glúteos no topo.",
+    "boInativo": false
+  },
+  {
+    "id": 51,
+    "idEmpresa": null,
+    "dsExercicio": "Levantamento Terra Romeno",
+    "dsInstrucao": "Variação do terra que começa em pé e enfatiza a fase excêntrica com flexão de quadril. Difere do stiff pela maior flexão de joelho e do terra convencional por não partir do chão.\n\nComo executar:\n1. Comece em pé segurando a barra à frente das coxas, com os pés na largura do quadril.\n2. Empurre o quadril para trás flexionando levemente mais os joelhos que no stiff.\n3. Desça a barra rente às pernas até a altura do meio da canela, com a coluna neutra.\n4. Suba estendendo o quadril e contraindo os glúteos, sem hiperestender a lombar.\n5. A barra deve encostar de leve nas pernas o tempo todo: afastá-la sobrecarrega a lombar.",
+    "boInativo": false
+  },
+  {
+    "id": 52,
+    "idEmpresa": null,
+    "dsExercicio": "Afundo",
+    "dsInstrucao": "Agachamento unilateral com uma perna à frente e outra atrás, sem deslocamento. Trabalha cada perna isoladamente e exige estabilidade de quadril e joelho.\n\nComo executar:\n1. Em pé, dê um passo à frente e mantenha essa posição durante toda a série.\n2. Segure um halter em cada mão ao lado do corpo, tronco ereto.\n3. Desça flexionando os dois joelhos até o de trás quase encostar no chão.\n4. O joelho da frente deve ficar alinhado ao pé, sem ultrapassá-lo demais.\n5. Suba empurrando com o calcanhar da perna da frente e repita antes de trocar de lado.",
+    "boInativo": false
+  },
+  {
+    "id": 53,
+    "idEmpresa": null,
+    "dsExercicio": "Passada",
+    "dsInstrucao": "Afundo com deslocamento: a cada repetição a perna de trás avança. Além da força, exige controle dinâmico do equilíbrio, o que aumenta o gasto energético.\n\nComo executar:\n1. Em pé, segure um halter em cada mão ao lado do corpo.\n2. Dê um passo à frente e desça flexionando os dois joelhos até o de trás quase encostar no chão.\n3. Empurre com o calcanhar da perna da frente e traga a perna de trás à frente, dando o próximo passo.\n4. Mantenha o tronco ereto e o olhar à frente durante todo o percurso.\n5. Precisa de espaço livre: sem corredor, prefira o afundo estacionário.",
+    "boInativo": false
+  },
+  {
+    "id": 54,
+    "idEmpresa": null,
+    "dsExercicio": "Hack Squat",
+    "dsInstrucao": "Agachamento em máquina com apoio de costas inclinado. A trajetória guiada permite carga alta com ênfase no quadríceps e baixa exigência da lombar.\n\nComo executar:\n1. Posicione-se na máquina com as costas e os ombros apoiados nos acolchoados.\n2. Coloque os pés na plataforma na largura dos ombros, ligeiramente à frente.\n3. Destrave a máquina e desça flexionando os joelhos até as coxas ficarem paralelas.\n4. Suba empurrando com os pés inteiros, sem travar os joelhos no topo.\n5. Manter as costas coladas no apoio é o que protege a lombar aqui.",
+    "boInativo": false
+  },
+  {
+    "id": 55,
+    "idEmpresa": null,
+    "dsExercicio": "Avanço",
+    "dsInstrucao": null,
+    "boInativo": true
+  },
+  {
+    "id": 56,
+    "idEmpresa": null,
+    "dsExercicio": "Agachamento Búlgaro",
+    "dsInstrucao": "Agachamento unilateral com o pé de trás elevado em um banco. Concentra quase toda a carga na perna da frente e é um dos exercícios mais eficientes para glúteo.\n\nComo executar:\n1. Fique de costas para o banco e apoie o peito do pé de trás sobre ele.\n2. Dê um passo à frente com a outra perna, mantendo o tronco ereto.\n3. Desça flexionando o joelho da frente até a coxa ficar próxima da paralela.\n4. Suba empurrando com o calcanhar da perna da frente.\n5. Complete todas as repetições de um lado antes de trocar.",
+    "boInativo": false
+  },
+  {
+    "id": 57,
+    "idEmpresa": null,
+    "dsExercicio": "Glúteo no Cabo",
+    "dsInstrucao": "Extensão de quadril na polia baixa, com caneleira. Isola o glúteo máximo com tensão constante e amplitude controlada.\n\nComo executar:\n1. Prenda a caneleira no tornozelo e conecte-a à polia baixa.\n2. Fique de frente para o aparelho, segurando a estrutura para se apoiar.\n3. Estenda o quadril levando a perna para trás, mantendo o joelho quase estendido.\n4. Contraia o glúteo no fim do movimento, sem arquear a lombar para ganhar amplitude.\n5. Volte controlando até a posição inicial e complete a série antes de trocar de perna.",
+    "boInativo": false
+  },
+  {
+    "id": 58,
+    "idEmpresa": null,
+    "dsExercicio": "Elevação Pélvica",
+    "dsInstrucao": "Extensão de quadril com as costas apoiadas em um banco e barra sobre a pelve. É o exercício com maior ativação de glúteo máximo entre os movimentos de quadril.\n\nComo executar:\n1. Sente no chão com as costas apoiadas na lateral do banco, na altura das escápulas.\n2. Posicione a barra sobre a pelve, protegida por uma almofada, e apoie os pés no chão na largura do quadril.\n3. Estenda o quadril elevando a barra até o tronco ficar paralelo ao chão.\n4. Contraia os glúteos no topo por um instante, com o queixo levemente para baixo.\n5. Desça controlando até quase encostar o quadril no chão.",
+    "boInativo": false
+  },
+  {
+    "id": 59,
+    "idEmpresa": null,
+    "dsExercicio": "Panturrilha em Pé",
+    "dsInstrucao": "Flexão plantar em pé, com o joelho estendido. Nessa posição o gastrocnêmio é o principal músculo recrutado.\n\nComo executar:\n1. Posicione-se na máquina com os ombros sob os apoios e a ponta dos pés na plataforma.\n2. Deixe os calcanhares livres para descer além da borda.\n3. Desça os calcanhares até sentir o alongamento da panturrilha.\n4. Suba na ponta dos pés o máximo possível, contraindo no topo.\n5. Faça o movimento devagar: panturrilha responde à amplitude completa, não ao impulso.",
+    "boInativo": false
+  },
+  {
+    "id": 60,
+    "idEmpresa": null,
+    "dsExercicio": "Panturrilha Sentado",
+    "dsInstrucao": "Flexão plantar sentado, com o joelho flexionado. A flexão do joelho tira o gastrocnêmio de ação e concentra o trabalho no sóleo.\n\nComo executar:\n1. Sente na máquina e posicione os apoios sobre as coxas, próximo aos joelhos.\n2. Apoie a ponta dos pés na plataforma, com os calcanhares livres.\n3. Desça os calcanhares até o alongamento máximo.\n4. Suba empurrando com a ponta dos pés e contraia no topo.\n5. Complementa a panturrilha em pé: as duas versões treinam músculos diferentes.",
+    "boInativo": false
+  },
+  {
+    "id": 61,
+    "idEmpresa": null,
+    "dsExercicio": "Panturrilha no Leg Press",
+    "dsInstrucao": "Flexão plantar executada no leg press, empurrando a plataforma apenas com a ponta dos pés. Permite carga alta sem compressão da coluna.\n\nComo executar:\n1. Sente no leg press e apoie apenas a ponta dos pés na borda inferior da plataforma.\n2. Estenda os joelhos quase por completo e mantenha-os fixos nesse ângulo.\n3. Empurre a plataforma com a ponta dos pés, contraindo a panturrilha.\n4. Volte controlando até sentir o alongamento, sem flexionar os joelhos.\n5. Confirme que a trava de segurança está acionada antes de começar.",
+    "boInativo": false
+  },
+  {
+    "id": 62,
+    "idEmpresa": null,
+    "dsExercicio": "Gêmeos em Pé",
+    "dsInstrucao": null,
+    "boInativo": true
+  },
+  {
+    "id": 63,
+    "idEmpresa": null,
+    "dsExercicio": "Abdominal Supra",
+    "dsInstrucao": "Flexão de tronco a partir do solo, com amplitude curta. Trabalha a porção superior do reto abdominal.\n\nComo executar:\n1. Deite de costas no colchonete com os joelhos flexionados e os pés apoiados no chão.\n2. Coloque as mãos ao lado da cabeça ou cruzadas no peito, sem puxar o pescoço.\n3. Eleve o tronco enrolando a coluna, tirando as escápulas do chão.\n4. Contraia o abdômen no topo e desça controlando até quase encostar.\n5. Não precisa subir muito: acima de 30 graus o trabalho passa para o flexor de quadril.",
+    "boInativo": false
+  },
+  {
+    "id": 64,
+    "idEmpresa": null,
+    "dsExercicio": "Abdominal Infra",
+    "dsInstrucao": "Elevação da pelve a partir do solo, com as pernas. Enfatiza a porção inferior do reto abdominal, região que a flexão de tronco recruta menos.\n\nComo executar:\n1. Deite de costas com as mãos ao lado do corpo ou sob os glúteos.\n2. Eleve as pernas até formarem 90 graus com o tronco, joelhos levemente flexionados.\n3. Eleve a pelve do chão empurrando as pernas para cima, sem impulso.\n4. Desça controlando até a pelve encostar, mantendo as pernas paradas.\n5. Se a lombar descolar do chão, reduza a amplitude das pernas.",
+    "boInativo": false
+  },
+  {
+    "id": 65,
+    "idEmpresa": null,
+    "dsExercicio": "Abdominal Oblíquo",
+    "dsInstrucao": "Flexão de tronco com rotação. Recruta os oblíquos interno e externo, responsáveis pela rotação e pela inclinação lateral do tronco.\n\nComo executar:\n1. Deite de costas com os joelhos flexionados e os pés no chão.\n2. Coloque uma mão ao lado da cabeça e a outra estendida ao lado do corpo.\n3. Eleve o tronco levando o cotovelo em direção ao joelho do lado oposto.\n4. Contraia no fim e desça controlando.\n5. Alterne os lados ou complete a série de um lado antes de trocar.",
+    "boInativo": false
+  },
+  {
+    "id": 66,
+    "idEmpresa": null,
+    "dsExercicio": "Prancha",
+    "dsInstrucao": "Exercício isométrico de sustentação do corpo apoiado nos antebraços e pontas dos pés. Treina o core na função real dele: impedir o movimento da coluna.\n\nComo executar:\n1. Apoie os antebraços no chão com os cotovelos alinhados abaixo dos ombros.\n2. Estenda as pernas apoiando as pontas dos pés, corpo alinhado da cabeça aos calcanhares.\n3. Contraia abdômen e glúteos para não deixar o quadril cair nem subir.\n4. Mantenha a posição respirando normalmente pelo tempo determinado.\n5. Encerre a série quando o quadril começar a ceder: tempo com forma ruim não conta.",
+    "boInativo": false
+  },
+  {
+    "id": 67,
+    "idEmpresa": null,
+    "dsExercicio": "Elevação de Pernas",
+    "dsInstrucao": "Elevação das pernas com o corpo suspenso na barra ou deitado no solo. Trabalha a porção inferior do abdômen com grande amplitude.\n\nComo executar:\n1. Fique suspenso na barra fixa com os braços estendidos, ou deite no colchonete com as mãos sob os glúteos.\n2. Contraia o abdômen antes de iniciar o movimento, estabilizando o corpo.\n3. Eleve as pernas até formarem 90 graus com o tronco, joelhos estendidos ou levemente flexionados.\n4. Desça controlando, sem balançar o corpo.\n5. Se não conseguir com as pernas retas, comece flexionando os joelhos.",
+    "boInativo": false
+  },
+  {
+    "id": 68,
+    "idEmpresa": null,
+    "dsExercicio": "Abdominal na Máquina",
+    "dsInstrucao": "Flexão de tronco em máquina com carga ajustável. Permite progressão de carga no abdômen, o que os exercícios de peso corporal não oferecem.\n\nComo executar:\n1. Sente na máquina e ajuste o apoio na altura do peito ou dos ombros.\n2. Segure os pegadores e mantenha os pés apoiados.\n3. Flexione o tronco à frente enrolando a coluna, com a força saindo do abdômen.\n4. Contraia no fim e volte controlando até quase a posição inicial.\n5. Não puxe com os braços: eles apenas acompanham o movimento.",
+    "boInativo": false
+  },
+  {
+    "id": 69,
+    "idEmpresa": null,
+    "dsExercicio": "Crunch",
+    "dsInstrucao": null,
+    "boInativo": true
+  },
+  {
+    "id": 70,
+    "idEmpresa": null,
+    "dsExercicio": "Bicicleta no Solo",
+    "dsInstrucao": "Movimento alternado de pernas e tronco simulando uma pedalada, no solo. Combina flexão e rotação, trabalhando reto abdominal e oblíquos de forma contínua.\n\nComo executar:\n1. Deite de costas com as mãos ao lado da cabeça e as pernas elevadas, joelhos a 90 graus.\n2. Eleve as escápulas do chão contraindo o abdômen.\n3. Leve o cotovelo direito em direção ao joelho esquerdo, estendendo a perna direita.\n4. Alterne os lados em movimento contínuo e controlado.\n5. Não puxe o pescoço com as mãos: elas só apoiam a cabeça.",
+    "boInativo": false
+  },
+  {
+    "id": 71,
+    "idEmpresa": null,
+    "dsExercicio": "Esteira",
+    "dsInstrucao": "Caminhada ou corrida em esteira ergométrica. Permite controlar velocidade e inclinação com precisão, o que torna simples prescrever e repetir a intensidade.\n\nComo executar:\n1. Prenda a trava de segurança na roupa antes de ligar o aparelho.\n2. Comece com 3 a 5 minutos de caminhada leve para aquecer.\n3. Ajuste velocidade e inclinação conforme o objetivo do treino.\n4. Mantenha o tronco ereto e o olhar à frente, sem se apoiar no corrimão.\n5. Encerre com 3 a 5 minutos em ritmo leve para desaquecer.",
+    "boInativo": false
+  },
+  {
+    "id": 72,
+    "idEmpresa": null,
+    "dsExercicio": "Bicicleta Ergométrica",
+    "dsInstrucao": "Pedalada em bicicleta estacionária. É a opção de cardio com menor impacto nas articulações, indicada para reabilitação e para dias de alto volume de perna.\n\nComo executar:\n1. Ajuste o selim na altura do quadril: com o pedal embaixo, o joelho deve ficar quase estendido.\n2. Comece pedalando com carga leve por 3 a 5 minutos para aquecer.\n3. Ajuste a resistência conforme o objetivo, mantendo cadência constante.\n4. Mantenha o tronco estável e evite balançar o quadril sobre o selim.\n5. Reduza a carga nos minutos finais para desaquecer.",
+    "boInativo": false
+  },
+  {
+    "id": 73,
+    "idEmpresa": null,
+    "dsExercicio": "Elíptico",
+    "dsInstrucao": "Movimento contínuo de pernas e braços em trajetória elíptica, sem impacto. Envolve mais massa muscular que a bicicleta e poupa as articulações em relação à corrida.\n\nComo executar:\n1. Suba no aparelho apoiando os pés inteiros nos pedais e segure os apoios móveis.\n2. Comece com resistência leve por 3 a 5 minutos para aquecer.\n3. Mantenha o tronco ereto e empurre e puxe os apoios acompanhando as pernas.\n4. Ajuste resistência e cadência conforme o objetivo do treino.\n5. Reduza a resistência nos minutos finais para desaquecer.",
+    "boInativo": false
+  },
+  {
+    "id": 74,
+    "idEmpresa": null,
+    "dsExercicio": "Escada",
+    "dsInstrucao": "Subida contínua no simulador de escada. O gasto energético é alto e o padrão de subida recruta glúteo e quadríceps mais que a esteira plana.\n\nComo executar:\n1. Suba no aparelho e apoie levemente as mãos no corrimão apenas para equilíbrio.\n2. Comece em ritmo lento por 2 a 3 minutos para aquecer.\n3. Suba pisando com o pé inteiro em cada degrau, mantendo o tronco ereto.\n4. Ajuste a velocidade conforme o objetivo, sem se pendurar no corrimão.\n5. Reduza o ritmo nos minutos finais para desaquecer.",
+    "boInativo": false
+  },
+  {
+    "id": 75,
+    "idEmpresa": null,
+    "dsExercicio": "Pular Corda",
+    "dsInstrucao": "Saltos contínuos sobre a corda. Trabalha condicionamento, coordenação e resistência de panturrilha com equipamento mínimo.\n\nComo executar:\n1. Ajuste o tamanho da corda: pisando no meio dela, as alças devem chegar às axilas.\n2. Fique em pé com os cotovelos junto ao corpo, girando a corda com os punhos.\n3. Salte apenas o suficiente para a corda passar, caindo na ponta dos pés.\n4. Mantenha o ritmo constante e o tronco ereto.\n5. Comece com séries curtas de 30 a 60 segundos até dominar o ritmo.",
+    "boInativo": false
+  },
+  {
+    "id": 76,
+    "idEmpresa": null,
+    "dsExercicio": "Corrida",
+    "dsInstrucao": null,
+    "boInativo": true
+  },
+  {
+    "id": 77,
+    "idEmpresa": null,
+    "dsExercicio": "HIIT",
+    "dsInstrucao": "Protocolo de treino intervalado de alta intensidade, e não um exercício específico. Alterna blocos curtos em intensidade máxima com períodos de recuperação, e pode ser aplicado a esteira, bike, corda ou exercícios de peso corporal.\n\nComo executar:\n1. Escolha o exercício base (esteira, bike, corda, burpee) e aqueça de 5 a 10 minutos.\n2. Execute um bloco em intensidade máxima, geralmente de 20 a 40 segundos.\n3. Recupere em intensidade baixa por um período de uma a três vezes o tempo do bloco intenso.\n4. Repita de 6 a 12 ciclos conforme o condicionamento.\n5. Encerre com 5 minutos de desaquecimento; 2 a 3 sessões por semana já bastam.",
+    "boInativo": false
+  },
+  {
+    "id": 78,
+    "idEmpresa": null,
+    "dsExercicio": "Remo Indoor",
+    "dsInstrucao": "Remada completa no ergômetro, coordenando pernas, tronco e braços. É um dos poucos exercícios de cardio que treina a musculatura de puxada.\n\nComo executar:\n1. Prenda os pés nas alças e segure o pegador com os braços estendidos, joelhos flexionados.\n2. Inicie empurrando com as pernas, mantendo os braços estendidos e o tronco firme.\n3. Quando as pernas estiverem quase estendidas, incline o tronco para trás e puxe o pegador ao abdômen.\n4. Volte na ordem inversa: estenda os braços, incline o tronco à frente e flexione os joelhos.\n5. A sequência é pernas, tronco, braços na puxada e o contrário na volta.",
+    "boInativo": false
+  },
+  {
+    "id": 79,
+    "idEmpresa": null,
+    "dsExercicio": "Burpee",
+    "dsInstrucao": "Combinação de agachamento, prancha, flexão e salto em uma repetição contínua. Um dos exercícios de peso corporal com maior demanda cardiorrespiratória.\n\nComo executar:\n1. Em pé, agache e apoie as mãos no chão à frente dos pés.\n2. Jogue as pernas para trás chegando à posição de prancha e faça uma flexão.\n3. Traga os pés de volta para junto das mãos em um salto.\n4. Levante e salte com os braços estendidos acima da cabeça.\n5. Para reduzir a intensidade, retire a flexão e o salto final.",
+    "boInativo": false
+  },
+  {
+    "id": 80,
+    "idEmpresa": null,
+    "dsExercicio": "Kettlebell Swing",
+    "dsInstrucao": "Balanço do kettlebell gerado pela extensão explosiva do quadril. Treina potência da cadeia posterior e condicionamento ao mesmo tempo.\n\nComo executar:\n1. Em pé, pés um pouco além da largura dos ombros, com o kettlebell no chão à frente.\n2. Empurre o quadril para trás, segure a alça com as duas mãos e mantenha a coluna neutra.\n3. Balance o kettlebell entre as pernas e estenda o quadril de forma explosiva.\n4. Deixe o impulso levar o kettlebell até a altura do peito, sem elevá-lo com os braços.\n5. O movimento é de quadril, não de agachamento nem de ombro.",
+    "boInativo": false
+  },
+  {
+    "id": 81,
+    "idEmpresa": null,
+    "dsExercicio": "Battle Rope",
+    "dsInstrucao": "Ondas contínuas com cordas navais. Trabalha resistência de ombros e core com alta demanda metabólica e sem impacto articular.\n\nComo executar:\n1. Segure uma ponta da corda em cada mão, com os pés na largura dos ombros.\n2. Flexione levemente joelhos e quadril, mantendo o tronco firme e o abdômen contraído.\n3. Gere ondas alternando os braços para cima e para baixo em ritmo rápido.\n4. Mantenha o ritmo pelo tempo determinado, geralmente de 20 a 40 segundos.\n5. Pode variar com ondas simultâneas, circulares ou com movimento lateral.",
+    "boInativo": false
+  },
+  {
+    "id": 82,
+    "idEmpresa": null,
+    "dsExercicio": "Box Jump",
+    "dsInstrucao": "Salto vertical sobre uma caixa. Exercício pliométrico que treina potência de membros inferiores e taxa de produção de força.\n\nComo executar:\n1. Fique em pé a cerca de meio passo da caixa, pés na largura do quadril.\n2. Flexione levemente joelhos e quadril e balance os braços para trás.\n3. Salte projetando os braços à frente e aterrisse sobre a caixa com os dois pés e joelhos flexionados.\n4. Estenda o quadril em cima da caixa e desça caminhando, não saltando.\n5. Comece com caixa baixa: a lesão típica aqui é raspar a canela na borda.",
+    "boInativo": false
+  },
+  {
+    "id": 83,
+    "idEmpresa": null,
+    "dsExercicio": "Farmer Walk",
+    "dsInstrucao": "Caminhada carregando peso em cada mão. Treina preensão, trapézio e estabilidade de tronco, com transferência direta para tarefas do dia a dia.\n\nComo executar:\n1. Posicione um halter ou kettlebell de cada lado do corpo e agache para pegá-los com a coluna neutra.\n2. Levante estendendo quadril e joelhos, com os ombros para trás e o peito aberto.\n3. Caminhe em linha reta com passos curtos e controlados, tronco ereto.\n4. Percorra a distância ou o tempo determinado sem deixar os ombros caírem à frente.\n5. Desça os pesos agachando, nunca soltando de qualquer jeito.",
+    "boInativo": false
+  },
+  {
+    "id": 84,
+    "idEmpresa": null,
+    "dsExercicio": "Agachamento com Salto",
+    "dsInstrucao": "Agachamento com peso corporal terminado em salto vertical. Adiciona componente pliométrico ao agachamento, treinando potência de perna.\n\nComo executar:\n1. Em pé, pés na largura dos ombros, mãos à frente do peito ou ao lado do corpo.\n2. Desça em agachamento até as coxas ficarem próximas da paralela.\n3. Suba de forma explosiva, saltando o mais alto possível.\n4. Aterrisse com os pés inteiros e os joelhos flexionados, absorvendo o impacto.\n5. Encadeie na descida da aterrissagem para a próxima repetição, sem pausa longa.",
+    "boInativo": false
+  },
+  {
+    "id": 85,
+    "idEmpresa": null,
+    "dsExercicio": "Medicine Ball Slam",
+    "dsInstrucao": "Arremesso da bola contra o chão com força máxima. Treina potência de tronco e coordenação entre cadeia anterior e posterior.\n\nComo executar:\n1. Em pé, pés na largura dos ombros, segurando a medicine ball com as duas mãos.\n2. Eleve a bola acima da cabeça estendendo o corpo por completo.\n3. Arremesse a bola contra o chão à frente dos pés, flexionando tronco e quadril com força.\n4. Agache para pegar a bola de volta, mantendo a coluna neutra.\n5. Use bola própria para slam, que não quica de volta na direção do rosto.",
+    "boInativo": false
+  },
+  {
+    "id": 86,
+    "idEmpresa": null,
+    "dsExercicio": "Flexão Explosiva",
+    "dsInstrucao": "Flexão de braço em que a subida termina com o corpo saindo do chão. Versão pliométrica do movimento, treina potência de empurrar.\n\nComo executar:\n1. Assuma a posição de flexão com as mãos pouco mais abertas que os ombros.\n2. Desça controlando até o peito ficar próximo do chão.\n3. Empurre o chão com força máxima até as mãos se descolarem.\n4. Aterrisse com os cotovelos levemente flexionados, absorvendo o impacto.\n5. Só progrida para esta versão depois de fazer a flexão comum com boa técnica.",
+    "boInativo": false
+  }
+]

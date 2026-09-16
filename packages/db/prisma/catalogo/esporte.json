@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "idEmpresa": null,
+    "dsEsporte": "Futebol",
+    "boInativo": false
+  },
+  {
+    "id": 2,
+    "idEmpresa": null,
+    "dsEsporte": "Dança",
+    "boInativo": false
+  },
+  {
+    "id": 3,
+    "idEmpresa": null,
+    "dsEsporte": "Vôlei",
+    "boInativo": false
+  },
+  {
+    "id": 4,
+    "idEmpresa": null,
+    "dsEsporte": "Musculação",
+    "boInativo": false
+  },
+  {
+    "id": 5,
+    "idEmpresa": null,
+    "dsEsporte": "Natação",
+    "boInativo": false
+  }
+]

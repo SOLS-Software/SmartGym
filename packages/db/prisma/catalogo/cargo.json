@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "dsCargo": "Recepicionista",
+    "boInativo": false
+  },
+  {
+    "id": 2,
+    "dsCargo": "Gerente",
+    "boInativo": false
+  },
+  {
+    "id": 3,
+    "dsCargo": "Instrutor",
+    "boInativo": false
+  },
+  {
+    "id": 4,
+    "dsCargo": "Estagiário",
+    "boInativo": false
+  }
+]

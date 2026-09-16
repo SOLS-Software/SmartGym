@@ -1,0 +1,1212 @@
+[
+  {
+    "id": 1,
+    "idExercicio": 51,
+    "idTiposArquivos": null,
+    "dsArquivo": "JoaoMacaco.jpg",
+    "anCaminho": "exercicios/51/20260430193541517-joaomacaco.jpg",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 3,
+    "idExercicio": 1,
+    "idTiposArquivos": null,
+    "dsArquivo": "supino-reto.gif",
+    "anCaminho": "exercicios/1/20260806120623018-supino-reto.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 4,
+    "idExercicio": 2,
+    "idTiposArquivos": null,
+    "dsArquivo": "supino-inclinado.gif",
+    "anCaminho": "exercicios/2/20260806124952361-supino-inclinado.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 5,
+    "idExercicio": 3,
+    "idTiposArquivos": null,
+    "dsArquivo": "supino-declinado.gif",
+    "anCaminho": "exercicios/3/20260806124953645-supino-declinado.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 6,
+    "idExercicio": 4,
+    "idTiposArquivos": null,
+    "dsArquivo": "supino-com-halteres.gif",
+    "anCaminho": "exercicios/4/20260806124954704-supino-com-halteres.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 7,
+    "idExercicio": 5,
+    "idTiposArquivos": null,
+    "dsArquivo": "crucifixo-reto.gif",
+    "anCaminho": "exercicios/5/20260806124955833-crucifixo-reto.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 8,
+    "idExercicio": 6,
+    "idTiposArquivos": null,
+    "dsArquivo": "crucifixo-inclinado.gif",
+    "anCaminho": "exercicios/6/20260806124956898-crucifixo-inclinado.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 9,
+    "idExercicio": 7,
+    "idTiposArquivos": null,
+    "dsArquivo": "crossover.gif",
+    "anCaminho": "exercicios/7/20260806124957942-crossover.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 10,
+    "idExercicio": 8,
+    "idTiposArquivos": null,
+    "dsArquivo": "peck-deck.gif",
+    "anCaminho": "exercicios/8/20260806124958931-peck-deck.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 11,
+    "idExercicio": 9,
+    "idTiposArquivos": null,
+    "dsArquivo": "flexao-de-braco.gif",
+    "anCaminho": "exercicios/9/20260806125000311-flexao-de-braco.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 12,
+    "idExercicio": 10,
+    "idTiposArquivos": null,
+    "dsArquivo": "pullover.gif",
+    "anCaminho": "exercicios/10/20260806125001327-pullover.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 13,
+    "idExercicio": 11,
+    "idTiposArquivos": null,
+    "dsArquivo": "puxada-frontal.gif",
+    "anCaminho": "exercicios/11/20260806125002948-puxada-frontal.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 14,
+    "idExercicio": 12,
+    "idTiposArquivos": null,
+    "dsArquivo": "puxada-aberta.gif",
+    "anCaminho": "exercicios/12/20260806125004034-puxada-aberta.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 15,
+    "idExercicio": 13,
+    "idTiposArquivos": null,
+    "dsArquivo": "puxada-fechada.gif",
+    "anCaminho": "exercicios/13/20260806125005241-puxada-fechada.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 16,
+    "idExercicio": 14,
+    "idTiposArquivos": null,
+    "dsArquivo": "barra-fixa.gif",
+    "anCaminho": "exercicios/14/20260806125006198-barra-fixa.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 17,
+    "idExercicio": 15,
+    "idTiposArquivos": null,
+    "dsArquivo": "remada-curvada.gif",
+    "anCaminho": "exercicios/15/20260806125007212-remada-curvada.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 18,
+    "idExercicio": 16,
+    "idTiposArquivos": null,
+    "dsArquivo": "remada-baixa.gif",
+    "anCaminho": "exercicios/16/20260806125008226-remada-baixa.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 19,
+    "idExercicio": 17,
+    "idTiposArquivos": null,
+    "dsArquivo": "remada-unilateral.gif",
+    "anCaminho": "exercicios/17/20260806125009453-remada-unilateral.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 20,
+    "idExercicio": 18,
+    "idTiposArquivos": null,
+    "dsArquivo": "remada-cavalinho.gif",
+    "anCaminho": "exercicios/18/20260806125010632-remada-cavalinho.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 21,
+    "idExercicio": 20,
+    "idTiposArquivos": null,
+    "dsArquivo": "levantamento-terra.gif",
+    "anCaminho": "exercicios/20/20260806125011895-levantamento-terra.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 22,
+    "idExercicio": 21,
+    "idTiposArquivos": null,
+    "dsArquivo": "desenvolvimento-com-halteres.gif",
+    "anCaminho": "exercicios/21/20260806125013103-desenvolvimento-com-halteres.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 23,
+    "idExercicio": 22,
+    "idTiposArquivos": null,
+    "dsArquivo": "desenvolvimento-com-barra.gif",
+    "anCaminho": "exercicios/22/20260806125014274-desenvolvimento-com-barra.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 24,
+    "idExercicio": 23,
+    "idTiposArquivos": null,
+    "dsArquivo": "elevacao-lateral.gif",
+    "anCaminho": "exercicios/23/20260806125015243-elevacao-lateral.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 25,
+    "idExercicio": 24,
+    "idTiposArquivos": null,
+    "dsArquivo": "elevacao-frontal.gif",
+    "anCaminho": "exercicios/24/20260806125016239-elevacao-frontal.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 26,
+    "idExercicio": 25,
+    "idTiposArquivos": null,
+    "dsArquivo": "crucifixo-invertido.gif",
+    "anCaminho": "exercicios/25/20260806125017193-crucifixo-invertido.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 27,
+    "idExercicio": 26,
+    "idTiposArquivos": null,
+    "dsArquivo": "encolhimento.gif",
+    "anCaminho": "exercicios/26/20260806125018140-encolhimento.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 28,
+    "idExercicio": 27,
+    "idTiposArquivos": null,
+    "dsArquivo": "arnold-press.gif",
+    "anCaminho": "exercicios/27/20260806125019331-arnold-press.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 29,
+    "idExercicio": 28,
+    "idTiposArquivos": null,
+    "dsArquivo": "remada-alta.gif",
+    "anCaminho": "exercicios/28/20260806125020460-remada-alta.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 30,
+    "idExercicio": 29,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-direta.gif",
+    "anCaminho": "exercicios/29/20260806125021399-rosca-direta.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 31,
+    "idExercicio": 30,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-alternada.gif",
+    "anCaminho": "exercicios/30/20260806125022412-rosca-alternada.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 32,
+    "idExercicio": 31,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-martelo.gif",
+    "anCaminho": "exercicios/31/20260806125023381-rosca-martelo.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 33,
+    "idExercicio": 32,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-scott.gif",
+    "anCaminho": "exercicios/32/20260806125024306-rosca-scott.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 34,
+    "idExercicio": 33,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-concentrada.gif",
+    "anCaminho": "exercicios/33/20260806125025222-rosca-concentrada.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 35,
+    "idExercicio": 34,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-inversa.gif",
+    "anCaminho": "exercicios/34/20260806125026195-rosca-inversa.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 36,
+    "idExercicio": 35,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-21.gif",
+    "anCaminho": "exercicios/35/20260806125027232-rosca-21.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 37,
+    "idExercicio": 36,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-no-cabo.gif",
+    "anCaminho": "exercicios/36/20260806125028223-rosca-no-cabo.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 38,
+    "idExercicio": 37,
+    "idTiposArquivos": null,
+    "dsArquivo": "triceps-pulley.gif",
+    "anCaminho": "exercicios/37/20260806125029222-triceps-pulley.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 39,
+    "idExercicio": 38,
+    "idTiposArquivos": null,
+    "dsArquivo": "triceps-corda.gif",
+    "anCaminho": "exercicios/38/20260806125030244-triceps-corda.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 40,
+    "idExercicio": 39,
+    "idTiposArquivos": null,
+    "dsArquivo": "triceps-frances.gif",
+    "anCaminho": "exercicios/39/20260806125031277-triceps-frances.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 41,
+    "idExercicio": 40,
+    "idTiposArquivos": null,
+    "dsArquivo": "triceps-testa.gif",
+    "anCaminho": "exercicios/40/20260806125032312-triceps-testa.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 42,
+    "idExercicio": 41,
+    "idTiposArquivos": null,
+    "dsArquivo": "triceps-banco.gif",
+    "anCaminho": "exercicios/41/20260806125033221-triceps-banco.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 43,
+    "idExercicio": 42,
+    "idTiposArquivos": null,
+    "dsArquivo": "mergulho-paralela.gif",
+    "anCaminho": "exercicios/42/20260806125034170-mergulho-paralela.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 44,
+    "idExercicio": 43,
+    "idTiposArquivos": null,
+    "dsArquivo": "triceps-coice.gif",
+    "anCaminho": "exercicios/43/20260806125035141-triceps-coice.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 45,
+    "idExercicio": 44,
+    "idTiposArquivos": null,
+    "dsArquivo": "agachamento-livre.gif",
+    "anCaminho": "exercicios/44/20260806125036359-agachamento-livre.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 46,
+    "idExercicio": 45,
+    "idTiposArquivos": null,
+    "dsArquivo": "agachamento-smith.gif",
+    "anCaminho": "exercicios/45/20260806125037286-agachamento-smith.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 47,
+    "idExercicio": 46,
+    "idTiposArquivos": null,
+    "dsArquivo": "leg-press.gif",
+    "anCaminho": "exercicios/46/20260806125038360-leg-press.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 48,
+    "idExercicio": 47,
+    "idTiposArquivos": null,
+    "dsArquivo": "cadeira-extensora.gif",
+    "anCaminho": "exercicios/47/20260806125039315-cadeira-extensora.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 49,
+    "idExercicio": 48,
+    "idTiposArquivos": null,
+    "dsArquivo": "cadeira-flexora.gif",
+    "anCaminho": "exercicios/48/20260806125040350-cadeira-flexora.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 50,
+    "idExercicio": 49,
+    "idTiposArquivos": null,
+    "dsArquivo": "mesa-flexora.gif",
+    "anCaminho": "exercicios/49/20260806125041390-mesa-flexora.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 51,
+    "idExercicio": 50,
+    "idTiposArquivos": null,
+    "dsArquivo": "stiff.gif",
+    "anCaminho": "exercicios/50/20260806125042552-stiff.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 52,
+    "idExercicio": 51,
+    "idTiposArquivos": null,
+    "dsArquivo": "levantamento-terra-romeno.gif",
+    "anCaminho": "exercicios/51/20260806125043646-levantamento-terra-romeno.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 53,
+    "idExercicio": 52,
+    "idTiposArquivos": null,
+    "dsArquivo": "afundo.gif",
+    "anCaminho": "exercicios/52/20260806125044711-afundo.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 54,
+    "idExercicio": 53,
+    "idTiposArquivos": null,
+    "dsArquivo": "passada.gif",
+    "anCaminho": "exercicios/53/20260806125045709-passada.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 55,
+    "idExercicio": 54,
+    "idTiposArquivos": null,
+    "dsArquivo": "hack-squat.gif",
+    "anCaminho": "exercicios/54/20260806125046623-hack-squat.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 56,
+    "idExercicio": 56,
+    "idTiposArquivos": null,
+    "dsArquivo": "agachamento-bulgaro.gif",
+    "anCaminho": "exercicios/56/20260806125047809-agachamento-bulgaro.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 57,
+    "idExercicio": 57,
+    "idTiposArquivos": null,
+    "dsArquivo": "gluteo-no-cabo.gif",
+    "anCaminho": "exercicios/57/20260806125048899-gluteo-no-cabo.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 58,
+    "idExercicio": 58,
+    "idTiposArquivos": null,
+    "dsArquivo": "elevacao-pelvica.gif",
+    "anCaminho": "exercicios/58/20260806125049968-elevacao-pelvica.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 59,
+    "idExercicio": 59,
+    "idTiposArquivos": null,
+    "dsArquivo": "panturrilha-em-pe.gif",
+    "anCaminho": "exercicios/59/20260806125050965-panturrilha-em-pe.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 60,
+    "idExercicio": 60,
+    "idTiposArquivos": null,
+    "dsArquivo": "panturrilha-sentado.gif",
+    "anCaminho": "exercicios/60/20260806125051955-panturrilha-sentado.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 61,
+    "idExercicio": 61,
+    "idTiposArquivos": null,
+    "dsArquivo": "panturrilha-no-leg-press.gif",
+    "anCaminho": "exercicios/61/20260806125053005-panturrilha-no-leg-press.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 62,
+    "idExercicio": 63,
+    "idTiposArquivos": null,
+    "dsArquivo": "abdominal-supra.gif",
+    "anCaminho": "exercicios/63/20260806125054136-abdominal-supra.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 63,
+    "idExercicio": 64,
+    "idTiposArquivos": null,
+    "dsArquivo": "abdominal-infra.gif",
+    "anCaminho": "exercicios/64/20260806125055129-abdominal-infra.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 64,
+    "idExercicio": 65,
+    "idTiposArquivos": null,
+    "dsArquivo": "abdominal-obliquo.gif",
+    "anCaminho": "exercicios/65/20260806125056112-abdominal-obliquo.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 65,
+    "idExercicio": 66,
+    "idTiposArquivos": null,
+    "dsArquivo": "prancha.gif",
+    "anCaminho": "exercicios/66/20260806125057147-prancha.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 66,
+    "idExercicio": 67,
+    "idTiposArquivos": null,
+    "dsArquivo": "elevacao-de-pernas.gif",
+    "anCaminho": "exercicios/67/20260806125058145-elevacao-de-pernas.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 67,
+    "idExercicio": 68,
+    "idTiposArquivos": null,
+    "dsArquivo": "abdominal-na-maquina.gif",
+    "anCaminho": "exercicios/68/20260806125059208-abdominal-na-maquina.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 68,
+    "idExercicio": 70,
+    "idTiposArquivos": null,
+    "dsArquivo": "bicicleta-no-solo.gif",
+    "anCaminho": "exercicios/70/20260806125100359-bicicleta-no-solo.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 69,
+    "idExercicio": 71,
+    "idTiposArquivos": null,
+    "dsArquivo": "esteira.gif",
+    "anCaminho": "exercicios/71/20260806125101551-esteira.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 70,
+    "idExercicio": 72,
+    "idTiposArquivos": null,
+    "dsArquivo": "bicicleta-ergometrica.gif",
+    "anCaminho": "exercicios/72/20260806125102560-bicicleta-ergometrica.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 71,
+    "idExercicio": 73,
+    "idTiposArquivos": null,
+    "dsArquivo": "eliptico.gif",
+    "anCaminho": "exercicios/73/20260806125103595-eliptico.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 72,
+    "idExercicio": 74,
+    "idTiposArquivos": null,
+    "dsArquivo": "escada.gif",
+    "anCaminho": "exercicios/74/20260806125104654-escada.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 73,
+    "idExercicio": 75,
+    "idTiposArquivos": null,
+    "dsArquivo": "pular-corda.gif",
+    "anCaminho": "exercicios/75/20260806125105586-pular-corda.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 74,
+    "idExercicio": 77,
+    "idTiposArquivos": null,
+    "dsArquivo": "hiit.gif",
+    "anCaminho": "exercicios/77/20260806125106585-hiit.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 75,
+    "idExercicio": 78,
+    "idTiposArquivos": null,
+    "dsArquivo": "remo-indoor.gif",
+    "anCaminho": "exercicios/78/20260806125107984-remo-indoor.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 76,
+    "idExercicio": 79,
+    "idTiposArquivos": null,
+    "dsArquivo": "burpee.gif",
+    "anCaminho": "exercicios/79/20260806125109155-burpee.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 77,
+    "idExercicio": 80,
+    "idTiposArquivos": null,
+    "dsArquivo": "kettlebell-swing.gif",
+    "anCaminho": "exercicios/80/20260806125110119-kettlebell-swing.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 78,
+    "idExercicio": 81,
+    "idTiposArquivos": null,
+    "dsArquivo": "battle-rope.gif",
+    "anCaminho": "exercicios/81/20260806125111212-battle-rope.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 79,
+    "idExercicio": 82,
+    "idTiposArquivos": null,
+    "dsArquivo": "box-jump.gif",
+    "anCaminho": "exercicios/82/20260806125112466-box-jump.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 80,
+    "idExercicio": 83,
+    "idTiposArquivos": null,
+    "dsArquivo": "farmer-walk.gif",
+    "anCaminho": "exercicios/83/20260806125113538-farmer-walk.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 81,
+    "idExercicio": 84,
+    "idTiposArquivos": null,
+    "dsArquivo": "agachamento-com-salto.gif",
+    "anCaminho": "exercicios/84/20260806125114503-agachamento-com-salto.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 82,
+    "idExercicio": 85,
+    "idTiposArquivos": null,
+    "dsArquivo": "medicine-ball-slam.gif",
+    "anCaminho": "exercicios/85/20260806125116472-medicine-ball-slam.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 83,
+    "idExercicio": 86,
+    "idTiposArquivos": null,
+    "dsArquivo": "flexao-explosiva.gif",
+    "anCaminho": "exercicios/86/20260806125117553-flexao-explosiva.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 84,
+    "idExercicio": 63,
+    "idTiposArquivos": null,
+    "dsArquivo": "abdominal-supra.gif",
+    "anCaminho": "exercicios/63/20260806130422108-abdominal-supra.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 85,
+    "idExercicio": 64,
+    "idTiposArquivos": null,
+    "dsArquivo": "abdominal-infra.gif",
+    "anCaminho": "exercicios/64/20260806130423839-abdominal-infra.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 86,
+    "idExercicio": 65,
+    "idTiposArquivos": null,
+    "dsArquivo": "abdominal-obliquo.gif",
+    "anCaminho": "exercicios/65/20260806130425613-abdominal-obliquo.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 87,
+    "idExercicio": 70,
+    "idTiposArquivos": null,
+    "dsArquivo": "bicicleta-no-solo.gif",
+    "anCaminho": "exercicios/70/20260806130427357-bicicleta-no-solo.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 88,
+    "idExercicio": 20,
+    "idTiposArquivos": null,
+    "dsArquivo": "levantamento-terra.gif",
+    "anCaminho": "exercicios/20/20260806131501594-levantamento-terra.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 89,
+    "idExercicio": 50,
+    "idTiposArquivos": null,
+    "dsArquivo": "stiff.gif",
+    "anCaminho": "exercicios/50/20260806131503057-stiff.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 90,
+    "idExercicio": 51,
+    "idTiposArquivos": null,
+    "dsArquivo": "levantamento-terra-romeno.gif",
+    "anCaminho": "exercicios/51/20260806131504344-levantamento-terra-romeno.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 91,
+    "idExercicio": 80,
+    "idTiposArquivos": null,
+    "dsArquivo": "kettlebell-swing.gif",
+    "anCaminho": "exercicios/80/20260806131505646-kettlebell-swing.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 92,
+    "idExercicio": 23,
+    "idTiposArquivos": null,
+    "dsArquivo": "elevacao-lateral.gif",
+    "anCaminho": "exercicios/23/20260806131507007-elevacao-lateral.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 93,
+    "idExercicio": 24,
+    "idTiposArquivos": null,
+    "dsArquivo": "elevacao-frontal.gif",
+    "anCaminho": "exercicios/24/20260806131508324-elevacao-frontal.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 94,
+    "idExercicio": 26,
+    "idTiposArquivos": null,
+    "dsArquivo": "encolhimento.gif",
+    "anCaminho": "exercicios/26/20260806131509620-encolhimento.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 95,
+    "idExercicio": 28,
+    "idTiposArquivos": null,
+    "dsArquivo": "remada-alta.gif",
+    "anCaminho": "exercicios/28/20260806131511343-remada-alta.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 96,
+    "idExercicio": 83,
+    "idTiposArquivos": null,
+    "dsArquivo": "farmer-walk.gif",
+    "anCaminho": "exercicios/83/20260806131512894-farmer-walk.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 97,
+    "idExercicio": 29,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-direta.gif",
+    "anCaminho": "exercicios/29/20260806131514142-rosca-direta.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 98,
+    "idExercicio": 30,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-alternada.gif",
+    "anCaminho": "exercicios/30/20260806131515596-rosca-alternada.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 99,
+    "idExercicio": 31,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-martelo.gif",
+    "anCaminho": "exercicios/31/20260806131516820-rosca-martelo.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 100,
+    "idExercicio": 32,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-scott.gif",
+    "anCaminho": "exercicios/32/20260806131518040-rosca-scott.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 101,
+    "idExercicio": 33,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-concentrada.gif",
+    "anCaminho": "exercicios/33/20260806131519389-rosca-concentrada.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 102,
+    "idExercicio": 34,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-inversa.gif",
+    "anCaminho": "exercicios/34/20260806131520884-rosca-inversa.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 103,
+    "idExercicio": 35,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-21.gif",
+    "anCaminho": "exercicios/35/20260806131522374-rosca-21.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 104,
+    "idExercicio": 36,
+    "idTiposArquivos": null,
+    "dsArquivo": "rosca-no-cabo.gif",
+    "anCaminho": "exercicios/36/20260806131523994-rosca-no-cabo.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 105,
+    "idExercicio": 44,
+    "idTiposArquivos": null,
+    "dsArquivo": "agachamento-livre.gif",
+    "anCaminho": "exercicios/44/20260806131525415-agachamento-livre.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 106,
+    "idExercicio": 45,
+    "idTiposArquivos": null,
+    "dsArquivo": "agachamento-smith.gif",
+    "anCaminho": "exercicios/45/20260806131526764-agachamento-smith.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 107,
+    "idExercicio": 54,
+    "idTiposArquivos": null,
+    "dsArquivo": "hack-squat.gif",
+    "anCaminho": "exercicios/54/20260806131528170-hack-squat.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 108,
+    "idExercicio": 56,
+    "idTiposArquivos": null,
+    "dsArquivo": "agachamento-bulgaro.gif",
+    "anCaminho": "exercicios/56/20260806131529642-agachamento-bulgaro.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 109,
+    "idExercicio": 37,
+    "idTiposArquivos": null,
+    "dsArquivo": "triceps-pulley.gif",
+    "anCaminho": "exercicios/37/20260806131531091-triceps-pulley.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 110,
+    "idExercicio": 38,
+    "idTiposArquivos": null,
+    "dsArquivo": "triceps-corda.gif",
+    "anCaminho": "exercicios/38/20260806131532598-triceps-corda.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 111,
+    "idExercicio": 43,
+    "idTiposArquivos": null,
+    "dsArquivo": "triceps-coice.gif",
+    "anCaminho": "exercicios/43/20260806131533860-triceps-coice.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 112,
+    "idExercicio": 15,
+    "idTiposArquivos": null,
+    "dsArquivo": "remada-curvada.gif",
+    "anCaminho": "exercicios/15/20260806131535694-remada-curvada.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 113,
+    "idExercicio": 17,
+    "idTiposArquivos": null,
+    "dsArquivo": "remada-unilateral.gif",
+    "anCaminho": "exercicios/17/20260806131536974-remada-unilateral.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 114,
+    "idExercicio": 21,
+    "idTiposArquivos": null,
+    "dsArquivo": "desenvolvimento-com-halteres.gif",
+    "anCaminho": "exercicios/21/20260806131538388-desenvolvimento-com-halteres.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 115,
+    "idExercicio": 22,
+    "idTiposArquivos": null,
+    "dsArquivo": "desenvolvimento-com-barra.gif",
+    "anCaminho": "exercicios/22/20260806131539995-desenvolvimento-com-barra.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 116,
+    "idExercicio": 27,
+    "idTiposArquivos": null,
+    "dsArquivo": "arnold-press.gif",
+    "anCaminho": "exercicios/27/20260806131541299-arnold-press.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 117,
+    "idExercicio": 11,
+    "idTiposArquivos": null,
+    "dsArquivo": "puxada-frontal.gif",
+    "anCaminho": "exercicios/11/20260806131542874-puxada-frontal.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 118,
+    "idExercicio": 12,
+    "idTiposArquivos": null,
+    "dsArquivo": "puxada-aberta.gif",
+    "anCaminho": "exercicios/12/20260806131544422-puxada-aberta.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 119,
+    "idExercicio": 13,
+    "idTiposArquivos": null,
+    "dsArquivo": "puxada-fechada.gif",
+    "anCaminho": "exercicios/13/20260806131546016-puxada-fechada.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 120,
+    "idExercicio": 59,
+    "idTiposArquivos": null,
+    "dsArquivo": "panturrilha-em-pe.gif",
+    "anCaminho": "exercicios/59/20260806131547426-panturrilha-em-pe.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": true
+  },
+  {
+    "id": 121,
+    "idExercicio": 79,
+    "idTiposArquivos": null,
+    "dsArquivo": "burpee.gif",
+    "anCaminho": "exercicios/79/20260806133619311-burpee.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  },
+  {
+    "id": 122,
+    "idExercicio": 59,
+    "idTiposArquivos": null,
+    "dsArquivo": "panturrilha-em-pe.gif",
+    "anCaminho": "exercicios/59/20260806175636093-panturrilha-em-pe.gif",
+    "cnChaveAcesso": 0,
+    "cnDistribuidor": 0,
+    "boInativo": false
+  }
+]

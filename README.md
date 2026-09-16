@@ -37,7 +37,9 @@ Copy-Item .env.example .env
 - `pnpm lint`: executa lint.
 - `pnpm typecheck`: valida TypeScript.
 - `pnpm db:migrate`: roda migrations do Prisma.
-- `pnpm db:seed`: cria dados de exemplo.
+- `pnpm db:seed:demo`: cria dados de exemplo (Empresa e Planos ficticios). **Nunca rode em producao.**
+- `pnpm db:catalogo:seed`: carrega o catalogo global (exercicios, niveis, unidades...) num banco novo. E este que roda numa instalacao de verdade; dry-run por padrao, use `--apply` para gravar.
+- `pnpm db:catalogo:export`: regrava `packages/db/prisma/catalogo/*.json` a partir do banco atual. Rode quando o catalogo mudar e commite o resultado.
 - `pnpm db:studio`: abre o Prisma Studio.
 
 ## Banco remoto
@@ -55,7 +57,8 @@ Depois rode:
 ```bash
 pnpm install
 pnpm db:migrate
-pnpm db:seed
+pnpm db:catalogo:seed --apply   # catalogo global; obrigatorio
+pnpm db:seed:demo               # dados ficticios; so em ambiente de estudo
 pnpm dev
 ```
 

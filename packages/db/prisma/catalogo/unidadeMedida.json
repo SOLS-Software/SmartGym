@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "cnUnidade": "KG",
+    "dsUnidade": "Quilograma",
+    "boInativo": false
+  },
+  {
+    "id": 2,
+    "cnUnidade": "G",
+    "dsUnidade": "Grama",
+    "boInativo": false
+  },
+  {
+    "id": 3,
+    "cnUnidade": "LBS",
+    "dsUnidade": "Libra",
+    "boInativo": false
+  },
+  {
+    "id": 4,
+    "cnUnidade": "OZ",
+    "dsUnidade": "Onça",
+    "boInativo": false
+  }
+]

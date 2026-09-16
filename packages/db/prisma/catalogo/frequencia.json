@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "dsFrequencia": "Mensal",
+    "qtPeriodo": 1,
+    "idUnidadeTempo": 5,
+    "boInativo": false
+  },
+  {
+    "id": 2,
+    "dsFrequencia": "Trimestral",
+    "qtPeriodo": 3,
+    "idUnidadeTempo": 5,
+    "boInativo": false
+  },
+  {
+    "id": 3,
+    "dsFrequencia": "Semanal",
+    "qtPeriodo": 7,
+    "idUnidadeTempo": 3,
+    "boInativo": false
+  },
+  {
+    "id": 4,
+    "dsFrequencia": "Anual",
+    "qtPeriodo": 1,
+    "idUnidadeTempo": 6,
+    "boInativo": false
+  },
+  {
+    "id": 5,
+    "dsFrequencia": "__TESTE_QA__",
+    "qtPeriodo": 2,
+    "idUnidadeTempo": 6,
+    "boInativo": true
+  }
+]

@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "dsFormaPagamento": "Pix",
+    "boInativo": false
+  },
+  {
+    "id": 2,
+    "dsFormaPagamento": "Dinheiro",
+    "boInativo": false
+  },
+  {
+    "id": 3,
+    "dsFormaPagamento": "Cartão de Débito",
+    "boInativo": false
+  },
+  {
+    "id": 4,
+    "dsFormaPagamento": "Cartão de Crédito",
+    "boInativo": false
+  }
+]

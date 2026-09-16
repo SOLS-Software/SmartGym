@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "dsUnidadeTempo": "Minuto(s)",
+    "boInativo": false
+  },
+  {
+    "id": 2,
+    "dsUnidadeTempo": "Hora(s)",
+    "boInativo": false
+  },
+  {
+    "id": 3,
+    "dsUnidadeTempo": "Dia(s)",
+    "boInativo": false
+  },
+  {
+    "id": 4,
+    "dsUnidadeTempo": "Segundo(s)",
+    "boInativo": false
+  },
+  {
+    "id": 5,
+    "dsUnidadeTempo": "Mes(es)",
+    "boInativo": false
+  },
+  {
+    "id": 6,
+    "dsUnidadeTempo": "Ano(s)",
+    "boInativo": false
+  }
+]

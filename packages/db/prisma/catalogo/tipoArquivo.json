@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "dsTipo": "Identificação",
+    "boInativo": false
+  },
+  {
+    "id": 2,
+    "dsTipo": "Contrato",
+    "boInativo": false
+  }
+]

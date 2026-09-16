@@ -1,0 +1,87 @@
+[
+  {
+    "id": 4,
+    "dsAreaCorporal": "Peitoral",
+    "boInativo": false
+  },
+  {
+    "id": 5,
+    "dsAreaCorporal": "Ombros",
+    "boInativo": false
+  },
+  {
+    "id": 6,
+    "dsAreaCorporal": "Tríceps",
+    "boInativo": false
+  },
+  {
+    "id": 7,
+    "dsAreaCorporal": "Costas",
+    "boInativo": false
+  },
+  {
+    "id": 8,
+    "dsAreaCorporal": "Trapézio",
+    "boInativo": false
+  },
+  {
+    "id": 9,
+    "dsAreaCorporal": "Bíceps",
+    "boInativo": false
+  },
+  {
+    "id": 10,
+    "dsAreaCorporal": "Antebraço",
+    "boInativo": false
+  },
+  {
+    "id": 11,
+    "dsAreaCorporal": "Abdômen",
+    "boInativo": false
+  },
+  {
+    "id": 12,
+    "dsAreaCorporal": "Lombar",
+    "boInativo": false
+  },
+  {
+    "id": 13,
+    "dsAreaCorporal": "Glúteos",
+    "boInativo": false
+  },
+  {
+    "id": 14,
+    "dsAreaCorporal": "Quadríceps",
+    "boInativo": false
+  },
+  {
+    "id": 15,
+    "dsAreaCorporal": "Posterior de Coxa",
+    "boInativo": false
+  },
+  {
+    "id": 16,
+    "dsAreaCorporal": "Adutores",
+    "boInativo": false
+  },
+  {
+    "id": 17,
+    "dsAreaCorporal": "Abdutores",
+    "boInativo": false
+  },
+  {
+    "id": 18,
+    "dsAreaCorporal": "Panturrilha",
+    "boInativo": false
+  },
+  {
+    "id": 19,
+    "dsAreaCorporal": "Corpo Inteiro",
+    "boInativo": false
+  },
+  {
+    "id": 20,
+    "dsAreaCorporal": "Cardiorrespiratório",
+    "boInativo": false
+  }
+]
