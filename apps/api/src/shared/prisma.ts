@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma } from '@smartgym/db';
+import { CENTRAL_OWNER, guardTransactions } from './tenantTx.js';
 
 // Neon (serverless Postgres) closes idle connections, which surfaces as a
 // P1017 "Server has closed the connection" on the first query after an idle
@@ -39,4 +40,10 @@ const extendedPrisma = basePrisma.$extends({
 // The extension only adds transparent retry behaviour; the runtime surface is
 // identical to PrismaClient, so we expose it under the base type to keep
 // $transaction callbacks and helper signatures compatible across the app.
-export const prisma = extendedPrisma as unknown as PrismaClient;
+const retryingPrisma = extendedPrisma as unknown as PrismaClient;
+
+// Guarda de transacao entre clients. Com banco por tenant, um $transaction
+// aberto AQUI nao cobre uma escrita feita pelo client do tenant — e falhava em
+// silencio (ver shared/tenantTx.ts). Marcar o dono e a metade central da
+// defesa; a outra esta em getTenantDb.
+export const prisma = guardTransactions(retryingPrisma, CENTRAL_OWNER);

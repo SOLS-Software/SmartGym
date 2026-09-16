@@ -21,6 +21,10 @@ import { assertAllowedUploadType, assertUploadBuffer, getStudentFilePath } from 
 import { assertConsent } from '../../shared/consent.js';
 import { generateNextRecurringPayment } from '../../shared/payments.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
+// PILOTO DO ROLLOUT MULTI-TENANT: so estes dois GET usam o resolver por tenant.
+// Sem registro em tb_ClienteConexoes, getTenantDb devolve o `prisma` padrao —
+// entao o comportamento de quem nao foi migrado nao muda. Ver docs/multi-tenancy-dados.md.
+import { getTenantDb } from '../../shared/tenantDataSource.js';
 import { syncStudentNotifications } from '../../shared/notifications.js';
 import { creditCheckInPoints, getPointsBalance, registerPointsEntry } from '../../shared/loyalty.js';
 import {
@@ -533,7 +537,8 @@ export async function registerStudentRoutes(app: FastifyInstance) {
     // CPF criptografado: busca parcial por CPF nao e possivel; CPF completo
     // (11 digitos) e resolvido por igualdade via caCPFHash.
     const searchDigits = search?.replace(/\D/g, '') ?? '';
-    const students = await prisma.aluno.findMany({
+    const db = await getTenantDb(idCliente);
+    const students = await db.aluno.findMany({
       where: search
         ? {
             idCliente,
@@ -592,7 +597,8 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       // liberado" e o check-in logo em seguida recusaria por unidade — a tela
       // discordando da porta, que e justamente o que evitamos aqui.
       const idEmpresaConsulta = optionalNumber(request.query?.idEmpresa);
-      const student = await prisma.aluno.findFirst({ where: { id, idCliente } });
+      const db = await getTenantDb(idCliente);
+      const student = await db.aluno.findFirst({ where: { id, idCliente } });
 
       if (!student) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
@@ -603,7 +609,9 @@ export async function registerStudentRoutes(app: FastifyInstance) {
       // catraca usa — a tela nunca discorda da porta.
       return {
         ...withDecryptedCpf(student),
-        studentAccess: await getStudentAccessStatus(prisma, id, idEmpresaConsulta),
+        // Mesmo client do aluno: a situacao de acesso le plano e pagamento, que
+        // sao dados de aplicacao e moram no banco do tenant junto com a ficha.
+        studentAccess: await getStudentAccessStatus(db, id, idEmpresaConsulta),
       };
     } catch (error) {
       return reply.code(400).send({

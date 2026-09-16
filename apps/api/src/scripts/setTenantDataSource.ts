@@ -18,10 +18,12 @@
 //     src/scripts/setTenantDataSource.ts --cliente=7 \
 //     --db-url='postgresql://...' --storage-url='https://x.supabase.co' \
 //     --storage-key='...' --bucket='arquivos-cliente7'          # dry-run
-//   ...adicione --apply para gravar. Flags extras: --bucket-clientes, --disable.
+//   ...adicione --apply para gravar. Flags extras: --bucket-clientes,
+//   --disable (volta o cliente ao padrao) e --enable (religa o override).
 
 import { prisma } from '../shared/prisma.js';
 import { encryptSecret, maskSecret } from '../shared/secrets.js';
+import { MOTIVO_ROLLOUT_INCOMPLETO, ROTEAMENTO_COMPLETO } from '../shared/tenantRollout.js';
 
 type Row = {
   idCliente: number;
@@ -67,6 +69,12 @@ async function main() {
   const argv = process.argv.slice(2);
   const apply = argv.includes('--apply');
   const disable = argv.includes('--disable');
+  // Sem isto o registro era uma porta de mao unica: --disable gravava false e
+  // nada jamais voltava para true, entao desfazer um rollback exigia SQL na mao.
+  const enable = argv.includes('--enable');
+  if (disable && enable) {
+    throw new Error('Use --disable ou --enable, nao os dois.');
+  }
 
   const idCliente = Number(opt(argv, 'cliente'));
   if (!Number.isInteger(idCliente) || idCliente <= 0) {
@@ -90,8 +98,22 @@ async function main() {
     dsStorageBucket: bucket !== undefined ? bucket : (existing?.dsStorageBucket ?? null),
     dsStorageBucketClientes:
       bucketClientes !== undefined ? bucketClientes : (existing?.dsStorageBucketClientes ?? null),
-    boAtivo: disable ? false : (existing?.boAtivo ?? true),
+    boAtivo: disable ? false : enable ? true : (existing?.boAtivo ?? true),
   };
+
+  // TRAVA DO ROLLOUT INCOMPLETO. Desativar (--disable) e sempre permitido — e a
+  // saida de emergencia. O que se barra e o contrario: LIGAR um banco dedicado
+  // enquanto ha rota lendo dado de aplicacao pelo client central, porque ai o
+  // tenant passa a ter duas verdades (silo numa rota, pool na outra) sem que
+  // nada acuse. Ver shared/tenantRollout.ts.
+  const vaiLigarBancoDedicado = !disable && merged.boAtivo && merged.dsDatabaseUrlEnc !== null;
+  if (vaiLigarBancoDedicado && !ROTEAMENTO_COMPLETO) {
+    if (!argv.includes('--force-rollout-incompleto')) {
+      throw new Error(MOTIVO_ROLLOUT_INCOMPLETO);
+    }
+    log('!! AVISO: banco dedicado ligado com o rollout INCOMPLETO (--force-rollout-incompleto).');
+    log('!! Rotas nao migradas continuarao lendo este tenant do pool compartilhado.');
+  }
 
   log('========================================================================');
   log(`Registro de conexao — cliente ${idCliente} — modo: ${apply ? 'APPLY (ESCREVE)' : 'DRY-RUN'}`);

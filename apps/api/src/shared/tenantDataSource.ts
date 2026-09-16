@@ -2,6 +2,7 @@ import { PrismaClient } from '@smartgym/db';
 import { prisma } from './prisma.js';
 import { decryptSecret } from './secrets.js';
 import { getSupabaseConfig } from './supabase.js';
+import { guardTransactions, tenantOwner } from './tenantTx.js';
 import type { SupabaseConfig } from './api-types.js';
 
 // Multi-tenancy de DADOS — modelo hibrido/registro (control plane).
@@ -89,21 +90,86 @@ async function readConexao(idCliente: number): Promise<ClienteConexaoRow | null>
 // Cache de PrismaClient por tenant: cada banco dedicado abre seu proprio pool de
 // conexoes, entao NAO recriar por request. (Rollout: avaliar LRU/eviction e
 // connection_limit por client — ver o doc.)
-const tenantDbCache = new Map<number, PrismaClient>();
+//
+// O CACHE TEM PRAZO, e isso nao e detalhe. Enquanto ele era eterno, o rollback
+// documentado no runbook ("boAtivo=false volta o cliente ao padrao") NAO
+// funcionava: o registro mudava no banco e o processo seguia servindo do silo
+// ate alguem reiniciar a API. Um rollback que exige restart nao e rollback —
+// e justamente na hora em que se precisa dele que ninguem quer derrubar o
+// processo. Com prazo, o resolver relê o registro e a virada acontece sozinha.
+type EntradaCache = { client: PrismaClient; url: string; expiraEm: number };
+
+const tenantDbCache = new Map<number, EntradaCache>();
+
+// Janela entre mudar o registro e a mudanca valer. Curto o bastante para um
+// rollback ser operacional, longo o bastante para nao consultar o control plane
+// a cada request.
+const TTL_MS = Number(process.env.TENANT_DB_CACHE_TTL_MS ?? 60_000);
+
+// Carencia antes de fechar um client trocado: requests em voo ainda o usam.
+const CARENCIA_DESCONEXAO_MS = 30_000;
+
+function descartar(entrada: EntradaCache): void {
+  const timer = setTimeout(() => {
+    void entrada.client.$disconnect().catch(() => {});
+  }, CARENCIA_DESCONEXAO_MS);
+  // Nao segura o processo no shutdown.
+  timer.unref?.();
+}
 
 // Devolve o PrismaClient dos dados do tenant: o dedicado (se registrado) ou o
 // padrao compartilhado (`prisma`). O rollout troca os call sites que hoje usam o
 // singleton `prisma` por este resolver, nos caminhos que precisam ser por-tenant.
 export async function getTenantDb(idCliente: number): Promise<PrismaClient> {
+  const agora = Date.now();
   const cached = tenantDbCache.get(idCliente);
-  if (cached) return cached;
+  if (cached && cached.expiraEm > agora) return cached.client;
 
   const { databaseUrl } = resolveTenantDataSource(await readConexao(idCliente));
-  if (!databaseUrl) return prisma; // default pool — comportamento de hoje
 
-  const client = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
-  tenantDbCache.set(idCliente, client);
+  // Override removido/desativado: volta ao pool e derruba o client dedicado.
+  if (!databaseUrl) {
+    if (cached) {
+      tenantDbCache.delete(idCliente);
+      descartar(cached);
+    }
+    return prisma; // default pool — comportamento de hoje
+  }
+
+  // Mesmo destino de antes: so renova o prazo, mantendo o pool de conexoes.
+  if (cached && cached.url === databaseUrl) {
+    cached.expiraEm = agora + TTL_MS;
+    return cached.client;
+  }
+
+  if (cached) {
+    tenantDbCache.delete(idCliente);
+    descartar(cached);
+  }
+
+  // A guarda de transacao acompanha o client: sem ela, uma escrita aqui dentro
+  // de um $transaction do central escapa do rollback em silencio.
+  const client = guardTransactions(
+    new PrismaClient({ datasources: { db: { url: databaseUrl } } }),
+    tenantOwner(idCliente),
+  );
+  tenantDbCache.set(idCliente, { client, url: databaseUrl, expiraEm: agora + TTL_MS });
   return client;
+}
+
+/**
+ * Esquece o client em cache, forcando a releitura do registro no proximo
+ * `getTenantDb`. Sem argumento, esquece todos. Use apos provisionar ou
+ * desativar um tenant quando nao se quer esperar o TTL.
+ */
+export function invalidateTenantDb(idCliente?: number): void {
+  const alvos = idCliente == null ? [...tenantDbCache.keys()] : [idCliente];
+  for (const id of alvos) {
+    const entrada = tenantDbCache.get(id);
+    if (!entrada) continue;
+    tenantDbCache.delete(id);
+    descartar(entrada);
+  }
 }
 
 // Config de storage do tenant: a dedicada (se registrada) ou a do .env.
@@ -118,6 +184,8 @@ export async function getTenantStorageConfig(idCliente: number): Promise<TenantS
 // Fecha os pools dedicados (shutdown gracioso). O `prisma` padrao tem seu proprio
 // ciclo de vida e nao e fechado aqui.
 export async function closeTenantDbs(): Promise<void> {
-  await Promise.all([...tenantDbCache.values()].map((c) => c.$disconnect().catch(() => {})));
+  await Promise.all(
+    [...tenantDbCache.values()].map((e) => e.client.$disconnect().catch(() => {})),
+  );
   tenantDbCache.clear();
 }

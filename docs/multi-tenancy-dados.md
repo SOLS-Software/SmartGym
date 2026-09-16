@@ -152,7 +152,10 @@ diferentes) e vira **referência lógica** que o app resolve. Fluxo de login:
    e testes de fumaça. **Cuidado:** um `$transaction` não cruza dois clients — todo
    o caminho de dados de um handler tem de estar num único banco. As tabelas do
    provedor (control plane) continuam no `prisma` central; só as da aplicação vão
-   pelo resolver.
+   pelo resolver. *(Desde 2026-09-16 isso não depende mais de disciplina: a
+   guarda de `shared/tenantTx.ts` lança em vez de deixar a escrita escapar. O
+   que falta é o trabalho mecânico — **533** acessos, medidos pelo
+   `tenantRolloutCoverage.test.ts`.)*
 4. **Migrations por tenant.** Cada banco dedicado precisa do schema (aplicação +
    catálogo global semeado) e das migrations. Provisionar cliente = criar banco +
    `prisma migrate deploy` + seed do catálogo. Deploy = rodar `migrate deploy` em
@@ -178,7 +181,49 @@ diferentes) e vira **referência lógica** que o app resolve. Fluxo de login:
    (rode em dry-run primeiro; depois `--apply`).
 6. Validar (login pelo domínio do cliente, listagens, upload/leitura de arquivo).
 7. Só então remover as linhas do cliente do pool compartilhado.
-   Rollback: `boAtivo=false` no registro volta o cliente ao padrão.
+   Rollback: `--disable --apply` no registro volta o cliente ao padrão; a virada
+   acontece sozinha em até `TENANT_DB_CACHE_TTL_MS` (60 s por padrão), sem
+   reiniciar a API. Para religar depois: `--enable --apply`.
+
+> **O passo 5 está travado de propósito.** Enquanto `ROTEAMENTO_COMPLETO` for
+> `false` em `shared/tenantRollout.ts`, o script recusa ativar banco dedicado —
+> ver "O que o piloto encontrou" abaixo. Contornar exige
+> `--force-rollout-incompleto` e sabendo o que se está aceitando.
+
+## O que o piloto encontrou (2026-09-16)
+
+O rollout foi exercitado de ponta a ponta contra infra real: Postgres+PostGIS
+local para o cliente 3, `migrate deploy` num banco zerado, registro provisionado
+pelo script, e `GET /students` + `GET /students/:id` roteados por `getTenantDb`.
+Funcionou — e expôs três defeitos que só aparecem rodando.
+
+**1. Rollout parcial serve duas verdades.** Mesmo aluno, mesmo token:
+`GET /students/490` (roteada) devolvia `[SILO] AUDIT Aluno B` enquanto
+`GET /students/490/lgpd-export` (não roteada) devolvia `AUDIT Aluno B`. Não é
+transitório: dura o tempo inteiro da migração módulo a módulo.
+→ **Trava:** `shared/tenantRollout.ts` (`ROTEAMENTO_COMPLETO`) + o medidor
+`tenantRolloutCoverage.test.ts`, catraca que só desce (hoje: **533** acessos a
+dado de aplicação pelo client central). O script de provisionamento recusa
+ativar banco dedicado enquanto o número não for zero. A constante não pode
+mentir: o teste falha se ela disser "completo" com acesso sobrando.
+
+**2. `$transaction` entre clients falhava em silêncio.** Uma escrita no client
+do tenant dentro de um `prisma.$transaction` central **sobrevivia ao rollback**,
+sem erro nenhum — meia gravação, zero alarme.
+→ **Guarda:** `shared/tenantTx.ts`. Cada client carrega um dono; `$transaction`
+registra o dono no contexto assíncrono e qualquer operação de outro dono lança,
+nomeando os dois clients. Escape explícito para o caso legítimo (trilha de
+auditoria no central durante escrita no tenant): `outsideTransaction(...)`, que
+diz no código que aquele trecho não tem rollback. 11 testes de unidade.
+
+**3. O rollback documentado não funcionava.** O cache de clients era eterno:
+`boAtivo=false` mudava o registro e o processo seguia servindo do silo até
+alguém reiniciar a API.
+→ **Correção:** cache com prazo (`TENANT_DB_CACHE_TTL_MS`, 60 s), descarte do
+client antigo com carência de 30 s para requests em voo, e
+`invalidateTenantDb(idCliente)` para não esperar o TTL. No caminho, o script
+ganhou `--enable`: sem ele o registro era porta de mão única — `--disable`
+gravava `false` e nada jamais voltava para `true`.
 
 ## Segurança
 
