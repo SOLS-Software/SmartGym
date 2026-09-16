@@ -1,6 +1,7 @@
 import { toBool } from '../../shared/normalize.js';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
+import type { PrismaClient } from '@smartgym/db';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId, getMultipartFieldValue, normalizeEmployeePayload } from '../../shared/normalize.js';
 import { assertAllowedUploadType, assertUploadBuffer, getEmployeeFilePath } from '../../shared/files.js';
@@ -25,16 +26,16 @@ function clampLimit(limit: number | undefined) {
 
 export async function registerEmployeeRoutes(app: FastifyInstance) {
   // Isolamento de tenant: Funcionario pertence ao cliente via Empresa.idCliente.
-  async function findTenantEmployee(id: number, idCliente: number) {
-    return prisma.funcionario.findFirst({
+  async function findTenantEmployee(db: PrismaClient, id: number, idCliente: number) {
+    return db.funcionario.findFirst({
       where: { id, empresa: { idCliente } },
       select: { id: true },
     });
   }
 
   // Garante que a empresa informada no payload pertence ao tenant (400 se nao).
-  async function assertCompanyInTenant(idEmpresa: number, idCliente: number) {
-    const company = await prisma.empresa.findFirst({
+  async function assertCompanyInTenant(db: PrismaClient, idEmpresa: number, idCliente: number) {
+    const company = await db.empresa.findFirst({
       where: { id: idEmpresa, idCliente },
       select: { id: true },
     });
@@ -45,8 +46,8 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
   // vinculo torto: o perfil E a permissao. Sem esta trava, um id de perfil de
   // OUTRO cliente (adivinhado, sao sequenciais) entraria no funcionario e o
   // RBAC leria as permissoes desse perfil alheio a cada request.
-  async function assertProfileInTenant(idPerfilAcesso: number, idCliente: number) {
-    const profile = await prisma.perfilAcesso.findFirst({
+  async function assertProfileInTenant(db: PrismaClient, idPerfilAcesso: number, idCliente: number) {
+    const profile = await db.perfilAcesso.findFirst({
       where: { id: idPerfilAcesso, idCliente },
       select: { id: true },
     });
@@ -64,7 +65,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
     // CPF criptografado: busca parcial por CPF nao e possivel; CPF completo
     // (11 digitos) e resolvido por igualdade via caCPFHash.
     const searchDigits = search?.replace(/\D/g, '') ?? '';
-    const employees = await prisma.funcionario.findMany({
+    const employees = await request.tenantDb.funcionario.findMany({
       where: search
         ? {
             empresa: { idCliente },
@@ -92,12 +93,12 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       // Sem empresa o funcionario fica orfao de tenant (invisivel na listagem e
       // sem idCliente no login, que deriva de empresa): vinculo obrigatorio.
       if (!data.idEmpresa) throw new Error('Informe a empresa do funcionario.');
-      await assertCompanyInTenant(data.idEmpresa, idCliente);
-      if (data.idPerfilAcesso) await assertProfileInTenant(data.idPerfilAcesso, idCliente);
+      await assertCompanyInTenant(request.tenantDb, data.idEmpresa, idCliente);
+      if (data.idPerfilAcesso) await assertProfileInTenant(request.tenantDb, data.idPerfilAcesso, idCliente);
       // PII: grava o CPF criptografado + hash de lookup.
       const storedData = { ...data, ...encryptCpfFields(String(data.caCPF ?? '')) };
-      const employee = await prisma.funcionario.create({
-        data: storedData as unknown as Parameters<typeof prisma.funcionario.create>[0]['data'],
+      const employee = await request.tenantDb.funcionario.create({
+        data: storedData as unknown as Parameters<typeof request.tenantDb.funcionario.create>[0]['data'],
       });
       return reply.code(201).send(withDecryptedCpf(employee));
     } catch (error) {
@@ -116,16 +117,16 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Funcionario invalido.');
-      const current = await findTenantEmployee(id, idCliente);
+      const current = await findTenantEmployee(request.tenantDb, id, idCliente);
       if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const data = normalizeEmployeePayload(request.body);
       if (!data.idEmpresa) throw new Error('Informe a empresa do funcionario.');
-      await assertCompanyInTenant(data.idEmpresa, idCliente);
-      if (data.idPerfilAcesso) await assertProfileInTenant(data.idPerfilAcesso, idCliente);
+      await assertCompanyInTenant(request.tenantDb, data.idEmpresa, idCliente);
+      if (data.idPerfilAcesso) await assertProfileInTenant(request.tenantDb, data.idPerfilAcesso, idCliente);
       const storedData = { ...data, ...encryptCpfFields(String(data.caCPF ?? '')) };
-      const updated = await prisma.funcionario.update({
+      const updated = await request.tenantDb.funcionario.update({
         where: { id },
-        data: storedData as unknown as Parameters<typeof prisma.funcionario.update>[0]['data'],
+        data: storedData as unknown as Parameters<typeof request.tenantDb.funcionario.update>[0]['data'],
       });
       return withDecryptedCpf(updated);
     } catch (error) {
@@ -144,10 +145,10 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Funcionario invalido.');
-      const current = await findTenantEmployee(id, idCliente);
+      const current = await findTenantEmployee(request.tenantDb, id, idCliente);
       if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const boInativo = toBool(request.body.boInativo);
-      return prisma.funcionario.update({ where: { id }, data: { boInativo } });
+      return request.tenantDb.funcionario.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do funcionario.' });
     }
@@ -161,9 +162,9 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       assertValidId(idFuncionario, 'Funcionario invalido.');
       const parsedQuery = limitQuerySchema.safeParse(request.query);
       if (!parsedQuery.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
-      const employee = await findTenantEmployee(idFuncionario, idCliente);
+      const employee = await findTenantEmployee(request.tenantDb, idFuncionario, idCliente);
       if (!employee) return reply.code(404).send({ message: 'Registro nao encontrado.' });
-      return prisma.funcionarioArquivo.findMany({
+      return request.tenantDb.funcionarioArquivo.findMany({
         where: { idFuncionario },
         orderBy: { dtCadastro: 'desc' },
         take: clampLimit(parsedQuery.data.limit),
@@ -181,7 +182,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
     try {
       const idFuncionario = Number(request.params.id);
       assertValidId(idFuncionario, 'Funcionario invalido.');
-      const employee = await findTenantEmployee(idFuncionario, idCliente);
+      const employee = await findTenantEmployee(request.tenantDb, idFuncionario, idCliente);
       if (!employee) return reply.code(404).send({ message: 'Registro nao encontrado.' });
 
       const file = await request.file();
@@ -207,7 +208,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
         throw new Error(uploadError.message);
       }
 
-      return reply.code(201).send(await prisma.funcionarioArquivo.create({
+      return reply.code(201).send(await request.tenantDb.funcionarioArquivo.create({
         data: {
           idFuncionario,
           idTiposArquivos,
@@ -232,9 +233,9 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idFuncionario, 'Funcionario invalido.');
       assertValidId(childId, 'Arquivo invalido.');
-      const employee = await findTenantEmployee(idFuncionario, idCliente);
+      const employee = await findTenantEmployee(request.tenantDb, idFuncionario, idCliente);
       if (!employee) return reply.code(404).send({ message: 'Registro nao encontrado.' });
-      const current = await prisma.funcionarioArquivo.findFirst({ where: { id: childId, idFuncionario }, select: { id: true } });
+      const current = await request.tenantDb.funcionarioArquivo.findFirst({ where: { id: childId, idFuncionario }, select: { id: true } });
       if (!current) throw new Error('Arquivo do funcionario invalido.');
 
       const file = await request.file();
@@ -260,7 +261,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
         throw new Error(uploadError.message);
       }
 
-      return prisma.funcionarioArquivo.update({
+      return request.tenantDb.funcionarioArquivo.update({
         where: { id: childId },
         data: {
           idTiposArquivos,
@@ -283,11 +284,11 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idFuncionario, 'Funcionario invalido.');
       assertValidId(childId, 'Arquivo invalido.');
-      const employee = await findTenantEmployee(idFuncionario, idCliente);
+      const employee = await findTenantEmployee(request.tenantDb, idFuncionario, idCliente);
       if (!employee) return reply.code(404).send({ message: 'Registro nao encontrado.' });
-      const current = await prisma.funcionarioArquivo.findFirst({ where: { id: childId, idFuncionario }, select: { id: true } });
+      const current = await request.tenantDb.funcionarioArquivo.findFirst({ where: { id: childId, idFuncionario }, select: { id: true } });
       if (!current) throw new Error('Arquivo do funcionario invalido.');
-      return prisma.funcionarioArquivo.update({
+      return request.tenantDb.funcionarioArquivo.update({
         where: { id: childId },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -306,9 +307,9 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idFuncionario, 'Funcionario invalido.');
       assertValidId(childId, 'Arquivo invalido.');
-      const employee = await findTenantEmployee(idFuncionario, idCliente);
+      const employee = await findTenantEmployee(request.tenantDb, idFuncionario, idCliente);
       if (!employee) return reply.code(404).send({ message: 'Registro nao encontrado.' });
-      const employeeFile = await prisma.funcionarioArquivo.findFirst({ where: { id: childId, idFuncionario, boInativo: false } });
+      const employeeFile = await request.tenantDb.funcionarioArquivo.findFirst({ where: { id: childId, idFuncionario, boInativo: false } });
       if (!employeeFile) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
@@ -330,11 +331,11 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idFuncionario, 'Funcionario invalido.');
       assertValidId(childId, 'Arquivo invalido.');
-      const employee = await findTenantEmployee(idFuncionario, idCliente);
+      const employee = await findTenantEmployee(request.tenantDb, idFuncionario, idCliente);
       if (!employee) return reply.code(404).send({ message: 'Registro nao encontrado.' });
-      const current = await prisma.funcionarioArquivo.findFirst({ where: { id: childId, idFuncionario }, select: { id: true } });
+      const current = await request.tenantDb.funcionarioArquivo.findFirst({ where: { id: childId, idFuncionario }, select: { id: true } });
       if (!current) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
-      return prisma.funcionarioArquivo.update({ where: { id: childId }, data: { boInativo: true } });
+      return request.tenantDb.funcionarioArquivo.update({ where: { id: childId }, data: { boInativo: true } });
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao remover arquivo do funcionario.'),
@@ -352,7 +353,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
     try {
       const idFuncionario = Number(request.params.id);
       assertValidId(idFuncionario, 'Funcionário inválido.');
-      const employee = await findTenantEmployee(idFuncionario, idCliente);
+      const employee = await findTenantEmployee(request.tenantDb, idFuncionario, idCliente);
       if (!employee) return reply.code(404).send({ message: 'Registro nao encontrado.' });
 
       const month = request.query.month ?? new Date().toISOString().slice(0, 7);
@@ -363,7 +364,7 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
       const startsAt = new Date(year, monthNumber - 1, 1);
       const endsAt = new Date(year, monthNumber, 1);
 
-      const sessions = await prisma.funcionarioAtividadeAgenda.findMany({
+      const sessions = await request.tenantDb.funcionarioAtividadeAgenda.findMany({
         where: {
           idFuncionario,
           boInativo: false,

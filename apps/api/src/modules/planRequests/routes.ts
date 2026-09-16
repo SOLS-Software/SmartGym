@@ -113,13 +113,13 @@ export async function registerPlanRequestRoutes(app: FastifyInstance) {
         const idAluno = Number(request.params.id);
         assertValidId(idAluno, 'Aluno invalido.');
 
-        const aluno = await prisma.aluno.findFirst({
+        const aluno = await request.tenantDb.aluno.findFirst({
           where: { id: idAluno, idCliente },
           select: { id: true },
         });
         if (!aluno) return reply.code(404).send({ message: 'Registro nao encontrado.' });
 
-        return prisma.solicitacaoPlano.findMany({
+        return request.tenantDb.solicitacaoPlano.findMany({
           // Pedido sem matricula (contratacao) so se acha pelo idAluno; pedido
           // antigo pode ter idAluno nulo e se achar pelo plano. Os dois lados.
           where: {
@@ -150,7 +150,7 @@ export async function registerPlanRequestRoutes(app: FastifyInstance) {
         const idAluno = Number(request.params.id);
         assertValidId(idAluno, 'Aluno invalido.');
 
-        const aluno = await prisma.aluno.findFirst({
+        const aluno = await request.tenantDb.aluno.findFirst({
           where: { id: idAluno, idCliente },
           select: { id: true },
         });
@@ -160,7 +160,7 @@ export async function registerPlanRequestRoutes(app: FastifyInstance) {
         if (idAlunoPlano) {
           // O plano tem que ser DESTE aluno: sem isto, um id adivinhado abriria
           // solicitacao na matricula de outra pessoa.
-          const plano = await prisma.alunoPlano.findFirst({
+          const plano = await request.tenantDb.alunoPlano.findFirst({
             where: { id: idAlunoPlano, idAluno, aluno: { idCliente } },
             select: { id: true },
           });
@@ -179,7 +179,7 @@ export async function registerPlanRequestRoutes(app: FastifyInstance) {
           }
           // O plano tem que ser DESTE cliente — senao o aluno pediria um plano
           // de outra academia.
-          const desejado = await prisma.plano.findFirst({
+          const desejado = await request.tenantDb.plano.findFirst({
             where: { id: idPlanoDesejado, boInativo: false, idCliente },
             select: { id: true },
           });
@@ -188,7 +188,7 @@ export async function registerPlanRequestRoutes(app: FastifyInstance) {
 
         // Um pedido pendente por tipo, POR ALUNO: clicar duas vezes no botao
         // nao vira duas linhas na fila da recepcao.
-        const jaPendente = await prisma.solicitacaoPlano.findFirst({
+        const jaPendente = await request.tenantDb.solicitacaoPlano.findFirst({
           where: {
             cnTipo: parsed.data.cnTipo,
             cnStatus: STATUS_PENDENTE,
@@ -205,14 +205,14 @@ export async function registerPlanRequestRoutes(app: FastifyInstance) {
 
         const idMotivoCancelamento = optionalNumber(parsed.data.idMotivoCancelamento);
         if (idMotivoCancelamento) {
-          const motivo = await prisma.motivoCancelamento.findUnique({
+          const motivo = await request.tenantDb.motivoCancelamento.findUnique({
             where: { id: idMotivoCancelamento },
             select: { id: true },
           });
           if (!motivo) throw new Error('Motivo de cancelamento invalido.');
         }
 
-        const record = await prisma.solicitacaoPlano.create({
+        const record = await request.tenantDb.solicitacaoPlano.create({
           data: {
             idAluno,
             idAlunoPlano,
@@ -245,7 +245,7 @@ export async function registerPlanRequestRoutes(app: FastifyInstance) {
       if (!parsed.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
 
       try {
-        return prisma.solicitacaoPlano.findMany({
+        return request.tenantDb.solicitacaoPlano.findMany({
           where: {
             boInativo: false,
             OR: [{ aluno: { idCliente } }, { alunoPlano: { aluno: { idCliente } } }],
@@ -277,7 +277,7 @@ export async function registerPlanRequestRoutes(app: FastifyInstance) {
         const id = Number(request.params.id);
         assertValidId(id, 'Solicitacao invalida.');
 
-        const solicitacao = await prisma.solicitacaoPlano.findFirst({
+        const solicitacao = await request.tenantDb.solicitacaoPlano.findFirst({
           where: {
             id,
             OR: [{ aluno: { idCliente } }, { alunoPlano: { aluno: { idCliente } } }],

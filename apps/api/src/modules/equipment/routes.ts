@@ -1,5 +1,6 @@
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
+import type { PrismaClient } from '@smartgym/db';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import {
@@ -46,8 +47,8 @@ const visibleScope = (idCliente: number) => ({
 
 export async function registerEquipmentRoutes(app: FastifyInstance) {
   // Equipamento visivel (proprio + legado sem dono) — usado nas leituras.
-  async function findVisibleEquipment(id: number, idCliente: number) {
-    return prisma.equipamento.findFirst({
+  async function findVisibleEquipment(db: PrismaClient, id: number, idCliente: number) {
+    return db.equipamento.findFirst({
       where: { id, ...visibleScope(idCliente) },
       select: { id: true },
     });
@@ -55,8 +56,8 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
 
   // Equipamento do proprio tenant — exigido em qualquer escrita. O super-admin
   // alcanca tambem o catalogo global (idCliente nulo), que e ele quem mantem.
-  async function findOwnedEquipment(id: number, idCliente: number, isSuperAdmin = false) {
-    return prisma.equipamento.findFirst({
+  async function findOwnedEquipment(db: PrismaClient, id: number, idCliente: number, isSuperAdmin = false) {
+    return db.equipamento.findFirst({
       where: isSuperAdmin ? { id, OR: [{ idCliente: null }, { idCliente }] } : { id, idCliente },
       select: { id: true },
     });
@@ -71,7 +72,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
     if (!parsedQuery.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
     const search = parsedQuery.data.search?.trim();
     const take = Math.min(Math.max(parsedQuery.data.limit ?? 1000, 1), 1000);
-    return prisma.equipamento.findMany({
+    return request.tenantDb.equipamento.findMany({
       // O escopo de tenant vai em AND para nao ser sobrescrito pelo OR da busca:
       // dois `OR` no mesmo objeto sao a MESMA chave e o ultimo vence, o que
       // reabriria a listagem para todos os clientes sempre que houvesse ?search=.
@@ -106,7 +107,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
           .code(403)
           .send({ message: 'Catalogo global: alteracao restrita ao administrador do sistema.' });
       }
-      const equipment = await prisma.equipamento.create({
+      const equipment = await request.tenantDb.equipamento.create({
         data: { ...data, idCliente: catalogoGlobal ? null : idCliente },
       });
       return reply.code(201).send(equipment);
@@ -127,7 +128,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       const id = Number(request.params.id);
       assertValidId(id, 'Equipamento invalido.');
       const isSuperAdmin = request.user.superAdmin === true;
-      if (!(await findOwnedEquipment(id, idCliente, isSuperAdmin))) {
+      if (!(await findOwnedEquipment(request.tenantDb, id, idCliente, isSuperAdmin))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const data = normalizeEquipamentoPayload(request.body);
@@ -139,7 +140,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
           .code(403)
           .send({ message: 'Catalogo global: alteracao restrita ao administrador do sistema.' });
       }
-      return prisma.equipamento.update({
+      return request.tenantDb.equipamento.update({
         where: { id },
         data:
           typeof catalogoGlobal === 'boolean'
@@ -162,11 +163,11 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Equipamento invalido.');
-      if (!(await findOwnedEquipment(id, idCliente, request.user.superAdmin === true))) {
+      if (!(await findOwnedEquipment(request.tenantDb, id, idCliente, request.user.superAdmin === true))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const boInativo = toBool(request.body.boInativo);
-      return prisma.equipamento.update({ where: { id }, data: { boInativo } });
+      return request.tenantDb.equipamento.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do equipamento.' });
     }
@@ -182,10 +183,10 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
     try {
       const idEquipamento = Number(request.params.id);
       assertValidId(idEquipamento, 'Equipamento invalido.');
-      if (!(await findVisibleEquipment(idEquipamento, idCliente))) {
+      if (!(await findVisibleEquipment(request.tenantDb, idEquipamento, idCliente))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.equipamentoArquivo.findMany({
+      return request.tenantDb.equipamentoArquivo.findMany({
         where: { idEquipamento, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
       });
@@ -206,7 +207,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       assertValidId(idEquipamento, 'Equipamento invalido.');
 
       // Anexar arquivo e escrita: exige posse, nao basta ser visivel.
-      const equipment = await findOwnedEquipment(idEquipamento, idCliente);
+      const equipment = await findOwnedEquipment(request.tenantDb, idEquipamento, idCliente);
 
       if (!equipment) {
         return reply.code(404).send({ message: 'Equipamento nao encontrado.' });
@@ -231,7 +232,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
         throw new Error(uploadError.message);
       }
 
-      const equipmentFile = await prisma.equipamentoArquivo.create({
+      const equipmentFile = await request.tenantDb.equipamentoArquivo.create({
         data: {
           idEquipamento,
           dsArquivo: file.filename,
@@ -261,11 +262,11 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       assertValidId(idEquipamento, 'Equipamento invalido.');
       assertValidId(fileId, 'Arquivo invalido.');
 
-      if (!(await findVisibleEquipment(idEquipamento, idCliente))) {
+      if (!(await findVisibleEquipment(request.tenantDb, idEquipamento, idCliente))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const equipmentFile = await prisma.equipamentoArquivo.findFirst({
+      const equipmentFile = await request.tenantDb.equipamentoArquivo.findFirst({
         where: { id: fileId, idEquipamento, boInativo: false },
       });
 
@@ -302,11 +303,11 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       assertValidId(idEquipamento, 'Equipamento invalido.');
       assertValidId(fileId, 'Arquivo invalido.');
 
-      if (!(await findOwnedEquipment(idEquipamento, idCliente))) {
+      if (!(await findOwnedEquipment(request.tenantDb, idEquipamento, idCliente))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const existingFile = await prisma.equipamentoArquivo.findFirst({
+      const existingFile = await request.tenantDb.equipamentoArquivo.findFirst({
         where: { id: fileId, idEquipamento, boInativo: false },
       });
 
@@ -314,7 +315,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
       }
 
-      return prisma.equipamentoArquivo.update({
+      return request.tenantDb.equipamentoArquivo.update({
         where: { id: fileId },
         data: { boInativo: true },
       });
@@ -335,10 +336,10 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
     try {
       const idEquipamento = Number(request.params.id);
       assertValidId(idEquipamento, 'Equipamento invalido.');
-      if (!(await findVisibleEquipment(idEquipamento, idCliente))) {
+      if (!(await findVisibleEquipment(request.tenantDb, idEquipamento, idCliente))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.equipamentoManutencao.findMany({
+      return request.tenantDb.equipamentoManutencao.findMany({
         where: { idEquipamento, boInativo: false },
         orderBy: { dtExecucao: 'desc' },
       });
@@ -358,11 +359,11 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
     try {
       const idEquipamento = Number(request.params.id);
       assertValidId(idEquipamento, 'Equipamento invalido.');
-      if (!(await findOwnedEquipment(idEquipamento, idCliente))) {
+      if (!(await findOwnedEquipment(request.tenantDb, idEquipamento, idCliente))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const data = normalizeEquipamentoManutencaoPayload(request.body);
-      const maintenance = await prisma.equipamentoManutencao.create({
+      const maintenance = await request.tenantDb.equipamentoManutencao.create({
         data: { ...data, idEquipamento },
       });
       return reply.code(201).send(maintenance);
@@ -385,11 +386,11 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       assertValidId(idEquipamento, 'Equipamento invalido.');
       assertValidId(maintenanceId, 'Manutencao invalida.');
 
-      if (!(await findOwnedEquipment(idEquipamento, idCliente))) {
+      if (!(await findOwnedEquipment(request.tenantDb, idEquipamento, idCliente))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const existing = await prisma.equipamentoManutencao.findFirst({
+      const existing = await request.tenantDb.equipamentoManutencao.findFirst({
         where: { id: maintenanceId, idEquipamento },
       });
 
@@ -398,7 +399,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       }
 
       const data = normalizeEquipamentoManutencaoPayload(request.body);
-      return prisma.equipamentoManutencao.update({ where: { id: maintenanceId }, data });
+      return request.tenantDb.equipamentoManutencao.update({ where: { id: maintenanceId }, data });
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao atualizar manutencao.'),
@@ -421,10 +422,10 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       // Alem do tenant, confere o vinculo manutencao->equipamento: antes o
       // :maintenanceId ia direto para o update, entao qualquer id de manutencao
       // (de qualquer equipamento, de qualquer cliente) podia ser desativado.
-      if (!(await findOwnedEquipment(idEquipamento, idCliente))) {
+      if (!(await findOwnedEquipment(request.tenantDb, idEquipamento, idCliente))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      const existing = await prisma.equipamentoManutencao.findFirst({
+      const existing = await request.tenantDb.equipamentoManutencao.findFirst({
         where: { id: maintenanceId, idEquipamento },
         select: { id: true },
       });
@@ -433,7 +434,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       }
 
       const boInativo = toBool(request.body.boInativo);
-      return prisma.equipamentoManutencao.update({
+      return request.tenantDb.equipamentoManutencao.update({
         where: { id: maintenanceId },
         data: { boInativo },
       });
@@ -453,11 +454,11 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
       assertValidId(idEquipamento, 'Equipamento invalido.');
       assertValidId(maintenanceId, 'Manutencao invalida.');
 
-      if (!(await findOwnedEquipment(idEquipamento, idCliente))) {
+      if (!(await findOwnedEquipment(request.tenantDb, idEquipamento, idCliente))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const existing = await prisma.equipamentoManutencao.findFirst({
+      const existing = await request.tenantDb.equipamentoManutencao.findFirst({
         where: { id: maintenanceId, idEquipamento },
       });
 
@@ -465,7 +466,7 @@ export async function registerEquipmentRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Manutencao nao encontrada.' });
       }
 
-      return prisma.equipamentoManutencao.update({
+      return request.tenantDb.equipamentoManutencao.update({
         where: { id: maintenanceId },
         data: { boInativo: true },
       });

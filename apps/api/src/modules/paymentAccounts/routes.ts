@@ -243,7 +243,7 @@ export async function registerPaymentAccountRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
 
     try {
-      const contas = await prisma.contaRecebimento.findMany({
+      const contas = await request.tenantDb.contaRecebimento.findMany({
         where: { idCliente },
         select: SELECT,
         // Rede primeiro (idEmpresa nulo), depois por filial. `nulls: 'first'` e
@@ -269,7 +269,7 @@ export async function registerPaymentAccountRoutes(app: FastifyInstance) {
     try {
       const idEmpresa = optionalNumber(parsed.data.idEmpresa) ?? null;
       if (idEmpresa) {
-        const empresa = await prisma.empresa.findFirst({
+        const empresa = await request.tenantDb.empresa.findFirst({
           where: { id: idEmpresa, idCliente },
           select: { id: true },
         });
@@ -323,7 +323,7 @@ export async function registerPaymentAccountRoutes(app: FastifyInstance) {
         const id = Number(request.params.id);
         assertValidId(id, 'Conta invalida.');
 
-        const atual = await prisma.contaRecebimento.findFirst({
+        const atual = await request.tenantDb.contaRecebimento.findFirst({
           where: { id, idCliente },
           select: { id: true, caTokenWebhook: true },
         });
@@ -331,7 +331,7 @@ export async function registerPaymentAccountRoutes(app: FastifyInstance) {
 
         const idEmpresa = optionalNumber(parsed.data.idEmpresa) ?? null;
         if (idEmpresa) {
-          const empresa = await prisma.empresa.findFirst({
+          const empresa = await request.tenantDb.empresa.findFirst({
             where: { id: idEmpresa, idCliente },
             select: { id: true },
           });
@@ -389,7 +389,7 @@ export async function registerPaymentAccountRoutes(app: FastifyInstance) {
         const id = Number(request.params.id);
         assertValidId(id, 'Conta invalida.');
 
-        const atual = await prisma.contaRecebimento.findFirst({
+        const atual = await request.tenantDb.contaRecebimento.findFirst({
           where: { id, idCliente },
           select: { id: true },
         });
@@ -397,7 +397,7 @@ export async function registerPaymentAccountRoutes(app: FastifyInstance) {
 
         const boInativo = request.body?.boInativo === true;
 
-        const conta = await prisma.contaRecebimento.update({
+        const conta = await request.tenantDb.contaRecebimento.update({
           where: { id },
           data: {
             boInativo,

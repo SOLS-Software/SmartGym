@@ -19,7 +19,7 @@ export async function registerLookupRoutes(app: FastifyInstance) {
   app.get('/themes', async (request, reply) => {
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.tema.findMany({
+    return request.tenantDb.tema.findMany({
       take,
       where: {
         boInativo: false,
@@ -35,7 +35,7 @@ export async function registerLookupRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.promocaoPlano.findMany({
+    return request.tenantDb.promocaoPlano.findMany({
       take,
       where: {
         boInativo: false,
@@ -56,7 +56,7 @@ export async function registerLookupRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.pontuacao.findMany({
+    return request.tenantDb.pontuacao.findMany({
       take,
       where: {
         boInativo: false,
@@ -73,7 +73,7 @@ export async function registerLookupRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.alunoTreinoSequencia.findMany({
+    return request.tenantDb.alunoTreinoSequencia.findMany({
       take,
       where: {
         boInativo: false,

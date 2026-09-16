@@ -1,5 +1,6 @@
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
+import type { PrismaClient } from '@smartgym/db';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId, getMultipartFieldValue, normalizeProductPayload } from '../../shared/normalize.js';
@@ -23,12 +24,12 @@ function normalizeText(value: unknown) {
     .toLowerCase();
 }
 
-async function assertIdentificationFileType(idTiposArquivos: number | null) {
+async function assertIdentificationFileType(db: PrismaClient, idTiposArquivos: number | null) {
   if (!idTiposArquivos) {
     throw new Error('Selecione o tipo de arquivo identificacao.');
   }
 
-  const fileType = await prisma.tipoArquivo.findUnique({
+  const fileType = await db.tipoArquivo.findUnique({
     where: { id: idTiposArquivos },
     select: { dsTipo: true, boInativo: true },
   });
@@ -40,16 +41,16 @@ async function assertIdentificationFileType(idTiposArquivos: number | null) {
 
 export async function registerProductRoutes(app: FastifyInstance) {
   // Isolamento de tenant: Produto pertence ao cliente via Empresa.idCliente.
-  async function findTenantProduct(id: number, idCliente: number) {
-    return prisma.produto.findFirst({
+  async function findTenantProduct(db: PrismaClient, id: number, idCliente: number) {
+    return db.produto.findFirst({
       where: { id, empresa: { idCliente } },
       select: { id: true },
     });
   }
 
   // Garante que a empresa informada no payload pertence ao tenant (400 se nao).
-  async function assertCompanyInTenant(idEmpresa: number, idCliente: number) {
-    const company = await prisma.empresa.findFirst({
+  async function assertCompanyInTenant(db: PrismaClient, idEmpresa: number, idCliente: number) {
+    const company = await db.empresa.findFirst({
       where: { id: idEmpresa, idCliente },
       select: { id: true },
     });
@@ -65,7 +66,7 @@ export async function registerProductRoutes(app: FastifyInstance) {
     if (!parsedQuery.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
     const search = parsedQuery.data.search?.trim();
     const take = Math.min(Math.max(parsedQuery.data.limit ?? 1000, 1), 1000);
-    return prisma.produto.findMany({
+    return request.tenantDb.produto.findMany({
       where: search
         ? { empresa: { idCliente }, dsProduto: { contains: search, mode: 'insensitive' } }
         : { empresa: { idCliente } },
@@ -84,8 +85,8 @@ export async function registerProductRoutes(app: FastifyInstance) {
       // Sem empresa o produto fica orfao de tenant (a lista filtra por empresa
       // do cliente e o registro nunca aparece): vinculo obrigatorio.
       if (!data.idEmpresa) throw new Error('Informe a empresa do produto.');
-      await assertCompanyInTenant(data.idEmpresa, idCliente);
-      const product = await prisma.produto.create({ data });
+      await assertCompanyInTenant(request.tenantDb, data.idEmpresa, idCliente);
+      const product = await request.tenantDb.produto.create({ data });
       return reply.code(201).send(product);
     } catch (error) {
       return reply.code(400).send({
@@ -103,12 +104,12 @@ export async function registerProductRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Produto invalido.');
-      const current = await findTenantProduct(id, idCliente);
+      const current = await findTenantProduct(request.tenantDb, id, idCliente);
       if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const data = normalizeProductPayload(request.body);
       if (!data.idEmpresa) throw new Error('Informe a empresa do produto.');
-      await assertCompanyInTenant(data.idEmpresa, idCliente);
-      return prisma.produto.update({ where: { id }, data });
+      await assertCompanyInTenant(request.tenantDb, data.idEmpresa, idCliente);
+      return request.tenantDb.produto.update({ where: { id }, data });
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao atualizar produto.'),
@@ -125,10 +126,10 @@ export async function registerProductRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Produto invalido.');
-      const current = await findTenantProduct(id, idCliente);
+      const current = await findTenantProduct(request.tenantDb, id, idCliente);
       if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const boInativo = toBool(request.body.boInativo);
-      return prisma.produto.update({ where: { id }, data: { boInativo } });
+      return request.tenantDb.produto.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do produto.' });
     }
@@ -140,9 +141,9 @@ export async function registerProductRoutes(app: FastifyInstance) {
     try {
       const idProduto = Number(request.params.id);
       assertValidId(idProduto, 'Produto invalido.');
-      const product = await findTenantProduct(idProduto, idCliente);
+      const product = await findTenantProduct(request.tenantDb, idProduto, idCliente);
       if (!product) return reply.code(404).send({ message: 'Registro nao encontrado.' });
-      return prisma.produtoArquivo.findMany({
+      return request.tenantDb.produtoArquivo.findMany({
         where: { idProduto },
         orderBy: { dtCadastro: 'desc' },
       });
@@ -159,7 +160,7 @@ export async function registerProductRoutes(app: FastifyInstance) {
     try {
       const idProduto = Number(request.params.id);
       assertValidId(idProduto, 'Produto invalido.');
-      const product = await findTenantProduct(idProduto, idCliente);
+      const product = await findTenantProduct(request.tenantDb, idProduto, idCliente);
       if (!product) return reply.code(404).send({ message: 'Registro nao encontrado.' });
 
       const file = await request.file();
@@ -171,7 +172,7 @@ export async function registerProductRoutes(app: FastifyInstance) {
       const fields = file.fields as Record<string, unknown>;
       const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
       const idTiposArquivos = rawFileTypeId ? Number(rawFileTypeId) : null;
-      await assertIdentificationFileType(idTiposArquivos);
+      await assertIdentificationFileType(request.tenantDb, idTiposArquivos);
       const buffer = await file.toBuffer();
       const safeMime = await assertUploadBuffer(buffer);
       const path = getProductFilePath(idProduto, file.filename);
@@ -185,7 +186,7 @@ export async function registerProductRoutes(app: FastifyInstance) {
         throw new Error(uploadError.message);
       }
 
-      return reply.code(201).send(await prisma.produtoArquivo.create({
+      return reply.code(201).send(await request.tenantDb.produtoArquivo.create({
         data: {
           idProduto,
           idTiposArquivos,
@@ -210,9 +211,9 @@ export async function registerProductRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idProduto, 'Produto invalido.');
       assertValidId(childId, 'Arquivo invalido.');
-      const product = await findTenantProduct(idProduto, idCliente);
+      const product = await findTenantProduct(request.tenantDb, idProduto, idCliente);
       if (!product) return reply.code(404).send({ message: 'Registro nao encontrado.' });
-      const current = await prisma.produtoArquivo.findFirst({ where: { id: childId, idProduto }, select: { id: true } });
+      const current = await request.tenantDb.produtoArquivo.findFirst({ where: { id: childId, idProduto }, select: { id: true } });
       if (!current) throw new Error('Arquivo do produto invalido.');
 
       const file = await request.file();
@@ -224,7 +225,7 @@ export async function registerProductRoutes(app: FastifyInstance) {
       const fields = file.fields as Record<string, unknown>;
       const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
       const idTiposArquivos = rawFileTypeId ? Number(rawFileTypeId) : null;
-      await assertIdentificationFileType(idTiposArquivos);
+      await assertIdentificationFileType(request.tenantDb, idTiposArquivos);
       const buffer = await file.toBuffer();
       const safeMime = await assertUploadBuffer(buffer);
       const path = getProductFilePath(idProduto, file.filename);
@@ -238,7 +239,7 @@ export async function registerProductRoutes(app: FastifyInstance) {
         throw new Error(uploadError.message);
       }
 
-      return prisma.produtoArquivo.update({
+      return request.tenantDb.produtoArquivo.update({
         where: { id: childId },
         data: {
           idTiposArquivos,
@@ -261,11 +262,11 @@ export async function registerProductRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idProduto, 'Produto invalido.');
       assertValidId(childId, 'Arquivo invalido.');
-      const product = await findTenantProduct(idProduto, idCliente);
+      const product = await findTenantProduct(request.tenantDb, idProduto, idCliente);
       if (!product) return reply.code(404).send({ message: 'Registro nao encontrado.' });
-      const current = await prisma.produtoArquivo.findFirst({ where: { id: childId, idProduto }, select: { id: true } });
+      const current = await request.tenantDb.produtoArquivo.findFirst({ where: { id: childId, idProduto }, select: { id: true } });
       if (!current) throw new Error('Arquivo do produto invalido.');
-      return prisma.produtoArquivo.update({
+      return request.tenantDb.produtoArquivo.update({
         where: { id: childId },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -284,9 +285,9 @@ export async function registerProductRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idProduto, 'Produto invalido.');
       assertValidId(childId, 'Arquivo invalido.');
-      const product = await findTenantProduct(idProduto, idCliente);
+      const product = await findTenantProduct(request.tenantDb, idProduto, idCliente);
       if (!product) return reply.code(404).send({ message: 'Registro nao encontrado.' });
-      const productFile = await prisma.produtoArquivo.findFirst({ where: { id: childId, idProduto, boInativo: false } });
+      const productFile = await request.tenantDb.produtoArquivo.findFirst({ where: { id: childId, idProduto, boInativo: false } });
       if (!productFile) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
       const { bucket } = getSupabaseConfig();
       const supabase = getSupabaseClient();
@@ -308,11 +309,11 @@ export async function registerProductRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idProduto, 'Produto invalido.');
       assertValidId(childId, 'Arquivo invalido.');
-      const product = await findTenantProduct(idProduto, idCliente);
+      const product = await findTenantProduct(request.tenantDb, idProduto, idCliente);
       if (!product) return reply.code(404).send({ message: 'Registro nao encontrado.' });
-      const current = await prisma.produtoArquivo.findFirst({ where: { id: childId, idProduto }, select: { id: true } });
+      const current = await request.tenantDb.produtoArquivo.findFirst({ where: { id: childId, idProduto }, select: { id: true } });
       if (!current) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
-      return prisma.produtoArquivo.update({ where: { id: childId }, data: { boInativo: true } });
+      return request.tenantDb.produtoArquivo.update({ where: { id: childId }, data: { boInativo: true } });
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao remover arquivo do produto.'),

@@ -59,7 +59,7 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
       });
       const nomeAcademia = cliente?.dsCliente ?? 'SmartGym';
 
-      const alunos = await prisma.aluno.findMany({
+      const alunos = await request.tenantDb.aluno.findMany({
         where: { idCliente, boInativo: false },
         take: parsed.data.limit ?? 500,
         select: { id: true, nmAluno: true, anEmail: true },
@@ -125,7 +125,7 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
 
               // Marca DEPOIS do envio: se o email falhar, o aviso continua
               // pendente e entra na proxima rodada.
-              await prisma.notificacao.update({
+              await request.tenantDb.notificacao.update({
                 where: { id: aviso.id },
                 data: { dtEnvioEmail: new Date() },
               });
@@ -211,7 +211,7 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
         }
 
         if (entregues.size > 0) {
-          await prisma.notificacao.updateMany({
+          await request.tenantDb.notificacao.updateMany({
             where: { id: { in: [...entregues] } },
             data: { dtEnvioPush: new Date() },
           });

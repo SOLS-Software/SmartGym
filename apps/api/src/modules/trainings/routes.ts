@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
+import type { PrismaClient } from '@smartgym/db';
 import { prisma } from '../../shared/prisma.js';
 import {
   normalizeTrainingPayload,
@@ -91,18 +92,18 @@ function tenantCompanyWhere(idCliente: number) {
   return { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] };
 }
 
-async function assertCompanyInTenant(idCliente: number, idEmpresa: number | null | undefined) {
+async function assertCompanyInTenant(db: PrismaClient, idCliente: number, idEmpresa: number | null | undefined) {
   if (idEmpresa == null) return;
-  const company = await prisma.empresa.findFirst({
+  const company = await db.empresa.findFirst({
     where: { id: idEmpresa, idCliente },
     select: { id: true },
   });
   if (!company) throw new Error('Empresa nao pertence ao cliente.');
 }
 
-async function assertExerciseInTenant(idCliente: number, idExercicio: number | null | undefined) {
+async function assertExerciseInTenant(db: PrismaClient, idCliente: number, idExercicio: number | null | undefined) {
   if (idExercicio == null) return;
-  const exercise = await prisma.exercicio.findFirst({
+  const exercise = await db.exercicio.findFirst({
     where: { id: idExercicio, ...tenantCompanyWhere(idCliente) },
     select: { id: true },
   });
@@ -111,7 +112,7 @@ async function assertExerciseInTenant(idCliente: number, idExercicio: number | n
 
 async function attachExerciseCoversToTrainingExercises<
   T extends { idExercicio: number | null; exercicio: { id: number } | null },
->(records: T[], idCliente: number) {
+>(db: PrismaClient, records: T[], idCliente: number) {
   const exerciseIds = records
     .map((record) => record.exercicio?.id)
     .filter((id): id is number => typeof id === 'number');
@@ -126,17 +127,17 @@ async function attachExerciseCoversToTrainingExercises<
   }
 
   const [files, areaLinks, equipmentLinks] = await Promise.all([
-    prisma.exercicioArquivo.findMany({
+    db.exercicioArquivo.findMany({
       where: { idExercicio: { in: exerciseIds }, boInativo: false },
       orderBy: { dtCadastro: 'asc' },
     }),
-    prisma.exercicioAreaCorporal.findMany({
+    db.exercicioAreaCorporal.findMany({
       where: { idExercicio: { in: exerciseIds }, boInativo: false },
       include: { areaCorporal: true },
     }),
     // Mesmo criterio de exercises/routes.ts: equipamento vem em lote para o
     // card, filtrado pelo que o tenant enxerga (proprio + catalogo global).
-    prisma.exercicioEquipamento.findMany({
+    db.exercicioEquipamento.findMany({
       where: {
         idExercicio: { in: exerciseIds },
         boInativo: false,
@@ -218,7 +219,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
     const includeInactive = parsedQuery.data.includeInactive === 'true';
     const search = parsedQuery.data.search?.trim();
 
-    return prisma.treino.findMany({
+    return request.tenantDb.treino.findMany({
       where: {
         ...(includeInactive ? {} : { boInativo: false }),
         ...(search ? { dsTreino: { contains: search, mode: 'insensitive' } } : {}),
@@ -237,8 +238,8 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const data = normalizeTrainingPayload(request.body);
-      await assertCompanyInTenant(idCliente, data.idEmpresa);
-      const existing = await prisma.treino.findFirst({
+      await assertCompanyInTenant(request.tenantDb, idCliente, data.idEmpresa);
+      const existing = await request.tenantDb.treino.findFirst({
         where: {
           dsTreino: { equals: data.dsTreino, mode: 'insensitive' },
           ...trainingTenantWhere(idCliente),
@@ -249,7 +250,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
         return reply.code(400).send({ message: 'Já existe um treino com este nome.' });
       }
       // Tenant SEMPRE do token, nunca do body.
-      const training = await prisma.treino.create({ data: { ...data, idCliente } });
+      const training = await request.tenantDb.treino.create({ data: { ...data, idCliente } });
       return reply.code(201).send(training);
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
@@ -268,7 +269,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Treino invalido.');
-      const current = await prisma.treino.findFirst({
+      const current = await request.tenantDb.treino.findFirst({
         where: { id, ...trainingTenantWhere(idCliente) },
         select: { id: true },
       });
@@ -276,8 +277,8 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const data = normalizeTrainingPayload(request.body);
-      await assertCompanyInTenant(idCliente, data.idEmpresa);
-      const existing = await prisma.treino.findFirst({
+      await assertCompanyInTenant(request.tenantDb, idCliente, data.idEmpresa);
+      const existing = await request.tenantDb.treino.findFirst({
         where: {
           dsTreino: { equals: data.dsTreino, mode: 'insensitive' },
           id: { not: id },
@@ -288,7 +289,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       if (existing) {
         return reply.code(400).send({ message: 'Já existe um treino com este nome.' });
       }
-      return prisma.treino.update({ where: { id }, data });
+      return request.tenantDb.treino.update({ where: { id }, data });
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
@@ -310,7 +311,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       if (!parsedBody.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      const current = await prisma.treino.findFirst({
+      const current = await request.tenantDb.treino.findFirst({
         where: { id, ...trainingTenantWhere(idCliente) },
         select: { id: true },
       });
@@ -318,7 +319,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const boInativo = toBool(parsedBody.data.boInativo);
-      return prisma.treino.update({ where: { id }, data: { boInativo } });
+      return request.tenantDb.treino.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do treino.' });
     }
@@ -339,14 +340,14 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       if (!parsedQuery.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      const training = await prisma.treino.findFirst({
+      const training = await request.tenantDb.treino.findFirst({
         where: { id: idTreino, ...trainingTenantWhere(idCliente) },
         select: { id: true },
       });
       if (!training) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      const records = await prisma.treinoExercicio.findMany({
+      const records = await request.tenantDb.treinoExercicio.findMany({
         where: { idTreino },
         orderBy: { nrOrdem: 'asc' },
         include: { exercicio: true, unidadeMedida: true },
@@ -357,7 +358,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
         return records;
       }
 
-      return attachExerciseCoversToTrainingExercises(records, idCliente);
+      return attachExerciseCoversToTrainingExercises(request.tenantDb, records, idCliente);
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao listar exercicios do treino.'),
@@ -375,7 +376,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       const idTreino = Number(request.params.id);
       assertValidId(idTreino, 'Treino invalido.');
 
-      const training = await prisma.treino.findFirst({
+      const training = await request.tenantDb.treino.findFirst({
         where: { id: idTreino, ...trainingTenantWhere(idCliente) },
         select: { id: true, idEmpresa: true },
       });
@@ -389,9 +390,9 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       }
       const idExercicioNovo = optionalNumber(request.body.idExercicio);
       if (!idExercicioNovo) throw new Error('Selecione o exercicio.');
-      await assertCompanyInTenant(idCliente, optionalNumber(request.body.idEmpresa));
-      await assertExerciseInTenant(idCliente, idExercicioNovo);
-      const record = await prisma.treinoExercicio.create({
+      await assertCompanyInTenant(request.tenantDb, idCliente, optionalNumber(request.body.idEmpresa));
+      await assertExerciseInTenant(request.tenantDb, idCliente, idExercicioNovo);
+      const record = await request.tenantDb.treinoExercicio.create({
         data: {
           idTreino,
           idEmpresa: optionalNumber(request.body.idEmpresa) ?? training.idEmpresa,
@@ -428,7 +429,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       assertValidId(idTreino, 'Treino invalido.');
       assertValidId(childId, 'Exercicio do treino invalido.');
 
-      const training = await prisma.treino.findFirst({
+      const training = await request.tenantDb.treino.findFirst({
         where: { id: idTreino, ...trainingTenantWhere(idCliente) },
         select: { idEmpresa: true },
       });
@@ -437,7 +438,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const current = await prisma.treinoExercicio.findFirst({
+      const current = await request.tenantDb.treinoExercicio.findFirst({
         where: { id: childId, idTreino },
         select: { id: true },
       });
@@ -451,9 +452,9 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       }
       const idExercicioEdit = optionalNumber(request.body.idExercicio);
       if (!idExercicioEdit) throw new Error('Selecione o exercicio.');
-      await assertCompanyInTenant(idCliente, optionalNumber(request.body.idEmpresa));
-      await assertExerciseInTenant(idCliente, idExercicioEdit);
-      return prisma.treinoExercicio.update({
+      await assertCompanyInTenant(request.tenantDb, idCliente, optionalNumber(request.body.idEmpresa));
+      await assertExerciseInTenant(request.tenantDb, idCliente, idExercicioEdit);
+      return request.tenantDb.treinoExercicio.update({
         where: { id: childId },
         data: {
           idEmpresa: optionalNumber(request.body.idEmpresa) ?? training?.idEmpresa ?? null,
@@ -488,7 +489,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       assertValidId(idTreino, 'Treino invalido.');
       assertValidId(childId, 'Exercicio do treino invalido.');
 
-      const training = await prisma.treino.findFirst({
+      const training = await request.tenantDb.treino.findFirst({
         where: { id: idTreino, ...trainingTenantWhere(idCliente) },
         select: { id: true },
       });
@@ -497,7 +498,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
 
-      const current = await prisma.treinoExercicio.findFirst({
+      const current = await request.tenantDb.treinoExercicio.findFirst({
         where: { id: childId, idTreino },
         select: { id: true },
       });
@@ -510,7 +511,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       if (!parsedBody.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      return prisma.treinoExercicio.update({
+      return request.tenantDb.treinoExercicio.update({
         where: { id: childId },
         data: { boInativo: toBool(parsedBody.data.boInativo) },
       });

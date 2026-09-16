@@ -71,7 +71,7 @@ export async function registerTimeClockRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ message: 'Dados invalidos.' });
 
     try {
-      const funcionario = await prisma.funcionario.findUnique({
+      const funcionario = await request.tenantDb.funcionario.findUnique({
         where: { id: idFuncionario },
         select: { id: true, idEmpresa: true, empresa: { select: { idCliente: true } } },
       });
@@ -81,7 +81,7 @@ export async function registerTimeClockRoutes(app: FastifyInstance) {
       // unidades bate em cada uma, mas nao em unidade de outra academia.
       let idEmpresa = optionalNumber(parsed.data.idEmpresa) ?? funcionario.idEmpresa;
       if (idEmpresa && funcionario.empresa?.idCliente) {
-        const empresa = await prisma.empresa.findFirst({
+        const empresa = await request.tenantDb.empresa.findFirst({
           where: { id: idEmpresa, idCliente: funcionario.empresa.idCliente },
           select: { id: true },
         });
@@ -91,7 +91,7 @@ export async function registerTimeClockRoutes(app: FastifyInstance) {
       const inicioDoDia = new Date();
       inicioDoDia.setHours(0, 0, 0, 0);
 
-      const ultima = await prisma.funcionarioPonto.findFirst({
+      const ultima = await request.tenantDb.funcionarioPonto.findFirst({
         where: { idFuncionario, boInativo: false, dtRegistro: { gte: inicioDoDia } },
         orderBy: { dtRegistro: 'desc' },
         select: { id: true, cnTipo: true, dtRegistro: true },
@@ -104,7 +104,7 @@ export async function registerTimeClockRoutes(app: FastifyInstance) {
         return reply.code(200).send({ ...ultima, repetida: true });
       }
 
-      const registro = await prisma.funcionarioPonto.create({
+      const registro = await request.tenantDb.funcionarioPonto.create({
         data: {
           idFuncionario,
           idEmpresa,
@@ -135,7 +135,7 @@ export async function registerTimeClockRoutes(app: FastifyInstance) {
       try {
         const { inicio, fim } = resolveRange(parsed.data.from, parsed.data.to);
 
-        const batidas = await prisma.funcionarioPonto.findMany({
+        const batidas = await request.tenantDb.funcionarioPonto.findMany({
           where: { idFuncionario, boInativo: false, dtRegistro: { gte: inicio, lte: fim } },
           orderBy: { dtRegistro: 'asc' },
         });
@@ -146,7 +146,7 @@ export async function registerTimeClockRoutes(app: FastifyInstance) {
         // o funcionario nao sabe se esta chegando ou saindo.
         const inicioDoDia = new Date();
         inicioDoDia.setHours(0, 0, 0, 0);
-        const ultimaHoje = await prisma.funcionarioPonto.findFirst({
+        const ultimaHoje = await request.tenantDb.funcionarioPonto.findFirst({
           where: { idFuncionario, boInativo: false, dtRegistro: { gte: inicioDoDia } },
           orderBy: { dtRegistro: 'desc' },
           select: { id: true, cnTipo: true, dtRegistro: true },
@@ -181,7 +181,7 @@ export async function registerTimeClockRoutes(app: FastifyInstance) {
       try {
         const { inicio, fim } = resolveRange(parsed.data.from, parsed.data.to);
 
-        const batidas = await prisma.funcionarioPonto.findMany({
+        const batidas = await request.tenantDb.funcionarioPonto.findMany({
           where: {
             boInativo: false,
             dtRegistro: { gte: inicio, lte: fim },
@@ -250,7 +250,7 @@ export async function registerTimeClockRoutes(app: FastifyInstance) {
       const idFuncionario = Number(parsed.data.idFuncionario);
       assertValidId(idFuncionario, 'Funcionario invalido.');
 
-      const funcionario = await prisma.funcionario.findFirst({
+      const funcionario = await request.tenantDb.funcionario.findFirst({
         where: { id: idFuncionario, empresa: { idCliente } },
         select: { id: true, idEmpresa: true },
       });
@@ -268,14 +268,14 @@ export async function registerTimeClockRoutes(app: FastifyInstance) {
 
       let idEmpresa = optionalNumber(parsed.data.idEmpresa) ?? funcionario.idEmpresa;
       if (idEmpresa) {
-        const empresa = await prisma.empresa.findFirst({
+        const empresa = await request.tenantDb.empresa.findFirst({
           where: { id: idEmpresa, idCliente },
           select: { id: true },
         });
         if (!empresa) idEmpresa = funcionario.idEmpresa;
       }
 
-      const registro = await prisma.funcionarioPonto.create({
+      const registro = await request.tenantDb.funcionarioPonto.create({
         data: {
           idFuncionario,
           idEmpresa,
@@ -306,13 +306,13 @@ export async function registerTimeClockRoutes(app: FastifyInstance) {
       const id = Number(request.params.id);
       assertValidId(id, 'Batida invalida.');
 
-      const batida = await prisma.funcionarioPonto.findFirst({
+      const batida = await request.tenantDb.funcionarioPonto.findFirst({
         where: { id, ...tenantScope(idCliente) },
         select: { id: true },
       });
       if (!batida) return reply.code(404).send({ message: 'Registro nao encontrado.' });
 
-      return await prisma.funcionarioPonto.update({
+      return await request.tenantDb.funcionarioPonto.update({
         where: { id },
         data: { boInativo: true, idUsuarioAlteracao: request.user.sub },
       });

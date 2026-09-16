@@ -97,7 +97,11 @@ async function readConexao(idCliente: number): Promise<ClienteConexaoRow | null>
 // ate alguem reiniciar a API. Um rollback que exige restart nao e rollback —
 // e justamente na hora em que se precisa dele que ninguem quer derrubar o
 // processo. Com prazo, o resolver relê o registro e a virada acontece sozinha.
-type EntradaCache = { client: PrismaClient; url: string; expiraEm: number };
+// `url: null` = "este tenant NAO tem banco dedicado, usa o pool". Guardar essa
+// resposta e tao importante quanto guardar o client: sem ela, o caso comum —
+// todo mundo no pool — consultaria o control plane a CADA request, trocando um
+// resolver barato por uma consulta a mais em toda chamada da API.
+type EntradaCache = { client: PrismaClient; url: string | null; expiraEm: number };
 
 const tenantDbCache = new Map<number, EntradaCache>();
 
@@ -110,6 +114,9 @@ const TTL_MS = Number(process.env.TENANT_DB_CACHE_TTL_MS ?? 60_000);
 const CARENCIA_DESCONEXAO_MS = 30_000;
 
 function descartar(entrada: EntradaCache): void {
+  // Entrada negativa nao tem client proprio: aponta para o `prisma` global, que
+  // tem ciclo de vida proprio e nunca deve ser desconectado aqui.
+  if (entrada.url === null) return;
   const timer = setTimeout(() => {
     void entrada.client.$disconnect().catch(() => {});
   }, CARENCIA_DESCONEXAO_MS);
@@ -127,12 +134,11 @@ export async function getTenantDb(idCliente: number): Promise<PrismaClient> {
 
   const { databaseUrl } = resolveTenantDataSource(await readConexao(idCliente));
 
-  // Override removido/desativado: volta ao pool e derruba o client dedicado.
+  // Override ausente/desativado: volta ao pool, derruba o client dedicado que
+  // existia e GUARDA a resposta negativa (ver EntradaCache).
   if (!databaseUrl) {
-    if (cached) {
-      tenantDbCache.delete(idCliente);
-      descartar(cached);
-    }
+    if (cached) descartar(cached);
+    tenantDbCache.set(idCliente, { client: prisma, url: null, expiraEm: agora + TTL_MS });
     return prisma; // default pool — comportamento de hoje
   }
 

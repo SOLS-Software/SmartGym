@@ -1,5 +1,6 @@
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
+import type { PrismaClient } from '@smartgym/db';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId } from '../../shared/normalize.js';
@@ -74,8 +75,8 @@ function clampLimit(value?: string) {
 }
 
 // Valida que a empresa informada (query ou payload) pertence ao tenant do usuario.
-async function assertEmpresaInTenant(idEmpresa: number, idCliente: number) {
-  const empresa = await prisma.empresa.findFirst({
+async function assertEmpresaInTenant(db: PrismaClient, idEmpresa: number, idCliente: number) {
+  const empresa = await db.empresa.findFirst({
     where: { id: idEmpresa, idCliente },
     select: { id: true },
   });
@@ -106,9 +107,9 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
     try {
       const { dtInicial, dtFinal, idAtividade, idEsporte, idFuncionario, idEmpresa, idCategoria } = request.query;
 
-      if (idEmpresa) await assertEmpresaInTenant(Number(idEmpresa), idCliente);
+      if (idEmpresa) await assertEmpresaInTenant(request.tenantDb, Number(idEmpresa), idCliente);
 
-      const sessions = await prisma.atividadeAgenda.findMany({
+      const sessions = await request.tenantDb.atividadeAgenda.findMany({
         where: {
           empresa: { idCliente },
           ...(idEmpresa ? { idEmpresa: Number(idEmpresa) } : {}),
@@ -193,19 +194,19 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       const idAgenda = Number(request.params.id);
       assertValidId(idAgenda, 'Agenda inválida.');
 
-      const session = await prisma.atividadeAgenda.findFirst({
+      const session = await request.tenantDb.atividadeAgenda.findFirst({
         where: { id: idAgenda, empresa: { idCliente } },
         select: { id: true },
       });
       if (!session) return reply.code(404).send({ message: 'Registro nao encontrado.' });
 
       const [enrollments, checkIns] = await Promise.all([
-        prisma.alunoAtividadeAgenda.findMany({
+        request.tenantDb.alunoAtividadeAgenda.findMany({
           where: { idAtividadeAgenda: idAgenda, boInativo: false },
           include: { aluno: { select: { id: true, nmAluno: true, caCPF: true } } },
           take: clampLimit(request.query.limit),
         }),
-        prisma.alunoCheckIn.findMany({
+        request.tenantDb.alunoCheckIn.findMany({
           where: { idAtividadeAgenda: idAgenda, boInativo: false },
           select: { idAluno: true },
         }),
@@ -244,7 +245,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       assertValidId(idAgenda, 'Agenda inválida.');
       assertValidId(idAluno, 'Aluno inválido.');
 
-      const session = await prisma.atividadeAgenda.findFirst({
+      const session = await request.tenantDb.atividadeAgenda.findFirst({
         where: { id: idAgenda, boInativo: false, empresa: { idCliente } },
         include: {
           atividade: { select: { dsAtividade: true } },
@@ -254,13 +255,13 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
 
       if (!session) return reply.code(404).send({ message: 'Agenda não encontrada ou inativa.' });
 
-      const aluno = await prisma.aluno.findFirst({
+      const aluno = await request.tenantDb.aluno.findFirst({
         where: { id: idAluno, idCliente },
         select: { id: true },
       });
       if (!aluno) return reply.code(400).send({ message: 'Aluno nao pertence ao cliente.' });
 
-      if (request.body.idEmpresa) await assertEmpresaInTenant(Number(request.body.idEmpresa), idCliente);
+      if (request.body.idEmpresa) await assertEmpresaInTenant(request.tenantDb, Number(request.body.idEmpresa), idCliente);
 
       if (session.dtInicial) {
         const today = new Date();
@@ -291,7 +292,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
         },
       ]);
 
-      const enrollment = await prisma.alunoAtividadeAgenda.create({
+      const enrollment = await request.tenantDb.alunoAtividadeAgenda.create({
         data: {
           idAtividadeAgenda: idAgenda,
           idAluno,
@@ -324,7 +325,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       assertValidId(idAgenda, 'Agenda inválida.');
       assertValidId(idAluno, 'Aluno inválido.');
 
-      const session = await prisma.atividadeAgenda.findFirst({
+      const session = await request.tenantDb.atividadeAgenda.findFirst({
         where: { id: idAgenda, empresa: { idCliente } },
         select: { id: true, dtInicial: true },
       });
@@ -343,13 +344,13 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
         }
       }
 
-      const enrollment = await prisma.alunoAtividadeAgenda.findFirst({
+      const enrollment = await request.tenantDb.alunoAtividadeAgenda.findFirst({
         where: { idAtividadeAgenda: idAgenda, idAluno, boInativo: false },
       });
 
       if (!enrollment) return reply.code(404).send({ message: 'Inscrição não encontrada.' });
 
-      await prisma.alunoAtividadeAgenda.update({
+      await request.tenantDb.alunoAtividadeAgenda.update({
         where: { id: enrollment.id },
         data: { boInativo: true },
       });
@@ -378,22 +379,22 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       assertValidId(idAgenda, 'Agenda inválida.');
       assertValidId(idAluno, 'Aluno inválido.');
 
-      const session = await prisma.atividadeAgenda.findFirst({
+      const session = await request.tenantDb.atividadeAgenda.findFirst({
         where: { id: idAgenda, empresa: { idCliente } },
         select: { id: true, idEmpresa: true },
       });
 
       if (!session) return reply.code(404).send({ message: 'Agenda não encontrada.' });
 
-      if (request.body.idEmpresa) await assertEmpresaInTenant(Number(request.body.idEmpresa), idCliente);
+      if (request.body.idEmpresa) await assertEmpresaInTenant(request.tenantDb, Number(request.body.idEmpresa), idCliente);
 
-      const enrollment = await prisma.alunoAtividadeAgenda.findFirst({
+      const enrollment = await request.tenantDb.alunoAtividadeAgenda.findFirst({
         where: { idAtividadeAgenda: idAgenda, idAluno, boInativo: false },
       });
 
       if (!enrollment) return reply.code(404).send({ message: 'Aluno não está inscrito nesta agenda.' });
 
-      const existing = await prisma.alunoCheckIn.findFirst({
+      const existing = await request.tenantDb.alunoCheckIn.findFirst({
         where: { idAtividadeAgenda: idAgenda, idAluno, boInativo: false },
       });
 
@@ -403,7 +404,7 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
         ? Number(request.body.idEmpresa)
         : session.idEmpresa;
 
-      const checkIn = await prisma.alunoCheckIn.create({
+      const checkIn = await request.tenantDb.alunoCheckIn.create({
         data: {
           idAtividadeAgenda: idAgenda,
           idAluno,
@@ -445,13 +446,13 @@ export async function registerAgendaRoutes(app: FastifyInstance) {
       const idAgenda = Number(request.params.id);
       assertValidId(idAgenda, 'Agenda inválida.');
 
-      const session = await prisma.atividadeAgenda.findFirst({
+      const session = await request.tenantDb.atividadeAgenda.findFirst({
         where: { id: idAgenda, empresa: { idCliente } },
         select: { id: true },
       });
       if (!session) return reply.code(404).send({ message: 'Registro nao encontrado.' });
 
-      return await prisma.atividadeAgenda.update({
+      return await request.tenantDb.atividadeAgenda.update({
         where: { id: idAgenda },
         data: { boInativo: toBool(request.body.boInativo) },
       });

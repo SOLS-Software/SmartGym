@@ -44,7 +44,7 @@ export async function registerCashierRoutes(app: FastifyInstance) {
 
       try {
         if (parsed.data.idEmpresa) {
-          const empresa = await prisma.empresa.findFirst({
+          const empresa = await request.tenantDb.empresa.findFirst({
             where: { id: parsed.data.idEmpresa, idCliente },
             select: { id: true },
           });
@@ -53,7 +53,7 @@ export async function registerCashierRoutes(app: FastifyInstance) {
 
         const idPendente = await getStatusIdByName(prisma, 'Pendente');
 
-        const cobrancas = await prisma.pagamento.findMany({
+        const cobrancas = await request.tenantDb.pagamento.findMany({
           where: {
             boInativo: false,
             ...(idPendente ? { idStatusPagamento: idPendente } : {}),
@@ -120,7 +120,7 @@ export async function registerCashierRoutes(app: FastifyInstance) {
         const id = Number(request.params.id);
         assertValidId(id, 'Cobranca invalida.');
 
-        const cobranca = await prisma.pagamento.findFirst({
+        const cobranca = await request.tenantDb.pagamento.findFirst({
           where: { id, boInativo: false, empresa: { idCliente } },
           select: { id: true, idStatusPagamento: true, vlPrevisto: true },
         });
@@ -148,7 +148,7 @@ export async function registerCashierRoutes(app: FastifyInstance) {
 
         const idFormaPagamento = optionalNumber(parsed.data.idFormaPagamento);
         if (idFormaPagamento) {
-          const forma = await prisma.formaPagamento.findUnique({
+          const forma = await request.tenantDb.formaPagamento.findUnique({
             where: { id: idFormaPagamento },
             select: { id: true },
           });
@@ -157,7 +157,7 @@ export async function registerCashierRoutes(app: FastifyInstance) {
 
         const idContaRecebimento = optionalNumber(parsed.data.idContaRecebimento);
         if (idContaRecebimento) {
-          const conta = await prisma.contaRecebimento.findFirst({
+          const conta = await request.tenantDb.contaRecebimento.findFirst({
             where: { id: idContaRecebimento, idCliente },
             select: { id: true },
           });
@@ -178,7 +178,7 @@ export async function registerCashierRoutes(app: FastifyInstance) {
           return reply.code(400).send({ message: 'Nao e possivel dar baixa com data futura.' });
         }
 
-        return await prisma.pagamento.update({
+        return await request.tenantDb.pagamento.update({
           where: { id },
           data: {
             idStatusPagamento: idPago,
@@ -215,7 +215,7 @@ export async function registerCashierRoutes(app: FastifyInstance) {
       const id = Number(request.params.id);
       assertValidId(id, 'Cobranca invalida.');
 
-      const cobranca = await prisma.pagamento.findFirst({
+      const cobranca = await request.tenantDb.pagamento.findFirst({
         where: { id, boInativo: false, empresa: { idCliente } },
         select: { id: true, idStatusPagamento: true },
       });
@@ -232,7 +232,7 @@ export async function registerCashierRoutes(app: FastifyInstance) {
         return reply.code(409).send({ message: 'Esta cobranca nao esta paga.' });
       }
 
-      return await prisma.pagamento.update({
+      return await request.tenantDb.pagamento.update({
         where: { id },
         data: {
           idStatusPagamento: idPendente,

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type { PrismaClient } from '@smartgym/db';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId } from '../../shared/normalize.js';
@@ -18,8 +19,8 @@ const statusBodySchema = z.object({
 });
 
 export async function registerAccessProfileRoutes(app: FastifyInstance) {
-  async function findTenantProfile(id: number, idCliente: number) {
-    return prisma.perfilAcesso.findFirst({ where: { id, idCliente }, select: { id: true, boPadrao: true } });
+  async function findTenantProfile(db: PrismaClient, id: number, idCliente: number) {
+    return db.perfilAcesso.findFirst({ where: { id, idCliente }, select: { id: true, boPadrao: true } });
   }
 
   // Catalogo de permissoes que a tela de perfis renderiza. Vem do servidor (e
@@ -45,7 +46,7 @@ export async function registerAccessProfileRoutes(app: FastifyInstance) {
     // perfil nenhum e a tela abriria vazia, sem caminho obvio de saida.
     await ensureDefaultProfiles(prisma, idCliente);
 
-    const profiles = await prisma.perfilAcesso.findMany({
+    const profiles = await request.tenantDb.perfilAcesso.findMany({
       where: { idCliente },
       orderBy: [{ boInativo: 'asc' }, { dsPerfil: 'asc' }],
       include: {
@@ -73,7 +74,7 @@ export async function registerAccessProfileRoutes(app: FastifyInstance) {
 
     try {
       const permissions = sanitizePermissions(parsed.data.permissoes);
-      const profile = await prisma.perfilAcesso.create({
+      const profile = await request.tenantDb.perfilAcesso.create({
         data: {
           // O tenant vem SEMPRE do token — nunca do body.
           idCliente,
@@ -101,7 +102,7 @@ export async function registerAccessProfileRoutes(app: FastifyInstance) {
       try {
         const id = Number(request.params.id);
         assertValidId(id, 'Perfil invalido.');
-        const current = await findTenantProfile(id, idCliente);
+        const current = await findTenantProfile(request.tenantDb, id, idCliente);
         if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
 
         const permissions = sanitizePermissions(parsed.data.permissoes);
@@ -141,7 +142,7 @@ export async function registerAccessProfileRoutes(app: FastifyInstance) {
       try {
         const id = Number(request.params.id);
         assertValidId(id, 'Perfil invalido.');
-        const current = await findTenantProfile(id, idCliente);
+        const current = await findTenantProfile(request.tenantDb, id, idCliente);
         if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
 
         const inativo = toBool(parsed.data.boInativo);
@@ -150,7 +151,7 @@ export async function registerAccessProfileRoutes(app: FastifyInstance) {
         // hook trata perfil inativo como perfil ausente). Avisar aqui e melhor
         // do que o gerente descobrir pela recepcao ligando.
         if (inativo) {
-          const employees = await prisma.funcionario.count({
+          const employees = await request.tenantDb.funcionario.count({
             where: { idPerfilAcesso: id, boInativo: false },
           });
           if (employees > 0) {
@@ -160,7 +161,7 @@ export async function registerAccessProfileRoutes(app: FastifyInstance) {
           }
         }
 
-        return await prisma.perfilAcesso.update({ where: { id }, data: { boInativo: inativo } });
+        return await request.tenantDb.perfilAcesso.update({ where: { id }, data: { boInativo: inativo } });
       } catch (error) {
         return reply.code(400).send({
           message: clientErrorMessage(error, 'Erro ao atualizar status do perfil.'),

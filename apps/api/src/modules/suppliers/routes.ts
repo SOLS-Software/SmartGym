@@ -1,7 +1,7 @@
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { prisma } from '../../shared/prisma.js';
+import type { PrismaClient } from '@smartgym/db';
 import { assertValidId, normalizeFornecedorPayload } from '../../shared/normalize.js';
 import type { FornecedorPayload } from '../../shared/api-types.js';
 import { clientErrorMessage } from '../../shared/errors.js';
@@ -18,8 +18,8 @@ export async function registerSupplierRoutes(app: FastifyInstance) {
   // Isolamento de tenant: Fornecedor pertence direto ao CLIENTE (rede) — fica
   // disponivel para todas as filiais; a filial da compra e registrada na
   // propria movimentacao (ProdutoMovimentacao.idEmpresa).
-  async function findTenantSupplier(id: number, idCliente: number) {
-    return prisma.fornecedor.findFirst({
+  async function findTenantSupplier(db: PrismaClient, id: number, idCliente: number) {
+    return db.fornecedor.findFirst({
       where: { id, idCliente },
       select: { id: true },
     });
@@ -34,7 +34,7 @@ export async function registerSupplierRoutes(app: FastifyInstance) {
     if (!parsedQuery.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
     const search = parsedQuery.data.search?.trim();
     const take = Math.min(Math.max(parsedQuery.data.limit ?? 1000, 1), 1000);
-    return prisma.fornecedor.findMany({
+    return request.tenantDb.fornecedor.findMany({
       where: search
         ? { idCliente, dsFornecedor: { contains: search, mode: 'insensitive' } }
         : { idCliente },
@@ -51,7 +51,7 @@ export async function registerSupplierRoutes(app: FastifyInstance) {
     try {
       const data = normalizeFornecedorPayload(request.body);
       // O tenant vem SEMPRE do token — nunca do body.
-      const supplier = await prisma.fornecedor.create({ data: { ...data, idCliente } });
+      const supplier = await request.tenantDb.fornecedor.create({ data: { ...data, idCliente } });
       return reply.code(201).send(supplier);
     } catch (error) {
       return reply.code(400).send({
@@ -69,10 +69,10 @@ export async function registerSupplierRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Fornecedor invalido.');
-      const current = await findTenantSupplier(id, idCliente);
+      const current = await findTenantSupplier(request.tenantDb, id, idCliente);
       if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const data = normalizeFornecedorPayload(request.body);
-      return prisma.fornecedor.update({ where: { id }, data });
+      return request.tenantDb.fornecedor.update({ where: { id }, data });
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao atualizar fornecedor.'),
@@ -89,10 +89,10 @@ export async function registerSupplierRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Fornecedor invalido.');
-      const current = await findTenantSupplier(id, idCliente);
+      const current = await findTenantSupplier(request.tenantDb, id, idCliente);
       if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const boInativo = toBool(request.body.boInativo);
-      return prisma.fornecedor.update({ where: { id }, data: { boInativo } });
+      return request.tenantDb.fornecedor.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status do fornecedor.' });
     }

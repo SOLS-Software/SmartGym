@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
+import type { PrismaClient } from '@smartgym/db';
 import {
   assertOrdemDasDatas,
   assertValidId,
@@ -80,8 +81,8 @@ function tenantCompanyWhere(idCliente: number) {
   return { OR: [{ idEmpresa: null }, { empresa: { idCliente } }] };
 }
 
-async function promotionBelongsToTenant(idCliente: number, idPromocao: number) {
-  const promotion = await prisma.promocao.findFirst({
+async function promotionBelongsToTenant(db: PrismaClient, idCliente: number, idPromocao: number) {
+  const promotion = await db.promocao.findFirst({
     where: { id: idPromocao, idCliente },
     select: { id: true },
   });
@@ -92,43 +93,46 @@ async function promotionBelongsToTenant(idCliente: number, idPromocao: number) {
 // proprio; as rotas continuam distinguindo os dois casos na mensagem.
 const promotionOwnedByTenant = promotionBelongsToTenant;
 
-async function assertCompanyInTenant(idCliente: number, idEmpresa: number | null | undefined) {
+async function assertCompanyInTenant(db: PrismaClient, idCliente: number, idEmpresa: number | null | undefined) {
   if (idEmpresa == null) return;
-  const company = await prisma.empresa.findFirst({
+  const company = await db.empresa.findFirst({
     where: { id: idEmpresa, idCliente },
     select: { id: true },
   });
   if (!company) throw new Error('Empresa nao pertence ao cliente.');
 }
 
-async function assertPlanInTenant(idCliente: number, idPlano: number | null | undefined) {
+async function assertPlanInTenant(db: PrismaClient, idCliente: number, idPlano: number | null | undefined) {
   if (idPlano == null) return;
-  const plan = await prisma.plano.findFirst({
+  const plan = await db.plano.findFirst({
     where: { id: idPlano, idCliente },
     select: { id: true },
   });
   if (!plan) throw new Error('Plano nao pertence ao cliente.');
 }
 
-async function assertProductInTenant(idCliente: number, idProduto: number | null | undefined) {
+async function assertProductInTenant(db: PrismaClient, idCliente: number, idProduto: number | null | undefined) {
   if (idProduto == null) return;
-  const product = await prisma.produto.findFirst({
+  const product = await db.produto.findFirst({
     where: { id: idProduto, ...tenantCompanyWhere(idCliente) },
     select: { id: true },
   });
   if (!product) throw new Error('Produto nao pertence ao cliente.');
 }
 
+// O delegate nao pode ser resolvido no carregamento do modulo: com banco por
+// tenant, o client certo so existe no request. Por isso a config guarda COMO
+// chegar ao delegate, e nao o delegate.
 function asPromotionChildDelegate(delegate: unknown) {
   return delegate as PromotionChildDelegate;
 }
 
 const promotionChildResourceConfig = {
   'promotion-plans': {
-    delegate: asPromotionChildDelegate(prisma.promocaoPlano),
-    async assertTenant(idCliente: number, payload: CompanyChildPayload) {
-      await assertCompanyInTenant(idCliente, optionalNumber(payload.idEmpresa));
-      await assertPlanInTenant(idCliente, optionalNumber(payload.idPlano));
+    delegate: (db: PrismaClient) => asPromotionChildDelegate(db.promocaoPlano),
+    async assertTenant(db: PrismaClient, idCliente: number, payload: CompanyChildPayload) {
+      await assertCompanyInTenant(db, idCliente, optionalNumber(payload.idEmpresa));
+      await assertPlanInTenant(db, idCliente, optionalNumber(payload.idPlano));
     },
     normalize(promotionId: number, payload: CompanyChildPayload) {
       const dtInicio = optionalDate(payload.dtInicio) ?? new Date();
@@ -152,10 +156,10 @@ const promotionChildResourceConfig = {
     },
   },
   'promotion-products': {
-    delegate: asPromotionChildDelegate(prisma.promocaoProduto),
-    async assertTenant(idCliente: number, payload: CompanyChildPayload) {
-      await assertCompanyInTenant(idCliente, optionalNumber(payload.idEmpresa));
-      await assertProductInTenant(idCliente, optionalNumber(payload.idProduto));
+    delegate: (db: PrismaClient) => asPromotionChildDelegate(db.promocaoProduto),
+    async assertTenant(db: PrismaClient, idCliente: number, payload: CompanyChildPayload) {
+      await assertCompanyInTenant(db, idCliente, optionalNumber(payload.idEmpresa));
+      await assertProductInTenant(db, idCliente, optionalNumber(payload.idProduto));
     },
     normalize(promotionId: number, payload: CompanyChildPayload) {
       return {
@@ -170,8 +174,8 @@ const promotionChildResourceConfig = {
 } satisfies Record<
   PromotionChildResource,
   {
-    delegate: PromotionChildDelegate;
-    assertTenant(idCliente: number, payload: CompanyChildPayload): Promise<void>;
+    delegate: (db: PrismaClient) => PromotionChildDelegate;
+    assertTenant(db: PrismaClient, idCliente: number, payload: CompanyChildPayload): Promise<void>;
     normalize(promotionId: number, payload: CompanyChildPayload): Record<string, unknown>;
   }
 >;
@@ -245,7 +249,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
     const search = parsedQuery.data.search?.trim();
     const now = new Date();
 
-    return prisma.promocao.findMany({
+    return request.tenantDb.promocao.findMany({
       take: clampLimit(parsedQuery.data.limit),
       where: {
         ...(companyId ? { idEmpresa: companyId } : {}),
@@ -286,9 +290,9 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const data = normalizePromotionPayload(request.body);
-      await assertCompanyInTenant(idCliente, data.idEmpresa);
+      await assertCompanyInTenant(request.tenantDb, idCliente, data.idEmpresa);
       // Tenant SEMPRE do token, nunca do body.
-      return reply.code(201).send(await prisma.promocao.create({ data: { ...data, idCliente } }));
+      return reply.code(201).send(await request.tenantDb.promocao.create({ data: { ...data, idCliente } }));
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
@@ -306,12 +310,12 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Promocao invalida.');
-      if (!(await promotionOwnedByTenant(idCliente, id))) {
+      if (!(await promotionOwnedByTenant(request.tenantDb, idCliente, id))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const data = normalizePromotionPayload(request.body);
-      await assertCompanyInTenant(idCliente, data.idEmpresa);
-      return prisma.promocao.update({ where: { id }, data });
+      await assertCompanyInTenant(request.tenantDb, idCliente, data.idEmpresa);
+      return request.tenantDb.promocao.update({ where: { id }, data });
     } catch (error) {
       const isValidation = error instanceof Error && !('code' in error);
       return reply.code(400).send({
@@ -333,10 +337,10 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       if (!parsedBody.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      if (!(await promotionOwnedByTenant(idCliente, id))) {
+      if (!(await promotionOwnedByTenant(request.tenantDb, idCliente, id))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return prisma.promocao.update({
+      return request.tenantDb.promocao.update({
         where: { id },
         data: { boInativo: toBool(parsedBody.data.boInativo) },
       });
@@ -359,10 +363,10 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
         if (!parsedQuery.success) {
           return reply.code(400).send({ message: 'Parametros invalidos.' });
         }
-        if (!(await promotionBelongsToTenant(idCliente, idPromocao))) {
+        if (!(await promotionBelongsToTenant(request.tenantDb, idCliente, idPromocao))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
-        return prisma.promocaoPlano.findMany({
+        return request.tenantDb.promocaoPlano.findMany({
           where: { idPromocao, ...tenantCompanyWhere(idCliente) },
           orderBy: { dtCadastro: 'desc' },
           take: clampLimit(parsedQuery.data.limit),
@@ -388,10 +392,10 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
         if (!parsedQuery.success) {
           return reply.code(400).send({ message: 'Parametros invalidos.' });
         }
-        if (!(await promotionBelongsToTenant(idCliente, idPromocao))) {
+        if (!(await promotionBelongsToTenant(request.tenantDb, idCliente, idPromocao))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
-        return prisma.promocaoProduto.findMany({
+        return request.tenantDb.promocaoProduto.findMany({
           where: { idPromocao, ...tenantCompanyWhere(idCliente) },
           orderBy: { dtCadastro: 'desc' },
           take: clampLimit(parsedQuery.data.limit),
@@ -417,10 +421,10 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
         if (!parsedQuery.success) {
           return reply.code(400).send({ message: 'Parametros invalidos.' });
         }
-        if (!(await promotionBelongsToTenant(idCliente, idPromocao))) {
+        if (!(await promotionBelongsToTenant(request.tenantDb, idCliente, idPromocao))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
-        return prisma.promocaoArquivo.findMany({
+        return request.tenantDb.promocaoArquivo.findMany({
           where: { idPromocao },
           orderBy: { dtCadastro: 'desc' },
           take: clampLimit(parsedQuery.data.limit),
@@ -443,7 +447,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
         const idPromocao = Number(request.params.id);
         assertValidId(idPromocao, 'Promocao invalida.');
 
-        if (!(await promotionBelongsToTenant(idCliente, idPromocao))) {
+        if (!(await promotionBelongsToTenant(request.tenantDb, idCliente, idPromocao))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
 
@@ -472,7 +476,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
           throw new Error(uploadError.message);
         }
 
-        return reply.code(201).send(await prisma.promocaoArquivo.create({
+        return reply.code(201).send(await request.tenantDb.promocaoArquivo.create({
           data: {
             idPromocao,
             idTiposArquivos,
@@ -502,11 +506,11 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
         assertValidId(idPromocao, 'Promocao invalida.');
         assertValidId(fileId, 'Arquivo invalido.');
 
-        if (!(await promotionOwnedByTenant(idCliente, idPromocao))) {
+        if (!(await promotionOwnedByTenant(request.tenantDb, idCliente, idPromocao))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
 
-        const current = await prisma.promocaoArquivo.findFirst({
+        const current = await request.tenantDb.promocaoArquivo.findFirst({
           where: { id: fileId, idPromocao },
         });
 
@@ -538,7 +542,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
           throw new Error(uploadError.message);
         }
 
-        return prisma.promocaoArquivo.update({
+        return request.tenantDb.promocaoArquivo.update({
           where: { id: fileId },
           data: {
             idTiposArquivos: rawFileTypeId ? Number(rawFileTypeId) : current.idTiposArquivos,
@@ -566,11 +570,11 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
         assertValidId(idPromocao, 'Promocao invalida.');
         assertValidId(fileId, 'Arquivo invalido.');
 
-        if (!(await promotionBelongsToTenant(idCliente, idPromocao))) {
+        if (!(await promotionBelongsToTenant(request.tenantDb, idCliente, idPromocao))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
 
-        const promotionFile = await prisma.promocaoArquivo.findFirst({
+        const promotionFile = await request.tenantDb.promocaoArquivo.findFirst({
           where: { id: fileId, idPromocao, boInativo: false },
         });
 
@@ -609,11 +613,11 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
         assertValidId(idPromocao, 'Promocao invalida.');
         assertValidId(fileId, 'Arquivo invalido.');
 
-        if (!(await promotionOwnedByTenant(idCliente, idPromocao))) {
+        if (!(await promotionOwnedByTenant(request.tenantDb, idCliente, idPromocao))) {
           return reply.code(404).send({ message: 'Registro nao encontrado.' });
         }
 
-        const current = await prisma.promocaoArquivo.findFirst({
+        const current = await request.tenantDb.promocaoArquivo.findFirst({
           where: { id: fileId, idPromocao },
           select: { id: true },
         });
@@ -622,7 +626,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
           return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
         }
 
-        return prisma.promocaoArquivo.update({
+        return request.tenantDb.promocaoArquivo.update({
           where: { id: fileId },
           data: { boInativo: true },
         });
@@ -644,15 +648,15 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
     try {
       const idPromocao = Number(request.params.id);
       assertValidId(idPromocao, 'Promocao invalida.');
-      if (!(await promotionBelongsToTenant(idCliente, idPromocao))) {
+      if (!(await promotionBelongsToTenant(request.tenantDb, idCliente, idPromocao))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const config = getPromotionChildResourceConfig(request.params.resource);
       if (!childBodySchema.safeParse(request.body).success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      await config.assertTenant(idCliente, request.body);
-      return reply.code(201).send(await config.delegate.create({
+      await config.assertTenant(request.tenantDb, idCliente, request.body);
+      return reply.code(201).send(await config.delegate(request.tenantDb).create({
         data: config.normalize(idPromocao, request.body),
       }));
     } catch (error) {
@@ -674,19 +678,19 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idPromocao, 'Promocao invalida.');
       assertValidId(childId, 'Registro invalido.');
-      if (!(await promotionOwnedByTenant(idCliente, idPromocao))) {
+      if (!(await promotionOwnedByTenant(request.tenantDb, idCliente, idPromocao))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const config = getPromotionChildResourceConfig(request.params.resource);
-      const current = await config.delegate.findFirst({ where: { id: childId, idPromocao } });
+      const current = await config.delegate(request.tenantDb).findFirst({ where: { id: childId, idPromocao } });
       if (!current) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       if (!childBodySchema.safeParse(request.body).success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      await config.assertTenant(idCliente, request.body);
-      return config.delegate.update({
+      await config.assertTenant(request.tenantDb, idCliente, request.body);
+      return config.delegate(request.tenantDb).update({
         where: { id: childId },
         data: config.normalize(idPromocao, request.body),
       });
@@ -709,7 +713,7 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       const childId = Number(request.params.childId);
       assertValidId(idPromocao, 'Promocao invalida.');
       assertValidId(childId, 'Registro invalido.');
-      if (!(await promotionOwnedByTenant(idCliente, idPromocao))) {
+      if (!(await promotionOwnedByTenant(request.tenantDb, idCliente, idPromocao))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const config = getPromotionChildResourceConfig(request.params.resource);
@@ -717,11 +721,11 @@ export async function registerPromotionRoutes(app: FastifyInstance) {
       if (!parsedBody.success) {
         return reply.code(400).send({ message: 'Parametros invalidos.' });
       }
-      const current = await config.delegate.findFirst({ where: { id: childId, idPromocao } });
+      const current = await config.delegate(request.tenantDb).findFirst({ where: { id: childId, idPromocao } });
       if (!current) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      return config.delegate.update({
+      return config.delegate(request.tenantDb).update({
         where: { id: childId },
         data: { boInativo: toBool(parsedBody.data.boInativo) },
       });

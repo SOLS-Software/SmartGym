@@ -6,6 +6,7 @@ import { getRateLimitRedis } from './config/rateLimitStore.js';
 import Fastify, { type FastifyError } from 'fastify';
 import { validateEnv } from './config/env.js';
 import { registerAuthPlugin } from './plugins/auth.js';
+import { registerTenantDbPlugin } from './plugins/tenantDb.js';
 import { registerAuditPlugin } from './plugins/audit.js';
 import { registerSystemRoutes } from './modules/system/routes.js';
 import { registerAuthRoutes } from './modules/auth/routes.js';
@@ -172,6 +173,10 @@ await app.register(multipart, {
 
 // Autenticacao JWT global: toda rota exige token, exceto a allowlist do plugin.
 await registerAuthPlugin(app);
+
+// Banco de dados do tenant no request (request.tenantDb). Depende de
+// request.user.idCliente, entao vem logo apos o plugin de auth.
+await registerTenantDbPlugin(app);
 
 // Trilha de auditoria (LGPD art. 37/48): hook onResponse que registra acesso a
 // dado pessoal e eventos de seguranca. Depois do auth para enxergar request.user.

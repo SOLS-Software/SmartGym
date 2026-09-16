@@ -256,7 +256,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       if (!assertTenantClient(request, reply, id)) return reply;
       const query = listQuerySchema.safeParse(request.query);
       if (!query.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
-      return prisma.empresa.findMany({
+      return request.tenantDb.empresa.findMany({
         where: { idCliente: id },
         orderBy: { dsEmpresa: 'asc' },
         take: query.data.limit,
@@ -275,7 +275,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       const id = Number(request.params.id);
       assertValidId(id, 'Cliente invalido.');
       if (!assertTenantClient(request, reply, id)) return reply;
-      const tema = await prisma.temaCustomizado.findUnique({
+      const tema = await request.tenantDb.temaCustomizado.findUnique({
         where: { idCliente: id },
         include: THEME_INCLUDE,
       });
@@ -293,7 +293,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       if (!assertTenantClient(request, reply, id)) return reply;
       if (!themeBodySchema.safeParse(request.body).success) return reply.code(400).send({ message: 'Parametros invalidos.' });
       const data = normalizeThemeData(request.body);
-      const tema = await prisma.temaCustomizado.upsert({
+      const tema = await request.tenantDb.temaCustomizado.upsert({
         where: { idCliente: id },
         create: { idCliente: id, ...data },
         update: data,
@@ -384,7 +384,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       if (!assertTenantClient(request, reply, id)) return reply;
       const query = listQuerySchema.safeParse(request.query);
       if (!query.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
-      return prisma.clienteArquivo.findMany({
+      return request.tenantDb.clienteArquivo.findMany({
         where: { idCliente: id, boInativo: false },
         orderBy: { dtCadastro: 'desc' },
         take: query.data.limit,
@@ -421,7 +421,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
 
       if (uploadError) throw new Error(uploadError.message);
 
-      const record = await prisma.clienteArquivo.create({
+      const record = await request.tenantDb.clienteArquivo.create({
         data: { idCliente: id, dsArquivo, anCaminho: path },
       });
 
@@ -439,7 +439,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
       if (!assertTenantClient(request, reply, id)) return reply;
 
-      const record = await prisma.clienteArquivo.findFirst({
+      const record = await request.tenantDb.clienteArquivo.findFirst({
         where: { id: fileId, idCliente: id, boInativo: false },
       });
       if (!record) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
@@ -463,7 +463,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       assertValidId(fileId, 'Arquivo invalido.');
       if (!assertTenantClient(request, reply, id)) return reply;
 
-      const record = await prisma.clienteArquivo.findFirst({
+      const record = await request.tenantDb.clienteArquivo.findFirst({
         where: { id: fileId, idCliente: id, boInativo: false },
       });
       if (!record) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
@@ -472,7 +472,7 @@ export async function registerClientRoutes(app: FastifyInstance) {
       const supabase = getSupabaseClient();
       await supabase.storage.from(bucket).remove([record.anCaminho]);
 
-      await prisma.clienteArquivo.update({ where: { id: fileId }, data: { boInativo: true } });
+      await request.tenantDb.clienteArquivo.update({ where: { id: fileId }, data: { boInativo: true } });
       return reply.code(204).send();
     } catch (error) {
       return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao remover arquivo do cliente.') });

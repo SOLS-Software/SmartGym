@@ -1,5 +1,6 @@
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
+import type { PrismaClient } from '@smartgym/db';
 import { z } from 'zod';
 import { Prisma } from '@smartgym/db';
 import { prisma } from '../../shared/prisma.js';
@@ -65,16 +66,16 @@ type NominatimResult = {
 export async function registerLocalityRoutes(app: FastifyInstance) {
   // Isolamento de tenant: Localidade pertence ao cliente via Empresa.idCliente.
   // A leitura do registro usa o client normal (sem a coluna geo) so para checagem.
-  async function findTenantLocality(id: number, idCliente: number) {
-    return prisma.localidade.findFirst({
+  async function findTenantLocality(db: PrismaClient, id: number, idCliente: number) {
+    return db.localidade.findFirst({
       where: { id, empresa: { idCliente } },
       select: { id: true },
     });
   }
 
   // Garante que a empresa informada no payload pertence ao tenant (400 se nao).
-  async function assertCompanyInTenant(idEmpresa: number, idCliente: number) {
-    const company = await prisma.empresa.findFirst({
+  async function assertCompanyInTenant(db: PrismaClient, idEmpresa: number, idCliente: number) {
+    const company = await db.empresa.findFirst({
       where: { id: idEmpresa, idCliente },
       select: { id: true },
     });
@@ -167,7 +168,7 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const data = normalizeLocalidadePayload(request.body);
-      await assertCompanyInTenant(data.idEmpresa, idCliente);
+      await assertCompanyInTenant(request.tenantDb, data.idEmpresa, idCliente);
       const rows = await prisma.$queryRaw<LocalidadeRow[]>(Prisma.sql`
         INSERT INTO "tb_Localidades"
           ("idEmpresa", "nmLocalidade", "dsLocalidade", "cnLocalidadeTP", "geoLocalidade", "dtAlteracao", "boInativo")
@@ -192,10 +193,10 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Localidade invalida.');
-      const current = await findTenantLocality(id, idCliente);
+      const current = await findTenantLocality(request.tenantDb, id, idCliente);
       if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const data = normalizeLocalidadePayload(request.body);
-      await assertCompanyInTenant(data.idEmpresa, idCliente);
+      await assertCompanyInTenant(request.tenantDb, data.idEmpresa, idCliente);
 
       const rows = await prisma.$queryRaw<LocalidadeRow[]>(Prisma.sql`
         UPDATE "tb_Localidades"
@@ -228,7 +229,7 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Localidade invalida.');
-      const current = await findTenantLocality(id, idCliente);
+      const current = await findTenantLocality(request.tenantDb, id, idCliente);
       if (!current) return reply.code(404).send({ message: 'Registro nao encontrado.' });
       const boInativo = toBool(request.body.boInativo);
 
