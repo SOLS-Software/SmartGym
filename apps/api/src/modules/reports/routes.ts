@@ -62,7 +62,7 @@ export async function registerReportRoutes(app: FastifyInstance) {
       // Escopo de tenant: a empresa informada precisa ser do cliente; sem ela,
       // vale a rede inteira do cliente.
       if (parsed.data.idEmpresa) {
-        const empresa = await prisma.empresa.findFirst({
+        const empresa = await request.tenantDb.empresa.findFirst({
           where: { id: parsed.data.idEmpresa, idCliente },
           select: { id: true },
         });
@@ -83,7 +83,7 @@ export async function registerReportRoutes(app: FastifyInstance) {
       const [recebidos, aReceber, vencidos, matriculasAtivas] = await Promise.all([
         // Recebido: o que foi pago DENTRO do periodo (data de pagamento, nao de
         // vencimento) — e o dinheiro que entrou no caixa nesses dias.
-        prisma.pagamento.findMany({
+        request.tenantDb.pagamento.findMany({
           where: {
             ...base,
             ...(idPago ? { idStatusPagamento: idPago } : {}),
@@ -92,7 +92,7 @@ export async function registerReportRoutes(app: FastifyInstance) {
           select: { vlPago: true, vlPrevisto: true, idAlunoPlano: true, idProdutoMovimentacao: true },
         }),
         // A receber: pendente com vencimento no periodo.
-        prisma.pagamento.findMany({
+        request.tenantDb.pagamento.findMany({
           where: {
             ...base,
             ...(idPendente ? { idStatusPagamento: idPendente } : {}),
@@ -102,7 +102,7 @@ export async function registerReportRoutes(app: FastifyInstance) {
         }),
         // Inadimplencia: pendente ja vencido, independente do periodo — divida
         // velha nao some do relatorio so porque o filtro e do mes corrente.
-        prisma.pagamento.findMany({
+        request.tenantDb.pagamento.findMany({
           where: {
             ...base,
             ...(idPendente ? { idStatusPagamento: idPendente } : {}),
@@ -120,7 +120,7 @@ export async function registerReportRoutes(app: FastifyInstance) {
         // devolvido quando o relatorio olha a rede inteira.
         parsed.data.idEmpresa
           ? Promise.resolve(0)
-          : prisma.alunoPlano.count({ where: matriculaAtivaWhere(idCliente, new Date()) }),
+          : request.tenantDb.alunoPlano.count({ where: matriculaAtivaWhere(idCliente, new Date()) }),
       ]);
 
       const somaPago = (linhas: Array<{ vlPago?: unknown; vlPrevisto?: unknown }>) =>
@@ -194,7 +194,7 @@ export async function registerReportRoutes(app: FastifyInstance) {
       const inicio = parsed.data.from ? new Date(`${parsed.data.from}T00:00:00`) : startOfMonth(hoje);
       const fim = parsed.data.to ? new Date(`${parsed.data.to}T23:59:59.999`) : endOfMonth(hoje);
 
-      const cancelados = await prisma.alunoPlano.findMany({
+      const cancelados = await request.tenantDb.alunoPlano.findMany({
         where: {
           aluno: { idCliente },
           dtEncerramento: { gte: inicio, lte: fim },
@@ -258,7 +258,7 @@ export async function registerReportRoutes(app: FastifyInstance) {
 
     try {
       if (parsed.data.idEmpresa) {
-        const empresa = await prisma.empresa.findFirst({
+        const empresa = await request.tenantDb.empresa.findFirst({
           where: { id: parsed.data.idEmpresa, idCliente },
           select: { id: true },
         });
@@ -277,7 +277,7 @@ export async function registerReportRoutes(app: FastifyInstance) {
 
       // So quem tem plano VIGENTE. Quem cancelou nao evadiu — ja saiu, e
       // avisa-lo de que sumiu seria constrangedor.
-      const planosAtivos = await prisma.alunoPlano.findMany({
+      const planosAtivos = await request.tenantDb.alunoPlano.findMany({
         where: {
           boInativo: false,
           aluno: { idCliente, boInativo: false },
@@ -303,7 +303,7 @@ export async function registerReportRoutes(app: FastifyInstance) {
       const [ultimos, frequencia] = await Promise.all([
         // Ultima visita de sempre — sem recorte de data, senao quem sumiu ha
         // seis meses apareceria como "nunca veio".
-        prisma.alunoCheckIn.groupBy({
+        request.tenantDb.alunoCheckIn.groupBy({
           by: ['idAluno'],
           // So presenca de verdade. Sessao aberta no app nao pode zerar o
           // contador de evasao: o aluno sumido continuaria "visto ontem" so
@@ -316,7 +316,7 @@ export async function registerReportRoutes(app: FastifyInstance) {
           },
           _max: { dtCadastro: true },
         }),
-        prisma.alunoCheckIn.groupBy({
+        request.tenantDb.alunoCheckIn.groupBy({
           by: ['idAluno'],
           where: {
             boInativo: false,

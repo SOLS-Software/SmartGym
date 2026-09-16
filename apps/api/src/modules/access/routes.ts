@@ -1,5 +1,4 @@
 import type { FastifyInstance } from 'fastify';
-import { prisma } from '../../shared/prisma.js';
 import { getComprefaceConfig, recognizeComprefaceFace } from '../../shared/compreface.js';
 import { assertAllowedUploadType, assertUploadBuffer } from '../../shared/files.js';
 import { clientErrorMessage } from '../../shared/errors.js';
@@ -29,7 +28,7 @@ export async function registerAccessRoutes(app: FastifyInstance) {
 
       // Isolamento de tenant: so considera biometrias de alunos do cliente do
       // usuario autenticado; subject de outro tenant cai no fluxo de mismatch.
-      const biometric = await prisma.alunoBiometriaFacial.findFirst({
+      const biometric = await request.tenantDb.alunoBiometriaFacial.findFirst({
         where: {
           dsProvider: 'compreface',
           dsSubject: subject,

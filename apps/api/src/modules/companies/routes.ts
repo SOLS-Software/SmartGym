@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Prisma } from '@smartgym/db';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
+import type { PrismaClient } from '@smartgym/db';
 import { prisma } from '../../shared/prisma.js';
 import {
   normalizeCompanyPayload,
@@ -38,7 +39,7 @@ type CrudDelegate = {
 };
 
 type ChildResourceConfig = {
-  delegate: CrudDelegate;
+  delegate: (db: PrismaClient) => CrudDelegate;
   orderBy: Record<string, string>;
   companyField: string | null;
   include?: Record<string, unknown>;
@@ -46,13 +47,16 @@ type ChildResourceConfig = {
   normalize(companyId: number, payload: CompanyChildPayload): Record<string, unknown>;
 };
 
+// O delegate nao pode ser resolvido no carregamento do modulo: com banco por
+// tenant, o client certo so existe no request. A config guarda COMO chegar ao
+// delegate, e nao o delegate.
 function asCrudDelegate(delegate: unknown) {
   return delegate as CrudDelegate;
 }
 
 const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
   promotions: {
-    delegate: asCrudDelegate(prisma.promocao),
+    delegate: (db: PrismaClient) => asCrudDelegate(db.promocao),
     orderBy: { dsPromocao: 'asc' },
     companyField: 'idEmpresa',
     normalize(companyId: number, payload: CompanyChildPayload) {
@@ -70,7 +74,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     },
   },
   'promotion-products': {
-    delegate: asCrudDelegate(prisma.promocaoProduto),
+    delegate: (db: PrismaClient) => asCrudDelegate(db.promocaoProduto),
     orderBy: { dtCadastro: 'desc' },
     companyField: 'idEmpresa',
     normalize(companyId: number, payload: CompanyChildPayload) {
@@ -84,7 +88,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     },
   },
   'promotion-files': {
-    delegate: asCrudDelegate(prisma.promocaoArquivo),
+    delegate: (db: PrismaClient) => asCrudDelegate(db.promocaoArquivo),
     orderBy: { dtCadastro: 'desc' },
     companyField: null,
     getWhere(companyId: number) {
@@ -103,7 +107,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     },
   },
   'student-plans': {
-    delegate: asCrudDelegate(prisma.alunoPlano),
+    delegate: (db: PrismaClient) => asCrudDelegate(db.alunoPlano),
     orderBy: { dtCadastro: 'desc' },
     companyField: null,
     getWhere(companyId: number) {
@@ -137,7 +141,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     },
   },
   payments: {
-    delegate: asCrudDelegate(prisma.pagamento),
+    delegate: (db: PrismaClient) => asCrudDelegate(db.pagamento),
     orderBy: { dtPagamento: 'desc' },
     companyField: 'idEmpresa',
     normalize(companyId: number, payload: CompanyChildPayload) {
@@ -159,7 +163,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     },
   },
   'product-movements': {
-    delegate: asCrudDelegate(prisma.produtoMovimentacao),
+    delegate: (db: PrismaClient) => asCrudDelegate(db.produtoMovimentacao),
     orderBy: { dtCadastro: 'desc' },
     companyField: 'idEmpresa',
     include: {
@@ -179,7 +183,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     },
   },
   purchases: {
-    delegate: asCrudDelegate(prisma.produtoMovimentacao),
+    delegate: (db: PrismaClient) => asCrudDelegate(db.produtoMovimentacao),
     orderBy: { dtCadastro: 'desc' },
     companyField: 'idEmpresa',
     include: {
@@ -212,7 +216,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
   // estoque. Compra tem idFornecedor e SOMA; venda tem idAluno e SUBTRAI — e e
   // assim que as duas listagens se separam (getWhere).
   sales: {
-    delegate: asCrudDelegate(prisma.produtoMovimentacao),
+    delegate: (db: PrismaClient) => asCrudDelegate(db.produtoMovimentacao),
     orderBy: { dtCadastro: 'desc' },
     companyField: 'idEmpresa',
     include: {
@@ -246,7 +250,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     },
   },
   'company-files': {
-    delegate: asCrudDelegate(prisma.empresaArquivo),
+    delegate: (db: PrismaClient) => asCrudDelegate(db.empresaArquivo),
     orderBy: { dtCadastro: 'desc' },
     companyField: 'idEmpresa',
     normalize(companyId: number, payload: CompanyChildPayload) {
@@ -262,7 +266,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     },
   },
   'student-check-ins': {
-    delegate: asCrudDelegate(prisma.alunoCheckIn),
+    delegate: (db: PrismaClient) => asCrudDelegate(db.alunoCheckIn),
     orderBy: { dtCadastro: 'desc' },
     companyField: 'idEmpresa',
     normalize(companyId: number, payload: CompanyChildPayload) {
@@ -277,7 +281,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     },
   },
   points: {
-    delegate: asCrudDelegate(prisma.pontuacao),
+    delegate: (db: PrismaClient) => asCrudDelegate(db.pontuacao),
     orderBy: { dsPontuacao: 'asc' },
     companyField: 'idEmpresa',
     normalize(companyId: number, payload: CompanyChildPayload) {
@@ -291,7 +295,7 @@ const childResourceConfig: Record<CompanyChildResource, ChildResourceConfig> = {
     },
   },
   themes: {
-    delegate: asCrudDelegate(prisma.tema),
+    delegate: (db: PrismaClient) => asCrudDelegate(db.tema),
     orderBy: { dsTema: 'asc' },
     companyField: null,
     normalize(_companyId: number, payload: CompanyChildPayload) {
@@ -368,8 +372,8 @@ function parseCompanyGeo(payload: CompanyPayload) {
 }
 
 /** Confere se a empresa pertence ao tenant (idCliente) do usuario autenticado. */
-async function companyBelongsToTenant(companyId: number, idCliente: number) {
-  const company = await prisma.empresa.findFirst({
+async function companyBelongsToTenant(db: PrismaClient, companyId: number, idCliente: number) {
+  const company = await db.empresa.findFirst({
     where: { id: companyId, idCliente },
     select: { id: true },
   });
@@ -380,14 +384,14 @@ async function companyBelongsToTenant(companyId: number, idCliente: number) {
  * Confere se o registro filho pertence a empresa informada. Recursos sem
  * escopo de empresa (themes) sao globais e passam direto.
  */
-async function childBelongsToCompany(config: ChildResourceConfig, companyId: number, childId: number) {
+async function childBelongsToCompany(db: PrismaClient, config: ChildResourceConfig, companyId: number, childId: number) {
   const scope = config.getWhere
     ? config.getWhere(companyId)
     : config.companyField
       ? { [config.companyField]: companyId }
       : null;
   if (!scope) return true;
-  const rows = (await config.delegate.findMany({
+  const rows = (await config.delegate(db).findMany({
     where: { id: childId, ...scope },
     take: 1,
   })) as unknown[];
@@ -411,8 +415,8 @@ async function childBelongsToCompany(config: ChildResourceConfig, companyId: num
 // Regra padrao e uma so por filial: marcar uma desmarca a anterior. Duas
 // regras padrao fariam o credito automatico depender de qual o banco devolve
 // primeiro — comportamento que ninguem consegue explicar depois.
-async function clearDefaultPointRule(companyId: number, exceptId?: number) {
-  await prisma.pontuacao.updateMany({
+async function clearDefaultPointRule(db: PrismaClient, companyId: number, exceptId?: number) {
+  await db.pontuacao.updateMany({
     where: {
       idEmpresa: companyId,
       boPadrao: true,
@@ -422,7 +426,7 @@ async function clearDefaultPointRule(companyId: number, exceptId?: number) {
   });
 }
 
-async function createSale(params: {
+async function createSale(db: PrismaClient, params: {
   companyId: number;
   idCliente: number;
   data: Record<string, unknown>;
@@ -438,13 +442,13 @@ async function createSale(params: {
 
   // Aluno e produto tem que ser deste cliente: ids sao sequenciais e adivinhar
   // o de outro tenant nao pode virar uma venda cruzada.
-  const aluno = await prisma.aluno.findFirst({
+  const aluno = await db.aluno.findFirst({
     where: { id: idAluno, idCliente },
     select: { id: true },
   });
   if (!aluno) throw new Error('Aluno invalido.');
 
-  const produto = await prisma.produto.findFirst({
+  const produto = await db.produto.findFirst({
     where: {
       id: idProduto,
       // idEmpresa nulo = produto compartilhado pela rede (convencao do projeto).
@@ -618,7 +622,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Empresa invalida.');
-      if (!(await companyBelongsToTenant(id, idCliente))) {
+      if (!(await companyBelongsToTenant(request.tenantDb, id, idCliente))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       // idCliente vem sempre do token: o body nunca define o tenant.
@@ -648,13 +652,13 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Empresa invalida.');
-      if (!(await companyBelongsToTenant(id, idCliente))) {
+      if (!(await companyBelongsToTenant(request.tenantDb, id, idCliente))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const body = statusBodySchema.safeParse(request.body);
       if (!body.success) return reply.code(400).send({ message: 'Dados invalidos.' });
       const boInativo = toBool(body.data.boInativo);
-      return prisma.empresa.update({ where: { id }, data: { boInativo } });
+      return request.tenantDb.empresa.update({ where: { id }, data: { boInativo } });
     } catch {
       return reply.code(400).send({ message: 'Erro ao alterar status da empresa.' });
     }
@@ -672,7 +676,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     try {
       const idEmpresa = Number(request.params.id);
       assertValidId(idEmpresa, 'Empresa invalida.');
-      return prisma.empresaArquivo.findMany({
+      return request.tenantDb.empresaArquivo.findMany({
         where: { idEmpresa, boInativo: false, empresa: { idCliente } },
         orderBy: { dtCadastro: 'desc' },
         take: query.limit,
@@ -693,7 +697,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       const idEmpresa = Number(request.params.id);
       assertValidId(idEmpresa, 'Empresa invalida.');
 
-      if (!(await companyBelongsToTenant(idEmpresa, idCliente))) {
+      if (!(await companyBelongsToTenant(request.tenantDb, idEmpresa, idCliente))) {
         return reply.code(404).send({ message: 'Empresa nao encontrada.' });
       }
 
@@ -721,7 +725,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         throw new Error(uploadError.message);
       }
 
-      const companyFile = await prisma.empresaArquivo.create({
+      const companyFile = await request.tenantDb.empresaArquivo.create({
         data: { idEmpresa, idTiposArquivos, dsArquivo, anCaminho: path, cnChaveAcesso: 0, cnDistribuidor: 0 },
       });
 
@@ -744,7 +748,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(idEmpresa, 'Empresa invalida.');
       assertValidId(fileId, 'Arquivo invalido.');
 
-      const existingFile = await prisma.empresaArquivo.findFirst({
+      const existingFile = await request.tenantDb.empresaArquivo.findFirst({
         where: { id: fileId, idEmpresa, boInativo: false, empresa: { idCliente } },
       });
 
@@ -776,7 +780,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         throw new Error(uploadError.message);
       }
 
-      return prisma.empresaArquivo.update({
+      return request.tenantDb.empresaArquivo.update({
         where: { id: fileId },
         data: { idTiposArquivos, dsArquivo, anCaminho: path },
       });
@@ -798,7 +802,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(idEmpresa, 'Empresa invalida.');
       assertValidId(fileId, 'Arquivo invalido.');
 
-      const companyFile = await prisma.empresaArquivo.findFirst({
+      const companyFile = await request.tenantDb.empresaArquivo.findFirst({
         where: { id: fileId, idEmpresa, boInativo: false, empresa: { idCliente } },
       });
 
@@ -835,7 +839,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(idEmpresa, 'Empresa invalida.');
       assertValidId(fileId, 'Arquivo invalido.');
 
-      const existingFile = await prisma.empresaArquivo.findFirst({
+      const existingFile = await request.tenantDb.empresaArquivo.findFirst({
         where: { id: fileId, idEmpresa, boInativo: false, empresa: { idCliente } },
       });
 
@@ -843,7 +847,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
       }
 
-      return prisma.empresaArquivo.update({ where: { id: fileId }, data: { boInativo: true } });
+      return request.tenantDb.empresaArquivo.update({ where: { id: fileId }, data: { boInativo: true } });
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao remover arquivo da empresa.'),
@@ -863,7 +867,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     try {
       const companyId = Number(request.params.companyId);
       assertValidId(companyId, 'Empresa invalida.');
-      return prisma.promocaoArquivo.findMany({
+      return request.tenantDb.promocaoArquivo.findMany({
         where: { promocao: { idEmpresa: companyId, empresa: { idCliente } } },
         orderBy: { dtCadastro: 'desc' },
         take: query.limit,
@@ -890,7 +894,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       const fields = file.fields as Record<string, unknown>;
       const idPromocao = Number(getMultipartFieldValue(fields, 'idPromocao'));
       assertValidId(idPromocao, 'Promocao invalida.');
-      const promotion = await prisma.promocao.findFirst({ where: { id: idPromocao, idEmpresa: companyId, empresa: { idCliente } }, select: { id: true } });
+      const promotion = await request.tenantDb.promocao.findFirst({ where: { id: idPromocao, idEmpresa: companyId, empresa: { idCliente } }, select: { id: true } });
       if (!promotion) return reply.code(404).send({ message: 'Promocao nao encontrada.' });
 
       const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
@@ -905,7 +909,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         .upload(path, buffer, { contentType: safeMime, upsert: false });
       if (uploadError) throw new Error(uploadError.message);
 
-      return reply.code(201).send(await prisma.promocaoArquivo.create({
+      return reply.code(201).send(await request.tenantDb.promocaoArquivo.create({
         data: { idPromocao, idTiposArquivos, dsArquivo: file.filename, anCaminho: path, cnChaveAcesso: 0, cnDistribuidor: 0 },
       }));
     } catch (error) {
@@ -925,7 +929,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       const fileId = Number(request.params.fileId);
       assertValidId(companyId, 'Empresa invalida.');
       assertValidId(fileId, 'Arquivo invalido.');
-      const current = await prisma.promocaoArquivo.findFirst({
+      const current = await request.tenantDb.promocaoArquivo.findFirst({
         where: { id: fileId, promocao: { idEmpresa: companyId, empresa: { idCliente } } },
       });
       if (!current) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
@@ -936,7 +940,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       const fields = file.fields as Record<string, unknown>;
       const idPromocao = Number(getMultipartFieldValue(fields, 'idPromocao') || current.idPromocao);
       assertValidId(idPromocao, 'Promocao invalida.');
-      const promotion = await prisma.promocao.findFirst({ where: { id: idPromocao, idEmpresa: companyId, empresa: { idCliente } }, select: { id: true } });
+      const promotion = await request.tenantDb.promocao.findFirst({ where: { id: idPromocao, idEmpresa: companyId, empresa: { idCliente } }, select: { id: true } });
       if (!promotion) return reply.code(404).send({ message: 'Promocao nao encontrada.' });
 
       const rawFileTypeId = getMultipartFieldValue(fields, 'idTiposArquivos');
@@ -950,7 +954,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         .upload(path, buffer, { contentType: safeMime, upsert: false });
       if (uploadError) throw new Error(uploadError.message);
 
-      return prisma.promocaoArquivo.update({
+      return request.tenantDb.promocaoArquivo.update({
         where: { id: fileId },
         data: {
           idPromocao,
@@ -976,7 +980,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       const fileId = Number(request.params.fileId);
       assertValidId(companyId, 'Empresa invalida.');
       assertValidId(fileId, 'Arquivo invalido.');
-      const promotionFile = await prisma.promocaoArquivo.findFirst({
+      const promotionFile = await request.tenantDb.promocaoArquivo.findFirst({
         where: { id: fileId, promocao: { idEmpresa: companyId, empresa: { idCliente } }, boInativo: false },
       });
       if (!promotionFile) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
@@ -1002,12 +1006,12 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       const fileId = Number(request.params.fileId);
       assertValidId(companyId, 'Empresa invalida.');
       assertValidId(fileId, 'Arquivo invalido.');
-      const current = await prisma.promocaoArquivo.findFirst({
+      const current = await request.tenantDb.promocaoArquivo.findFirst({
         where: { id: fileId, promocao: { idEmpresa: companyId, empresa: { idCliente } } },
         select: { id: true },
       });
       if (!current) return reply.code(404).send({ message: 'Arquivo nao encontrado.' });
-      return prisma.promocaoArquivo.update({ where: { id: fileId }, data: { boInativo: true } });
+      return request.tenantDb.promocaoArquivo.update({ where: { id: fileId }, data: { boInativo: true } });
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao remover arquivo de promocao.'),
@@ -1030,14 +1034,14 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     try {
       const companyId = Number(request.params.companyId);
       assertValidId(companyId, 'Empresa invalida.');
-      if (!(await companyBelongsToTenant(companyId, idCliente))) {
+      if (!(await companyBelongsToTenant(request.tenantDb, companyId, idCliente))) {
         return reply.code(404).send({ message: 'Empresa nao encontrada.' });
       }
 
       const inicioDoDia = new Date();
       inicioDoDia.setHours(0, 0, 0, 0);
 
-      const checkIns = await prisma.alunoCheckIn.findMany({
+      const checkIns = await request.tenantDb.alunoCheckIn.findMany({
         // Quem esta na academia agora. Sessao aberta pelo app nao entra: a
         // recepcao leria como pessoa presente alguem que so abriu o celular.
         where: {
@@ -1080,10 +1084,10 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     try {
       const companyId = Number(request.params.companyId);
       assertValidId(companyId, 'Empresa invalida.');
-      if (!(await companyBelongsToTenant(companyId, idCliente))) {
+      if (!(await companyBelongsToTenant(request.tenantDb, companyId, idCliente))) {
         return reply.code(404).send({ message: 'Empresa nao encontrada.' });
       }
-      const tema = await prisma.temaCustomizado.findUnique({
+      const tema = await request.tenantDb.temaCustomizado.findUnique({
         where: { idEmpresa: companyId },
         include: { arquivoLogo: true, arquivoFavicon: true },
       });
@@ -1105,7 +1109,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     try {
       const companyId = Number(request.params.companyId);
       assertValidId(companyId, 'Empresa invalida.');
-      if (!(await companyBelongsToTenant(companyId, idCliente))) {
+      if (!(await companyBelongsToTenant(request.tenantDb, companyId, idCliente))) {
         return reply.code(404).send({ message: 'Empresa nao encontrada.' });
       }
       if (!looseBodySchema.safeParse(request.body).success) {
@@ -1142,7 +1146,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         idArquivoLogo: optionalNumber(b.idArquivoLogo),
         idArquivoFavicon: optionalNumber(b.idArquivoFavicon),
       };
-      const tema = await prisma.temaCustomizado.upsert({
+      const tema = await request.tenantDb.temaCustomizado.upsert({
         where: { idEmpresa: companyId },
         create: { idEmpresa: companyId, ...data },
         update: data,
@@ -1166,7 +1170,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     try {
       const companyId = Number(request.params.companyId);
       assertValidId(companyId, 'Empresa invalida.');
-      if (!(await companyBelongsToTenant(companyId, idCliente))) {
+      if (!(await companyBelongsToTenant(request.tenantDb, companyId, idCliente))) {
         return reply.code(404).send({ message: 'Empresa nao encontrada.' });
       }
       const config = getChildResourceConfig(request.params.resource);
@@ -1175,7 +1179,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         : config.companyField
           ? { [config.companyField]: companyId }
           : undefined;
-      return await config.delegate.findMany({
+      return await config.delegate(request.tenantDb).findMany({
         where,
         orderBy: config.orderBy,
         take: query.limit,
@@ -1197,7 +1201,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
     try {
       const companyId = Number(request.params.companyId);
       assertValidId(companyId, 'Empresa invalida.');
-      if (!(await companyBelongsToTenant(companyId, idCliente))) {
+      if (!(await companyBelongsToTenant(request.tenantDb, companyId, idCliente))) {
         return reply.code(404).send({ message: 'Empresa nao encontrada.' });
       }
       const config = getChildResourceConfig(request.params.resource);
@@ -1207,7 +1211,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       const data = config.normalize(companyId, request.body) as Record<string, unknown>;
       if (request.params.resource === 'student-check-ins') {
         if (!data.idAluno && data.idAlunoPlano) {
-          const plan = await prisma.alunoPlano.findUnique({
+          const plan = await request.tenantDb.alunoPlano.findUnique({
             where: { id: Number(data.idAlunoPlano) },
             select: { idAluno: true },
           });
@@ -1236,7 +1240,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       if (request.params.resource === 'purchases') {
         // Fornecedor e da rede (Fornecedor.idCliente): impede referenciar por
         // id um fornecedor de outro cliente.
-        const supplier = await prisma.fornecedor.findFirst({
+        const supplier = await request.tenantDb.fornecedor.findFirst({
           where: { id: Number(data.idFornecedor), idCliente },
           select: { id: true },
         });
@@ -1256,11 +1260,11 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         return reply.code(201).send(created);
       }
       if (request.params.resource === 'points' && data.boPadrao === true) {
-        await clearDefaultPointRule(companyId);
+        await clearDefaultPointRule(request.tenantDb, companyId);
       }
       if (request.params.resource === 'sales') {
         return reply.code(201).send(
-          await createSale({
+          await createSale(request.tenantDb, {
             companyId,
             idCliente,
             data,
@@ -1270,7 +1274,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
           }),
         );
       }
-      return reply.code(201).send(await config.delegate.create({ data }));
+      return reply.code(201).send(await config.delegate(request.tenantDb).create({ data }));
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao criar registro filho.'),
@@ -1290,10 +1294,10 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(companyId, 'Empresa invalida.');
       assertValidId(childId, 'Registro invalido.');
       const config = getChildResourceConfig(request.params.resource);
-      if (!(await companyBelongsToTenant(companyId, idCliente))) {
+      if (!(await companyBelongsToTenant(request.tenantDb, companyId, idCliente))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      if (!(await childBelongsToCompany(config, companyId, childId))) {
+      if (!(await childBelongsToCompany(request.tenantDb, config, companyId, childId))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       if (!looseBodySchema.safeParse(request.body).success) {
@@ -1312,15 +1316,15 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       }
 
       if (request.params.resource === 'points' && data.boPadrao === true) {
-        await clearDefaultPointRule(companyId, childId);
+        await clearDefaultPointRule(request.tenantDb, companyId, childId);
       }
 
       if (request.params.resource === 'purchases') {
-        const existing = await prisma.produtoMovimentacao.findUnique({ where: { id: childId } });
+        const existing = await request.tenantDb.produtoMovimentacao.findUnique({ where: { id: childId } });
         if (!existing) throw new Error('Compra nao encontrada.');
         // Fornecedor e da rede (Fornecedor.idCliente): impede referenciar por
         // id um fornecedor de outro cliente.
-        const supplier = await prisma.fornecedor.findFirst({
+        const supplier = await request.tenantDb.fornecedor.findFirst({
           where: { id: Number(data.idFornecedor), idCliente },
           select: { id: true },
         });
@@ -1349,7 +1353,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
         });
         return updated;
       }
-      return await config.delegate.update({ where: { id: childId }, data });
+      return await config.delegate(request.tenantDb).update({ where: { id: childId }, data });
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao atualizar registro filho.'),
@@ -1369,10 +1373,10 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       assertValidId(companyId, 'Empresa invalida.');
       assertValidId(childId, 'Registro invalido.');
       const config = getChildResourceConfig(request.params.resource);
-      if (!(await companyBelongsToTenant(companyId, idCliente))) {
+      if (!(await companyBelongsToTenant(request.tenantDb, companyId, idCliente))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
-      if (!(await childBelongsToCompany(config, companyId, childId))) {
+      if (!(await childBelongsToCompany(request.tenantDb, config, companyId, childId))) {
         return reply.code(404).send({ message: 'Registro nao encontrado.' });
       }
       const body = statusBodySchema.safeParse(request.body);
@@ -1383,19 +1387,19 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       // a cobranca e inativada e os pontos resgatados voltam para o aluno. Sem
       // isso, cancelar deixaria o aluno sem o produto E sem os pontos.
       if (request.params.resource === 'sales') {
-        const existing = await prisma.produtoMovimentacao.findUnique({
+        const existing = await request.tenantDb.produtoMovimentacao.findUnique({
           where: { id: childId },
           include: { alunoPontuacoes: { where: { boInativo: false } } },
         });
         if (!existing) throw new Error('Venda nao encontrada.');
         if (existing.boInativo === nextInativo) {
-          return await config.delegate.update({
+          return await config.delegate(request.tenantDb).update({
             where: { id: childId },
             data: { boInativo: nextInativo },
           });
         }
 
-        const produto = await prisma.produto.findUnique({
+        const produto = await request.tenantDb.produto.findUnique({
           where: { id: existing.idProduto },
           select: { qtEstoque: true, dsProduto: true },
         });
@@ -1442,7 +1446,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       }
 
       if (request.params.resource === 'purchases') {
-        const existing = await prisma.produtoMovimentacao.findUnique({ where: { id: childId } });
+        const existing = await request.tenantDb.produtoMovimentacao.findUnique({ where: { id: childId } });
         if (!existing) throw new Error('Compra nao encontrada.');
         return await prisma.$transaction(async (tx) => {
           if (existing.boInativo !== nextInativo) {
@@ -1459,7 +1463,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
           });
         });
       }
-      return await config.delegate.update({
+      return await config.delegate(request.tenantDb).update({
         where: { id: childId },
         data: { boInativo: nextInativo },
       });

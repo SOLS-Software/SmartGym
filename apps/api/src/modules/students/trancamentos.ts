@@ -19,6 +19,7 @@
 // RBAC: `/students/...` cai em `students` (ver plugins/permissions.ts), entao
 // trancar exige `students.write` — e trabalho de matricula, como deve ser.
 import type { FastifyInstance } from 'fastify';
+import type { PrismaClient } from '@smartgym/db';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { clientErrorMessage } from '../../shared/errors.js';
@@ -59,8 +60,8 @@ function comoData(texto: string | undefined | null, padrao: Date): Date {
 }
 
 /** Confere que a matricula e do aluno e o aluno e do cliente. */
-async function acharMatricula(idAluno: number, idAlunoPlano: number, idCliente: number) {
-  return prisma.alunoPlano.findFirst({
+async function acharMatricula(db: PrismaClient, idAluno: number, idAlunoPlano: number, idCliente: number) {
+  return db.alunoPlano.findFirst({
     where: { id: idAlunoPlano, idAluno, aluno: { idCliente } },
     include: { trancamentos: { where: { boInativo: false }, orderBy: { dtInicio: 'desc' } } },
   });
@@ -80,7 +81,7 @@ export async function registerStudentLockRoutes(app: FastifyInstance) {
         assertValidId(idAluno, 'Aluno invalido.');
         assertValidId(idAlunoPlano, 'Matricula invalida.');
 
-        const matricula = await acharMatricula(idAluno, idAlunoPlano, idCliente);
+        const matricula = await acharMatricula(request.tenantDb, idAluno, idAlunoPlano, idCliente);
         if (!matricula) return reply.code(404).send({ message: 'Matricula nao encontrada.' });
 
         const agora = new Date();
@@ -116,7 +117,7 @@ export async function registerStudentLockRoutes(app: FastifyInstance) {
         assertValidId(idAluno, 'Aluno invalido.');
         assertValidId(idAlunoPlano, 'Matricula invalida.');
 
-        const matricula = await acharMatricula(idAluno, idAlunoPlano, idCliente);
+        const matricula = await acharMatricula(request.tenantDb, idAluno, idAlunoPlano, idCliente);
         if (!matricula) return reply.code(404).send({ message: 'Matricula nao encontrada.' });
 
         const agora = new Date();
@@ -226,7 +227,7 @@ export async function registerStudentLockRoutes(app: FastifyInstance) {
         assertValidId(idAluno, 'Aluno invalido.');
         assertValidId(idAlunoPlano, 'Matricula invalida.');
 
-        const matricula = await acharMatricula(idAluno, idAlunoPlano, idCliente);
+        const matricula = await acharMatricula(request.tenantDb, idAluno, idAlunoPlano, idCliente);
         if (!matricula) return reply.code(404).send({ message: 'Matricula nao encontrada.' });
 
         const agora = new Date();

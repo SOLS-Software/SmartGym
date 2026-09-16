@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
-import { prisma } from '../../shared/prisma.js';
 import { clientErrorMessage } from '../../shared/errors.js';
 import { LIMITES } from '@smartgym/shared';
 
@@ -232,7 +231,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/roles', async (request, reply) => {
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.cargo.findMany({
+    return request.tenantDb.cargo.findMany({
       take,
       orderBy: {
         dsCargo: 'asc',
@@ -246,7 +245,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       const { dsCargo, boInativo } = parseBody(roleBodySchema, request.body);
 
-      const role = await prisma.cargo.create({
+      const role = await request.tenantDb.cargo.create({
         data: {
           dsCargo,
           boInativo,
@@ -271,7 +270,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const id = parseId(request.params.id);
       const { dsCargo, boInativo } = parseBody(roleBodySchema, request.body);
 
-      return prisma.cargo.update({
+      return request.tenantDb.cargo.update({
         where: {
           id,
         },
@@ -300,7 +299,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const id = parseId(request.params.id);
       const boInativo = toBool(request.body.boInativo);
 
-      return prisma.cargo.update({
+      return request.tenantDb.cargo.update({
         where: {
           id,
         },
@@ -318,7 +317,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/frequencies', async (request, reply) => {
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.frequencia.findMany({
+    return request.tenantDb.frequencia.findMany({
       take,
       where: {
         boInativo: false,
@@ -335,7 +334,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       const { dsFrequencia, idUnidadeTempo, qtPeriodo, boInativo } = parseBody(frequencyBodySchema, request.body);
       return reply.code(201).send(
-        await prisma.frequencia.create({
+        await request.tenantDb.frequencia.create({
           data: {
             dsFrequencia,
             idUnidadeTempo,
@@ -355,7 +354,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   }>('/frequencies/:id', async (request, reply) => {
     try {
       const { dsFrequencia, idUnidadeTempo, qtPeriodo, boInativo } = parseBody(frequencyBodySchema, request.body);
-      return await prisma.frequencia.update({
+      return await request.tenantDb.frequencia.update({
         where: { id: parseId(request.params.id) },
         data: {
           dsFrequencia,
@@ -371,7 +370,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/frequencies/:id/status', async (request, reply) => {
     try {
-      return await prisma.frequencia.update({
+      return await request.tenantDb.frequencia.update({
         where: { id: parseId(request.params.id) },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -386,7 +385,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/cancellation-reasons', async (request, reply) => {
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.motivoCancelamento.findMany({
+    return request.tenantDb.motivoCancelamento.findMany({
       take,
       where: { boInativo: false },
       orderBy: { dsMotivoCancelamento: 'asc' },
@@ -397,7 +396,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       const { dsMotivoCancelamento, boInativo } = parseBody(cancellationReasonBodySchema, request.body);
       return reply.code(201).send(
-        await prisma.motivoCancelamento.create({ data: { dsMotivoCancelamento, boInativo } }),
+        await request.tenantDb.motivoCancelamento.create({ data: { dsMotivoCancelamento, boInativo } }),
       );
     } catch (error) {
       return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar motivo de cancelamento.') });
@@ -407,7 +406,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.put<{ Params: { id: string }; Body: { dsMotivoCancelamento?: string; boInativo?: number } }>('/cancellation-reasons/:id', async (request, reply) => {
     try {
       const { dsMotivoCancelamento, boInativo } = parseBody(cancellationReasonBodySchema, request.body);
-      return await prisma.motivoCancelamento.update({
+      return await request.tenantDb.motivoCancelamento.update({
         where: { id: parseId(request.params.id) },
         data: { dsMotivoCancelamento, boInativo },
       });
@@ -418,7 +417,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/cancellation-reasons/:id/status', async (request, reply) => {
     try {
-      return await prisma.motivoCancelamento.update({
+      return await request.tenantDb.motivoCancelamento.update({
         where: { id: parseId(request.params.id) },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -430,7 +429,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/check-in-types', async (request, reply) => {
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.tipoCheckIn.findMany({
+    return request.tenantDb.tipoCheckIn.findMany({
       take,
       where: { boInativo: false },
       orderBy: { dsTipoCheckIn: 'asc' },
@@ -441,7 +440,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       const { dsTipoCheckIn, boInativo } = parseBody(checkInTypeBodySchema, request.body);
       return reply.code(201).send(
-        await prisma.tipoCheckIn.create({ data: { dsTipoCheckIn, boInativo } }),
+        await request.tenantDb.tipoCheckIn.create({ data: { dsTipoCheckIn, boInativo } }),
       );
     } catch (error) {
       return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar tipo de check-in.') });
@@ -451,7 +450,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.put<{ Params: { id: string }; Body: { dsTipoCheckIn?: string; boInativo?: number } }>('/check-in-types/:id', async (request, reply) => {
     try {
       const { dsTipoCheckIn, boInativo } = parseBody(checkInTypeBodySchema, request.body);
-      return await prisma.tipoCheckIn.update({
+      return await request.tenantDb.tipoCheckIn.update({
         where: { id: parseId(request.params.id) },
         data: { dsTipoCheckIn, boInativo },
       });
@@ -462,7 +461,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/check-in-types/:id/status', async (request, reply) => {
     try {
-      return await prisma.tipoCheckIn.update({
+      return await request.tenantDb.tipoCheckIn.update({
         where: { id: parseId(request.params.id) },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -474,7 +473,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/levels', async (request, reply) => {
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.nivel.findMany({
+    return request.tenantDb.nivel.findMany({
       take,
       where: {
         boInativo: false,
@@ -488,7 +487,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.post<{ Body: { dsNivel?: string; boInativo?: number } }>('/levels', async (request, reply) => {
     try {
       const { dsNivel, boInativo } = parseBody(levelBodySchema, request.body);
-      return reply.code(201).send(await prisma.nivel.create({ data: { dsNivel, boInativo } }));
+      return reply.code(201).send(await request.tenantDb.nivel.create({ data: { dsNivel, boInativo } }));
     } catch (error) {
       return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar nivel.') });
     }
@@ -497,7 +496,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.put<{ Params: { id: string }; Body: { dsNivel?: string; boInativo?: number } }>('/levels/:id', async (request, reply) => {
     try {
       const { dsNivel, boInativo } = parseBody(levelBodySchema, request.body);
-      return await prisma.nivel.update({
+      return await request.tenantDb.nivel.update({
         where: { id: parseId(request.params.id) },
         data: { dsNivel, boInativo },
       });
@@ -508,7 +507,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/levels/:id/status', async (request, reply) => {
     try {
-      return await prisma.nivel.update({
+      return await request.tenantDb.nivel.update({
         where: { id: parseId(request.params.id) },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -520,7 +519,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/body-areas', async (request, reply) => {
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.areaCorporal.findMany({
+    return request.tenantDb.areaCorporal.findMany({
       take,
       where: { boInativo: false },
       orderBy: { dsAreaCorporal: 'asc' },
@@ -531,7 +530,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     try {
       const { dsAreaCorporal, boInativo } = parseBody(bodyAreaBodySchema, request.body);
       return reply.code(201).send(
-        await prisma.areaCorporal.create({
+        await request.tenantDb.areaCorporal.create({
           data: { dsAreaCorporal, boInativo },
         }),
       );
@@ -547,7 +546,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     async (request, reply) => {
       try {
         const { dsAreaCorporal, boInativo } = parseBody(bodyAreaBodySchema, request.body);
-        return await prisma.areaCorporal.update({
+        return await request.tenantDb.areaCorporal.update({
           where: { id: parseId(request.params.id) },
           data: { dsAreaCorporal, boInativo },
         });
@@ -561,7 +560,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/body-areas/:id/status', async (request, reply) => {
     try {
-      return await prisma.areaCorporal.update({
+      return await request.tenantDb.areaCorporal.update({
         where: { id: parseId(request.params.id) },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -573,7 +572,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/time-units', async (request, reply) => {
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.unidadeTempo.findMany({
+    return request.tenantDb.unidadeTempo.findMany({
       take,
       where: {
         boInativo: false,
@@ -587,7 +586,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.post<{ Body: { dsUnidadeTempo?: string; boInativo?: number } }>('/time-units', async (request, reply) => {
     try {
       const { dsUnidadeTempo, boInativo } = parseBody(timeUnitBodySchema, request.body);
-      return reply.code(201).send(await prisma.unidadeTempo.create({ data: { dsUnidadeTempo, boInativo } }));
+      return reply.code(201).send(await request.tenantDb.unidadeTempo.create({ data: { dsUnidadeTempo, boInativo } }));
     } catch (error) {
       return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar unidade de tempo.') });
     }
@@ -596,7 +595,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.put<{ Params: { id: string }; Body: { dsUnidadeTempo?: string; boInativo?: number } }>('/time-units/:id', async (request, reply) => {
     try {
       const { dsUnidadeTempo, boInativo } = parseBody(timeUnitBodySchema, request.body);
-      return await prisma.unidadeTempo.update({
+      return await request.tenantDb.unidadeTempo.update({
         where: { id: parseId(request.params.id) },
         data: { dsUnidadeTempo, boInativo },
       });
@@ -607,7 +606,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/time-units/:id/status', async (request, reply) => {
     try {
-      return await prisma.unidadeTempo.update({
+      return await request.tenantDb.unidadeTempo.update({
         where: { id: parseId(request.params.id) },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -619,7 +618,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/payment-statuses', async (request, reply) => {
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.statusPagamento.findMany({
+    return request.tenantDb.statusPagamento.findMany({
       take,
       where: {
         boInativo: false,
@@ -633,7 +632,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.post<{ Body: { dsStatusPagamento?: string; boInativo?: number } }>('/payment-statuses', async (request, reply) => {
     try {
       const { dsStatusPagamento, boInativo } = parseBody(paymentStatusBodySchema, request.body);
-      return reply.code(201).send(await prisma.statusPagamento.create({ data: { dsStatusPagamento, boInativo } }));
+      return reply.code(201).send(await request.tenantDb.statusPagamento.create({ data: { dsStatusPagamento, boInativo } }));
     } catch (error) {
       return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar status de pagamento.') });
     }
@@ -642,7 +641,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.put<{ Params: { id: string }; Body: { dsStatusPagamento?: string; boInativo?: number } }>('/payment-statuses/:id', async (request, reply) => {
     try {
       const { dsStatusPagamento, boInativo } = parseBody(paymentStatusBodySchema, request.body);
-      return await prisma.statusPagamento.update({
+      return await request.tenantDb.statusPagamento.update({
         where: { id: parseId(request.params.id) },
         data: { dsStatusPagamento, boInativo },
       });
@@ -653,7 +652,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/payment-statuses/:id/status', async (request, reply) => {
     try {
-      return await prisma.statusPagamento.update({
+      return await request.tenantDb.statusPagamento.update({
         where: { id: parseId(request.params.id) },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -665,7 +664,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/payment-methods', async (request, reply) => {
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.formaPagamento.findMany({
+    return request.tenantDb.formaPagamento.findMany({
       take,
       where: {
         boInativo: false,
@@ -679,7 +678,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.post<{ Body: { dsFormaPagamento?: string; boInativo?: number } }>('/payment-methods', async (request, reply) => {
     try {
       const { dsFormaPagamento, boInativo } = parseBody(paymentMethodBodySchema, request.body);
-      return reply.code(201).send(await prisma.formaPagamento.create({ data: { dsFormaPagamento, boInativo } }));
+      return reply.code(201).send(await request.tenantDb.formaPagamento.create({ data: { dsFormaPagamento, boInativo } }));
     } catch (error) {
       return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar forma de pagamento.') });
     }
@@ -688,7 +687,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.put<{ Params: { id: string }; Body: { dsFormaPagamento?: string; boInativo?: number } }>('/payment-methods/:id', async (request, reply) => {
     try {
       const { dsFormaPagamento, boInativo } = parseBody(paymentMethodBodySchema, request.body);
-      return await prisma.formaPagamento.update({
+      return await request.tenantDb.formaPagamento.update({
         where: { id: parseId(request.params.id) },
         data: { dsFormaPagamento, boInativo },
       });
@@ -699,7 +698,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/payment-methods/:id/status', async (request, reply) => {
     try {
-      return await prisma.formaPagamento.update({
+      return await request.tenantDb.formaPagamento.update({
         where: { id: parseId(request.params.id) },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -711,7 +710,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/training-methods', async (request, reply) => {
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.metodoTreino.findMany({
+    return request.tenantDb.metodoTreino.findMany({
       take,
       where: {
         boInativo: false,
@@ -725,7 +724,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.post<{ Body: { nmMetodoTreino?: string; dsMetodoTreino?: string; boInativo?: number } }>('/training-methods', async (request, reply) => {
     try {
       const { nmMetodoTreino, dsMetodoTreino, boInativo } = parseBody(trainingMethodBodySchema, request.body);
-      return reply.code(201).send(await prisma.metodoTreino.create({
+      return reply.code(201).send(await request.tenantDb.metodoTreino.create({
         data: { nmMetodoTreino, dsMetodoTreino: dsMetodoTreino ?? '', boInativo },
       }));
     } catch (error) {
@@ -736,7 +735,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.put<{ Params: { id: string }; Body: { nmMetodoTreino?: string; dsMetodoTreino?: string; boInativo?: number } }>('/training-methods/:id', async (request, reply) => {
     try {
       const { nmMetodoTreino, dsMetodoTreino, boInativo } = parseBody(trainingMethodBodySchema, request.body);
-      return await prisma.metodoTreino.update({
+      return await request.tenantDb.metodoTreino.update({
         where: { id: parseId(request.params.id) },
         data: { nmMetodoTreino, dsMetodoTreino: dsMetodoTreino ?? '', boInativo },
       });
@@ -747,7 +746,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/training-methods/:id/status', async (request, reply) => {
     try {
-      return await prisma.metodoTreino.update({
+      return await request.tenantDb.metodoTreino.update({
         where: { id: parseId(request.params.id) },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -759,7 +758,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/file-types', async (request, reply) => {
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.tipoArquivo.findMany({
+    return request.tenantDb.tipoArquivo.findMany({
       take,
       where: {
         boInativo: false,
@@ -773,7 +772,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.post<{ Body: { dsTipo?: string; boInativo?: number } }>('/file-types', async (request, reply) => {
     try {
       const { dsTipo, boInativo } = parseBody(fileTypeBodySchema, request.body);
-      return reply.code(201).send(await prisma.tipoArquivo.create({ data: { dsTipo, boInativo } }));
+      return reply.code(201).send(await request.tenantDb.tipoArquivo.create({ data: { dsTipo, boInativo } }));
     } catch (error) {
       return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar tipo de arquivo.') });
     }
@@ -782,7 +781,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.put<{ Params: { id: string }; Body: { dsTipo?: string; boInativo?: number } }>('/file-types/:id', async (request, reply) => {
     try {
       const { dsTipo, boInativo } = parseBody(fileTypeBodySchema, request.body);
-      return await prisma.tipoArquivo.update({
+      return await request.tenantDb.tipoArquivo.update({
         where: { id: parseId(request.params.id) },
         data: { dsTipo, boInativo },
       });
@@ -793,7 +792,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string }; Body: { boInativo?: number } }>('/file-types/:id/status', async (request, reply) => {
     try {
-      return await prisma.tipoArquivo.update({
+      return await request.tenantDb.tipoArquivo.update({
         where: { id: parseId(request.params.id) },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -807,7 +806,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.esporte.findMany({
+    return request.tenantDb.esporte.findMany({
       take,
       where: VISIBLE_SCOPE(idCliente),
       orderBy: {
@@ -824,7 +823,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
       const idEmpresa = body.idEmpresa ?? null;
       if (idEmpresa) {
-        const empresa = await prisma.empresa.findFirst({
+        const empresa = await request.tenantDb.empresa.findFirst({
           where: { id: idEmpresa, idCliente },
           select: { id: true },
         });
@@ -832,7 +831,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       }
 
       return reply.code(201).send(
-        await prisma.esporte.create({
+        await request.tenantDb.esporte.create({
           data: {
             idEmpresa,
             dsEsporte: body.dsEsporte,
@@ -854,7 +853,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const id = parseId(request.params.id);
       const body = parseBody(sportBodySchema, request.body);
 
-      const existing = await prisma.esporte.findFirst({
+      const existing = await request.tenantDb.esporte.findFirst({
         where: { id, ...ownedScope(idCliente, request.user.superAdmin) },
         select: { id: true },
       });
@@ -862,14 +861,14 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
       const idEmpresa = body.idEmpresa ?? null;
       if (idEmpresa) {
-        const empresa = await prisma.empresa.findFirst({
+        const empresa = await request.tenantDb.empresa.findFirst({
           where: { id: idEmpresa, idCliente },
           select: { id: true },
         });
         if (!empresa) throw new Error('Empresa nao pertence ao cliente.');
       }
 
-      return await prisma.esporte.update({
+      return await request.tenantDb.esporte.update({
         where: { id },
         data: {
           idEmpresa,
@@ -889,12 +888,12 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const id = parseId(request.params.id);
-      const existing = await prisma.esporte.findFirst({
+      const existing = await request.tenantDb.esporte.findFirst({
         where: { id, ...ownedScope(idCliente, request.user.superAdmin) },
         select: { id: true },
       });
       if (!existing) return reply.code(404).send({ message: 'Registro nao encontrado.' });
-      return await prisma.esporte.update({
+      return await request.tenantDb.esporte.update({
         where: { id },
         data: { boInativo: toBool(request.body.boInativo) },
       });
@@ -908,7 +907,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.categoria.findMany({
+    return request.tenantDb.categoria.findMany({
       take,
       where: VISIBLE_SCOPE(idCliente),
       include: {
@@ -928,7 +927,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
       const idEmpresa = body.idEmpresa ?? null;
       if (idEmpresa) {
-        const empresa = await prisma.empresa.findFirst({
+        const empresa = await request.tenantDb.empresa.findFirst({
           where: { id: idEmpresa, idCliente },
           select: { id: true },
         });
@@ -937,7 +936,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
       const idEsporte = body.idEsporte ?? null;
       if (idEsporte) {
-        const esporte = await prisma.esporte.findFirst({
+        const esporte = await request.tenantDb.esporte.findFirst({
           where: { id: idEsporte, ...VISIBLE_SCOPE(idCliente) },
           select: { id: true },
         });
@@ -945,7 +944,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       }
 
       return reply.code(201).send(
-        await prisma.categoria.create({
+        await request.tenantDb.categoria.create({
           data: {
             idEmpresa,
             idEsporte,
@@ -971,7 +970,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
       const id = parseId(request.params.id);
       const body = parseBody(categoryBodySchema, request.body);
 
-      const existing = await prisma.categoria.findFirst({
+      const existing = await request.tenantDb.categoria.findFirst({
         where: { id, ...ownedScope(idCliente, request.user.superAdmin) },
         select: { id: true },
       });
@@ -979,7 +978,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
       const idEmpresa = body.idEmpresa ?? null;
       if (idEmpresa) {
-        const empresa = await prisma.empresa.findFirst({
+        const empresa = await request.tenantDb.empresa.findFirst({
           where: { id: idEmpresa, idCliente },
           select: { id: true },
         });
@@ -988,14 +987,14 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
 
       const idEsporte = body.idEsporte ?? null;
       if (idEsporte) {
-        const esporte = await prisma.esporte.findFirst({
+        const esporte = await request.tenantDb.esporte.findFirst({
           where: { id: idEsporte, ...VISIBLE_SCOPE(idCliente) },
           select: { id: true },
         });
         if (!esporte) throw new Error('Esporte nao pertence ao cliente.');
       }
 
-      return await prisma.categoria.update({
+      return await request.tenantDb.categoria.update({
         where: { id },
         data: {
           idEmpresa,
@@ -1019,12 +1018,12 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
     try {
       const id = parseId(request.params.id);
-      const existing = await prisma.categoria.findFirst({
+      const existing = await request.tenantDb.categoria.findFirst({
         where: { id, ...ownedScope(idCliente, request.user.superAdmin) },
         select: { id: true },
       });
       if (!existing) return reply.code(404).send({ message: 'Registro nao encontrado.' });
-      return await prisma.categoria.update({
+      return await request.tenantDb.categoria.update({
         where: { id },
         data: { boInativo: toBool(request.body.boInativo) },
         include: {
@@ -1039,7 +1038,7 @@ export async function registerAuxiliaryRoutes(app: FastifyInstance) {
   app.get('/measurement-units', async (request, reply) => {
     const take = parseTake(request.query);
     if (take === null) return reply.code(400).send({ message: 'Parametros invalidos.' });
-    return prisma.unidadeMedida.findMany({
+    return request.tenantDb.unidadeMedida.findMany({
       take,
       where: { boInativo: false },
       orderBy: { cnUnidade: 'asc' },
