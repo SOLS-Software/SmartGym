@@ -64,6 +64,41 @@ Duas propriedades que o modo online não teria:
 
 O custo é a latência: entre quitar o pagamento e a catraca saber, passa um ciclo.
 
+## Endereço por academia (multi-tenant)
+
+As rotas de device são públicas e descobrem a catraca pelo `caSerial`, que mora
+em `tb_Catracas` — tabela de aplicação. Com banco por cliente isso vira
+ovo-e-galinha: para procurar o serial seria preciso já saber de quem ele é.
+
+A saída veio de uma propriedade do próprio firmware: **o endereço do servidor é
+configurável e o equipamento anexa o próprio endpoint ao caminho digitado.** É
+por isso que existem rotas para `/controlid`, `/controlid/push` e
+`/controlid/push/push` — são três bases diferentes já vistas em campo. Ou seja,
+**o caminho é nosso**, e pode carregar a identificação da academia.
+
+Cada cliente tem uma chave sorteada em `tb_Clientes.caChaveDispositivo` (64 hex).
+O endereço a digitar no equipamento é:
+
+```
+https://<api>/d/<caChaveDispositivo>
+```
+
+Sem barra no fim e sem `/push` — o firmware anexa. O painel monta o endereço
+pronto em `GET /controlid/endereco`, pelo mesmo motivo que o webhook de
+pagamento faz isso: é um valor que alguém copia para outro painel, e digitar
+errado significa semanas sem evento chegando.
+
+**Ganho de segurança colateral.** Neste firmware o `caToken` é inviável (a tela
+de push não tem campo de token), então a única autenticação de equipamento era
+`Catraca.anIpPermitido` — frágil com o aparelho em DHCP, como esta doc já
+registra. A chave no caminho devolve parte dessa autenticação e não depende de IP.
+
+**Compatibilidade.** Os caminhos antigos (`/controlid/*`) continuam valendo e
+caem no pool compartilhado: nada quebra para o parque instalado. Reapontar só é
+**obrigatório antes de siloar** um cliente — se o equipamento seguir no caminho
+antigo, ele não acha a catraca no banco novo e tenta auto-registrar uma
+duplicata. O passo está no runbook de `docs/multi-tenancy-dados.md`.
+
 ## Cadastro de digital pelo painel (a validar em campo)
 
 O canal de push **não é** um canal de "coletar log": é um RPC genérico para

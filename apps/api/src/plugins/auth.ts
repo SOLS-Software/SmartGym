@@ -83,6 +83,12 @@ export const PUBLIC_ROUTE_PATTERNS: RegExp[] = [
   // Webhook de pagamento. A defesa esta no modulo: token na URL, token no
   // header conferido em tempo constante, e confirmacao de volta no provedor.
   /^\/webhooks\/payments\/[A-Za-z0-9_-]{16,64}$/,
+  // Endereco por academia das catracas: /d/<chave>[/<endpoint do firmware>].
+  // Mesma disciplina do webhook — o padrao lista os sufixos que o equipamento
+  // realmente usa, em vez de liberar /d/<chave>/qualquer-coisa. A chave resolve
+  // o tenant no control-plane (tb_Clientes.caChaveDispositivo) antes de tocar
+  // banco de aplicacao; sem chave valida o modulo responde 404.
+  /^\/d\/[a-f0-9]{32,64}(?:\/(?:push(?:\/(?:push|result))?|result|health|new_user_identified\.fcgi|new_card\.fcgi|new_rex_log\.fcgi))?$/,
 ];
 
 // Tokens de sessao: 12h para web (o cookie do proxy acompanha) e 30d para o

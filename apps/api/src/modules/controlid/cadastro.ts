@@ -1,3 +1,4 @@
+import type { PrismaClient } from '@smartgym/db';
 // Cadastro de digital pelo painel web — sem app desktop e sem estar na rede da
 // catraca.
 //
@@ -309,6 +310,7 @@ function contarDigitais(resposta: Record<string, unknown> | null): number | null
  * coleta de log) — o chamador usa isso so para decidir se loga.
  */
 export async function processarRespostaDeCadastro(
+  db: PrismaClient,
   deviceId: string,
   endpoint: string,
   resposta: Record<string, unknown> | null,
@@ -339,7 +341,7 @@ export async function processarRespostaDeCadastro(
     // (CONTROLID_BLOQUEAR_NAO_VINCULADOS): sem esta gravacao, o cadastro que
     // acabamos de fazer seria fechado no ciclo seguinte.
     try {
-      await prisma.aluno.update({
+      await db.aluno.update({
         where: { id: sessao.idAluno },
         data: { nrUsuarioCatraca: idCriado },
       });

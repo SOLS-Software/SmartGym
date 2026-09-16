@@ -59,9 +59,13 @@ function flattenRoutes(tree: string): Route[] {
 
 // Substitui os parametros de rota por um valor concreto para casar as regras,
 // que enxergam a URL real e nao o padrao do Fastify. Token do webhook precisa
-// ter >= 16 chars do alfabeto certo; os demais viram um id numerico.
+// ter >= 16 chars do alfabeto certo; a chave de endereco da catraca, >= 32 em
+// hex; os demais viram um id numerico.
 function toConcretePath(url: string): string {
-  return url.replace(/:token/g, 'a'.repeat(24)).replace(/:[A-Za-z][A-Za-z0-9]*/g, '7');
+  return url
+    .replace(/:token/g, 'a'.repeat(24))
+    .replace(/:chave/g, 'a'.repeat(40))
+    .replace(/:[A-Za-z][A-Za-z0-9]*/g, '7');
 }
 
 describe('cobertura de autorizacao (permissao x rota)', () => {

@@ -29,3 +29,34 @@ export async function resolveTenantByDomain(caDominio: string | undefined): Prom
   });
   return dominio?.idCliente ?? null;
 }
+
+// Resolucao control-plane de TENANT pela CHAVE DE ENDERECO DO DISPOSITIVO.
+//
+// Mesmo papel do dominio, para quem nao tem dominio: a catraca. O firmware nao
+// manda JWT e se identifica pelo `caSerial`, que mora em tb_Catracas — tabela de
+// APLICACAO. Com banco por cliente, procurar o serial exigiria saber antes de
+// quem ele e. A saida foi notar que o ENDERECO do servidor e configuravel no
+// equipamento e que o firmware ANEXA o proprio endpoint ao caminho digitado
+// (dai as rotas /controlid, /controlid/push e /controlid/push/push, tres bases
+// ja vistas em campo): o caminho e nosso, e carrega a chave.
+//
+// A chave vive em tb_Clientes — que JA e control-plane. Nao ha de-para
+// serial->cliente a manter em dia, entao nao ha o que derivar.
+const CHAVE_RE = /^[a-f0-9]{32,64}$/;
+
+/** Chave valida em formato? Barra varredura antes de tocar o banco. */
+export function isChaveDispositivo(chave: string | undefined): boolean {
+  return CHAVE_RE.test((chave ?? '').trim().toLowerCase());
+}
+
+export async function resolveTenantByDeviceKey(
+  chave: string | undefined,
+): Promise<number | null> {
+  const valor = (chave ?? '').trim().toLowerCase();
+  if (!isChaveDispositivo(valor)) return null;
+  const cliente = await prisma.cliente.findFirst({
+    where: { caChaveDispositivo: valor, boInativo: false },
+    select: { id: true },
+  });
+  return cliente?.id ?? null;
+}

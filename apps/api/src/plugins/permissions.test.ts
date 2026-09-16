@@ -478,6 +478,17 @@ const PUBLIC_ROUTES = new Set([
   '/controlid/new_rex_log.fcgi',
   '/new_user_identified.fcgi',
   '/controlid/health',
+  // Endereco por academia: as mesmas rotas de device, com a chave que resolve o
+  // tenant no caminho (ver PUBLIC_ROUTE_PATTERNS em auth.ts).
+  '/d/:chave',
+  '/d/:chave/push',
+  '/d/:chave/push/push',
+  '/d/:chave/result',
+  '/d/:chave/push/result',
+  '/d/:chave/new_user_identified.fcgi',
+  '/d/:chave/new_card.fcgi',
+  '/d/:chave/new_rex_log.fcgi',
+  '/d/:chave/health',
 ]);
 
 // Valores concretos para os parametros de rota. `:resource` e `:childId` viram

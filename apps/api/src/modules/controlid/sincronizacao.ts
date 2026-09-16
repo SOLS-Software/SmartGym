@@ -1,3 +1,4 @@
+import type { PrismaClient } from '@smartgym/db';
 // Plano B: manter a catraca sabendo quem pode entrar.
 //
 // O modo online (a catraca perguntar ao servidor a cada identificacao) nao
@@ -98,7 +99,7 @@ export type ResultadoSync = {
  * todo mundo a cada 5 minutos encheria a fila e o log de ruido, escondendo as
  * alteracoes que importam.
  */
-export async function reconciliarAcessos(params: {
+export async function reconciliarAcessos(db: PrismaClient, params: {
   idCatraca: number;
   deviceId: string;
   usuarios: UsuarioNoEquipamento[];
@@ -114,7 +115,7 @@ export async function reconciliarAcessos(params: {
     naoGerenciados: 0,
   };
 
-  const catraca = await prisma.catraca.findUnique({
+  const catraca = await db.catraca.findUnique({
     where: { id: idCatraca },
     select: { empresa: { select: { idCliente: true } } },
   });
@@ -123,7 +124,7 @@ export async function reconciliarAcessos(params: {
   // sincronizar, e sair adivinhando cliente vazaria acesso entre tenants.
   if (!idCliente) return resultado;
 
-  const alunos = await prisma.aluno.findMany({
+  const alunos = await db.aluno.findMany({
     where: { idCliente, boInativo: false, nrUsuarioCatraca: { not: null } },
     select: { id: true, nmAluno: true, nrUsuarioCatraca: true },
   });

@@ -30,7 +30,7 @@ import {
 // `prisma.<model>` e 8 consultas cruas em tabela de tenant passavam batido. Ao
 // fechar esse buraco o numero subiu sozinho — medidor furado da falsa
 // confianca, que e justamente o defeito que este rollout existe para fechar.
-const TETO = 50;
+const TETO = 13;
 
 describe('rollout multi-tenant — acessos a dado de tenant pelo client central', () => {
   it('a heuristica continua casando (nao virou um teste vazio)', () => {
@@ -41,7 +41,12 @@ describe('rollout multi-tenant — acessos a dado de tenant pelo client central'
       const src = readFileSync(file, 'utf8');
       while (CHAMADA_RE.exec(src)) total += 1;
     }
-    expect(total).toBeGreaterThan(100);
+    // Piso de sanidade: pega a heuristica MORRENDO (um rename de `prisma`
+    // faria o regex casar zero e o teto passar vazio, protegendo nada). Nao e
+    // meta de volume: conta TODO `prisma.<algo>.<op>`, inclusive control-plane.
+    // Comecou em 100 e desceu para 30 quando o rollout esvaziou os modulos —
+    // o que sobra e control-plane, que por desenho nunca vai a zero.
+    expect(total).toBeGreaterThan(30);
   });
 
   it('ROTEAMENTO_COMPLETO so pode ser true quando nao sobrar acesso central', () => {

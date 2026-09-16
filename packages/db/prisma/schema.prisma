@@ -1774,6 +1774,18 @@ model Cliente {
   // bairro nao. O padrao 10 e curto o bastante para dar tempo de reagir e
   // longo o bastante para nao alertar por causa de uma viagem.
   nrDiasSemCheckIn   Int      @default(10)
+  // Chave de endereco dos DISPOSITIVOS (catracas). E ela que diz de qual
+  // academia e o equipamento que bate nas rotas publicas de push/poll.
+  //
+  // Por que existe: a catraca se identifica pelo `caSerial`, que mora em
+  // tb_Catracas (aplicacao). Com banco por cliente, procurar o serial exigiria
+  // saber antes de quem ele e — ovo-e-galinha. O firmware nao deixa mandar
+  // token, mas o ENDERECO do servidor e configuravel e ele anexa o proprio
+  // endpoint ao caminho que digitamos; entao o caminho carrega a chave:
+  // ".../d/<caChaveDispositivo>/push". Fica aqui, e nao num de-para
+  // serial->cliente, porque esta linha JA e control-plane — zero sincronismo
+  // entre bancos, zero deriva.
+  caChaveDispositivo String?  @unique @db.VarChar(64)
   dtCadastro         DateTime @default(now())
   dtAlteracao        DateTime @updatedAt
   idUsuarioCadastro  Int?

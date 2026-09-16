@@ -236,7 +236,7 @@ const ROUTE_RULES: RouteRule[] = [
   // --- acesso fisico -------------------------------------------------------
   { pattern: /^\/access\/facial\/recognize$/, domain: 'checkins' },
   {
-    pattern: /^\/controlid\/(catracas|alertas|usuarios-nao-vinculados|events|cadastro-digital)(\/|$)/,
+    pattern: /^\/controlid\/(catracas|alertas|usuarios-nao-vinculados|events|cadastro-digital|endereco)(\/|$)/,
     domain: 'turnstiles',
   },
 

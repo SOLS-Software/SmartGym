@@ -1,9 +1,11 @@
 # Multi-tenancy de dados — locação de dados por cliente (modelo híbrido/registro)
 
-> **STATUS (2026-09-11): DESENHO + CAMADA DE PARAMETRIZAÇÃO prontos.** O resolver
-> por tenant existe e é testado; o rollout (rotear as queries por ele, migrations
-> por tenant, provisionamento em produção) vem depois. Nada quebra hoje: sem
-> registro, tudo cai no padrão do `.env` (o pool compartilhado atual).
+> **STATUS (2026-09-16): ROLLOUT EM ANDAMENTO — 533 → 13 acessos.** O roteamento
+> por tenant está feito em ~30 arquivos, a guarda de `$transaction` entre bancos
+> existe, e a porta da catraca ganhou âncora no control-plane. Faltam duas portas
+> públicas (webhook e login) para a trava de `ROTEAMENTO_COMPLETO` poder abrir —
+> ver "Portas de entrada". Nada quebra hoje: sem registro em `tb_ClienteConexoes`,
+> tudo cai no padrão do `.env` (o pool compartilhado atual).
 
 ## Problema
 
@@ -225,39 +227,57 @@ client antigo com carência de 30 s para requests em voo, e
 ganhou `--enable`: sem ele o registro era porta de mão única — `--disable`
 gravava `false` e nada jamais voltava para `true`.
 
-## O muro dos 50: portas de entrada sem âncora central
+## Portas de entrada: as que já têm âncora e as que faltam
 
-O roteamento desceu de 533 para **50** acessos, e o que sobrou não é trabalho
-repetitivo — é o mesmo problema de arquitetura aparecendo em três lugares:
+O roteamento desceu de 533 para **13**. O que sobrou não é trabalho repetitivo —
+é o mesmo problema de arquitetura, e ele tem um formato único:
 
-| Onde | Quem bate na porta | O que procura primeiro |
+> Toda porta pública precisa de uma chave que viva no **control-plane**. Sem
+> isso, descobrir o tenant exige abrir um banco de aplicação — que é justamente
+> o que só dá para escolher depois de saber o tenant.
+
+| Porta | Chave | Situação |
 |---|---|---|
-| `controlid/*` (37) | a catraca, com o serial do aparelho | `tb_Catracas` pelo `caSerial` |
-| `webhooks` (10) | o Asaas, com o token na URL | `tb_ContasRecebimento` pelo `caTokenWebhook` |
-| `auth` (3) | a pessoa, com CPF e senha | `tb_Alunos` / `tb_Funcionarios` pelo `caCPFHash` |
+| Lead (site) | domínio → `tb_DominiosCorporativos` | ✅ desde sempre |
+| **Catraca** | **`tb_Clientes.caChaveDispositivo` no caminho** | ✅ **09/2026** |
+| Webhook (10) | `caTokenWebhook` em `tb_ContasRecebimento` (aplicação) | ❌ pendente |
+| Login (3 + relações) | `caCPFHash` em `tb_Alunos`/`tb_Funcionarios` (aplicação) | ❌ pendente |
 
-As três são **públicas** e as três precisam descobrir *quem é o tenant* a partir
-de um dado que mora numa tabela de **aplicação** — isto é, dentro do banco que
-só dá para abrir depois de saber quem é o tenant. Com um banco só, isso nunca
-apareceu. Com banco por cliente, é um ovo-e-galinha: não existe "procurar o
-serial em todos os bancos".
+### Catraca — resolvida sem tabela de-para
 
-Repare que a rota pública de **lead não** está na lista: ela descobre o tenant
-pelo **domínio**, e domínio é control-plane. Esse é o formato da solução — toda
-porta de entrada precisa de uma chave que viva no central.
+O firmware não aceita token (a tela de push não tem o campo), mas **aceita
+endereço de servidor, e anexa o próprio endpoint ao caminho digitado** — é por
+isso que existem rotas para `/controlid`, `/controlid/push` e
+`/controlid/push/push`. O caminho é nosso, então ele carrega a chave da
+academia: `https://<api>/d/<caChaveDispositivo>`.
 
-**Decisão pendente do dono.** Para cada porta, uma âncora central:
+A chave mora em `tb_Clientes`, que **já é control-plane** — por isso não há
+de-para serial→cliente para manter em dia, e portanto nada que possa derivar. O
+caminho antigo segue valendo e cai no pool, então o parque instalado não muda.
+Detalhes em `docs/catraca-controlid.md`.
 
-1. **Catraca** — índice `caSerial → idCliente` no control-plane (ou mover
-   `tb_Catracas` inteira para lá; o equipamento é infra, não dado de negócio).
-2. **Webhook** — o token já é sorteado por nós na emissão: gravar o par
-   `caTokenWebhook → idCliente` no control-plane resolve sem mexer na conta.
-3. **Login** — é o item 2 do rollout ("identidade enxuta central"), já
-   desenhado: a chave de login e o `idCliente` ficam no central, o perfil rico
-   vai para o banco do cliente.
+### O que falta
 
-Enquanto isso não existir, **nenhum cliente com catraca ou cobrança pode ser
-siloado** — e é por isso que a trava de `ROTEAMENTO_COMPLETO` continua fechada.
+- **Webhook** — o token é gerado por nós na emissão. O caminho mais barato é
+  torná-lo autodescritivo (`c<idCliente>.<aleatório>`): sem tabela nova e sem
+  sincronismo, ao custo de reconfigurar a URL no painel do provedor de quem já
+  tem conta.
+- **Login** — é o item 2 do rollout ("identidade enxuta central"): a chave de
+  login passa para `Usuario` (central), e o perfil rico + RBAC ficam no banco do
+  cliente. Atenção: o hook de auth (`plugins/auth.ts`) carrega `perfilAcesso` a
+  cada request autenticado, então ele também precisa das duas pontas.
+
+Enquanto essas duas não existirem, **um cliente com cobrança pelo gateway não
+pode ser siloado**, e a trava de `ROTEAMENTO_COMPLETO` continua fechada.
+
+### Ponto cego conhecido do medidor
+
+A varredura casa `prisma.<model>` e `prisma.$queryRaw`, mas **não** enxerga
+filtro por relação: `prisma.usuario.findMany({ where: { aluno: { ... } } })`
+alcança tabela de aplicação a partir de um model central e não é contado. Há
+**8 casos** assim hoje (7 em `auth`, 1 em `reports`), e o mais importante é
+`plugins/auth.ts` — o carregamento de perfil/RBAC a cada request. Eles somem
+junto com a identidade enxuta; até lá, o número real é 13 + 8.
 
 ## Segurança
 

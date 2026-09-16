@@ -6,15 +6,21 @@
 // saem, a ordem das etapas e, principalmente, os dois pontos onde a sessao
 // poderia mentir "cadastrado" sem ter cadastrado nada.
 //
-// O prisma e mockado: o banco de desenvolvimento aponta para a nuvem, e um
-// teste que grava vinculo de aluno de verdade sujaria dado real.
+// O banco e um dublê: o de desenvolvimento aponta para a nuvem, e um teste que
+// grava vinculo de aluno de verdade sujaria dado real. Desde o roteamento por
+// tenant a funcao recebe o client como 1o parametro (antes alcancava o
+// singleton por fora), entao o duble entra pela porta da frente.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PrismaClient } from '@smartgym/db';
 
 const { alunoUpdate } = vi.hoisted(() => ({ alunoUpdate: vi.fn() }));
 
 vi.mock('../../shared/prisma.js', () => ({
   prisma: { aluno: { update: alunoUpdate } },
 }));
+
+// Client de mentira com a unica operacao que a funcao usa.
+const db = { aluno: { update: alunoUpdate } } as unknown as PrismaClient;
 
 import {
   cancelarCadastro,
@@ -69,6 +75,7 @@ describe('cadastro de digital pelo painel', () => {
     esvaziar(deviceId);
 
     const sessao = await processarRespostaDeCadastro(
+      db,
       deviceId,
       'create_objects',
       { ids: [1013] },
@@ -97,18 +104,20 @@ describe('cadastro de digital pelo painel', () => {
     expect(proximoComando(deviceId)?.endpoint).toBe('load_objects');
 
     await processarRespostaDeCadastro(
+      db,
       deviceId,
       'load_objects',
       { templates: [{ id: 1 }] },
       '',
     );
     esvaziar(deviceId);
-    await processarRespostaDeCadastro(deviceId, 'remote_enroll', {}, '');
+    await processarRespostaDeCadastro(db, deviceId, 'remote_enroll', {}, '');
 
     // Mesma quantidade da linha de base: ninguem encostou o dedo ainda. Sem a
     // comparacao, "existe uma digital" daria sucesso imediato mesmo com o
     // leitor desligado.
     const parcial = await processarRespostaDeCadastro(
+      db,
       deviceId,
       'load_objects',
       { templates: [{ id: 1 }] },
@@ -117,6 +126,7 @@ describe('cadastro de digital pelo painel', () => {
     expect(parcial?.etapa).toBe('aguardando_dedo');
 
     const final = await processarRespostaDeCadastro(
+      db,
       deviceId,
       'load_objects',
       { templates: [{ id: 1 }, { id: 2 }] },
@@ -129,13 +139,14 @@ describe('cadastro de digital pelo painel', () => {
     const deviceId = novoDevice();
     iniciarCadastro({ deviceId, idCatraca: 1, idAluno: 10, nmAluno: 'Ana', nrUsuarioCatraca: null });
     esvaziar(deviceId);
-    await processarRespostaDeCadastro(deviceId, 'create_objects', { ids: [1013] }, '');
+    await processarRespostaDeCadastro(db, deviceId, 'create_objects', { ids: [1013] }, '');
     esvaziar(deviceId);
 
     // A sincronizacao periodica responde `users`, nao `templates`. Se a sessao
     // tratasse isso como confirmacao, contaria 0 digitais e mexeria no controle
     // de tempo da verificacao.
     const resultado = await processarRespostaDeCadastro(
+      db,
       deviceId,
       'load_objects',
       { users: [{ id: 1013, end_time: 0 }] },
@@ -149,10 +160,11 @@ describe('cadastro de digital pelo painel', () => {
     const deviceId = novoDevice();
     iniciarCadastro({ deviceId, idCatraca: 1, idAluno: 10, nmAluno: 'Ana', nrUsuarioCatraca: null });
     esvaziar(deviceId);
-    await processarRespostaDeCadastro(deviceId, 'create_objects', { ids: [1013] }, '');
+    await processarRespostaDeCadastro(db, deviceId, 'create_objects', { ids: [1013] }, '');
     esvaziar(deviceId);
 
     const sessao = await processarRespostaDeCadastro(
+      db,
       deviceId,
       'remote_enroll',
       null,
@@ -172,6 +184,7 @@ describe('cadastro de digital pelo painel', () => {
     esvaziar(deviceId);
 
     const sessao = await processarRespostaDeCadastro(
+      db,
       deviceId,
       'load_objects',
       null,
@@ -191,7 +204,7 @@ describe('cadastro de digital pelo painel', () => {
     const deviceId = novoDevice();
     iniciarCadastro({ deviceId, idCatraca: 1, idAluno: 10, nmAluno: 'Ana', nrUsuarioCatraca: null });
     esvaziar(deviceId);
-    await processarRespostaDeCadastro(deviceId, 'create_objects', { ids: [1013] }, '');
+    await processarRespostaDeCadastro(db, deviceId, 'create_objects', { ids: [1013] }, '');
     esvaziar(deviceId);
 
     const sessao = cancelarCadastro(deviceId);

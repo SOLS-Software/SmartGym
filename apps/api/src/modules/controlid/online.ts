@@ -18,6 +18,7 @@
 //
 // Doc: https://www.controlid.com.br/docs/access-api-pt/modos-de-operacao/eventos-de-identificacao-online/
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { PrismaClient } from '@smartgym/db';
 import { prisma } from '../../shared/prisma.js';
 import { creditCheckInPointsSafe } from '../../shared/loyalty.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
@@ -109,7 +110,7 @@ function montarResposta(decisao: Decisao, userId: number | null, portalId: numbe
   };
 }
 
-async function decidirAcesso(params: {
+async function decidirAcesso(db: PrismaClient, params: {
   idCliente: number;
   userId: number | null;
   /** Unidade do equipamento: e nela que o aluno esta tentando entrar. */
@@ -129,7 +130,7 @@ async function decidirAcesso(params: {
 
   // Busca SEMPRE escopada pelo cliente dono da catraca — o numero de usuario e
   // unico por cliente, nao globalmente.
-  const aluno = await prisma.aluno.findFirst({
+  const aluno = await db.aluno.findFirst({
     where: { idCliente, nrUsuarioCatraca: userId, boInativo: false },
     select: { id: true, nmAluno: true },
   });
@@ -161,7 +162,7 @@ async function decidirAcesso(params: {
 // Registra a decisao para auditoria. `boDecisaoOnline: true` separa este
 // registro do log que a catraca envia depois pelo push referente a mesma
 // passagem.
-async function registrarDecisao(params: {
+async function registrarDecisao(db: PrismaClient, params: {
   idCatraca: number;
   decisao: Decisao;
   userId: number | null;
@@ -172,7 +173,7 @@ async function registrarDecisao(params: {
 }) {
   const { idCatraca, decisao, userId, portalId, dtEvento, anIpOrigem, corpo } = params;
 
-  await prisma.catracaEvento.create({
+  await db.catracaEvento.create({
     data: {
       idCatraca,
       idAluno: decisao.idAluno,
@@ -196,7 +197,7 @@ async function registrarDecisao(params: {
 
 // Check-in do aluno, reaproveitando o TipoCheckIn "Catraca" ja existente.
 // So e criado quando o acesso e concedido — negativa nao e frequencia.
-async function registrarCheckIn(params: {
+async function registrarCheckIn(db: PrismaClient, params: {
   idAluno: number;
   idAlunoPlano: number | null;
   idEmpresa: number;
@@ -214,18 +215,18 @@ async function registrarCheckIn(params: {
   // gira, desiste e gira de novo contaria frequencia dobrada.
   const desde = new Date(Date.now() - janela * 60_000);
 
-  const jaRegistrado = await prisma.alunoCheckIn.findFirst({
+  const jaRegistrado = await db.alunoCheckIn.findFirst({
     where: { idAluno, idEmpresa, boInativo: false, dtCadastro: { gte: desde } },
     select: { id: true },
   });
   if (jaRegistrado) return false;
 
-  const tipoCatraca = await prisma.tipoCheckIn.findFirst({
+  const tipoCatraca = await db.tipoCheckIn.findFirst({
     where: { dsTipoCheckIn: 'Catraca', boInativo: false },
     select: { id: true },
   });
 
-  const checkIn = await prisma.alunoCheckIn.create({
+  const checkIn = await db.alunoCheckIn.create({
     data: {
       idEmpresa,
       idAluno,
@@ -262,7 +263,7 @@ export async function handleIdentificacaoOnline(
   const clientIp = request.ip ?? '';
 
   const catraca = deviceId
-    ? await prisma.catraca.findFirst({
+    ? await request.tenantDb.catraca.findFirst({
         where: { caSerial: deviceId },
         select: {
           id: true,
@@ -323,7 +324,7 @@ export async function handleIdentificacaoOnline(
   // Catraca ainda nao vinculada a uma empresa nao tem como resolver aluno
   // nenhum: sem dono, sem escopo de busca. Nega e deixa o motivo no log.
   const decisao = idCliente
-    ? await decidirAcesso({ idCliente, userId, idEmpresa: catraca.idEmpresa ?? null })
+    ? await decidirAcesso(request.tenantDb, { idCliente, userId, idEmpresa: catraca.idEmpresa ?? null })
     : {
         liberado: false,
         motivo: 'Catraca nao esta vinculada a uma empresa.',
@@ -332,7 +333,7 @@ export async function handleIdentificacaoOnline(
         idAlunoPlano: null,
       };
 
-  await registrarDecisao({
+  await registrarDecisao(request.tenantDb, {
     idCatraca: catraca.id,
     decisao,
     userId,
@@ -344,7 +345,7 @@ export async function handleIdentificacaoOnline(
 
   let checkInCriado = false;
   if (decisao.liberado && decisao.idAluno && catraca.idEmpresa) {
-    checkInCriado = await registrarCheckIn({
+    checkInCriado = await registrarCheckIn(request.tenantDb, {
       idAluno: decisao.idAluno,
       idAlunoPlano: decisao.idAlunoPlano,
       idEmpresa: catraca.idEmpresa,

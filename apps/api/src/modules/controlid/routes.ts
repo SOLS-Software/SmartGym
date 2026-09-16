@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { PrismaClient } from '@smartgym/db';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId, optionalNumber } from '../../shared/normalize.js';
 import {
@@ -28,6 +29,8 @@ import {
   type UsuarioNoEquipamento,
 } from './sincronizacao.js';
 import { clientErrorMessage } from '../../shared/errors.js';
+import { resolveTenantByDeviceKey } from '../../shared/tenantResolver.js';
+import { getTenantDb } from '../../shared/tenantDataSource.js';
 
 type CatracaPayload = {
   idEmpresa?: number | string | null;
@@ -424,13 +427,13 @@ async function processarRespostaDeSincronizacao(
   const usuarios = resposta?.users;
   if (!Array.isArray(usuarios)) return;
 
-  const catraca = await prisma.catraca.findFirst({
+  const catraca = await request.tenantDb.catraca.findFirst({
     where: { caSerial: deviceId },
     select: { id: true },
   });
   if (!catraca) return;
 
-  const resultado = await reconciliarAcessos({
+  const resultado = await reconciliarAcessos(request.tenantDb, {
     idCatraca: catraca.id,
     deviceId,
     usuarios: usuarios as UsuarioNoEquipamento[],
@@ -525,18 +528,18 @@ function processarRespostaDeBootstrap(
   }
 }
 
-async function canAutoRegister(): Promise<boolean> {
+async function canAutoRegister(db: PrismaClient): Promise<boolean> {
   const limit = Number.isFinite(MAX_PENDING_AUTOREGISTERED) && MAX_PENDING_AUTOREGISTERED > 0
     ? MAX_PENDING_AUTOREGISTERED
     : 50;
-  const pending = await prisma.catraca.count({ where: { idEmpresa: null } });
+  const pending = await db.catraca.count({ where: { idEmpresa: null } });
   return pending < limit;
 }
 
 // Localiza (ou cria) o registro da catraca usando o serial / MAC enviado no push.
 // Se o equipamento ainda nao estiver cadastrado, criamos um registro inativo
 // para o gestor visualizar e ativar manualmente no painel.
-async function findOrAutoRegisterCatraca(device: ControlidDeviceInfo, clientIp: string) {
+async function findOrAutoRegisterCatraca(db: PrismaClient, device: ControlidDeviceInfo, clientIp: string) {
   const caSerial = device.caSerial;
   const anMac = device.anMac.toUpperCase();
 
@@ -548,12 +551,12 @@ async function findOrAutoRegisterCatraca(device: ControlidDeviceInfo, clientIp: 
     return null;
   }
 
-  const existing = await prisma.catraca.findFirst({ where: { OR: where } });
+  const existing = await db.catraca.findFirst({ where: { OR: where } });
   if (existing) return existing;
 
-  if (!(await canAutoRegister())) return null;
+  if (!(await canAutoRegister(db))) return null;
 
-  return prisma.catraca.create({
+  return db.catraca.create({
     data: {
       dsCatraca: device.dsModelo || 'Catraca Control iD',
       dsFabricante: 'controlid',
@@ -721,6 +724,101 @@ export async function registerControlidRoutes(app: FastifyInstance) {
   app.get('/controlid/health', deviceRateLimit, async () => ({ ok: true, ts: new Date().toISOString() }));
 
   // -------------------------------------------------------------------
+  // ENDERECO POR ACADEMIA: as mesmas rotas acima, sob /d/<chave>.
+  //
+  // As rotas /controlid/* nao dizem de QUEM e o equipamento — descobrem pelo
+  // `caSerial`, que mora em tb_Catracas (aplicacao). Com banco por cliente isso
+  // e ovo-e-galinha: para procurar o serial seria preciso ja saber o tenant.
+  //
+  // O firmware nao deixa mandar token, mas deixa configurar o ENDERECO do
+  // servidor — e ANEXA o proprio endpoint ao caminho digitado (e por isso que
+  // /controlid, /controlid/push e /controlid/push/push existem: sao tres bases
+  // vistas em campo). Entao o caminho carrega a chave da academia, resolvida no
+  // control-plane ANTES de abrir qualquer banco de aplicacao.
+  //
+  // Configurar no equipamento:  https://<api>/d/<caChaveDispositivo>
+  // (sem barra no fim e sem /push — o firmware anexa).
+  //
+  // As rotas antigas seguem valendo e caem no pool compartilhado: nada quebra
+  // para quem ja esta em campo. Reapontar so e OBRIGATORIO antes de siloar um
+  // cliente — ver o runbook em docs/multi-tenancy-dados.md.
+  // -------------------------------------------------------------------
+
+  // Resolve o tenant pela chave e deixa o banco dele no request. Sem chave
+  // valida nao ha o que fazer: 404 generico, igual ao webhook de pagamento —
+  // dizer "essa chave nao existe" ajudaria quem esta varrendo.
+  async function comTenantDaChave(request: FastifyRequest, reply: FastifyReply) {
+    const { chave } = request.params as { chave?: string };
+    const idCliente = await resolveTenantByDeviceKey(chave);
+    if (!idCliente) {
+      request.log.warn({ ip: request.ip }, 'Dispositivo com chave de endereco desconhecida.');
+      return reply.code(404).send({ message: 'Endereco invalido.' });
+    }
+    request.tenantDb = await getTenantDb(idCliente);
+  }
+
+  const comChave = { ...deviceRateLimit, preHandler: comTenantDaChave };
+  const comChaveOnline = { ...onlineRateLimit, preHandler: comTenantDaChave };
+
+  type ParamsChave = { Params: { chave: string } };
+
+  // Base sem sufixo (equipamento que nao anexa nada).
+  app.post<ParamsChave>('/d/:chave', comChave, async (request, reply) =>
+    handleControlidPushRequest(request, reply),
+  );
+
+  // Push / poll.
+  app.get<ParamsChave & { Querystring: { deviceId?: string; uuid?: string } }>(
+    '/d/:chave/push',
+    comChave,
+    async (request, reply) => handleControlidPollRequest(request, reply),
+  );
+  app.post<ParamsChave>('/d/:chave/push', comChave, async (request, reply) =>
+    handleControlidPushRequest(request, reply),
+  );
+  app.get<ParamsChave & { Querystring: { deviceId?: string; uuid?: string } }>(
+    '/d/:chave/push/push',
+    comChave,
+    async (request, reply) => handleControlidPollRequest(request, reply),
+  );
+  app.post<ParamsChave>('/d/:chave/push/push', comChave, async (request, reply) =>
+    handleControlidPushRequest(request, reply),
+  );
+
+  // Retorno dos comandos entregues no poll.
+  app.post<ParamsChave & { Querystring: { deviceId?: string; uuid?: string } }>(
+    '/d/:chave/result',
+    comChave,
+    async (request, reply) => handleControlidResultRequest(request, reply),
+  );
+  app.post<ParamsChave & { Querystring: { deviceId?: string; uuid?: string } }>(
+    '/d/:chave/push/result',
+    comChave,
+    async (request, reply) => handleControlidResultRequest(request, reply),
+  );
+
+  // Modo online: a catraca pergunta antes de liberar a passagem.
+  app.post<ParamsChave>('/d/:chave/new_user_identified.fcgi', comChaveOnline, async (request, reply) =>
+    handleIdentificacaoOnline(request, reply, extractControlidToken),
+  );
+  app.post<ParamsChave>('/d/:chave/new_card.fcgi', comChaveOnline, async (request, reply) => {
+    request.log.warn(
+      { ip: request.ip },
+      'Identificacao por cartao recebida, mas o vinculo cartao->aluno nao esta implementado.',
+    );
+    return reply.code(200).send({ result: { event: 6, user_id: 0, portal_id: 1 } });
+  });
+  app.post<ParamsChave>('/d/:chave/new_rex_log.fcgi', comChaveOnline, async (request, reply) => {
+    request.log.info({ ip: request.ip }, 'Acionamento de botoeira recebido.');
+    return reply.code(200).send({ result: { event: 11, portal_id: 1 } });
+  });
+
+  app.get<ParamsChave>('/d/:chave/health', comChave, async () => ({
+    ok: true,
+    ts: new Date().toISOString(),
+  }));
+
+  // -------------------------------------------------------------------
   // CRUD basico das catracas cadastradas.
   // -------------------------------------------------------------------
   app.get<{ Querystring: { includeInactive?: string; idEmpresa?: string } }>(
@@ -742,7 +840,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
       // olhando o log. Com o acesso sincronizado, uma parada silenciosa vai
       // barrando aluno conforme as validades expiram.
       const limiteOnline = Number(process.env.CONTROLID_ONLINE_TIMEOUT_MS ?? 120_000);
-      const catracas = await prisma.catraca.findMany({
+      const catracas = await request.tenantDb.catraca.findMany({
         where: {
           ...(includeInactive ? {} : { boInativo: false }),
           // Catracas auto-registradas chegam sem idEmpresa e precisam aparecer
@@ -775,6 +873,34 @@ export async function registerControlidRoutes(app: FastifyInstance) {
     },
   );
 
+  // Endereco que a academia digita no equipamento. Existe pelo mesmo motivo do
+  // endereco do webhook em paymentAccounts: e um valor que alguem precisa
+  // COPIAR para um painel de terceiro, e digitar errado significa semanas sem
+  // evento chegando. Melhor o servidor montar do que o operador adivinhar.
+  app.get('/controlid/endereco', async (request, reply) => {
+    const idCliente = request.user.idCliente;
+    if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+
+    const cliente = await prisma.cliente.findUnique({
+      where: { id: idCliente },
+      select: { caChaveDispositivo: true },
+    });
+    const chave = cliente?.caChaveDispositivo ?? null;
+    const base = (process.env.API_PUBLIC_URL ?? '').trim().replace(/\/+$/, '') || null;
+
+    return {
+      chave,
+      // Caminho relativo: serve mesmo sem API_PUBLIC_URL configurada.
+      caminho: chave ? `/d/${chave}` : null,
+      // O que se digita na tela do equipamento. SEM barra no fim e SEM /push:
+      // o firmware anexa o proprio endpoint ao que estiver aqui.
+      endereco: base && chave ? `${base}/d/${chave}` : null,
+      // Enquanto o cliente nao tem chave, o caminho antigo segue valendo (cai
+      // no pool compartilhado) — e o que mantem o parque atual funcionando.
+      enderecoLegado: base ? `${base}/controlid` : null,
+    };
+  });
+
   app.post<{ Body: CatracaPayload }>('/controlid/catracas', async (request, reply) => {
     const idCliente = request.user.idCliente;
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
@@ -785,13 +911,13 @@ export async function registerControlidRoutes(app: FastifyInstance) {
       }
       const data = normalizeCatracaPayload(request.body);
       if (data.idEmpresa) {
-        const empresa = await prisma.empresa.findFirst({
+        const empresa = await request.tenantDb.empresa.findFirst({
           where: { id: data.idEmpresa, idCliente },
           select: { id: true },
         });
         if (!empresa) throw new Error('Empresa nao pertence ao cliente.');
       }
-      const created = await prisma.catraca.create({ data });
+      const created = await request.tenantDb.catraca.create({ data });
       return reply.code(201).send(created);
     } catch (error) {
       return reply.code(400).send({
@@ -810,7 +936,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
         assertValidId(id, 'Catraca invalida.');
         // Carregamos a catraca com o vinculo empresa->cliente para aplicar a
         // regra anti-sequestro cross-tenant (objetivo "b").
-        const existing = await prisma.catraca.findUnique({
+        const existing = await request.tenantDb.catraca.findUnique({
           where: { id },
           select: { id: true, idEmpresa: true, empresa: { select: { idCliente: true } } },
         });
@@ -834,13 +960,13 @@ export async function registerControlidRoutes(app: FastifyInstance) {
           throw new Error('Para editar uma catraca ainda nao vinculada, informe a empresa do seu cliente.');
         }
         if (data.idEmpresa) {
-          const empresa = await prisma.empresa.findFirst({
+          const empresa = await request.tenantDb.empresa.findFirst({
             where: { id: data.idEmpresa, idCliente },
             select: { id: true },
           });
           if (!empresa) throw new Error('Empresa nao pertence ao cliente.');
         }
-        return prisma.catraca.update({ where: { id }, data });
+        return request.tenantDb.catraca.update({ where: { id }, data });
       } catch (error) {
         return reply.code(400).send({
           message: clientErrorMessage(error, 'Erro ao atualizar catraca.'),
@@ -863,12 +989,12 @@ export async function registerControlidRoutes(app: FastifyInstance) {
         // catracas de outro tenant NEM catracas ainda nao reclamadas. A
         // reivindicacao/ativacao inicial de uma catraca nula deve ser feita via
         // PUT /controlid/catracas/:id, atribuindo a empresa do proprio cliente.
-        const existing = await prisma.catraca.findFirst({
+        const existing = await request.tenantDb.catraca.findFirst({
           where: { id, empresa: { idCliente } },
           select: { id: true },
         });
         if (!existing) return reply.code(404).send({ message: 'Registro nao encontrado.' });
-        return prisma.catraca.update({
+        return request.tenantDb.catraca.update({
           where: { id },
           data: { boInativo: toBool(request.body.boInativo) },
         });
@@ -898,7 +1024,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
     const janela = Number.isFinite(limite) && limite > 0 ? limite : 120_000;
     const desde = new Date(Date.now() - janela);
 
-    const offline = await prisma.catraca.findMany({
+    const offline = await request.tenantDb.catraca.findMany({
       where: {
         // Catraca inativa esta desligada de proposito: nao alerta.
         boInativo: false,
@@ -935,7 +1061,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
     const idCliente = request.user.idCliente;
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
 
-    const eventos = await prisma.catracaEvento.groupBy({
+    const eventos = await request.tenantDb.catracaEvento.groupBy({
       by: ['nrUsuarioCatraca'],
       where: {
         idAluno: null,
@@ -971,8 +1097,8 @@ export async function registerControlidRoutes(app: FastifyInstance) {
   // que ficaria "carregando" ate o timeout: fila e por serial, equipamento sem
   // contato nunca vem buscar o comando, e catraca sem empresa nao tem escopo de
   // aluno nenhum.
-  async function catracaParaComando(idCatraca: number, idCliente: number) {
-    const catraca = await prisma.catraca.findFirst({
+  async function catracaParaComando(db: PrismaClient, idCatraca: number, idCliente: number) {
+    const catraca = await db.catraca.findFirst({
       where: { id: idCatraca, empresa: { idCliente } },
       select: { id: true, dsCatraca: true, caSerial: true, boInativo: true, dtUltimoPush: true },
     });
@@ -1013,7 +1139,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
         }
         const { idCatraca, idAluno } = parsed.data;
 
-        const catraca = await catracaParaComando(idCatraca, idCliente);
+        const catraca = await catracaParaComando(request.tenantDb, idCatraca, idCliente);
         if (catraca.boInativo) {
           throw new Error('Catraca inativa. Ative o equipamento no painel antes de cadastrar digitais.');
         }
@@ -1038,7 +1164,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
           });
         }
 
-        const aluno = await prisma.aluno.findFirst({
+        const aluno = await request.tenantDb.aluno.findFirst({
           where: { id: idAluno, idCliente, boInativo: false },
           select: { id: true, nmAluno: true, nrUsuarioCatraca: true },
         });
@@ -1084,7 +1210,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
         if (!parsed.success) {
           throw new Error(parsed.error.issues[0]?.message ?? 'Parametros invalidos.');
         }
-        const catraca = await catracaParaComando(parsed.data.idCatraca, idCliente);
+        const catraca = await catracaParaComando(request.tenantDb, parsed.data.idCatraca, idCliente);
         return { sessao: sessaoDoDevice(catraca.caSerial) };
       } catch (error) {
         return reply.code(400).send({
@@ -1104,7 +1230,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
         if (!parsed.success) {
           throw new Error(parsed.error.issues[0]?.message ?? 'Parametros invalidos.');
         }
-        const catraca = await catracaParaComando(parsed.data.idCatraca, idCliente);
+        const catraca = await catracaParaComando(request.tenantDb, parsed.data.idCatraca, idCliente);
         return { sessao: cancelarCadastro(catraca.caSerial) };
       } catch (error) {
         return reply.code(400).send({
@@ -1136,7 +1262,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
     const onlyGranted = parsedQuery.data.onlyGranted === 'true';
     const limit = Math.min(Math.max(parsedQuery.data.limit ?? 100, 1), 500);
 
-    return prisma.catracaEvento.findMany({
+    return request.tenantDb.catracaEvento.findMany({
       where: {
         ...(idCatraca ? { idCatraca } : {}),
         // O filtro por aluno era aceito na query e descartado: quem pedisse
@@ -1187,7 +1313,7 @@ async function handleControlidPollRequest(
 
   // Origem nao autorizada nao recebe comando: a fila carrega a sincronizacao de
   // acesso, que expoe numeros de usuario da catraca.
-  const cadastrada = await prisma.catraca.findFirst({
+  const cadastrada = await request.tenantDb.catraca.findFirst({
     where: { caSerial: deviceId },
     select: { anIpPermitido: true },
   });
@@ -1243,11 +1369,11 @@ async function handleControlidPollRequest(
   // Localiza ou auto-registra a catraca usando o deviceId enviado.
   let catraca = null;
   if (deviceId) {
-    catraca = await prisma.catraca.findFirst({ where: { caSerial: deviceId } });
+    catraca = await request.tenantDb.catraca.findFirst({ where: { caSerial: deviceId } });
     if (!catraca) {
       // Mesmo teto do push: rota publica nao pode criar linhas sem limite.
-      if (await canAutoRegister()) {
-        catraca = await prisma.catraca.create({
+      if (await canAutoRegister(request.tenantDb)) {
+        catraca = await request.tenantDb.catraca.create({
           data: {
             dsCatraca: 'Catraca Control iD',
             dsFabricante: 'controlid',
@@ -1269,7 +1395,7 @@ async function handleControlidPollRequest(
       }
     }
     if (catraca) {
-      await prisma.catraca.update({
+      await request.tenantDb.catraca.update({
         where: { id: catraca.id },
         data: { dtUltimoPush: new Date(), anIp: clientIp || catraca.anIp },
       });
@@ -1280,7 +1406,7 @@ async function handleControlidPollRequest(
   // os mais novos (id > ultimo). Se nunca recebemos nada, pede tudo (id > 0).
   let lastEventId = 0;
   if (catraca) {
-    const last = await prisma.catracaEvento.findFirst({
+    const last = await request.tenantDb.catracaEvento.findFirst({
       where: { idCatraca: catraca.id },
       orderBy: { idEventoDispositivo: 'desc' },
       select: { idEventoDispositivo: true },
@@ -1373,6 +1499,7 @@ async function handleControlidResultRequest(
   // sessao pode receber, e o retorno antecipado logo abaixo a descartaria,
   // deixando o operador olhando uma tela girando ate o timeout.
   const sessaoDeCadastro = await processarRespostaDeCadastro(
+    request.tenantDb,
     deviceId,
     endpointExecutado,
     respostaDoResult(body),
@@ -1399,7 +1526,7 @@ async function handleControlidResultRequest(
     return reply.code(200).send({ ok: true });
   }
 
-  const catraca = deviceId ? await prisma.catraca.findFirst({ where: { caSerial: deviceId } }) : null;
+  const catraca = deviceId ? await request.tenantDb.catraca.findFirst({ where: { caSerial: deviceId } }) : null;
 
   if (!ipDoDeviceAutorizado(catraca, clientIp)) {
     request.log.warn(
@@ -1444,7 +1571,7 @@ async function handleControlidResultRequest(
     return reply.code(200).send({ ok: true, received: events.length, persisted: 0 });
   }
 
-  await prisma.catraca.update({
+  await request.tenantDb.catraca.update({
     where: { id: catraca.id },
     data: { dtUltimoPush: new Date(), anIp: clientIp || catraca.anIp },
   });
@@ -1462,7 +1589,7 @@ async function handleControlidResultRequest(
 
   alertarSePosturaFraca(catraca, clientIp, request.log);
 
-  const persisted = await persistEvents({
+  const persisted = await persistEvents(request.tenantDb, {
     events,
     idCatraca: catraca.id,
     anIpOrigem: clientIp,
@@ -1493,7 +1620,7 @@ async function handleControlidPushRequest(request: FastifyRequest, reply: Fastif
   try {
     const { device, events } = parseControlidPush(request.body);
 
-    const catraca = await findOrAutoRegisterCatraca(device, clientIp);
+    const catraca = await findOrAutoRegisterCatraca(request.tenantDb, device, clientIp);
 
     // -------------------------------------------------------------------
     // Validacao de token do device (anti-forja de eventos - objetivo "a").
@@ -1544,7 +1671,7 @@ async function handleControlidPushRequest(request: FastifyRequest, reply: Fastif
     }
 
     if (catraca) {
-      await prisma.catraca.update({
+      await request.tenantDb.catraca.update({
         where: { id: catraca.id },
         data: {
           dtUltimoPush: new Date(),
@@ -1577,7 +1704,7 @@ async function handleControlidPushRequest(request: FastifyRequest, reply: Fastif
 
     alertarSePosturaFraca(catraca, clientIp, request.log);
 
-    const created = await persistEvents({
+    const created = await persistEvents(request.tenantDb, {
       events,
       idCatraca: catraca.id,
       anIpOrigem: clientIp,
@@ -1611,10 +1738,8 @@ async function handleControlidPushRequest(request: FastifyRequest, reply: Fastif
 // daqui: uma busca por id solta permitiria que o evento de uma catraca do
 // cliente A apontasse para um aluno do cliente B. Catraca ainda nao vinculada a
 // uma empresa (idEmpresa null) nao resolve ninguem — sem dono, sem escopo.
-async function resolveAlunosPorUsuarioCatraca(
-  idCatraca: number,
-  numerosUsuario: string[],
-): Promise<Map<string, number>> {
+async function resolveAlunosPorUsuarioCatraca(db: PrismaClient, idCatraca: number,
+  numerosUsuario: string[],): Promise<Map<string, number>> {
   const mapa = new Map<string, number>();
 
   const numeros = [...new Set(numerosUsuario)]
@@ -1622,14 +1747,14 @@ async function resolveAlunosPorUsuarioCatraca(
     .filter((valor) => Number.isInteger(valor) && valor > 0);
   if (numeros.length === 0) return mapa;
 
-  const catraca = await prisma.catraca.findUnique({
+  const catraca = await db.catraca.findUnique({
     where: { id: idCatraca },
     select: { empresa: { select: { idCliente: true } } },
   });
   const idCliente = catraca?.empresa?.idCliente;
   if (!idCliente) return mapa;
 
-  const alunos = await prisma.aluno.findMany({
+  const alunos = await db.aluno.findMany({
     where: { idCliente, nrUsuarioCatraca: { in: numeros }, boInativo: false },
     select: { id: true, nrUsuarioCatraca: true },
   });
@@ -1642,7 +1767,7 @@ async function resolveAlunosPorUsuarioCatraca(
   return mapa;
 }
 
-async function persistEvents(params: {
+async function persistEvents(db: PrismaClient, params: {
   events: ControlidNormalizedEvent[];
   idCatraca: number | null;
   anIpOrigem: string;
@@ -1654,6 +1779,7 @@ async function persistEvents(params: {
   }
 
   const alunoPorUsuario = await resolveAlunosPorUsuarioCatraca(
+    db,
     idCatraca,
     events.map((event) => event.nrUsuarioCatraca ?? '').filter((valor) => valor !== ''),
   );
@@ -1667,7 +1793,7 @@ async function persistEvents(params: {
   // skipDuplicates apoiado no unique (idCatraca, idEventoDispositivo): um lote
   // reenviado pelo equipamento e ignorado em vez de derrubar o push inteiro com
   // erro de constraint — a catraca receberia falha e tentaria de novo em loop.
-  const result = await prisma.catracaEvento.createMany({
+  const result = await db.catracaEvento.createMany({
     skipDuplicates: true,
     data: events.map((event) => ({
       idCatraca,
