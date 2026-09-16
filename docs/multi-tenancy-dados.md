@@ -1,9 +1,9 @@
 # Multi-tenancy de dados — locação de dados por cliente (modelo híbrido/registro)
 
-> **STATUS (2026-09-16): ROLLOUT EM ANDAMENTO — 533 → 13 acessos.** O roteamento
+> **STATUS (2026-09-16): ROLLOUT EM ANDAMENTO — 533 → 3 acessos.** O roteamento
 > por tenant está feito em ~30 arquivos, a guarda de `$transaction` entre bancos
-> existe, e a porta da catraca ganhou âncora no control-plane. Faltam duas portas
-> públicas (webhook e login) para a trava de `ROTEAMENTO_COMPLETO` poder abrir —
+> existe, e as portas da catraca e do webhook ganharam âncora no control-plane.
+> Falta a última (login/identidade) para a trava de `ROTEAMENTO_COMPLETO` abrir —
 > ver "Portas de entrada". Nada quebra hoje: sem registro em `tb_ClienteConexoes`,
 > tudo cai no padrão do `.env` (o pool compartilhado atual).
 
@@ -240,7 +240,7 @@ O roteamento desceu de 533 para **13**. O que sobrou não é trabalho repetitivo
 |---|---|---|
 | Lead (site) | domínio → `tb_DominiosCorporativos` | ✅ desde sempre |
 | **Catraca** | **`tb_Clientes.caChaveDispositivo` no caminho** | ✅ **09/2026** |
-| Webhook (10) | `caTokenWebhook` em `tb_ContasRecebimento` (aplicação) | ❌ pendente |
+| **Webhook** | **`tb_Clientes.caChaveWebhook` no caminho** | ✅ **09/2026** |
 | Login (3 + relações) | `caCPFHash` em `tb_Alunos`/`tb_Funcionarios` (aplicação) | ❌ pendente |
 
 ### Catraca — resolvida sem tabela de-para
@@ -256,19 +256,35 @@ de-para serial→cliente para manter em dia, e portanto nada que possa derivar. 
 caminho antigo segue valendo e cai no pool, então o parque instalado não muda.
 Detalhes em `docs/catraca-controlid.md`.
 
+### Webhook — resolvida com a mesma forma
+
+`/webhooks/payments/<chave>/<token>`: a **chave** roteia (control-plane) e o
+**token** continua autenticando a conta em tempo constante, como antes. As três
+camadas de defesa do módulo seguem intactas; ganhou-se uma quarta: a conta
+encontrada precisa pertencer ao tenant que a chave resolveu.
+
+Essa quarta camada não é enfeite. Testando, a chave de uma academia com o token
+de outra **passava** — sem ganho para quem tentasse (o token é o segredo), mas
+gravando evento no banco errado. Enquanto todos dividem o pool, a busca pelo
+token alcança a conta de qualquer cliente; a conferência é o que faz o pool se
+comportar como o silo.
+
+Chave **separada** da chave de dispositivo de propósito: uma é digitada na tela
+do equipamento, a outra é colada no painel do provedor de pagamento. Chave única
+faria o vazamento de um painel enfraquecer o outro — e a do dispositivo é, neste
+firmware, a única autenticação de equipamento que restou.
+
+O caminho legado (`/webhooks/payments/<token>`) continua atendendo e cai no pool.
+
 ### O que falta
 
-- **Webhook** — o token é gerado por nós na emissão. O caminho mais barato é
-  torná-lo autodescritivo (`c<idCliente>.<aleatório>`): sem tabela nova e sem
-  sincronismo, ao custo de reconfigurar a URL no painel do provedor de quem já
-  tem conta.
 - **Login** — é o item 2 do rollout ("identidade enxuta central"): a chave de
   login passa para `Usuario` (central), e o perfil rico + RBAC ficam no banco do
   cliente. Atenção: o hook de auth (`plugins/auth.ts`) carrega `perfilAcesso` a
   cada request autenticado, então ele também precisa das duas pontas.
 
-Enquanto essas duas não existirem, **um cliente com cobrança pelo gateway não
-pode ser siloado**, e a trava de `ROTEAMENTO_COMPLETO` continua fechada.
+Enquanto essa não existir, **nenhum cliente pode ser siloado** — sem login não há
+sistema — e a trava de `ROTEAMENTO_COMPLETO` continua fechada.
 
 ### Ponto cego conhecido do medidor
 
@@ -277,7 +293,7 @@ filtro por relação: `prisma.usuario.findMany({ where: { aluno: { ... } } })`
 alcança tabela de aplicação a partir de um model central e não é contado. Há
 **8 casos** assim hoje (7 em `auth`, 1 em `reports`), e o mais importante é
 `plugins/auth.ts` — o carregamento de perfil/RBAC a cada request. Eles somem
-junto com a identidade enxuta; até lá, o número real é 13 + 8.
+junto com a identidade enxuta; até lá, o número real é 3 + 8.
 
 ## Segurança
 

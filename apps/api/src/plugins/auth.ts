@@ -82,7 +82,12 @@ export const PUBLIC_ROUTES = new Set([
 export const PUBLIC_ROUTE_PATTERNS: RegExp[] = [
   // Webhook de pagamento. A defesa esta no modulo: token na URL, token no
   // header conferido em tempo constante, e confirmacao de volta no provedor.
-  /^\/webhooks\/payments\/[A-Za-z0-9_-]{16,64}$/,
+  // Webhook de pagamento, nas duas formas. COM chave de roteamento
+  // (/payments/<chave>/<token>) o tenant sai do caminho, resolvido no
+  // control-plane; SEM ela (/payments/<token>) e o formato legado, que cai no
+  // pool compartilhado. A defesa do modulo e a mesma nas duas: token conferido
+  // em tempo constante e confirmacao de volta no provedor.
+  /^\/webhooks\/payments\/(?:[a-f0-9]{32,64}\/)?[A-Za-z0-9_-]{16,64}$/,
   // Endereco por academia das catracas: /d/<chave>[/<endpoint do firmware>].
   // Mesma disciplina do webhook — o padrao lista os sufixos que o equipamento
   // realmente usa, em vez de liberar /d/<chave>/qualquer-coisa. A chave resolve

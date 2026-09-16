@@ -30,7 +30,7 @@ import {
 // `prisma.<model>` e 8 consultas cruas em tabela de tenant passavam batido. Ao
 // fechar esse buraco o numero subiu sozinho — medidor furado da falsa
 // confianca, que e justamente o defeito que este rollout existe para fechar.
-const TETO = 13;
+const TETO = 3;
 
 describe('rollout multi-tenant — acessos a dado de tenant pelo client central', () => {
   it('a heuristica continua casando (nao virou um teste vazio)', () => {

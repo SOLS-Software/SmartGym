@@ -1786,6 +1786,15 @@ model Cliente {
   // serial->cliente, porque esta linha JA e control-plane — zero sincronismo
   // entre bancos, zero deriva.
   caChaveDispositivo String?  @unique @db.VarChar(64)
+  // Chave de roteamento do WEBHOOK de pagamento. Mesmo papel da chave de
+  // dispositivo, outra porta: /webhooks/payments/<caChaveWebhook>/<token> — a
+  // chave diz de quem e o evento (resolvida no control-plane) e o token
+  // continua autenticando a conta, em tempo constante.
+  //
+  // Separada da chave de dispositivo de proposito: uma e digitada na tela do
+  // equipamento, a outra e colada no painel do provedor de pagamento. Chave
+  // unica faria o vazamento de um painel enfraquecer o outro.
+  caChaveWebhook     String?  @unique @db.VarChar(64)
   dtCadastro         DateTime @default(now())
   dtAlteracao        DateTime @updatedAt
   idUsuarioCadastro  Int?

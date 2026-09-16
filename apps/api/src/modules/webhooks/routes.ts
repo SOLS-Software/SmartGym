@@ -22,7 +22,9 @@
 // esta no nosso banco produz tempestade de retry sem resolver nada. O que nao
 // deu certo fica no log com o motivo.
 import type { FastifyInstance } from 'fastify';
-import { prisma } from '../../shared/prisma.js';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import { resolveTenantByWebhookKey } from '../../shared/tenantResolver.js';
+import { getTenantDb } from '../../shared/tenantDataSource.js';
 import { decryptSecret } from '../../shared/secrets.js';
 import { getStatusIdByName } from '../../shared/payments.js';
 import {
@@ -41,10 +43,12 @@ export async function registerWebhookRoutes(app: FastifyInstance) {
   // de eventos legitimo, baixo o bastante para nao servir de porta de inundacao.
   const webhookRateLimit = { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } };
 
-  app.post<{ Params: { token: string }; Body: unknown }>(
-    '/webhooks/payments/:token',
-    webhookRateLimit,
-    async (request, reply) => {
+  // Corpo unico das duas formas de endereco (com e sem chave de roteamento).
+  async function processarWebhook(
+    request: FastifyRequest<{ Params: { token: string }; Body: unknown }>,
+    reply: FastifyReply,
+  ) {
+    {
       const token = (request.params.token ?? '').trim();
 
       // Token curto demais nem consulta o banco: e varredura, nao evento.
@@ -52,7 +56,7 @@ export async function registerWebhookRoutes(app: FastifyInstance) {
         return reply.code(404).send({ message: 'Endereco invalido.' });
       }
 
-      const conta = await prisma.contaRecebimento.findFirst({
+      const conta = await request.tenantDb.contaRecebimento.findFirst({
         where: { caTokenWebhook: token, boInativo: false },
         select: {
           id: true,
@@ -66,6 +70,21 @@ export async function registerWebhookRoutes(app: FastifyInstance) {
       // 404 generico: dizer "conta existe mas token do header esta errado"
       // ajudaria quem esta tentando adivinhar.
       if (!conta) return reply.code(404).send({ message: 'Endereco invalido.' });
+
+      // A conta encontrada tem de ser do tenant que a CHAVE do caminho
+      // resolveu. Enquanto todos dividem o pool, a busca pelo token acha a
+      // conta de qualquer cliente, entao a chave de uma academia com o token de
+      // outra passava — sem ganho para quem tentasse (o token e o segredo), mas
+      // gravando evento no lugar errado. Com banco por cliente isso resolve
+      // sozinho; a conferencia e o que faz o pool se comportar como o silo.
+      const chaveNoCaminho = (request.params as { chave?: string }).chave;
+      if (chaveNoCaminho && conta.idCliente !== request.tenantId) {
+        request.log.warn(
+          { idConta: conta.id, tenantDaChave: request.tenantId, ip: request.ip },
+          'webhook com chave de roteamento de outro cliente',
+        );
+        return reply.code(404).send({ message: 'Endereco invalido.' });
+      }
 
       // Camada 2: o segredo que a academia configurou no painel do provedor.
       // O Asaas manda em `asaas-access-token`.
@@ -85,7 +104,7 @@ export async function registerWebhookRoutes(app: FastifyInstance) {
       // Deduplicacao pelo id do evento. Reenvio do mesmo evento responde 200
       // sem reprocessar — e o que impede a mesma parcela de receber duas baixas.
       if (evento.idEvento) {
-        const jaVisto = await prisma.webhookEvento.findFirst({
+        const jaVisto = await request.tenantDb.webhookEvento.findFirst({
           where: { idContaRecebimento: conta.id, caEventoExterno: evento.idEvento },
           select: { id: true, cnStatus: true },
         });
@@ -94,7 +113,7 @@ export async function registerWebhookRoutes(app: FastifyInstance) {
         }
       }
 
-      const registro = await prisma.webhookEvento.create({
+      const registro = await request.tenantDb.webhookEvento.create({
         data: {
           idContaRecebimento: conta.id,
           cnProvedor: conta.cnProvedor,
@@ -113,7 +132,7 @@ export async function registerWebhookRoutes(app: FastifyInstance) {
         dsResultado: string,
         idPagamento?: number,
       ) {
-        await prisma.webhookEvento.update({
+        await request.tenantDb.webhookEvento.update({
           where: { id: registro.id },
           data: { cnStatus, dsResultado, idPagamento, dtProcessamento: new Date() },
         });
@@ -131,7 +150,7 @@ export async function registerWebhookRoutes(app: FastifyInstance) {
         // Acha a nossa cobranca: pelo id do provedor (gravado na emissao) ou
         // pela referencia que mandamos junto — o id do proprio Pagamento.
         const idPorReferencia = Number(evento.referenciaExterna);
-        const pagamento = await prisma.pagamento.findFirst({
+        const pagamento = await request.tenantDb.pagamento.findFirst({
           where: {
             boInativo: false,
             empresa: { idCliente: conta.idCliente },
@@ -175,7 +194,7 @@ export async function registerWebhookRoutes(app: FastifyInstance) {
           // Falha de rede nao e recusa: o evento fica em 'recebido' e o
           // provedor reenvia. Marcar como recusado esconderia um pagamento real.
           request.log.error({ err: error, idEvento: registro.id }, 'falha ao confirmar no Asaas');
-          await prisma.webhookEvento.update({
+          await request.tenantDb.webhookEvento.update({
             where: { id: registro.id },
             data: {
               dsResultado: 'Nao foi possivel confirmar no provedor; aguardando reenvio.',
@@ -195,11 +214,11 @@ export async function registerWebhookRoutes(app: FastifyInstance) {
 
         // --- estorno ------------------------------------------------------
         if (evento.acao === 'estornar') {
-          const idPendente = await getStatusIdByName(prisma, 'Pendente');
+          const idPendente = await getStatusIdByName(request.tenantDb, 'Pendente');
           if (idPendente === null) {
             return await concluir('recusado', 'Status "Pendente" nao cadastrado.', pagamento.id);
           }
-          await prisma.pagamento.update({
+          await request.tenantDb.pagamento.update({
             where: { id: pagamento.id },
             data: { idStatusPagamento: idPendente, vlPago: null, dtPagamento: null },
           });
@@ -219,7 +238,7 @@ export async function registerWebhookRoutes(app: FastifyInstance) {
           );
         }
 
-        const idPago = await getStatusIdByName(prisma, 'Pago');
+        const idPago = await getStatusIdByName(request.tenantDb, 'Pago');
         if (idPago === null) {
           return await concluir('recusado', 'Status "Pago" nao cadastrado.', pagamento.id);
         }
@@ -241,7 +260,7 @@ export async function registerWebhookRoutes(app: FastifyInstance) {
           );
         }
 
-        await prisma.pagamento.update({
+        await request.tenantDb.pagamento.update({
           where: { id: pagamento.id },
           data: {
             idStatusPagamento: idPago,
@@ -257,13 +276,48 @@ export async function registerWebhookRoutes(app: FastifyInstance) {
         request.log.error({ err: error, idEvento: registro.id }, 'erro ao processar webhook');
         // O evento esta gravado; devolver 200 evita retry sobre um erro nosso,
         // e o log guarda o que aconteceu.
-        await prisma.webhookEvento.update({
+        await request.tenantDb.webhookEvento.update({
           where: { id: registro.id },
           data: { cnStatus: 'recusado', dsResultado: 'Erro interno ao processar.', dtProcessamento: new Date() },
         });
         return reply.send({ recebido: true, status: 'recusado' });
       }
-    },
+    }
+  }
+
+  // --- as duas formas de endereco ------------------------------------------
+  //
+  // COM CHAVE (nova): /webhooks/payments/<chave>/<token>. A chave diz de qual
+  // academia e o evento e e resolvida AQUI, no control-plane, antes de abrir
+  // qualquer banco de aplicacao — sem ela, achar a conta pelo token exigiria
+  // procurar em todos os bancos, que e o ovo-e-galinha que trava o silo.
+  //
+  // SEM CHAVE (legado): /webhooks/payments/<token>. Continua atendendo e cai no
+  // pool compartilhado, que e onde vive todo cliente ainda nao siloado. Some
+  // quando nao houver mais conta emitida no formato antigo.
+  async function comTenantDaChave(request: FastifyRequest, reply: FastifyReply) {
+    const { chave } = request.params as { chave?: string };
+    const idCliente = await resolveTenantByWebhookKey(chave);
+    if (!idCliente) {
+      // 404 generico, igual ao token desconhecido: dizer "essa chave nao existe"
+      // ajudaria quem esta adivinhando.
+      request.log.warn({ ip: request.ip }, 'webhook com chave de roteamento desconhecida');
+      return reply.code(404).send({ message: 'Endereco invalido.' });
+    }
+    request.tenantId = idCliente;
+    request.tenantDb = await getTenantDb(idCliente);
+  }
+
+  app.post<{ Params: { chave: string; token: string }; Body: unknown }>(
+    '/webhooks/payments/:chave/:token',
+    { ...webhookRateLimit, preHandler: comTenantDaChave },
+    processarWebhook,
+  );
+
+  app.post<{ Params: { token: string }; Body: unknown }>(
+    '/webhooks/payments/:token',
+    webhookRateLimit,
+    processarWebhook,
   );
 
   // Eventos recebidos, para a academia enxergar o que chegou. Sem isto,
@@ -277,7 +331,7 @@ export async function registerWebhookRoutes(app: FastifyInstance) {
       const idConta = Number(request.query.idConta);
       const limit = Math.min(Math.max(Number(request.query.limit) || 30, 1), 200);
 
-      return prisma.webhookEvento.findMany({
+      return request.tenantDb.webhookEvento.findMany({
         where: {
           contaRecebimento: { idCliente, ...(idConta > 0 ? { id: idConta } : {}) },
         },

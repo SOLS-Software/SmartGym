@@ -37,6 +37,15 @@ declare module 'fastify' {
      * decorator de valor nulo com tipo nao-nulavel.
      */
     tenantDb: PrismaClient;
+
+    /**
+     * Tenant deste request, ou null quando nao ha (rota publica sem chave).
+     * Anda junto com `tenantDb` porque saber QUAL banco foi aberto e, as vezes,
+     * tao necessario quanto o banco: e o que permite conferir se o registro
+     * encontrado pertence mesmo a quem o endereco disse pertencer — enquanto
+     * todo mundo divide o pool, essa checagem e a unica que existe.
+     */
+    tenantId: number | null;
   }
 }
 
@@ -45,6 +54,7 @@ export async function registerTenantDbPlugin(app: FastifyInstance) {
   // o tenant. Registrado em app.ts logo apos registerAuthPlugin.
   app.addHook('onRequest', async (request) => {
     const idCliente = request.user?.idCliente ?? null;
+    request.tenantId = idCliente;
     request.tenantDb = idCliente ? await getTenantDb(idCliente) : prisma;
   });
 }

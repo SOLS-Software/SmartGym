@@ -40,7 +40,7 @@ const upsertSchema = z.object({
  * em claro. Esta funcao e o unico ponto de saida do modulo, entao esquecer a
  * mascara exigiria mexer aqui de proposito.
  */
-function toResponse(conta: {
+function toResponse(chaveCliente: string | null, conta: {
   id: number;
   idCliente: number;
   idEmpresa: number | null;
@@ -58,6 +58,12 @@ function toResponse(conta: {
   dtCadastro: Date;
   empresa?: { id: number; dsEmpresa: string } | null;
 }) {
+  const caminho = conta.caTokenWebhook
+    ? chaveCliente
+      ? `/webhooks/payments/${chaveCliente}/${conta.caTokenWebhook}`
+      : `/webhooks/payments/${conta.caTokenWebhook}`
+    : null;
+
   return {
     id: conta.id,
     idCliente: conta.idCliente,
@@ -82,15 +88,27 @@ function toResponse(conta: {
     // O caminho do webhook, para a academia colar no painel do provedor. E um
     // endereco de capacidade: quem o tem consegue POSTAR eventos. Sai so para
     // quem ja tem billing.read — a mesma permissao que le a conta.
-    caminhoWebhook: conta.caTokenWebhook ? `/webhooks/payments/${conta.caTokenWebhook}` : null,
-    urlWebhook:
-      conta.caTokenWebhook && urlPublicaDaApi()
-        ? `${urlPublicaDaApi()}/webhooks/payments/${conta.caTokenWebhook}`
-        : null,
+    // Com a chave de roteamento do cliente no caminho: e ela que diz de qual
+    // academia e o evento, resolvida no control-plane antes de abrir qualquer
+    // banco de aplicacao. Sem a chave (cliente antigo sem ela) cai no formato
+    // legado, que so funciona enquanto o cliente estiver no pool compartilhado.
+    caminhoWebhook: caminho,
+    // Derivada do caminho, e nao montada de novo: sao o mesmo endereco, e
+    // duplicar a regra e como as duas formas passariam a divergir.
+    urlWebhook: caminho && urlPublicaDaApi() ? `${urlPublicaDaApi()}${caminho}` : null,
     // O mesmo token vai no header que o provedor manda de volta. E o segredo
     // que a academia cola no campo "token de autenticacao" do painel.
     tokenWebhook: conta.caTokenWebhook,
   };
+}
+
+/** Chave de roteamento do cliente (control-plane). */
+async function chaveDeRoteamento(idCliente: number): Promise<string | null> {
+  const cliente = await prisma.cliente.findUnique({
+    where: { id: idCliente },
+    select: { caChaveWebhook: true },
+  });
+  return cliente?.caChaveWebhook ?? null;
 }
 
 const SELECT = {
@@ -251,7 +269,8 @@ export async function registerPaymentAccountRoutes(app: FastifyInstance) {
         // a conta que vale para todas as unidades apareceria no fim da lista.
         orderBy: [{ idEmpresa: { sort: 'asc', nulls: 'first' } }, { dsConta: 'asc' }],
       });
-      return contas.map(toResponse);
+      const chave = await chaveDeRoteamento(idCliente);
+      return contas.map((conta) => toResponse(chave, conta));
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao listar as contas de recebimento.'),
@@ -302,7 +321,7 @@ export async function registerPaymentAccountRoutes(app: FastifyInstance) {
         });
       });
 
-      return reply.code(201).send(toResponse(conta));
+      return reply.code(201).send(toResponse(await chaveDeRoteamento(idCliente), conta));
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao cadastrar a conta de recebimento.'),
@@ -367,7 +386,7 @@ export async function registerPaymentAccountRoutes(app: FastifyInstance) {
           });
         });
 
-        return toResponse(conta);
+        return toResponse(await chaveDeRoteamento(idCliente), conta);
       } catch (error) {
         return reply.code(400).send({
           message: clientErrorMessage(error, 'Erro ao atualizar a conta de recebimento.'),
@@ -409,7 +428,7 @@ export async function registerPaymentAccountRoutes(app: FastifyInstance) {
           select: SELECT,
         });
 
-        return toResponse(conta);
+        return toResponse(await chaveDeRoteamento(idCliente), conta);
       } catch (error) {
         return reply.code(400).send({
           message: clientErrorMessage(error, 'Erro ao alterar o status da conta.'),

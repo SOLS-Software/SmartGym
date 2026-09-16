@@ -466,8 +466,11 @@ const PUBLIC_ROUTES = new Set([
   '/auth/reset-password',
   '/auth/theme',
   '/public/leads',
-  // Token na URL; a defesa esta no modulo (ver plugins/auth.ts).
-  '/webhooks/payments/:token',
+  // Token na URL; a defesa esta no modulo (ver plugins/auth.ts). Duas formas:
+  // com chave de roteamento (nova) e so com token (legado). O fastify mostra a
+  // alternancia de parametro na mesma posicao como ":chave|:token".
+  '/webhooks/payments/:chave|:token',
+  '/webhooks/payments/:chave|:token/:token',
   '/controlid',
   '/controlid/push',
   '/controlid/push/push',

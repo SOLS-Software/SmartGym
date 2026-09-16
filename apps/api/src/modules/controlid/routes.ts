@@ -754,6 +754,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
       request.log.warn({ ip: request.ip }, 'Dispositivo com chave de endereco desconhecida.');
       return reply.code(404).send({ message: 'Endereco invalido.' });
     }
+    request.tenantId = idCliente;
     request.tenantDb = await getTenantDb(idCliente);
   }
 

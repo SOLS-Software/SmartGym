@@ -63,6 +63,9 @@ function flattenRoutes(tree: string): Route[] {
 // hex; os demais viram um id numerico.
 function toConcretePath(url: string): string {
   return url
+    // Duas rotas com nomes de parametro diferentes na MESMA posicao aparecem no
+    // fastify como ":chave|:token"; fica o primeiro, que e o mais restritivo.
+    .replace(/:(\w+)\|:\w+/g, ':$1')
     .replace(/:token/g, 'a'.repeat(24))
     .replace(/:chave/g, 'a'.repeat(40))
     .replace(/:[A-Za-z][A-Za-z0-9]*/g, '7');

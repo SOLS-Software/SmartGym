@@ -44,16 +44,34 @@ export async function resolveTenantByDomain(caDominio: string | undefined): Prom
 // serial->cliente a manter em dia, entao nao ha o que derivar.
 const CHAVE_RE = /^[a-f0-9]{32,64}$/;
 
-/** Chave valida em formato? Barra varredura antes de tocar o banco. */
-export function isChaveDispositivo(chave: string | undefined): boolean {
+/**
+ * Chave valida em FORMATO? Barra varredura antes de tocar o banco.
+ *
+ * Serve as duas chaves de roteamento do cliente (dispositivo e webhook): ambas
+ * sao 32-64 hex gerados pelo servidor, e o formato nao distingue uma da outra —
+ * quem distingue e a coluna consultada.
+ */
+export function isChaveDeRoteamento(chave: string | undefined): boolean {
   return CHAVE_RE.test((chave ?? '').trim().toLowerCase());
+}
+
+export async function resolveTenantByWebhookKey(
+  chave: string | undefined,
+): Promise<number | null> {
+  const valor = (chave ?? '').trim().toLowerCase();
+  if (!isChaveDeRoteamento(valor)) return null;
+  const cliente = await prisma.cliente.findFirst({
+    where: { caChaveWebhook: valor, boInativo: false },
+    select: { id: true },
+  });
+  return cliente?.id ?? null;
 }
 
 export async function resolveTenantByDeviceKey(
   chave: string | undefined,
 ): Promise<number | null> {
   const valor = (chave ?? '').trim().toLowerCase();
-  if (!isChaveDispositivo(valor)) return null;
+  if (!isChaveDeRoteamento(valor)) return null;
   const cliente = await prisma.cliente.findFirst({
     where: { caChaveDispositivo: valor, boInativo: false },
     select: { id: true },
