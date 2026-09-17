@@ -17,6 +17,7 @@ import { getClientSupabaseConfig, getSupabaseClient } from '../../shared/supabas
 import { assertAllowedUploadType, assertUploadBuffer, getClientFilePath } from '../../shared/files.js';
 import { clientErrorMessage } from '../../shared/errors.js';
 import { ensureDefaultProfiles } from '../../shared/accessProfiles.js';
+import { getTenantDb } from '../../shared/tenantDataSource.js';
 
 // Paginacao de listagens: aceita ?limit= com clamp em 1..1000 (default 1000).
 const limitQuery = z.coerce
@@ -182,7 +183,13 @@ export async function registerClientRoutes(app: FastifyInstance) {
       // Cliente novo ja nasce com os perfis de acesso padrao: sem eles, o
       // primeiro funcionario cadastrado nao teria perfil algum para receber e
       // o RBAC (deny-by-default) o deixaria sem nenhuma tela.
-      await ensureDefaultProfiles(prisma, cliente.id);
+      //
+      // Pelo banco DO TENANT, nao pelo central: tb_PerfisAcesso e tabela de
+      // aplicacao. Para um cliente recem-criado o resolver cai no pool padrao
+      // (ele ainda nao tem registro em tb_ClienteConexoes), entao hoje o
+      // destino e o mesmo — mas deixar `prisma` aqui seria uma bomba-relogio
+      // para o dia em que o provisionamento passar a criar o banco junto.
+      await ensureDefaultProfiles(await getTenantDb(cliente.id), cliente.id);
       return reply.code(201).send(cliente);
     } catch (error) {
       return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao criar cliente.') });

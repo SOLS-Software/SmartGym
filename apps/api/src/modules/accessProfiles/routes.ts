@@ -42,9 +42,19 @@ export async function registerAccessProfileRoutes(app: FastifyInstance) {
     const idCliente = request.user.idCliente;
     if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
 
-    // Semeadura preguicosa: clientes criados antes desta feature nao teriam
-    // perfil nenhum e a tela abriria vazia, sem caminho obvio de saida.
-    await ensureDefaultProfiles(prisma, idCliente);
+    // Semeadura preguicosa: clientes criados antes desta feature (e, agora,
+    // clientes cadastrados pelo painel do provedor, que so toca control-plane)
+    // nao teriam perfil nenhum e a tela abriria vazia, sem caminho obvio.
+    //
+    // O CLIENT E O DO TENANT, nao o central. tb_PerfisAcesso e tabela de
+    // APLICACAO: com banco por cliente, semear no central gravaria no lugar
+    // errado enquanto o findMany logo abaixo le do banco do cliente — a tela
+    // continuaria vazia e a semeadura se repetiria a cada abertura, inflando o
+    // central com linhas que ninguem le. E a "duas verdades" do rollout.
+    //
+    // Este acesso escapou do medidor (tenantRolloutScan) porque o client viaja
+    // como ARGUMENTO de funcao, e a varredura procura `prisma.<model>`.
+    await ensureDefaultProfiles(request.tenantDb, idCliente);
 
     const profiles = await request.tenantDb.perfilAcesso.findMany({
       where: { idCliente },
