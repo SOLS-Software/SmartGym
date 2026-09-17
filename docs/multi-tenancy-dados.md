@@ -276,24 +276,51 @@ firmware, a única autenticação de equipamento que restou.
 
 O caminho legado (`/webhooks/payments/<token>`) continua atendendo e cai no pool.
 
-### O que falta
+### Login — resolvida movendo a chave, não os dados
 
-- **Login** — é o item 2 do rollout ("identidade enxuta central"): a chave de
-  login passa para `Usuario` (central), e o perfil rico + RBAC ficam no banco do
-  cliente. Atenção: o hook de auth (`plugins/auth.ts`) carrega `perfilAcesso` a
-  cada request autenticado, então ele também precisa das duas pontas.
+O login procurava a pessoa com um filtro que saía de `tb_Usuarios` (central) e
+atravessava para `tb_Alunos`/`tb_Funcionarios` (aplicação). Com banco por
+cliente esse JOIN deixa de existir — e quem está tentando entrar ainda não
+disse de qual academia é; o app mobile nem domínio manda.
 
-Enquanto essa não existir, **nenhum cliente pode ser siloado** — sem login não há
-sistema — e a trava de `ROTEAMENTO_COMPLETO` continua fechada.
+A **chave de login** (`Usuario.caCPFHash`) passou para a identidade central,
+junto com o hash de senha que ela já guardava. O perfil rico e o RBAC continuam
+sendo dado do cliente, carregados depois, do banco dele. Isso duplica o hash em
+dois lugares — inevitável, porque o login precisa dele antes de saber o banco —
+então os pontos de escrita são poucos e passam todos por `shared/loginKey.ts`,
+que grava **a ficha primeiro e a chave depois**: se a segunda falhar, a pessoa
+continua entrando com o CPF antigo, um desencontro recuperável, em vez de ficar
+sem entrar.
 
-### Ponto cego conhecido do medidor
+Consequência no caminho quente: o hook de auth passou a fazer **duas consultas**
+por request autenticado — "esta sessão ainda vale?" no central e "o que essa
+pessoa pode fazer?" no banco do cliente. A segunda só para quem tem perfil a
+aplicar.
 
-A varredura casa `prisma.<model>` e `prisma.$queryRaw`, mas **não** enxerga
-filtro por relação: `prisma.usuario.findMany({ where: { aluno: { ... } } })`
-alcança tabela de aplicação a partir de um model central e não é contado. Há
-**8 casos** assim hoje (7 em `auth`, 1 em `reports`), e o mais importante é
-`plugins/auth.ts` — o carregamento de perfil/RBAC a cada request. Eles somem
-junto com a identidade enxuta; até lá, o número real é 3 + 8.
+O `register` era uma transação só que lia a ficha e criava a conta; virou
+leitura da ficha (tenant) seguida de uma transação **só do central**.
+
+### O medidor já foi cego uma vez
+
+A varredura nasceu enxergando só `prisma.<model>`. Faltavam duas formas, e as
+duas foram descobertas tarde:
+
+1. **SQL cru** (`prisma.$queryRaw`) — 8 consultas em tabela de tenant,
+   invisíveis. Fechado casando o `@@map` da tabela dentro do SQL.
+2. **Filtro por relação** — a consulta parte de um model central e atravessa
+   pela relação. Eram mais 8, e o mais importante era o carregamento de
+   perfil/RBAC a cada request autenticado.
+
+O segundo caso é o que vale a lição: ao ser implementado, o detector marcou zero
+— e **zero de medidor morto é indistinguível de zero de trabalho terminado**. O
+regex tinha um caractere de controle invisível no lugar de ``, colado por um
+`sed`, que nem `String(regex)` revelava. Só apareceu porque o teste alimentou o
+detector com um trecho sabidamente ruim e exigiu que ele acusasse.
+
+Por isso `tenantRolloutCoverage.test.ts` agora testa **a própria varredura**, com
+um exemplo de cada forma e um contraexemplo de control-plane legítimo. E os
+exemplos vivem no teste, não nos comentários do scanner: escritos na prosa, eles
+seriam varridos como se fossem código.
 
 ## Segurança
 

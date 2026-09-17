@@ -1,6 +1,7 @@
 import jwt from '@fastify/jwt';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { prisma } from '../shared/prisma.js';
+import { getTenantDb } from '../shared/tenantDataSource.js';
 import { isStudentAllowed } from './studentRbac.js';
 import { isEmployeeAllowed } from './permissions.js';
 
@@ -132,18 +133,19 @@ export async function registerAuthPlugin(app: FastifyInstance) {
     // proposito: um perfil editado (ou um funcionario movido de perfil) passa
     // a valer no request seguinte. Se viajassem no JWT, tirar o acesso de
     // alguem so surtiria efeito no proximo login — ate 30 dias no app.
+    //
+    // DUAS CONSULTAS, e nao uma. A conta e IDENTIDADE (central); o perfil de
+    // acesso e dado do CLIENTE. Enquanto tudo dividia um banco, um SELECT com
+    // join resolvia; com banco por cliente o join deixa de existir. A primeira
+    // consulta responde "esta sessao ainda vale?" e a segunda, so para quem tem
+    // perfil a aplicar, "o que essa pessoa pode fazer?".
     const account = await prisma.usuario.findUnique({
       where: { id: request.user.sub },
       select: {
         boInativo: true,
         nrTokenVersion: true,
-        funcionario: {
-          select: {
-            perfilAcesso: {
-              select: { boInativo: true, permissoes: { select: { cnPermissao: true } } },
-            },
-          },
-        },
+        idCliente: true,
+        idFuncionario: true,
       },
     });
     if (!account || account.boInativo || account.nrTokenVersion !== (request.user.tv ?? 0)) {
@@ -176,7 +178,22 @@ export async function registerAuthPlugin(app: FastifyInstance) {
     // funcionario comum que entre pela porta do gestor fica preso ao perfil
     // dele. Perfil ausente ou inativo = nenhuma permissao (deny-by-default).
     if (request.user.role !== 'student' && !request.user.superAdmin) {
-      const profile = account.funcionario?.perfilAcesso;
+      // O perfil vem do banco do CLIENTE, e a cada request — nao do token. Um
+      // perfil editado (ou um funcionario movido de perfil) passa a valer no
+      // request seguinte; se viajasse no JWT, tirar o acesso de alguem so
+      // surtiria efeito no proximo login, ate 30 dias no app.
+      const profile = account.idFuncionario
+        ? (
+            await (await getTenantDb(account.idCliente)).funcionario.findUnique({
+              where: { id: account.idFuncionario },
+              select: {
+                perfilAcesso: {
+                  select: { boInativo: true, permissoes: { select: { cnPermissao: true } } },
+                },
+              },
+            })
+          )?.perfilAcesso
+        : null;
       const granted = new Set(
         profile && !profile.boInativo ? profile.permissoes.map((item) => item.cnPermissao) : [],
       );

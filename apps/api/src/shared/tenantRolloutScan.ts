@@ -47,6 +47,39 @@ export function collectTsFiles(dir: string = SRC_ROOT): string[] {
   return out;
 }
 
+// FILTRO POR RELACAO: a consulta parte de um model CENTRAL, mas o `where` ou o
+// `include` atravessa para uma tabela de aplicacao pelo caminho da relacao — um
+// JOIN que simplesmente deixa de existir quando os dois moram em bancos
+// diferentes. A varredura por `prisma.<model>` nao via nada disso, e eram 8
+// casos, o mais importante deles o carregamento de perfil/RBAC a cada request
+// autenticado. Medidor que nao ve o que falta e pior que medidor nenhum: ele
+// autoriza a declarar pronto.
+//
+// O exemplo concreto de cada forma esta em tenantRolloutCoverage.test.ts, e nao
+// aqui: escrito na prosa, ele seria varrido como se fosse codigo — por este
+// scanner e pelo tenantScope.test.
+const MODELS_CENTRAIS = new Set(
+  Object.entries(TABLE_TIERS)
+    .filter(([, tier]) => tier === 'control-plane')
+    .map(([model]) => model.charAt(0).toLowerCase() + model.slice(1)),
+);
+
+const CHAMADA_CENTRAL_RE = /\bprisma\.([a-zA-Z]+)\.([a-zA-Z]+)\s*\(/g;
+
+/** Recorta o argumento da chamada (parenteses balanceados) a partir do '('. */
+function argumentoBalanceado(src: string, abre: number): string {
+  let nivel = 0;
+  for (let i = abre; i < src.length; i += 1) {
+    const c = src[i];
+    if (c === '(' || c === '[' || c === '{') nivel += 1;
+    else if (c === ')' || c === ']' || c === '}') {
+      nivel -= 1;
+      if (nivel === 0) return src.slice(abre, i + 1);
+    }
+  }
+  return src.slice(abre, abre + 2000);
+}
+
 // SQL CRU. `prisma.$queryRaw` nao casa com `prisma.<model>`, entao a varredura
 // por model sozinha tem um buraco — e um medidor furado da falsa confianca, que
 // e exatamente o defeito que este rollout existe para fechar. Aqui casamos o
@@ -82,36 +115,70 @@ export type AcessoPendente = {
   operacao: string;
 };
 
-export function acessosPendentes(): AcessoPendente[] {
+/**
+ * Analisa UM fonte. Pura (recebe o texto, nao le disco) para o teste poder
+ * alimenta-la com um trecho conhecido e provar que a varredura enxerga — um
+ * detector que para de casar vira teste vazio, e teste vazio autoriza a
+ * declarar pronto o que nao esta.
+ */
+export function analisarFonte(
+  rel: string,
+  src: string,
+  tabelas: Map<string, string>,
+): AcessoPendente[] {
   const pendentes: AcessoPendente[] = [];
+  let m: RegExpExecArray | null;
+
+  // 1) Acesso direto a model de aplicacao pelo client central.
+  CHAMADA_RE.lastIndex = 0;
+  while ((m = CHAMADA_RE.exec(src))) {
+    const model = m[1];
+    if (!model || !MODELS_DE_TENANT.has(model)) continue;
+    const linha = src.slice(0, m.index).split('\n').length;
+    if (ALLOWLIST.has(`${rel}:${linha}`)) continue;
+    pendentes.push({ arquivo: rel, linha, model, operacao: m[2] ?? '' });
+  }
+
+  // 2) Filtro/include por RELACAO, partindo de um model central.
+  CHAMADA_CENTRAL_RE.lastIndex = 0;
+  while ((m = CHAMADA_CENTRAL_RE.exec(src))) {
+    const central = m[1];
+    if (!central || !MODELS_CENTRAIS.has(central)) continue;
+    const arg = argumentoBalanceado(src, m.index + m[0].length - 1);
+    const relacao = [...MODELS_DE_TENANT].find((modelo) =>
+      new RegExp(`\\b${modelo}\\s*:\\s*\\{`).test(arg),
+    );
+    if (!relacao) continue;
+    const linha = src.slice(0, m.index).split('\n').length;
+    if (ALLOWLIST.has(`${rel}:${linha}`)) continue;
+    pendentes.push({ arquivo: rel, linha, model: relacao, operacao: `relacao:${m[2]}` });
+  }
+
+  // 3) SQL cru tocando tabela de tenant.
+  RAW_RE.lastIndex = 0;
+  while ((m = RAW_RE.exec(src))) {
+    const sql = src.slice(m.index, m.index + JANELA_SQL);
+    const alvo = [...tabelas].find(([tabela]) => sql.includes(`"${tabela}"`));
+    if (!alvo) continue; // SQL de control-plane: fica no central de proposito.
+    const linha = src.slice(0, m.index).split('\n').length;
+    if (ALLOWLIST.has(`${rel}:${linha}`)) continue;
+    pendentes.push({ arquivo: rel, linha, model: alvo[1], operacao: `$${m[1]}` });
+  }
+
+  return pendentes;
+}
+
+export function acessosPendentes(): AcessoPendente[] {
   const tabelas = tabelasDeTenant();
-
+  const pendentes: AcessoPendente[] = [];
   for (const file of collectTsFiles()) {
-    const src = readFileSync(file, 'utf8');
     const rel = file.slice(SRC_ROOT.length).replace(/\\/g, '/').replace(/^\//, '');
-
-    CHAMADA_RE.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = CHAMADA_RE.exec(src))) {
-      const model = m[1];
-      if (!model || !MODELS_DE_TENANT.has(model)) continue;
-      const linha = src.slice(0, m.index).split('\n').length;
-      if (ALLOWLIST.has(`${rel}:${linha}`)) continue;
-      pendentes.push({ arquivo: rel, linha, model, operacao: m[2] ?? '' });
-    }
-
-    RAW_RE.lastIndex = 0;
-    while ((m = RAW_RE.exec(src))) {
-      const sql = src.slice(m.index, m.index + JANELA_SQL);
-      const alvo = [...tabelas].find(([tabela]) => sql.includes(`"${tabela}"`));
-      if (!alvo) continue; // SQL de control-plane: fica no central de proposito.
-      const linha = src.slice(0, m.index).split('\n').length;
-      if (ALLOWLIST.has(`${rel}:${linha}`)) continue;
-      pendentes.push({ arquivo: rel, linha, model: alvo[1], operacao: `$${m[1]}` });
-    }
+    pendentes.push(...analisarFonte(rel, readFileSync(file, 'utf8'), tabelas));
   }
   return pendentes;
 }
+
+export { tabelasDeTenant };
 
 /** Formato `arquivo:linha  prisma.model.op`, para mensagens de erro. */
 export function acessosCentraisPendentes(): string[] {

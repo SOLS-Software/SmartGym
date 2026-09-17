@@ -5,7 +5,9 @@ import {
   CHAMADA_RE,
   MODELS_DE_TENANT,
   acessosCentraisPendentes,
+  analisarFonte,
   collectTsFiles,
+  tabelasDeTenant,
 } from './tenantRolloutScan.js';
 
 // Medidor do rollout multi-tenant — a resposta para "ja da para siloar um
@@ -30,7 +32,44 @@ import {
 // `prisma.<model>` e 8 consultas cruas em tabela de tenant passavam batido. Ao
 // fechar esse buraco o numero subiu sozinho — medidor furado da falsa
 // confianca, que e justamente o defeito que este rollout existe para fechar.
-const TETO = 3;
+const TETO = 0;
+
+// O detector precisa PROVAR que enxerga. Um medidor que parou de casar marca
+// zero exatamente como um rollout terminado — e zero e o que destrava a
+// ativacao de banco dedicado. Estes tres trechos sao os tres jeitos ja vistos
+// no codigo real de alcancar dado de tenant pelo central.
+describe('a varredura enxerga as tres formas', () => {
+  const tabelas = tabelasDeTenant();
+  const analisar = (src: string) => analisarFonte('fake.ts', src, tabelas);
+
+  it('acesso direto a model de aplicacao', () => {
+    const achados = analisar('const x = await prisma.aluno.findMany({ where: { idCliente } });');
+    expect(achados).toHaveLength(1);
+    expect(achados[0]?.model).toBe('aluno');
+  });
+
+  it('filtro por RELACAO a partir de model central', () => {
+    // A forma que passou despercebida por todo o rollout: o model e central,
+    // mas o filtro atravessa para a tabela de aplicacao.
+    const achados = analisar(
+      'const u = await prisma.usuario.findMany({ where: { funcionario: { caCPFHash: h } } });',
+    );
+    expect(achados).toHaveLength(1);
+    expect(achados[0]?.model).toBe('funcionario');
+    expect(achados[0]?.operacao).toContain('relacao');
+  });
+
+  it('SQL cru em tabela de tenant', () => {
+    const achados = analisar('await prisma.$queryRaw`SELECT 1 FROM "tb_Alunos" WHERE id = 1`;');
+    expect(achados).toHaveLength(1);
+    expect(achados[0]?.operacao).toBe('$queryRaw');
+  });
+
+  it('NAO acusa o que e control-plane de verdade', () => {
+    expect(analisar('await prisma.usuario.count({ where: { idAluno: 1, idCliente: 2 } });')).toEqual([]);
+    expect(analisar('await prisma.$queryRaw`SELECT 1 FROM "tb_ClienteConexoes"`;')).toEqual([]);
+  });
+});
 
 describe('rollout multi-tenant — acessos a dado de tenant pelo client central', () => {
   it('a heuristica continua casando (nao virou um teste vazio)', () => {

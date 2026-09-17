@@ -521,6 +521,16 @@ model Usuario {
   idFuncionario      Int?
   idAluno            Int?
   dsLogin            String    @default("") @db.VarChar(100)
+  // CHAVE DE LOGIN (HMAC do CPF). Fica aqui, na identidade central, porque o
+  // login precisa achar a pessoa ANTES de saber em qual banco o perfil dela
+  // mora — e com banco por cliente o filtro antigo, que atravessava para
+  // tb_Alunos/tb_Funcionarios, deixa de existir. O perfil rico e o RBAC
+  // continuam no banco do cliente, carregados depois.
+  //
+  // NAO e unique: o mesmo CPF pode ter conta em academias diferentes, e a mesma
+  // pessoa pode ser aluna E funcionaria na mesma. Quem desempata qual conta e a
+  // SENHA (achado A-2). Mantida em dia por shared/loginKey.ts.
+  caCPFHash          String?   @db.VarChar(64)
   dtUltimoAcesso     DateTime?
   dtCadastro         DateTime  @default(now())
   dtAlteracao        DateTime  @updatedAt
@@ -544,6 +554,7 @@ model Usuario {
   dispositivos      UsuarioDispositivo[]
 
   @@unique([idCliente, dsLogin])
+  @@index([caCPFHash])
   @@index([idCliente])
   @@index([idFuncionario])
   @@index([idAluno])

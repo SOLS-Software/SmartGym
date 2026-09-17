@@ -1,4 +1,5 @@
 import { toBool } from '../../shared/normalize.js';
+import { sincronizarChaveDeLogin } from '../../shared/loginKey.js';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import type { PrismaClient } from '@smartgym/db';
@@ -127,6 +128,8 @@ export async function registerEmployeeRoutes(app: FastifyInstance) {
         where: { id },
         data: storedData as unknown as Parameters<typeof request.tenantDb.funcionario.update>[0]['data'],
       });
+      // Idem aluno: a chave de login e central e so acompanha se mandarmos.
+      await sincronizarChaveDeLogin({ idFuncionario: id }, updated.caCPFHash, request.log);
       return withDecryptedCpf(updated);
     } catch (error) {
       return reply.code(400).send({

@@ -13,6 +13,7 @@ import { cpfHash, decryptCpfValue } from '../../shared/pii.js';
 import { TOKEN_EXPIRY_MOBILE, TOKEN_EXPIRY_WEB } from '../../plugins/auth.js';
 import { getSupabaseClient, getSupabaseConfig, getClientSupabaseConfig } from '../../shared/supabase.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
+import { getTenantDb } from '../../shared/tenantDataSource.js';
 import { resolveTenantByDomain } from '../../shared/tenantResolver.js';
 import type {
   ForgotPasswordPayload,
@@ -66,6 +67,117 @@ function describeProfile(profile: ProfileWithPermissions | null) {
 // multi-tenancy de dados (docs/multi-tenancy-dados.md). O login continua usando
 // exatamente o mesmo criterio (achado A-2).
 
+/**
+ * Cria a identidade central (usuario + senha) numa transacao SO do central.
+ *
+ * `caCPFHash` entra aqui porque e a CHAVE DE LOGIN: sem ela gravada agora, a
+ * conta nasceria invisivel para o /auth/login, que procura por ela. Ver
+ * shared/loginKey.ts.
+ */
+async function criarConta(args: {
+  idCliente: number;
+  idAluno?: number;
+  idFuncionario?: number;
+  nome: string;
+  dsLogin: string;
+  caCPFHash: string;
+  senhaHash: string;
+}) {
+  const user = await prisma.$transaction(async (tx) => {
+    const criado = await tx.usuario.create({
+      data: {
+        idCliente: args.idCliente,
+        idAluno: args.idAluno ?? null,
+        idFuncionario: args.idFuncionario ?? null,
+        dsLogin: args.dsLogin,
+        caCPFHash: args.caCPFHash,
+        boInativo: false,
+      },
+    });
+    await tx.senha.create({
+      data: {
+        idUsuario: criado.id,
+        dsSenha: args.senhaHash,
+        cnTipoHash: HASH_TYPE_BCRYPT,
+        boTrocaObrigatoria: false,
+      },
+    });
+    return criado;
+  });
+  return { id: user.id, name: args.nome, login: user.dsLogin };
+}
+
+/**
+ * Carrega o PERFIL da pessoa no banco do cliente dela.
+ *
+ * A identidade (login, senha, tenant) e central; o perfil — nome, contato,
+ * situacao e o vinculo com o perfil de acesso — e dado do cliente. Enquanto
+ * tudo dividia um banco, um `include` resolvia os dois de uma vez; com banco
+ * por cliente sao duas consultas, e esta e a segunda.
+ *
+ * `ativo` distingue "a conta existe" de "a pessoa ainda e aluna/funcionaria
+ * daqui": a ficha desativada tranca o acesso mesmo com a conta central viva.
+ */
+async function carregarPerfil(
+  idCliente: number | null,
+  alvo: { idAluno?: number | null; idFuncionario?: number | null },
+): Promise<{
+  nome: string | null;
+  email: string | null;
+  ativo: boolean;
+  idEmpresa: number | null;
+  perfilAcesso: ProfileWithPermissions | null;
+}> {
+  const vazio = { nome: null, email: null, ativo: false, idEmpresa: null, perfilAcesso: null };
+  if (!idCliente) return vazio;
+  const db = await getTenantDb(idCliente);
+
+  if (alvo.idAluno) {
+    const aluno = await db.aluno.findUnique({
+      where: { id: alvo.idAluno },
+      select: { nmAluno: true, anEmail: true, boInativo: true },
+    });
+    if (!aluno) return vazio;
+    return {
+      nome: aluno.nmAluno,
+      email: aluno.anEmail,
+      ativo: !aluno.boInativo,
+      idEmpresa: null,
+      perfilAcesso: null,
+    };
+  }
+
+  if (alvo.idFuncionario) {
+    const funcionario = await db.funcionario.findUnique({
+      where: { id: alvo.idFuncionario },
+      select: {
+        nmFuncionario: true,
+        anEmail: true,
+        boInativo: true,
+        idEmpresa: true,
+        perfilAcesso: {
+          select: {
+            id: true,
+            dsPerfil: true,
+            boInativo: true,
+            permissoes: { select: { cnPermissao: true } },
+          },
+        },
+      },
+    });
+    if (!funcionario) return vazio;
+    return {
+      nome: funcionario.nmFuncionario,
+      email: funcionario.anEmail,
+      ativo: !funcionario.boInativo,
+      idEmpresa: funcionario.idEmpresa,
+      perfilAcesso: funcionario.perfilAcesso ?? null,
+    };
+  }
+
+  return vazio;
+}
+
 export async function registerAuthRoutes(app: FastifyInstance) {
   // Limites restritos de rate limit para endpoints de autenticacao (anti brute
   // force / enumeracao). O limite global de 300/min continua valendo no resto.
@@ -101,27 +213,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         where: {
           boInativo: false,
           ...(idClienteDominio ? { idCliente: idClienteDominio } : {}),
-          OR: [
-            // CPF armazenado criptografado: lookup exato via HMAC (caCPFHash).
-            { aluno: { caCPFHash: cpfHash(cpf), boInativo: false } },
-            { funcionario: { caCPFHash: cpfHash(cpf), boInativo: false } },
-          ],
-        },
-        include: {
-          aluno: true,
-          funcionario: {
-            include: {
-              empresa: { select: { idCliente: true } },
-              perfilAcesso: {
-                select: {
-                  id: true,
-                  dsPerfil: true,
-                  boInativo: true,
-                  permissoes: { select: { cnPermissao: true } },
-                },
-              },
-            },
-          },
+          // Chave de login da identidade CENTRAL. Antes o filtro atravessava
+          // para tb_Alunos/tb_Funcionarios — um JOIN que deixa de existir com
+          // banco por cliente, porque quem esta entrando ainda nao disse de
+          // qual academia e. Ver shared/loginKey.ts.
+          caCPFHash: cpfHash(cpf),
         },
         orderBy: { id: 'asc' },
       });
@@ -193,6 +289,20 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         { expiresIn: request.body.client === 'mobile' ? TOKEN_EXPIRY_MOBILE : TOKEN_EXPIRY_WEB },
       );
 
+      // Segunda consulta: o perfil, no banco do cliente (ver carregarPerfil).
+      const perfil = await carregarPerfil(idCliente, {
+        idAluno: user.idAluno,
+        idFuncionario: user.idFuncionario,
+      });
+
+      // Ficha desativada tranca o acesso mesmo com a conta central viva: quem
+      // deixou de ser aluno ou funcionario da academia nao entra.
+      if (!perfil.ativo) {
+        throw new Error('Usuario ou senha invalidos.');
+      }
+
+      const dbTenant = idCliente ? await getTenantDb(idCliente) : prisma;
+
       return {
         token,
         id: user.id,
@@ -200,7 +310,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         idFuncionario: user.idFuncionario,
         idCliente,
         login: user.dsLogin,
-        name: user.aluno?.nmAluno ?? user.funcionario?.nmFuncionario ?? user.dsLogin,
+        name: perfil.nome ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',
         // Operacao interna (SOLS). Vai para o cliente pelo mesmo motivo das
         // permissoes: montar a tela. Quem barra de verdade e o servidor.
@@ -208,11 +318,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         // Permissoes efetivas do perfil. O web usa para montar o menu; a
         // AUTORIZACAO de verdade continua no servidor, a cada request (o hook
         // de auth le do banco). Aluno nao tem perfil: lista vazia.
-        perfilAcesso: describeProfile(user.funcionario?.perfilAcesso ?? null),
-        permissions: employeePermissions(user.funcionario?.perfilAcesso ?? null),
+        perfilAcesso: describeProfile(perfil.perfilAcesso),
+        permissions: employeePermissions(perfil.perfilAcesso),
         // Informational only — login itself is not blocked by plan/payment
         // status; the frontend decides how to react (banner, restrict screens).
-        studentAccess: user.idAluno ? await getStudentAccessStatus(prisma, user.idAluno) : null,
+        studentAccess: user.idAluno
+          ? await getStudentAccessStatus(dbTenant, user.idAluno)
+          : null,
       };
     } catch (error) {
       // Mensagem generica sempre: nao vazar detalhes internos (ex.: erro de
@@ -244,13 +356,12 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         where: {
           boInativo: false,
           ...(idClienteDominio ? { idCliente: idClienteDominio } : {}),
-          OR: [
-            // CPF armazenado criptografado: lookup exato via HMAC (caCPFHash).
-            { aluno: { caCPFHash: cpfHash(cpf), boInativo: false } },
-            { funcionario: { caCPFHash: cpfHash(cpf), boInativo: false } },
-          ],
+          // Chave de login da identidade CENTRAL. Antes o filtro atravessava
+          // para tb_Alunos/tb_Funcionarios — um JOIN que deixa de existir com
+          // banco por cliente, porque quem esta entrando ainda nao disse de
+          // qual academia e. Ver shared/loginKey.ts.
+          caCPFHash: cpfHash(cpf),
         },
-        include: { aluno: true, funcionario: true },
       });
 
       if (contas.length === 0) {
@@ -266,7 +377,17 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       } as SMTPTransport.Options);
 
       for (const conta of contas) {
-        const email = conta.dsLogin || conta.aluno?.anEmail || conta.funcionario?.anEmail || '';
+        // O email de contato e da FICHA, que mora no banco do cliente; a conta
+        // central so guarda o login. Buscar por conta e mais consultas do que
+        // um include, mas e a unica forma quando ficha e conta podem estar em
+        // bancos diferentes — e sao poucas contas por CPF.
+        const perfil = conta.dsLogin
+          ? null
+          : await carregarPerfil(conta.idCliente, {
+              idAluno: conta.idAluno,
+              idFuncionario: conta.idFuncionario,
+            });
+        const email = conta.dsLogin || perfil?.email || '';
         if (!email) continue;
 
         // Token single-use com expiracao de 1h: so o SHA-256 vai para o banco;
@@ -384,15 +505,16 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       // email exigido em /auth/register.
       // A mensagem de 404 e unificada para nao diferenciar aluno x funcionario
       // (elimina o oraculo de tipo/existencia).
+      // Banco do perfil: o do cliente quando o dominio diz quem e; o pool
+      // quando nao ha dominio (mobile), que e onde vive quem nao foi siloado.
+      const dbPerfil = idClienteDominio ? await getTenantDb(idClienteDominio) : prisma;
+
       if (type === 'student') {
-        const student = await prisma.aluno.findFirst({
+        const student = await dbPerfil.aluno.findFirst({
           where: {
             caCPFHash: cpfHash(cpf),
             boInativo: false,
             ...(idClienteDominio ? { idCliente: idClienteDominio } : {}),
-          },
-          include: {
-            usuarios: { where: { boInativo: false }, select: { id: true } },
           },
         });
 
@@ -400,36 +522,51 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           return reply.code(404).send({ message: 'CPF nao encontrado no cadastro.' });
         }
 
+        // "Ja tem conta?" e pergunta de IDENTIDADE, entao a resposta vem do
+        // central — nao da relacao Aluno->Usuario, que deixa de existir quando
+        // ficha e conta moram em bancos diferentes. Escopado pelo cliente: o
+        // `idAluno` e id de outro banco e o mesmo numero existe na ficha de
+        // outra academia.
+        const contas = await prisma.usuario.count({
+          where: { idAluno: student.id, idCliente: student.idCliente, boInativo: false },
+        });
+
         return {
           id: student.id,
           type,
           name: student.nmAluno,
           emailMask: maskEmail(student.anEmail),
-          hasUser: student.usuarios.length > 0,
+          hasUser: contas > 0,
         };
       }
 
-      const employee = await prisma.funcionario.findFirst({
+      const employee = await dbPerfil.funcionario.findFirst({
         where: {
           caCPFHash: cpfHash(cpf),
           boInativo: false,
           ...(idClienteDominio ? { empresa: { idCliente: idClienteDominio } } : {}),
         },
-        include: {
-          usuarios: { where: { boInativo: false }, select: { id: true } },
-        },
+        include: { empresa: { select: { idCliente: true } } },
       });
 
       if (!employee) {
         return reply.code(404).send({ message: 'CPF nao encontrado no cadastro.' });
       }
 
+      const contasFuncionario = await prisma.usuario.count({
+        where: {
+          idFuncionario: employee.id,
+          idCliente: employee.empresa?.idCliente ?? -1,
+          boInativo: false,
+        },
+      });
+
       return {
         id: employee.id,
         type,
         name: employee.nmFuncionario,
         emailMask: maskEmail(employee.anEmail),
-        hasUser: employee.usuarios.length > 0,
+        hasUser: contasFuncionario > 0,
       };
     } catch (error) {
       return reply.code(400).send({
@@ -465,59 +602,67 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       // tenants (ver o find por emailMatchesRecord abaixo).
       const idClienteDominio = await resolveTenantByDomain(request.body.caDominio);
 
-      const createdUser = await prisma.$transaction(async (transaction) => {
+      // O banco do perfil. Com dominio, o do cliente; sem dominio (mobile), o
+      // pool — que e onde vive quem ainda nao foi siloado.
+      const dbPerfil = idClienteDominio ? await getTenantDb(idClienteDominio) : prisma;
+
+      // DUAS METADES, e nao uma transacao so. A ficha e dado de APLICACAO e a
+      // conta e IDENTIDADE (central): com banco por cliente elas deixam de
+      // caber na mesma transacao — a guarda de shared/tenantTx.ts lanca se
+      // alguem tentar. A leitura da ficha vem primeiro e nao grava nada, entao
+      // a unica escrita e a central, que continua atomica.
+      const createdUser = await (async () => {
         if (type === 'student') {
           // Todas as fichas com aquele CPF (escopadas ao cliente do dominio
           // quando ha um). A ficha cujo email confere e a prova de titularidade;
           // com o mesmo CPF em varios tenants, e ela que decide em qual a conta
           // nasce — o findFirst de antes fixava a de menor id e podia recusar o
           // cadastro legitimo no outro tenant.
-          const students = await transaction.aluno.findMany({
+          const students = await dbPerfil.aluno.findMany({
             where: {
               caCPFHash: cpfHash(cpf),
               boInativo: false,
               ...(idClienteDominio ? { idCliente: idClienteDominio } : {}),
             },
-            include: { usuarios: { where: { boInativo: false }, select: { id: true } } },
           });
 
-          const student = students.find((s) => emailMatchesRecord(s.anEmail));
+          const student = students.find((ficha) => emailMatchesRecord(ficha.anEmail));
           if (!student) {
             throw new Error(CREDENTIAL_MISMATCH);
           }
-          if (student.usuarios.length > 0) {
+
+          // Conta ja existente: consulta CENTRAL, escopada pelo cliente. O
+          // `idAluno` sozinho nao basta — ele e id de outro banco, e o mesmo
+          // numero existe na ficha de outra academia.
+          const jaTemConta = await prisma.usuario.count({
+            where: { idAluno: student.id, idCliente: student.idCliente, boInativo: false },
+          });
+          if (jaTemConta > 0) {
             throw new Error('Este aluno ja possui usuario cadastrado.');
           }
 
-          // Tenant do usuario e o da ficha, nao algo vindo do body.
-          const user = await transaction.usuario.create({
-            data: { idCliente: student.idCliente, idAluno: student.id, dsLogin, boInativo: false },
+          return criarConta({
+            idCliente: student.idCliente,
+            idAluno: student.id,
+            nome: student.nmAluno,
+            dsLogin,
+            caCPFHash: cpfHash(cpf),
+            senhaHash: await hashPassword(password),
           });
-          await transaction.senha.create({
-            data: { idUsuario: user.id, dsSenha: await hashPassword(password), cnTipoHash: HASH_TYPE_BCRYPT, boTrocaObrigatoria: false },
-          });
-
-          return { id: user.id, type, name: student.nmAluno, login: user.dsLogin };
         }
 
-        const employees = await transaction.funcionario.findMany({
+        const employees = await dbPerfil.funcionario.findMany({
           where: {
             caCPFHash: cpfHash(cpf),
             boInativo: false,
             ...(idClienteDominio ? { empresa: { idCliente: idClienteDominio } } : {}),
           },
-          include: {
-            usuarios: { where: { boInativo: false }, select: { id: true } },
-            empresa: { select: { idCliente: true } },
-          },
+          include: { empresa: { select: { idCliente: true } } },
         });
 
-        const employee = employees.find((e) => emailMatchesRecord(e.anEmail));
+        const employee = employees.find((ficha) => emailMatchesRecord(ficha.anEmail));
         if (!employee) {
           throw new Error(CREDENTIAL_MISMATCH);
-        }
-        if (employee.usuarios.length > 0) {
-          throw new Error('Este funcionario ja possui usuario cadastrado.');
         }
 
         // Funcionario sem filial nao tem tenant, e usuario sem tenant e sessao
@@ -527,20 +672,26 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           throw new Error('Funcionario sem unidade vinculada. Procure a recepcao.');
         }
 
-        const user = await transaction.usuario.create({
-          data: {
-            idCliente: idClienteDoFuncionario,
+        const jaTemConta = await prisma.usuario.count({
+          where: {
             idFuncionario: employee.id,
-            dsLogin,
+            idCliente: idClienteDoFuncionario,
             boInativo: false,
           },
         });
-        await transaction.senha.create({
-          data: { idUsuario: user.id, dsSenha: await hashPassword(password), cnTipoHash: HASH_TYPE_BCRYPT, boTrocaObrigatoria: false },
-        });
+        if (jaTemConta > 0) {
+          throw new Error('Este funcionario ja possui usuario cadastrado.');
+        }
 
-        return { id: user.id, type, name: employee.nmFuncionario, login: user.dsLogin };
-      });
+        return criarConta({
+          idCliente: idClienteDoFuncionario,
+          idFuncionario: employee.id,
+          nome: employee.nmFuncionario,
+          dsLogin,
+          caCPFHash: cpfHash(cpf),
+          senhaHash: await hashPassword(password),
+        });
+      })();
 
       return reply.code(201).send(createdUser);
     } catch (error) {
@@ -557,28 +708,26 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       const url = (request.query.url ?? '').trim().toLowerCase();
       if (!url) return reply.code(204).send();
 
+      // Duas etapas: o dominio e o cliente sao control-plane; o TEMA e dado de
+      // aplicacao. O include que ia de um ao outro e um join que deixa de
+      // existir quando eles moram em bancos diferentes.
       const dominio = await prisma.dominioCorporativo.findFirst({
         where: { urlDominio: url, boAtivo: true },
-        include: {
-          cliente: {
-            include: {
-              temaCustomizado: {
-                include: {
-                  arquivoLogo: true,
-                  arquivoFavicon: true,
-                  clienteArquivoLogo: true,
-                  clienteArquivoFavicon: true,
-                },
-              },
-            },
-          },
-        },
+        include: { cliente: true },
       });
 
       if (!dominio?.cliente) return reply.code(204).send();
 
       const { cliente } = dominio;
-      const tema = cliente.temaCustomizado;
+      const tema = await (await getTenantDb(cliente.id)).temaCustomizado.findFirst({
+        where: { idCliente: cliente.id },
+        include: {
+          arquivoLogo: true,
+          arquivoFavicon: true,
+          clienteArquivoLogo: true,
+          clienteArquivoFavicon: true,
+        },
+      });
 
       let logoUrl: string | null = null;
       let faviconUrl: string | null = null;
@@ -647,31 +796,14 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       const user = await prisma.usuario.findFirst({
         where: {
           boInativo: false,
-          funcionario: { caCPFHash: cpfHash(cpf), boInativo: false },
-        },
-        include: {
-          funcionario: {
-            include: {
-              empresa: true,
-              // O perfil vem junto para a resposta montar o menu com as
-              // permissoes REAIS do gestor. Desde que o hook de auth aplica o
-              // RBAC ao gestor, o menu tem que refletir o perfil dele — nao mais
-              // a lista completa (que dava a impressao de acesso que o servidor
-              // agora nega).
-              perfilAcesso: {
-                select: {
-                  id: true,
-                  dsPerfil: true,
-                  boInativo: true,
-                  permissoes: { select: { cnPermissao: true } },
-                },
-              },
-            },
-          },
+          // Chave central, como no /auth/login. O gestor e funcionario, entao
+          // o `idFuncionario` nao-nulo e o que restringe ao papel.
+          caCPFHash: cpfHash(cpf),
+          idFuncionario: { not: null },
         },
       });
 
-      if (!user?.funcionario) {
+      if (!user?.idFuncionario) {
         await dummyVerify(password);
         return reply.code(401).send({ message: 'Usuario ou senha invalidos.' });
       }
@@ -698,7 +830,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       // saber senha nenhuma, um atacante distinguiria "CPF existe" (403) de
       // "CPF nao existe" (401) e ainda descobriria a que cliente um CPF
       // pertence variando idCliente ate parar de receber 403.
-      if (user.funcionario.empresa?.idCliente !== idCliente) {
+      //
+      // O tenant agora sai de Usuario.idCliente (central) em vez de
+      // funcionario.empresa.idCliente: e a mesma informacao, sem depender de um
+      // join que deixa de existir com banco por cliente.
+      if (user.idCliente !== idCliente) {
         return reply.code(401).send({ message: 'Usuario ou senha invalidos.' });
       }
 
@@ -709,7 +845,14 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         });
       }
 
-      const empresas = await prisma.empresa.findMany({
+      // Perfil e filiais sao dado de APLICACAO: saem do banco do cliente que
+      // acabou de ser autenticado, nao do central.
+      const perfil = await carregarPerfil(idCliente, { idFuncionario: user.idFuncionario });
+      if (!perfil.ativo) {
+        return reply.code(401).send({ message: 'Usuario ou senha invalidos.' });
+      }
+      const dbTenant = await getTenantDb(idCliente);
+      const empresas = await dbTenant.empresa.findMany({
         where: { idCliente, boInativo: false },
         orderBy: { dsEmpresa: 'asc' },
       });
@@ -731,7 +874,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         token,
         id: user.id,
         idFuncionario: user.idFuncionario,
-        name: user.funcionario.nmFuncionario,
+        name: perfil.nome ?? user.dsLogin,
         type: 'employee' as const,
         idCliente,
         superAdmin: user.boSuperAdmin || undefined,
@@ -741,8 +884,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         // gerente com o perfil "Gerente" (todas as permissoes) segue vendo tudo;
         // quem entra pela porta do gestor sem um perfil amplo fica preso ao que
         // o perfil concede. A autorizacao de verdade continua no servidor.
-        perfilAcesso: describeProfile(user.funcionario.perfilAcesso ?? null),
-        permissions: employeePermissions(user.funcionario.perfilAcesso ?? null),
+        perfilAcesso: describeProfile(perfil.perfilAcesso),
+        permissions: employeePermissions(perfil.perfilAcesso),
       };
     } catch (error) {
       request.log.warn(error);
@@ -757,11 +900,32 @@ export async function registerAuthRoutes(app: FastifyInstance) {
   // que seria absurdo. Aqui a identidade vem do token e so devolve o dono.
   app.get('/auth/me', async (request, reply) => {
     try {
+      // Identidade no central; ficha no banco do cliente. Duas consultas onde
+      // antes havia um include — o join nao existe com banco por cliente.
       const user = await prisma.usuario.findFirst({
         where: { id: request.user.sub, boInativo: false },
-        include: {
-          aluno: { select: { id: true, nmAluno: true, anEmail: true, caCPF: true, dtNascimento: true } },
-          funcionario: {
+        select: {
+          id: true,
+          dsLogin: true,
+          idAluno: true,
+          idFuncionario: true,
+          idCliente: true,
+          dtUltimoAcesso: true,
+        },
+      });
+
+      if (!user) return reply.code(401).send({ message: 'Usuario inativo ou nao encontrado.' });
+
+      const db = await getTenantDb(user.idCliente);
+      const aluno = user.idAluno
+        ? await db.aluno.findUnique({
+            where: { id: user.idAluno },
+            select: { id: true, nmAluno: true, anEmail: true, caCPF: true, dtNascimento: true },
+          })
+        : null;
+      const funcionario = user.idFuncionario
+        ? await db.funcionario.findUnique({
+            where: { id: user.idFuncionario },
             select: {
               id: true,
               nmFuncionario: true,
@@ -782,14 +946,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
                 },
               },
             },
-          },
-        },
-      });
-
-      if (!user) return reply.code(401).send({ message: 'Usuario inativo ou nao encontrado.' });
-
-      const funcionario = user.funcionario;
-      const aluno = user.aluno;
+          })
+        : null;
 
       return {
         id: user.id,
@@ -887,23 +1045,17 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       // ignorado para impedir enumeracao de usuarios (IDOR).
       const id = request.user.sub;
 
+      // Identidade no central, ficha no banco do cliente: duas consultas onde
+      // antes havia um include.
       const user = await prisma.usuario.findFirst({
         where: { id, boInativo: false },
-        include: {
-          aluno: true,
-          funcionario: {
-            include: {
-              empresa: { select: { idCliente: true } },
-              perfilAcesso: {
-                select: {
-                  id: true,
-                  dsPerfil: true,
-                  boInativo: true,
-                  permissoes: { select: { cnPermissao: true } },
-                },
-              },
-            },
-          },
+        select: {
+          id: true,
+          dsLogin: true,
+          idAluno: true,
+          idFuncionario: true,
+          idCliente: true,
+          boSuperAdmin: true,
         },
       });
 
@@ -911,26 +1063,33 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         return reply.code(401).send({ message: 'Usuario inativo ou nao encontrado.' });
       }
 
-      const isStudentActive = user.idAluno ? user.aluno?.boInativo === false : true;
-      const isEmployeeActive = user.idFuncionario ? user.funcionario?.boInativo === false : true;
+      const perfil = await carregarPerfil(user.idCliente, {
+        idAluno: user.idAluno,
+        idFuncionario: user.idFuncionario,
+      });
 
-      if (!isStudentActive || !isEmployeeActive) {
+      // Ficha desativada tranca a sessao mesmo com a conta central viva.
+      if (!perfil.ativo) {
         return reply.code(401).send({ message: 'Usuario sem acesso ao sistema.' });
       }
+
+      const dbTenant = await getTenantDb(user.idCliente);
 
       return {
         id: user.id,
         idAluno: user.idAluno,
         idFuncionario: user.idFuncionario,
         idCliente: user.idCliente,
-        name: user.aluno?.nmAluno ?? user.funcionario?.nmFuncionario ?? user.dsLogin,
+        name: perfil.nome ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',
         superAdmin: user.boSuperAdmin || undefined,
-        perfilAcesso: describeProfile(user.funcionario?.perfilAcesso ?? null),
+        perfilAcesso: describeProfile(perfil.perfilAcesso),
         // Reavaliado a cada verify: se o gerente mudou o perfil enquanto a
         // sessao estava aberta, o menu acompanha na proxima revalidacao.
-        permissions: employeePermissions(user.funcionario?.perfilAcesso ?? null),
-        studentAccess: user.idAluno ? await getStudentAccessStatus(prisma, user.idAluno) : null,
+        permissions: employeePermissions(perfil.perfilAcesso),
+        studentAccess: user.idAluno
+          ? await getStudentAccessStatus(dbTenant, user.idAluno)
+          : null,
       };
     } catch (error) {
       // Nunca ecoar o erro interno (ex.: falha de conexao com o banco).

@@ -9,10 +9,15 @@
 // Enquanto esta constante for `false`, provisionar banco dedicado para um
 // cliente e um erro operacional, e o script de provisionamento recusa.
 //
-// COMO VIRAR PARA `true`: quando `tenantRolloutCoverage.test.ts` chegar a zero
-// acesso pendente. O proprio teste guarda esta constante — declarar conclusao
-// com acesso sobrando quebra o build. Nao ha como mentir aqui.
-export const ROTEAMENTO_COMPLETO = false;
+// VIROU `true` em 2026-09-17: as tres portas publicas ganharam ancora no
+// control-plane (catraca e webhook pela chave no caminho, login pela chave na
+// identidade central) e a varredura chegou a zero.
+//
+// O teste guarda esta constante: declarar conclusao com acesso sobrando quebra
+// o build. E a varredura, por sua vez, tem teste proprio — ela ja nasceu cega
+// uma vez, marcando zero por nao enxergar filtro por relacao, e zero de
+// medidor morto e indistinguivel de zero de trabalho terminado.
+export const ROTEAMENTO_COMPLETO = true;
 
 /** Mensagem unica, para o script e o runbook contarem a mesma historia. */
 export const MOTIVO_ROLLOUT_INCOMPLETO =

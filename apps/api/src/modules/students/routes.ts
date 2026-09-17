@@ -18,6 +18,7 @@ import {
   addComprefaceSubjectExample,
 } from '../../shared/compreface.js';
 import { anonymizeStudent } from '../../shared/anonymize.js';
+import { sincronizarChaveDeLogin } from '../../shared/loginKey.js';
 import { assertAllowedUploadType, assertUploadBuffer, getStudentFilePath } from '../../shared/files.js';
 import { assertConsent } from '../../shared/consent.js';
 import { generateNextRecurringPayment } from '../../shared/payments.js';
@@ -682,6 +683,11 @@ export async function registerStudentRoutes(app: FastifyInstance) {
             { ...data, caCPF: undefined, caCPFHash: undefined }
           : { ...data, ...encryptCpfFields(data.caCPF) },
       });
+      // A chave de login vive na identidade central e nao acompanha a ficha
+      // sozinha. Depois da ficha, nunca antes: ver shared/loginKey.ts.
+      if (!stored) {
+        await sincronizarChaveDeLogin({ idAluno: id }, updated.caCPFHash, request.log);
+      }
       return withDecryptedCpf(updated);
     } catch (error) {
       return reply.code(400).send({
