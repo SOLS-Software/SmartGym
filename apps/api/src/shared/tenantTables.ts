@@ -22,6 +22,20 @@ const CONTROL_PLANE: readonly string[] = [
   'Senha',
   'RecuperacaoSenha',
   'UsuarioDispositivo',
+  // Identidade de quem administra a PLATAFORMA (painel do provedor, repositorio
+  // separado). Control-plane pela definicao do nivel: continua existindo num
+  // lugar so depois que os clientes forem siloados — e teria de continuar, ja
+  // que nao pertence a academia nenhuma. Esta API nao le esta tabela; ela esta
+  // aqui porque o schema e um so e todo model precisa de nivel.
+  'OperadorSols',
+  // A RELACAO COMERCIAL entre a SOLS e o cliente: o catalogo do que vendemos e
+  // o que cada um contratou. Control-plane por dois motivos, e o segundo e o
+  // que decide: (a) e dado da SOLS, nao da academia; (b) o SmartGym precisa
+  // consultar "este cliente tem direito a X?" ANTES e INDEPENDENTE de abrir o
+  // banco de aplicacao dele — se morasse no banco do cliente, um cliente
+  // siloado poderia editar os proprios direitos.
+  'ProdutoSols',
+  'ClienteProduto',
 ];
 
 // 📚 CATÁLOGO GLOBAL — referência igual para todos; semeado dentro de CADA banco

@@ -1828,6 +1828,9 @@ model Cliente {
   treinos           Treino[]
   promocoes         Promocao[]
   consentimentos    Consentimento[]
+  // O que este cliente contratou da SOLS. Control-plane: e a relacao
+  // COMERCIAL, nao o negocio da academia.
+  produtosSols      ClienteProduto[]
 
   @@map("tb_Clientes")
 }
@@ -2315,4 +2318,126 @@ model Consentimento {
   @@index([idAluno, cnFinalidade, dtRegistro])
   @@index([idCliente])
   @@map("tb_Consentimentos")
+}
+
+// ---------------------------------------------------------------------------
+// PROVEDOR (SOLS) — identidade de quem administra a PLATAFORMA.
+//
+// Nao confundir com tb_Usuarios: aquela e a identidade de quem usa uma
+// academia. Esta e de quem administra todas elas, e por isso vive separada.
+//
+// POR QUE UMA TABELA NOVA, e nao um papel em tb_Usuarios:
+// `Usuario.idCliente` e NOT NULL com FK para tb_Clientes — um operador da SOLS
+// teria de pertencer a alguma academia para existir. Hoje isso e resolvido com
+// `boSuperAdmin`, um booleano que, no hook de auth, PULA a checagem de RBAC
+// inteira. Funciona para uma pessoa; nao sobrevive a uma equipe, e faz um token
+// emitido pelo painel do cliente valer tambem para administrar a plataforma.
+//
+// O painel do provedor vive em OUTRA aplicacao, com segredo de sessao proprio.
+// Um token de la nao abre nada aqui, e um token daqui nao abre nada la.
+// ---------------------------------------------------------------------------
+model OperadorSols {
+  id     Int    @id @default(autoincrement())
+  dsNome String @db.VarChar(255)
+  anEmail String @unique @db.VarChar(255)
+  // Hash bcrypt. Fica NA PROPRIA linha, e nao numa tb_Senhas separada como a
+  // identidade do cliente: aquela tabela existe para carregar formato de hash
+  // legado e troca obrigatoria, herdados do sistema antigo. Aqui nao ha legado
+  // a carregar — a primeira senha ja nasce bcrypt.
+  dsSenha String @db.VarChar(255)
+  // 'dono' | 'suporte'. Existe desde o inicio porque o motivo de este painel
+  // ser separado E o dia em que houver uma segunda pessoa: quem da suporte
+  // precisa ver um cliente sem poder mexer no contrato dele.
+  cnPapel String @default("dono") @db.VarChar(20)
+  // Revogacao de sessao, mesmo mecanismo de Usuario.nrTokenVersion: o token
+  // carrega o valor vigente na emissao, e sair ou trocar a senha incrementa a
+  // coluna, derrubando na hora qualquer sessao viva — inclusive uma vazada.
+  nrTokenVersion Int       @default(0)
+  dtUltimoAcesso DateTime?
+  dtCadastro     DateTime  @default(now())
+  dtAlteracao    DateTime  @updatedAt
+  boInativo      Boolean   @default(false)
+
+  @@map("tb_OperadoresSols")
+}
+
+// ---------------------------------------------------------------------------
+// PRODUTOS DA SOLS — o que a empresa vende, e o que cada cliente contratou.
+//
+// Este e o eixo que faltava: `tb_Clientes` nao tinha NENHUMA relacao com
+// contrato, modulo ou limite, e por isso todo cliente recebia o sistema
+// inteiro. Sem saber o que foi comprado nao ha o que faturar nem o que
+// restringir.
+//
+// NAO CONFUNDIR com tb_Produtos, que e o que a ACADEMIA vende no balcao
+// (suplemento, camiseta) e e tabela de aplicacao. Dai o sufixo, como em
+// tb_OperadoresSols.
+//
+// NAO CONFUNDIR TAMBEM com tb_PerfisAcesso: aquele responde "quem, dentro da
+// academia, pode o que". Este responde "o que esta academia comprou". Sao
+// eixos diferentes, e um nao substitui o outro.
+// ---------------------------------------------------------------------------
+
+/// Catalogo comercial da SOLS.
+model ProdutoSols {
+  id Int @id @default(autoincrement())
+  // CHAVE ESTAVEL, e o contrato entre os dois sistemas.
+  //
+  // O SmartGym pergunta "este cliente tem direito a 'catraca'?" — nunca "qual
+  // produto ele assinou?". A pergunta pelo codigo e estavel; o nome comercial e
+  // embalagem, e muda quando o marketing quiser. Se o produto perguntasse pelo
+  // nome, renomear "Essencial" para "Start" quebraria o sistema.
+  caCodigo    String  @unique @db.VarChar(40)
+  dsProduto   String  @db.VarChar(255)
+  dsDescricao String? @db.VarChar(500)
+  // 'plano'   = a assinatura base, o que sustenta a conta
+  // 'modulo'  = liga um recurso (catraca, facial, push)
+  // 'limite'  = define um teto (alunos, unidades) — usa nrLimitePadrao
+  // 'servico' = trabalho pontual (implantacao, treinamento)
+  cnTipo String @default("modulo") @db.VarChar(20)
+  // Preco de TABELA. O que o cliente efetivamente paga fica no vinculo, porque
+  // desconto e caso a caso e nao pode reescrever o catalogo.
+  vlMensal Decimal? @db.Decimal(12, 4)
+  // Teto padrao quando cnTipo = 'limite'. Nulo nos demais tipos.
+  nrLimitePadrao Int?
+  dtCadastro     DateTime @default(now())
+  dtAlteracao    DateTime @updatedAt
+  boInativo      Boolean  @default(false)
+
+  clientes ClienteProduto[]
+
+  @@map("tb_ProdutosSols")
+}
+
+/// O que um cliente contratou, com vigencia e valor negociado.
+model ClienteProduto {
+  id            Int @id @default(autoincrement())
+  idCliente     Int
+  idProdutoSols Int
+  dtInicio      DateTime  @default(now())
+  // Nulo = VIGENTE. E assim que se sabe o que valia numa data passada sem
+  // apagar historico: encerrar e preencher dtFim, nunca deletar a linha. O dia
+  // em que um cliente questionar uma fatura, a resposta esta aqui.
+  dtFim         DateTime?
+  // Preco combinado com ESTE cliente. Nulo = usa o de tabela do produto.
+  vlNegociado   Decimal?  @db.Decimal(12, 4)
+  // Teto deste cliente, quando o produto e do tipo 'limite'. Nulo = o padrao
+  // do produto. E o que permite vender "ate 500 alunos" para um e "ate 300"
+  // para outro sem criar dois produtos.
+  nrLimite      Int?
+  dsObservacao  String?   @db.VarChar(500)
+  dtCadastro    DateTime  @default(now())
+  dtAlteracao   DateTime  @updatedAt
+
+  cliente Cliente     @relation(fields: [idCliente], references: [id], onDelete: Cascade)
+  produto ProdutoSols @relation(fields: [idProdutoSols], references: [id])
+
+  // O mesmo produto pode aparecer VARIAS vezes para o mesmo cliente — ele
+  // contrata, cancela e recontrata, e cada periodo e uma linha. O que nao pode
+  // e haver dois VIGENTES ao mesmo tempo; isso e garantido por um indice unico
+  // PARCIAL (WHERE dtFim IS NULL) criado na migration, que o Prisma nao
+  // consegue declarar aqui.
+  @@index([idCliente])
+  @@index([idProdutoSols])
+  @@map("tb_ClientesProdutos")
 }
