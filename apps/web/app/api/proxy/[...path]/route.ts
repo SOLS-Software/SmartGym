@@ -68,24 +68,62 @@ function clearSessionCookie(response: NextResponse) {
   });
 }
 
+/**
+ * Host PUBLICO da requisicao — o que o navegador realmente usou.
+ *
+ * NAO use `request.nextUrl.host` para isto. Auto-hospedado atras de proxy
+ * reverso (Traefik/Coolify), o Next enxerga o endereco INTERNO do container
+ * ("localhost:3000") e nunca o host que o usuario digitou. Na Vercel o defeito
+ * nao aparece, porque la o nextUrl ja reflete o host publico — por isso ele so
+ * nasceu na primeira implantacao propria, e nasceu grande: derrubou TODO
+ * POST/PUT/DELETE do painel com 403.
+ *
+ * Nao ha configuracao do Next 15 que conserte isso para Route Handler
+ * (`serverActions.allowedOrigins` existe, mas vale so para Server Actions).
+ * Ler o header encaminhado E a forma suportada.
+ *
+ * Com proxies encadeados o header pode chegar como lista; o PRIMEIRO valor e o
+ * host que o cliente usou — os seguintes foram acrescentados no caminho.
+ */
+function publicHost(request: NextRequest): string | null {
+  const forwarded = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
+  return forwarded?.split(',')[0]?.trim().toLowerCase() || null;
+}
+
 type RouteContext = { params: Promise<{ path: string[] }> };
 
 async function handler(request: NextRequest, { params }: RouteContext) {
   const { path } = await params;
 
   // CSRF: em metodos mutantes, o Origin (quando o browser envia) deve bater
-  // com o host da propria aplicacao. SameSite=Lax ja bloqueia a maioria dos
-  // casos; isto cobre o restante sem afetar clientes sem Origin (curl/health).
+  // com o host PUBLICO da propria aplicacao. SameSite=Lax ja bloqueia a maioria
+  // dos casos; isto cobre o restante sem afetar clientes sem Origin (curl/health).
+  //
+  // POR QUE CONFIAR NO HEADER ENCAMINHADO. Quem consegue forjar
+  // `x-forwarded-host` e quem controla a requisicao inteira — e esse nao e o
+  // atacante de CSRF, que age pelo navegador da VITIMA e nao tem como fazer
+  // aquele navegador acrescentar o header (nao esta na safelist do CORS, e
+  // formulario nenhum define header). Alem disso o Traefik sobrescreve o que
+  // chegar de fora. A checagem continua valendo exatamente o que valia — passa
+  // a comparar o valor que ela sempre quis comparar.
+  //
+  // Comparar com o host, e nao com uma lista fixa de origens, e o que faz isto
+  // funcionar para cada subdominio de cliente (academiapiloto..., e os
+  // proximos) sem ninguem precisar lembrar de cadastrar o novo.
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     const origin = request.headers.get('origin');
     if (origin) {
       let originHost: string | null = null;
       try {
-        originHost = new URL(origin).host;
+        originHost = new URL(origin).host.toLowerCase();
       } catch {
         originHost = null;
       }
-      if (!originHost || originHost !== request.nextUrl.host) {
+      // Sem host nenhum nao da para afirmar quem somos, entao nega. Requisicao
+      // de navegador sempre traz Host, entao isto nao alcanca trafego legitimo
+      // — e voltar para `nextUrl.host` aqui seria reintroduzir o defeito.
+      const expectedHost = publicHost(request);
+      if (!originHost || !expectedHost || originHost !== expectedHost) {
         return NextResponse.json({ message: 'Origem nao autorizada.' }, { status: 403 });
       }
     }
