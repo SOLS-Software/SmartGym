@@ -70,24 +70,59 @@ async function encryptPayload(plaintext: string): Promise<string> {
  * nosso proprio backend, e o que se le aqui e so o prazo, para decidir quanto
  * tempo guardar. Quem valida de verdade e a API, a cada requisicao.
  */
-function cookieMaxAge(token: string): number {
+/** Le o payload do JWT sem verificar assinatura — ver a nota em prazoDoCookie. */
+function lerPayload(token: string): { exp?: unknown; role?: unknown } | null {
   try {
     const payload = token.split('.')[1];
-    if (!payload) return SESSION_COOKIE_FALLBACK_MAX_AGE;
+    if (!payload) return null;
     const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const json = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
-    const { exp } = JSON.parse(json) as { exp?: unknown };
-    if (typeof exp !== 'number') return SESSION_COOKIE_FALLBACK_MAX_AGE;
-
-    const restante = Math.floor(exp - Date.now() / 1000);
-    // Token que ja chega vencido nao vira maxAge negativo — isso apagaria o
-    // cookie no mesmo instante e a tela voltaria ao login sem explicacao. Cai
-    // no padrao, e a API o recusa no primeiro uso, que e o lugar certo para
-    // esse erro aparecer.
-    return restante > 0 ? restante : SESSION_COOKIE_FALLBACK_MAX_AGE;
+    return JSON.parse(atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4)));
   } catch {
-    return SESSION_COOKIE_FALLBACK_MAX_AGE;
+    return null;
   }
+}
+
+/**
+ * Quanto tempo o navegador guarda a credencial.
+ *
+ * A QUEBRA DE VIDRO NAO GANHA PRAZO: para o papel `provedor` devolvemos `{}`,
+ * sem `maxAge`, e um cookie sem prazo e um COOKIE DE SESSAO — ele morre quando
+ * o navegador fecha.
+ *
+ * O caso que isso resolve e o computador da recepcao. O operador da SOLS abre o
+ * link, implanta, e vai embora; o cookie dele ficava ate duas horas naquele
+ * navegador, e o proximo clique da recepcionista acontecia COM O NOME DELE na
+ * trilha. Nao e vazamento de dado de aluno — a lista fixa de permissoes ja
+ * barra isso —, e atribuicao errada, que e exatamente o que a tabela de acessos
+ * existe para garantir.
+ *
+ * Fechar o navegador e um gesto que as pessoas ja fazem ao sair de uma maquina
+ * emprestada; lembrar de clicar em "sair" nao e. E o prazo de 2 horas do token
+ * continua valendo por cima, entao o esquecimento tem teto de qualquer jeito.
+ *
+ * Para os demais papeis, o prazo sai do `exp` do proprio token. As sessoes nao
+ * duram todas o mesmo: o painel vale 12 horas. Com um numero fixo aqui, um
+ * cookie sobreviveria ao token que carrega — o navegador seguiria mandando
+ * credencial morta e a tela pareceria logada ate alguma requisicao devolver 401.
+ *
+ * NAO verificamos a assinatura, e nao precisamos: o token acabou de chegar do
+ * nosso proprio backend, e o que se le aqui e so o prazo e o papel, para decidir
+ * quanto tempo guardar. Quem valida de verdade e a API, a cada requisicao.
+ */
+function prazoDoCookie(token: string): { maxAge?: number } {
+  const payload = lerPayload(token);
+
+  if (payload?.role === 'provedor') return {};
+
+  const exp = payload?.exp;
+  if (typeof exp !== 'number') return { maxAge: SESSION_COOKIE_FALLBACK_MAX_AGE };
+
+  const restante = Math.floor(exp - Date.now() / 1000);
+  // Token que ja chega vencido nao vira maxAge negativo — isso apagaria o
+  // cookie no mesmo instante e a tela voltaria ao login sem explicacao. Cai
+  // no padrao, e a API o recusa no primeiro uso, que e o lugar certo para
+  // esse erro aparecer.
+  return { maxAge: restante > 0 ? restante : SESSION_COOKIE_FALLBACK_MAX_AGE };
 }
 
 function setSessionCookie(response: NextResponse, token: string) {
@@ -96,7 +131,7 @@ function setSessionCookie(response: NextResponse, token: string) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: cookieMaxAge(token),
+    ...prazoDoCookie(token),
   });
 }
 
