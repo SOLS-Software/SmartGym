@@ -17,7 +17,10 @@ export interface ClientTheme {
   tamanhoBase: number;
   espacamentoPadrao: number;
   raioCardBorder: number;
-  boModoEscuro: number;
+  // O banco guarda booleano; a rota antiga devolvia numero em alguns caminhos.
+  // Nenhum consumidor compara com `1`, entao aceitar os dois evita um cast que
+  // so existiria para agradar o compilador.
+  boModoEscuro: boolean | number;
 }
 
 export interface ClientLoaderState {

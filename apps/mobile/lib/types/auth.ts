@@ -1,6 +1,8 @@
 // Sessão do usuário autenticado — mesmo shape retornado por POST /auth/login
 // e GET /auth/verify na API (apps/api/src/modules/auth/routes.ts).
 
+import type { ClientTheme } from './client';
+
 export type AuthUserType = 'student' | 'employee';
 
 export interface AuthenticatedUser {
@@ -31,7 +33,18 @@ export interface AuthenticatedUser {
    * Aluno não tem perfil de acesso: vem vazia.
    */
   permissions?: string[];
+
+  /**
+   * Cores da academia, para o app se vestir depois do login.
+   *
+   * Vem na sessão porque é assim que o aplicativo descobre de qual academia ele
+   * é: diferente do web, que resolve o tenant pelo hostname ANTES do login, aqui
+   * não há endereço para perguntar. Enquanto ninguém entra, o app usa as cores
+   * padrão — e isso é correto, porque até o login ele de fato não sabe.
+   */
+  theme?: ClientTheme | null;
 }
+
 
 /** Uma permissão do catálogo (apps/api/src/plugins/permissions.ts). */
 export function podeFuncionario(user: AuthenticatedUser | null, permissao: string): boolean {

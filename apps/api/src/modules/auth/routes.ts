@@ -179,6 +179,44 @@ async function carregarPerfil(
   return vazio;
 }
 
+/**
+ * Marca do cliente da sessao — as cores que o aplicativo veste depois do login.
+ *
+ * VAI NA RESPOSTA DO LOGIN, e nao numa rota propria, pelo mesmo motivo do
+ * idEmpresa: e dado de SESSAO. A rota que ja existia, GET /clients/:id/theme,
+ * cai sob a regra de permissao do prefixo /clients, que exige `companies.read`.
+ * Um ALUNO nao tem permissao nenhuma, entao tomava 403 e ficava para sempre com
+ * as cores padrao — que e exatamente o defeito que isto conserta. Aqui nao ha
+ * permissao para acertar: quem recebe a marca e quem acabou de provar que
+ * pertence ao cliente.
+ *
+ * O WEB NAO USA ISTO. La a marca chega por /auth/theme, resolvida pelo HOSTNAME
+ * antes mesmo do login — o navegador ja sabe de qual academia e a pagina. O
+ * aplicativo nao tem hostname; ele so descobre a academia quando alguem entra.
+ * Mesma tabela (tb_ClientesMarcas), dois caminhos, porque as duas pontas
+ * descobrem o tenant de formas diferentes.
+ */
+async function carregarMarca(idCliente: number | null) {
+  if (!idCliente) return null;
+  return prisma.clienteMarca.findUnique({
+    where: { idCliente },
+    select: {
+      idCliente: true,
+      corPrimaria: true,
+      corSecundaria: true,
+      corAcentuacao: true,
+      corTexto: true,
+      corFundo: true,
+      fontePrincipal: true,
+      fonteSecundaria: true,
+      tamanhoBase: true,
+      espacamentoPadrao: true,
+      raioCardBorder: true,
+      boModoEscuro: true,
+    },
+  });
+}
+
 export async function registerAuthRoutes(app: FastifyInstance) {
   // Limites restritos de rate limit para endpoints de autenticacao (anti brute
   // force / enumeracao). O limite global de 300/min continua valendo no resto.
@@ -316,6 +354,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         // cadastro. Aluno nao tem filial fixa: vem nulo.
         idEmpresa: perfil.idEmpresa,
         idCliente,
+        // Cores da academia. O app nao tem hostname para perguntar antes.
+        theme: await carregarMarca(idCliente),
         login: user.dsLogin,
         name: perfil.nome ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',
@@ -1270,6 +1310,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         // cadastro. Aluno nao tem filial fixa: vem nulo.
         idEmpresa: perfil.idEmpresa,
         idCliente: user.idCliente,
+        // Reenviada a cada revalidacao: a academia troca de cor no painel e o
+        // aplicativo acompanha na proxima abertura, sem novo login.
+        theme: await carregarMarca(user.idCliente),
         name: perfil.nome ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',
         superAdmin: user.boSuperAdmin || undefined,

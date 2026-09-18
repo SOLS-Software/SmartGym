@@ -2,7 +2,7 @@ import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
-import { AuthProvider } from '../lib/contexts/AuthContext';
+import { AuthProvider, useAuth } from '../lib/contexts/AuthContext';
 import { ThemeProvider } from '../lib/contexts/ThemeContext';
 import type { ClientTheme } from '../lib/types/client';
 import { ClientLoadScreen } from '../lib/components/ClientLoadScreen';
@@ -58,11 +58,38 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider theme={theme}>
-      <AuthProvider>
+    <AuthProvider>
+      <TemaDaSessao temaDeBootstrap={theme}>
         <Stack screenOptions={{ headerShown: false }} />
-      </AuthProvider>
-      <StatusBar style="dark" />
-    </ThemeProvider>
+        <StatusBar style="dark" />
+      </TemaDaSessao>
+    </AuthProvider>
   );
+}
+
+/**
+ * O tema segue a SESSÃO.
+ *
+ * Antes o AuthProvider ficava DENTRO do ThemeProvider, e a cor vinha só do
+ * `@solsfit:client_id` gravado no AsyncStorage. Quem grava esse id é a tela
+ * /admin — e ninguém mais. Aluno e funcionário que entram pelo login normal
+ * nunca passavam por lá, então o app ficava eternamente com as cores padrão,
+ * mesmo sabendo perfeitamente de qual academia a pessoa era.
+ *
+ * Invertendo a ordem, o tema passa a ser função da sessão: entrou, veste as
+ * cores da academia; saiu, volta ao padrão — que é o comportamento certo num
+ * aparelho compartilhado, onde a próxima pessoa pode ser de outra academia.
+ *
+ * O tema do bootstrap continua valendo como base, para o caminho da /admin, que
+ * escolhe o cliente antes de existir sessão.
+ */
+function TemaDaSessao({
+  temaDeBootstrap,
+  children,
+}: {
+  temaDeBootstrap: ClientTheme | null;
+  children: React.ReactNode;
+}) {
+  const { user } = useAuth();
+  return <ThemeProvider theme={user?.theme ?? temaDeBootstrap}>{children}</ThemeProvider>;
 }
