@@ -2,14 +2,23 @@ import { headers } from 'next/headers';
 import { marcaPorHostname } from '../../src/shared/marca/marcaPorHost';
 
 /**
- * Política de privacidade — RASCUNHO, pendente de revisão jurídica.
+ * Política de privacidade — pendente de revisão jurídica.
  *
- * ATENÇÃO, ANTES DE DIVULGAR ESTE ENDEREÇO: o texto abaixo tem marcadores
- * «assim» em todo ponto que depende de um fato que ainda não existe — CNPJ da
- * SOLS, contato do encarregado, prazos de guarda decididos pelo controlador,
- * região do storage. Publicar uma política com lacuna é pior que não ter: ela
- * vira declaração pública errada, e uma política incorreta é ela própria um
- * achado numa fiscalização.
+ * SOBROU UMA LACUNA, e ela é deliberada: o «mecanismo adotado» da transferência
+ * internacional. A Resolução CD/ANPD nº 19/2024 exige um instrumento de fato —
+ * na prática, as cláusulas-padrão contratuais assinadas entre a academia e a
+ * SOLS. Escrever "cláusulas-padrão contratuais" aqui antes de o contrato
+ * existir seria declarar publicamente algo falso, que é pior que a lacuna: uma
+ * política incorreta é, ela própria, um achado numa fiscalização.
+ *
+ * O CNPJ DA SOLS não aparece porque a empresa ainda não existe. A LGPD exige a
+ * identificação inequívoca do CONTROLADOR — que é a academia, e vem do banco.
+ * A do operador é boa prática, e entra quando houver.
+ *
+ * OS PRAZOS (5 anos do cadastro, 2 anos da trilha) não são escolha de redação:
+ * são os que o expurgo automático aplica de fato (DEFAULT_ALUNO_DIAS e
+ * DEFAULT_AUDITORIA_DIAS em apps/api/src/scripts/retention.ts). Mudar um lado
+ * sem o outro faz a política mentir sobre o próprio produto.
  *
  * O QUE ESTE TEXTO É: um levantamento fiel do que o sistema realmente coleta,
  * campo por campo, lido do schema e das rotas. É a parte que um advogado não
@@ -51,6 +60,9 @@ export default async function PrivacidadePage() {
     (cabecalhos.get('x-forwarded-host') ?? cabecalhos.get('host'))?.split(',')[0]?.trim() ?? null;
   const marca = await marcaPorHostname(host?.toLowerCase() ?? null);
   const academia = marca?.dsCliente?.trim() ?? '«nome da academia»';
+  // Formatado só para leitura; o banco guarda os 14 dígitos crus. Sem CNPJ
+  // cadastrado, a frase omite a inscrição em vez de exibir um rótulo vazio.
+  const cnpj = marca?.caCNPJ?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
   const cor = marca?.corPrimaria || '#032da2';
 
   return (
@@ -80,19 +92,20 @@ export default async function PrivacidadePage() {
 
       <Secao titulo="1. Quem trata seus dados">
         <p>
-          <strong>Controladora:</strong> {academia}, inscrita no CNPJ «CNPJ da academia», que decide
-          quais dados coletar e para quê. É a ela que você pede esclarecimento e exerce seus
-          direitos.
+          <strong>Controladora:</strong> {academia}
+          {cnpj ? `, inscrita no CNPJ ${cnpj}` : ''}, que decide quais dados coletar e para quê. É a
+          ela que você pede esclarecimento e exerce seus direitos.
         </p>
         <p>
-          <strong>Operadora:</strong> SOLS Softwares, CNPJ «CNPJ da SOLS», que fornece o sistema
-          SOLSFIT e trata os dados <em>por conta e sob instrução</em> da academia. A SOLS não usa
-          seus dados para finalidade própria, não os vende e não os cede a terceiros para
-          publicidade.
+          <strong>Operadora:</strong> SOLS Softwares, que fornece o sistema SOLSFIT e trata os dados{' '}
+          <em>por conta e sob instrução</em> da academia. A SOLS não usa seus dados para finalidade
+          própria, não os vende e não os cede a terceiros para publicidade.
         </p>
         <p>
-          <strong>Encarregado (DPO):</strong> «nome», pelo e-mail «dpo@dominio». É o canal para
-          dúvidas e reclamações sobre proteção de dados.
+          <strong>Encarregado pelo tratamento de dados (DPO):</strong> Caio da Silva Ribeiro, pelo
+          e-mail <a href="mailto:dpo@solssoftwares.com.br" style={{ color: cor }}>dpo@solssoftwares.com.br</a>.
+          É um canal disponibilizado pela operadora e atende também os titulares de {academia}; as
+          decisões sobre o tratamento continuam sendo da academia, como controladora.
         </p>
       </Secao>
 
@@ -175,23 +188,24 @@ export default async function PrivacidadePage() {
 
       <Secao titulo="5. Transferência internacional">
         <p>
-          Parte da infraestrutura está fora do Brasil, em «país/região». Isso caracteriza
-          transferência internacional de dados, permitida pela LGPD (art. 33) e disciplinada pela
-          Resolução CD/ANPD nº 19/2024, mediante «mecanismo adotado — cláusulas-padrão contratuais
-          ou outro».
+          O servidor onde o sistema roda está nos <strong>Estados Unidos</strong>. O armazenamento
+          de arquivos e o serviço de e-mail são fornecidos por empresas que podem tratar os dados
+          fora do Brasil. Isso caracteriza transferência internacional de dados, permitida pela LGPD
+          (art. 33) e disciplinada pela Resolução CD/ANPD nº 19/2024, mediante «mecanismo adotado —
+          cláusulas-padrão contratuais ou outro».
         </p>
       </Secao>
 
       <Secao titulo="6. Por quanto tempo ficam guardados">
         <p>
-          Enquanto durar sua relação com a academia e, depois disso, pelos prazos exigidos por lei —
-          especialmente os fiscais e contábeis, de «prazo» — ou até que você peça a exclusão, o que
-          ocorrer primeiro.
+          Enquanto durar sua relação com a academia e, depois disso, por <strong>5 anos</strong>,
+          prazo alinhado à guarda fiscal e contábil — ou até que você peça a exclusão, o que ocorrer
+          primeiro.
         </p>
         <p>
           Encerrado o prazo, o cadastro é <strong>anonimizado</strong>: identidade, biometria,
           avaliações e arquivos são apagados; o histórico financeiro permanece sem ligação com
-          pessoa identificável. A trilha de acessos é eliminada após «prazo».
+          pessoa identificável. A trilha de acessos é eliminada após <strong>2 anos</strong>.
         </p>
       </Secao>
 
@@ -268,8 +282,11 @@ export default async function PrivacidadePage() {
           color: '#52605a',
         }}
       >
-        Dúvidas sobre esta política: fale com o encarregado pelo tratamento de dados, no e-mail
-        «dpo@dominio».
+        Dúvidas sobre esta política: fale com o encarregado pelo tratamento de dados, no e-mail{' '}
+        <a href="mailto:dpo@solssoftwares.com.br" style={{ color: cor }}>
+          dpo@solssoftwares.com.br
+        </a>
+        .
       </p>
     </main>
   );

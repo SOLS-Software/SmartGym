@@ -866,6 +866,14 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return {
         idCliente: cliente.id,
         dsCliente: cliente.dsCliente,
+        // CNPJ da academia. Sai daqui, e nao de texto fixo na pagina, porque a
+        // politica de privacidade e POR ACADEMIA e precisa identificar o
+        // CONTROLADOR — que e cada uma delas, nao a SOLS. Escrito a mao, a
+        // primeira academia nova sairia com o CNPJ da anterior.
+        //
+        // Nao e exposicao indevida: CNPJ e dado publico de empresa, e a LGPD
+        // exige a identificacao inequivoca do controlador na politica.
+        caCNPJ: cliente.caCNPJ,
         ...(tema ? {
           corPrimaria: tema.corPrimaria,
           corSecundaria: tema.corSecundaria,

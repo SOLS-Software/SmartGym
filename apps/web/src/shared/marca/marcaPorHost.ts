@@ -19,6 +19,7 @@ export type MarcaDoCliente = {
   corPrimaria?: string | null;
   corFundo?: string | null;
   corTexto?: string | null;
+  caCNPJ?: string | null;
   logoUrl?: string | null;
 };
 
