@@ -11,6 +11,7 @@ import {
 import { HASH_TYPE_BCRYPT, dummyVerify, hashPassword, verifyPassword } from '../../shared/passwords.js';
 import { cpfHash, decryptCpfValue } from '../../shared/pii.js';
 import { TOKEN_EXPIRY_MOBILE, TOKEN_EXPIRY_WEB } from '../../plugins/auth.js';
+import { PROVIDER_SETUP_PERMISSIONS } from '../../plugins/permissions.js';
 import { getSupabaseClient, getSupabaseConfig, getClientSupabaseConfig } from '../../shared/supabase.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 import { getTenantDb } from '../../shared/tenantDataSource.js';
@@ -854,12 +855,27 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           { expiresIn: '2h' },
         );
 
+        // As filiais saem daqui junto com a sessao, e nao de uma segunda
+        // chamada: a tela do provedor monta as DUAS sessoes do navegador — a do
+        // sistema e a do Gestor de Tema — e a segunda precisa da lista de
+        // empresas. Sao dados que este operador pode ler (companies.read esta na
+        // lista fixa), entao trazer agora so evita uma ida e volta.
+        const empresas = await (await getTenantDb(acesso.cliente.id)).empresa.findMany({
+          where: { idCliente: acesso.cliente.id, boInativo: false },
+          orderBy: { dsEmpresa: 'asc' },
+        });
+
         return {
           token,
+          idOperador: acesso.operador.id,
           idCliente: acesso.cliente.id,
           dsCliente: acesso.cliente.dsCliente,
           dsOperador: acesso.operador.dsNome,
           dsMotivo: acesso.dsMotivo,
+          empresas,
+          // A MESMA lista que o hook aplica a cada request. Vai junto para o
+          // menu nascer recortado; quem barra de verdade continua sendo a API.
+          permissions: PROVIDER_SETUP_PERMISSIONS,
         };
       } catch (error) {
         return reply
@@ -988,6 +1004,17 @@ export async function registerAuthRoutes(app: FastifyInstance) {
   // que seria absurdo. Aqui a identidade vem do token e so devolve o dono.
   app.get('/auth/me', async (request, reply) => {
     try {
+      // Operador da SOLS nao tem "minha conta" AQUI: a conta dele vive no painel
+      // do provedor, e esta rota le tb_Usuarios pelo `sub` — que numa sessao de
+      // implantacao e um OperadorSols. Sem este desvio a resposta era um 401
+      // enganoso ("usuario inativo"), e, no dia em que os dois contadores de id
+      // se cruzassem, seria a conta de uma PESSOA REAL desta academia.
+      if (request.user.role === 'provedor') {
+        return reply.code(403).send({
+          message: 'Conta de operador da SOLS: gerencie no painel do provedor.',
+        });
+      }
+
       // Identidade no central; ficha no banco do cliente. Duas consultas onde
       // antes havia um include — o join nao existe com banco por cliente.
       const user = await prisma.usuario.findFirst({
@@ -1078,6 +1105,15 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     Body: { currentPassword?: string; newPassword?: string };
   }>('/auth/change-password', authRateLimit, async (request, reply) => {
     try {
+      // Mesma razao de /auth/me: `sub` numa sessao de implantacao e um
+      // OperadorSols, e as consultas daqui sao por idUsuario. A senha do
+      // operador se troca no painel do provedor.
+      if (request.user.role === 'provedor') {
+        return reply.code(403).send({
+          message: 'Conta de operador da SOLS: troque a senha no painel do provedor.',
+        });
+      }
+
       const currentPassword = request.body?.currentPassword ?? '';
       const newPassword = normalizeRegisterPassword(request.body?.newPassword ?? '');
 
@@ -1132,6 +1168,47 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       // A identidade vem exclusivamente do JWT — o parametro ?id= legado e
       // ignorado para impedir enumeracao de usuarios (IDOR).
       const id = request.user.sub;
+
+      // QUEBRA DE VIDRO, tratada ANTES da consulta — pelo mesmo motivo do hook
+      // de auth: o `sub` de um token de provedor e um OperadorSols, que nao
+      // existe em tb_Usuarios.
+      //
+      // Sem este desvio nao havia como ENTRAR: toda tela do SOLSFIT pergunta
+      // aqui "quem sou eu?", recebia 401 e caia no formulario de CPF e senha,
+      // com a sessao de implantacao viva no cookie.
+      //
+      // E havia um segundo problema, pior e silencioso: a consulta abaixo
+      // procura por ID. Hoje os dois contadores nao se cruzam (ha 1 operador e
+      // os usuarios comecam no 5), mas no dia em que cruzassem, a sessao da
+      // SOLS receberia de volta a identidade de uma PESSOA REAL — nome,
+      // cliente, perfil e, se fosse aluno, ate a situacao de acesso dela. A
+      // autorizacao nao vazava (o RBAC do provedor e lista fixa no codigo), mas
+      // o dado pessoal, sim.
+      if (request.user.role === 'provedor') {
+        const operador = await prisma.operadorSols.findUnique({
+          where: { id },
+          select: { dsNome: true },
+        });
+        if (!operador) {
+          return reply.code(401).send({ message: 'Sessao invalida ou expirada.' });
+        }
+        return {
+          id,
+          idAluno: null,
+          idFuncionario: null,
+          // O tenant vem do token, que so foi emitido contra um acesso aberto
+          // no painel — nunca de parametro da requisicao.
+          idCliente: request.user.idCliente,
+          name: operador.dsNome,
+          type: 'employee' as const,
+          // Rotulo proprio no lugar do perfil: quem olha a tela precisa saber
+          // que nao esta vendo o sistema como um funcionario da academia.
+          perfilAcesso: { id: 0, dsPerfil: 'Implantação SOLS' },
+          permissions: PROVIDER_SETUP_PERMISSIONS,
+          studentAccess: null,
+          provedor: true,
+        };
+      }
 
       // Identidade no central, ficha no banco do cliente: duas consultas onde
       // antes havia um include.
@@ -1217,6 +1294,14 @@ export async function registerAuthRoutes(app: FastifyInstance) {
   app.post<{ Body: { token?: unknown; platform?: unknown } }>(
     '/auth/push-token',
     async (request, reply) => {
+      // Aparelho se registra para o dono da conta, e `idUsuario` aqui viria do
+      // `sub` — que numa sessao de implantacao e um OperadorSols. Nao ha app da
+      // SOLS para notificar, e gravar assim mesmo penduraria o aparelho num id
+      // de outra tabela.
+      if (request.user.role === 'provedor') {
+        return reply.code(403).send({ message: 'Sessao de implantacao nao registra aparelho.' });
+      }
+
       const token = typeof request.body?.token === 'string' ? request.body.token.trim() : '';
       if (!isExpoPushToken(token)) {
         return reply.code(400).send({ message: 'Token de push invalido.' });

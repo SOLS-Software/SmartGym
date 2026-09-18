@@ -428,6 +428,9 @@ export default function HomePage() {
   const [authUserId, setAuthUserId] = useState<number | null>(null);
   const [authUserPhotoUrl, setAuthUserPhotoUrl] = useState<string | null>(null);
   const [authUserPermissions, setAuthUserPermissions] = useState<string[]>([]);
+  // Sessao de implantacao da SOLS (quebra de vidro). Quem esta aqui nao e da
+  // academia: nao tem conta neste sistema nem ponto para bater.
+  const [isProvedor, setIsProvedor] = useState(false);
   const [loginMode, setLoginMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [loginCpf, setLoginCpf] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -514,6 +517,17 @@ export default function HomePage() {
   useEffect(() => {
     void (async () => {
       try {
+        // "Porta do aluno" (?vista=entrada): mostra a tela de ENTRADA mesmo com
+        // sessao viva no navegador.
+        //
+        // E o unico jeito de conferir, durante a implantacao, o que o aluno ve
+        // ao chegar: quem esta implantando esta logado, e a home logada abre o
+        // sistema. Nao desloga ninguem — so nao restaura a sessao NESTA
+        // visita; o `finally` abaixo tira a tela de carregamento.
+        if (new URLSearchParams(window.location.search).get('vista') === 'entrada') {
+          return;
+        }
+
         const stored = localStorage.getItem(SESSION_KEY);
         if (stored) {
           const session = await decryptSession(stored);
@@ -533,7 +547,9 @@ export default function HomePage() {
               const verified = (await verifyResponse.json()) as {
                 permissions?: string[];
                 perfilAcesso?: { dsPerfil: string } | null;
+                provedor?: boolean;
               };
+              setIsProvedor(verified.provedor === true);
               setAuthUserPermissions(verified.permissions ?? user.permissions ?? []);
               setAuthUserId(user.id);
               setAuthUserName(user.name);
@@ -556,7 +572,9 @@ export default function HomePage() {
                     : 'Meu Treino',
               );
               setIsLoggedIn(true);
-              if (shouldShowOnboarding(user.id)) {
+              // O tour apresenta o produto a quem vai USAR a academia. Para
+              // quem entrou para implanta-la, ele e uma janela a fechar.
+              if (!verified.provedor && shouldShowOnboarding(user.id)) {
                 setShowOnboarding(true);
               }
             }
@@ -1086,7 +1104,16 @@ export default function HomePage() {
             // abririam sem aluno nenhum selecionado.
             .map((group) => ({
               ...group,
-              items: group.items.filter((item) => item !== 'Meu Treino' && item !== 'Evolução'),
+              items: group.items.filter(
+                (item) =>
+                  item !== 'Meu Treino' &&
+                  item !== 'Evolução' &&
+                  // "Minha Conta" e "Ponto" sao da PESSOA, e a API resolve as
+                  // duas por tb_Usuarios — onde um operador da SOLS nao existe.
+                  // Deixar os itens no menu seria oferecer dois cliques que so
+                  // sabem responder erro.
+                  !(isProvedor && (item === 'Minha Conta' || item === 'Ponto')),
+              ),
             }))
             .filter((group) => group.items.length > 0)
         : studentMenuGroups;

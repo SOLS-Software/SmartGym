@@ -1,22 +1,38 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
+import { GESTOR_SESSION_KEY, SESSION_KEY, encryptSession } from '../../shared/auth/sessionUtils';
+
+type Empresa = { id: number; dsEmpresa: string; caCNPJ: string; boInativo: boolean };
 
 type Resultado = {
+  idOperador?: number;
+  idCliente?: number;
   dsCliente?: string;
   dsOperador?: string;
   dsMotivo?: string;
+  empresas?: Empresa[];
+  permissions?: string[];
 };
+
+/** Rotulo do papel dentro do sistema do cliente. O mesmo que a API devolve. */
+const PERFIL_IMPLANTACAO = { id: 0, dsPerfil: 'Implantação SOLS' };
 
 /**
  * Quebra de vidro: a porta por onde um operador da SOLS entra para implantar.
  *
  * A pessoa chega aqui por um link emitido no painel do provedor, com um token
- * de USO UNICO e prazo de minutos. Esta tela so faz a troca: manda o token para
- * a API, que devolve uma sessao; o proxy move essa sessao para o cookie
- * HttpOnly, como em qualquer login.
+ * de USO UNICO e prazo de minutos. Esta tela troca o token por uma sessao — o
+ * proxy move o JWT para o cookie HttpOnly, como em qualquer login — e monta as
+ * sessoes que as telas do SOLSFIT leem do navegador.
+ *
+ * POR QUE MONTAR SESSAO NO NAVEGADOR, se o cookie ja basta para a API: as telas
+ * do produto decidem "estou logado?" olhando o localStorage e confirmando em
+ * /auth/verify. Sem o primeiro passo, o cookie valia para a API e nao valia
+ * para a interface — era possivel estar autenticado e mesmo assim olhar um
+ * formulario de CPF e senha. Foi exatamente o que aconteceu na primeira
+ * implantacao.
  *
  * O TOKEN SAI DA URL assim que e usado (replaceState). Endereco de navegador
  * vaza com facilidade — fica no historico, na sincronizacao entre dispositivos,
@@ -52,13 +68,6 @@ export default function ProviderAccessPage() {
 
     void (async () => {
       try {
-        // apiFetch, e NAO o fetch do navegador. Em producao o proxy cifra o
-        // CAMINHO: ele recebe /api/proxy/<base64> e decifra para descobrir a rota.
-        // Um caminho em texto claro faz essa decifragem lancar ANTES do try que
-        // envolve a chamada a API, e a rota devolve 500 — que esta tela exibia
-        // como "acesso invalido ou expirado", culpando o token por um erro que
-        // nunca chegou perto dele. O apelido `fetch` no import existe para que
-        // uma chamada crua nao passe despercebida numa revisao.
         const res = await fetch(`${apiUrl}/auth/acesso-provedor`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -72,6 +81,7 @@ export default function ProviderAccessPage() {
           return;
         }
 
+        await montarSessoes(dados);
         setResultado(dados);
         setEstado('pronto');
       } catch {
@@ -80,6 +90,69 @@ export default function ProviderAccessPage() {
       }
     })();
   }, []);
+
+  /**
+   * Escreve as duas sessoes que as telas do produto esperam encontrar.
+   *
+   * Sao formatos diferentes porque nasceram em logins diferentes: o sistema
+   * guarda a sessao cifrada (ofuscacao, nao seguranca — ver sessionUtils) e o
+   * Gestor de Tema guarda um base64 com a lista de filiais. Reproduzir os dois
+   * aqui e o preco de nao mexer nas duas telas.
+   *
+   * As permissoes vao junto so para o menu nascer recortado; a cada /auth/verify
+   * elas sao reescritas pelo que o servidor responde, e a autorizacao de verdade
+   * e conferida em toda requisicao.
+   */
+  async function montarSessoes(dados: Resultado) {
+    const usuario = {
+      id: dados.idOperador ?? 0,
+      idAluno: null,
+      idFuncionario: null,
+      idCliente: dados.idCliente ?? null,
+      name: dados.dsOperador ?? 'Operador SOLS',
+      type: 'employee' as const,
+      permissions: dados.permissions ?? [],
+      perfilAcesso: PERFIL_IMPLANTACAO,
+    };
+
+    try {
+      const cifrada = await encryptSession({
+        user: usuario,
+        // Abre em Empresas: numa implantacao, a unidade e a primeira coisa a
+        // existir — sem ela nao ha onde pendurar equipe, plano nem catraca.
+        activeItem: 'Empresas',
+        cachedAt: Date.now(),
+      });
+      localStorage.setItem(SESSION_KEY, cifrada);
+    } catch {
+      // Sem localStorage (aba anonima com armazenamento bloqueado) a tela
+      // seguinte vai pedir login. Nao impede de mostrar o resto daqui.
+    }
+
+    try {
+      localStorage.setItem(
+        GESTOR_SESSION_KEY,
+        btoa(
+          JSON.stringify({
+            data: { ...usuario, idCliente: dados.idCliente, empresas: dados.empresas ?? [] },
+            cachedAt: Date.now(),
+          }),
+        ),
+      );
+    } catch {
+      // btoa recusa caractere fora do Latin-1 (um emoji no nome da filial, por
+      // exemplo). Perder o atalho do tema nao pode custar a entrada no sistema.
+    }
+  }
+
+  const caixa: React.CSSProperties = {
+    display: 'block',
+    padding: '0.9rem 1.1rem',
+    border: '1px solid #d4d9e3',
+    borderRadius: '0.6rem',
+    textDecoration: 'none',
+    color: 'inherit',
+  };
 
   return (
     <main
@@ -120,24 +193,51 @@ export default function ProviderAccessPage() {
           {resultado.dsMotivo && (
             <p style={{ fontSize: '0.875rem', opacity: 0.7 }}>Motivo: {resultado.dsMotivo}</p>
           )}
+
+          {/* As tres telas do produto, na ordem em que uma implantacao precisa
+              delas: montar a academia, vestir a marca, conferir a porta. */}
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <a
+              href="/"
+              style={{
+                ...caixa,
+                background: '#032da2',
+                borderColor: '#032da2',
+                color: '#fff',
+              }}
+            >
+              <strong>Sistema</strong>
+              <span style={{ display: 'block', fontSize: '0.8rem', opacity: 0.85 }}>
+                Unidades, equipe, perfis, planos, aulas, equipamentos, catraca e conta de
+                recebimento.
+              </span>
+            </a>
+
+            <a href="/gestor" style={caixa}>
+              <strong>Gestor de Tema</strong>
+              <span style={{ display: 'block', fontSize: '0.8rem', opacity: 0.7 }}>
+                Cores, fonte e medidas das telas do cliente.
+              </span>
+            </a>
+
+            {/* A porta do aluno abre a tela de ENTRADA, e nao uma sessao de
+                aluno: com as permissoes de implantacao, ficha, treino, check-in
+                e pagamento sao recusados pela API — uma sessao de aluno seria
+                uma tela quebrada, e nao um acesso. Serve para o que a
+                implantacao precisa ver ali: a marca na porta. */}
+            <a href="/?vista=entrada" style={caixa}>
+              <strong>Porta do aluno</strong>
+              <span style={{ display: 'block', fontSize: '0.8rem', opacity: 0.7 }}>
+                A tela de entrada como o aluno vê, com a marca deste cliente. Sua sessão continua
+                aberta.
+              </span>
+            </a>
+          </nav>
+
           <p style={{ fontSize: '0.875rem', opacity: 0.7 }}>
             Esta sessão alcança configuração e equipe. Ficha de aluno, avaliação física, treino,
             check-in e pagamento ficam fora — perante a academia, a SOLS é operadora.
           </p>
-          <a
-            href="/gestor"
-            style={{
-              alignSelf: 'flex-start',
-              background: '#032da2',
-              color: '#fff',
-              padding: '0.75rem 1.25rem',
-              borderRadius: '0.5rem',
-              textDecoration: 'none',
-              fontWeight: 500,
-            }}
-          >
-            Abrir o sistema
-          </a>
         </>
       )}
     </main>
