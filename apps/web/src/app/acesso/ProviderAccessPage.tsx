@@ -236,10 +236,21 @@ export default function ProviderAccessPage() {
           )}
 
           {/* As tres telas do produto, na ordem em que uma implantacao precisa
-              delas: montar a academia, vestir a marca, conferir a porta. */}
+              delas: montar a academia, vestir a marca, conferir a porta.
+
+              CADA UMA ABRE EM ABA PROPRIA, E SEMPRE NA MESMA. O `target` tem
+              nome: o segundo clique reaproveita a aba que ja esta aberta em vez
+              de empilhar copias. Esta pagina fica de pe atras delas, que e o que
+              permite pular de uma tela para outra sem voltar ao painel.
+
+              Sem `rel="noopener"` de proposito: ele desliga justamente a busca
+              pelo nome, e cada clique abriria uma aba nova. O risco que o
+              noopener evita e o de destino de TERCEIRO mexer na nossa janela —
+              aqui o destino e a propria aplicacao, mesma origem. */}
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             <a
               href="/"
+              target="solsfit-sistema"
               style={{
                 ...caixa,
                 background: '#032da2',
@@ -254,7 +265,7 @@ export default function ProviderAccessPage() {
               </span>
             </a>
 
-            <a href="/gestor" style={caixa}>
+            <a href="/gestor" target="solsfit-tema" style={caixa}>
               <strong>Gestor de Tema</strong>
               <span style={{ display: 'block', fontSize: '0.8rem', opacity: 0.7 }}>
                 Cores, fonte e medidas das telas do cliente.
@@ -266,7 +277,7 @@ export default function ProviderAccessPage() {
                 e pagamento sao recusados pela API — uma sessao de aluno seria
                 uma tela quebrada, e nao um acesso. Serve para o que a
                 implantacao precisa ver ali: a marca na porta. */}
-            <a href="/?vista=entrada" style={caixa}>
+            <a href="/?vista=entrada" target="solsfit-aluno" style={caixa}>
               <strong>Porta do aluno</strong>
               <span style={{ display: 'block', fontSize: '0.8rem', opacity: 0.7 }}>
                 A tela de entrada como o aluno vê, com a marca deste cliente. Sua sessão continua
@@ -280,8 +291,9 @@ export default function ProviderAccessPage() {
             check-in e pagamento ficam fora — perante a academia, a SOLS é operadora.
           </p>
           <p style={{ fontSize: '0.8rem', opacity: 0.6 }}>
-            O link de entrada vale 5 minutos e abre uma única vez; a sessão dura 2 horas. Volte a
-            esta página quando quiser trocar de tela — enquanto a sessão durar, ela abre sem token.
+            Cada tela abre em outra aba, e sempre na mesma: clicar de novo volta para a aba já
+            aberta. Esta página fica aqui atrás enquanto a sessão durar — 2 horas. O link de
+            entrada, esse sim, vale 5 minutos e abre uma única vez.
           </p>
         </>
       )}
