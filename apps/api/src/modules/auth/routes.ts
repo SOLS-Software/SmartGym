@@ -309,6 +309,12 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         id: user.id,
         idAluno: user.idAluno,
         idFuncionario: user.idFuncionario,
+        // Filial do funcionario. O app da equipe precisa dela para gravar venda
+        // e treino em nome de uma unidade, e pedi-la por GET /companies exigiria
+        // companies.read — permissao que a recepcao nao tem por que ter. A
+        // unidade da PROPRIA pessoa e dado da sessao, e nao listagem de
+        // cadastro. Aluno nao tem filial fixa: vem nulo.
+        idEmpresa: perfil.idEmpresa,
         idCliente,
         login: user.dsLogin,
         name: perfil.nome ?? user.dsLogin,
@@ -1257,6 +1263,12 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         id: user.id,
         idAluno: user.idAluno,
         idFuncionario: user.idFuncionario,
+        // Filial do funcionario. O app da equipe precisa dela para gravar venda
+        // e treino em nome de uma unidade, e pedi-la por GET /companies exigiria
+        // companies.read — permissao que a recepcao nao tem por que ter. A
+        // unidade da PROPRIA pessoa e dado da sessao, e nao listagem de
+        // cadastro. Aluno nao tem filial fixa: vem nulo.
+        idEmpresa: perfil.idEmpresa,
         idCliente: user.idCliente,
         name: perfil.nome ?? user.dsLogin,
         type: user.idAluno ? 'student' : 'employee',

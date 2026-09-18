@@ -63,8 +63,15 @@ export default function LoginScreen() {
         token?: string;
       };
 
-      if (user.type !== 'student' || !user.idAluno) {
-        setFeedback('Este acesso é exclusivo para alunos.');
+      // O app atende ALUNO e EQUIPE. O que barra aqui não é o papel, é não ter
+      // ficha nenhuma na academia: uma conta central sem aluno e sem
+      // funcionário não tem tela para onde ir, e entraria só para ver erro.
+      //
+      // Quem é as duas coisas entra como aluno — é assim que a API resolve o
+      // papel (`role: user.idAluno ? 'student' : 'employee'`), e divergir disso
+      // aqui criaria uma sessão cujo token diz uma coisa e a tela, outra.
+      if (!user.idAluno && !user.idFuncionario) {
+        setFeedback('Esta conta não tem acesso ao aplicativo.');
         return;
       }
 
@@ -78,7 +85,7 @@ export default function LoginScreen() {
       await limparInatividade();
 
       await signIn(user);
-      router.replace('/meu-treino');
+      router.replace(user.idAluno ? '/meu-treino' : '/ponto');
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erro ao entrar.');
     } finally {
