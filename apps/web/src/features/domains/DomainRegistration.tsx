@@ -1,6 +1,6 @@
 'use client';
 
-import type { FormEvent } from 'react';
+import type { CSSProperties, FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { Pencil, Plus, Save } from 'lucide-react';
 import {
@@ -395,7 +395,7 @@ export function DomainRegistration() {
                 <div
                   className={`product-row domain-records-row ${extraColumns.length ? 'with-relation' : ''} header`}
                   role="row"
-                  style={{ gridTemplateColumns }}
+                  style={{ '--grid-cols': gridTemplateColumns } as CSSProperties}
                 >
                   <span role="columnheader">{config.label}</span>
                   {extraColumns.map((column) => (
@@ -417,7 +417,7 @@ export function DomainRegistration() {
                       }
                     }}
                     role="row"
-                    style={{ gridTemplateColumns }}
+                    style={{ '--grid-cols': gridTemplateColumns } as CSSProperties}
                     tabIndex={0}
                   >
                     <span role="cell">{record.name}</span>

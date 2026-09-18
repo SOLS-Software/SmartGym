@@ -1,6 +1,6 @@
 'use client';
 
-import type { FormEvent } from 'react';
+import type { CSSProperties, FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Pencil, Plus, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, GridPagination, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
@@ -493,7 +493,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
           <div
             className="product-row header"
             role="row"
-            style={readOnly ? undefined : { gridTemplateColumns: 'minmax(0, 1fr) 6.875rem 6.875rem 2.75rem' }}
+            style={readOnly ? undefined : ({ '--grid-cols': 'minmax(0, 1fr) 6.875rem 6.875rem 2.75rem' } as CSSProperties)}
           >
             <span role="columnheader">Exercício</span>
             <span role="columnheader">Empresa</span>
@@ -525,7 +525,7 @@ export function ExerciseRegistration({ readOnly = false }: ExerciseRegistrationP
                 onClick={() => setSelectedExerciseId(exercise.id)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedExerciseId(exercise.id); } }}
                 role="row"
-                style={{ gridTemplateColumns: 'minmax(0, 1fr) 6.875rem 6.875rem 2.75rem' }}
+                style={{ '--grid-cols': 'minmax(0, 1fr) 6.875rem 6.875rem 2.75rem' } as CSSProperties}
                 tabIndex={0}
               >
                 <span role="cell" title={exercise.dsExercicio}>{exercise.dsExercicio}</span>

@@ -1,6 +1,6 @@
 'use client';
 
-import type { FormEvent } from 'react';
+import type { CSSProperties, FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { Pencil, Plus, Save } from 'lucide-react';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
@@ -189,7 +189,7 @@ export function ClientRegistration() {
             <div
               className="domain-select-row header"
               role="row"
-              style={{ gridTemplateColumns: 'minmax(0, 1fr) 2.75rem' }}
+              style={{ '--grid-cols': 'minmax(0, 1fr) 2.75rem' } as CSSProperties}
             >
               <span role="columnheader">Cliente</span>
               <span role="columnheader"></span>
@@ -206,7 +206,7 @@ export function ClientRegistration() {
                   }
                 }}
                 role="row"
-                style={{ gridTemplateColumns: 'minmax(0, 1fr) 2.75rem' }}
+                style={{ '--grid-cols': 'minmax(0, 1fr) 2.75rem' } as CSSProperties}
                 tabIndex={0}
               >
                 <span role="cell" className="flex items-center justify-between gap-2">

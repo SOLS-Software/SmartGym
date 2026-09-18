@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, Inbox, Pencil, Plus, Search } from 'lucide-react';
 import { GridPagination } from './registrationHelpers';
@@ -112,10 +112,27 @@ export function RegistrationGrid<T extends { id: number }>({
 
   const isChild = variant === 'child';
   const editColWidth = onEdit ? ' 2.75rem' : '';
-  const gridStyle = gridTemplateColumns
-    ? { gridTemplateColumns: `${gridTemplateColumns}${editColWidth}` }
+
+  /**
+   * O template vai numa VARIÁVEL CSS, não em `grid-template-columns` direto.
+   *
+   * Estilo inline vence qualquer folha de estilo, inclusive `@media`. Escrito
+   * direto na propriedade, o template do desktop ia junto para o celular e a
+   * regra mobile — que existe, logo abaixo de 47.5rem, e transforma a linha em
+   * cartão — nunca tinha chance.
+   *
+   * O estrago medido a 375px, numa grade de quatro colunas mais editar:
+   * `0px 152px 152px 152px 152px 44px`. As colunas fixas somavam 652px numa
+   * tela de 375, e a primeira — que no cartão é o TÍTULO, o nome do registro —
+   * era espremida a ZERO. O usuário via rótulos sem título nenhum.
+   *
+   * Na variável, o inline define apenas o valor de `--grid-cols`; a propriedade
+   * continua sendo decidida pela folha, e aí o `@media` volta a valer.
+   */
+  const colunas = gridTemplateColumns
+    ? `${gridTemplateColumns}${editColWidth}`
     : isChild
-      ? { gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))${editColWidth}` }
+      ? `repeat(${columns.length}, minmax(0, 1fr))${editColWidth}`
       : onEdit
         ? // As colunas de dados eram 6.875rem (96px com root de 14px) e o template
           // so declarava duas, entao grids com mais colunas (Fornecedores tem
@@ -127,10 +144,10 @@ export function RegistrationGrid<T extends { id: number }>({
           // Precisa ser largura fixa: cada linha e um grid independente, entao
           // dimensionar por conteudo (auto/max-content) desalinha o cabecalho
           // das linhas de dados.
-          {
-            gridTemplateColumns: `minmax(0, 1fr) repeat(${Math.max(columns.length - 1, 1)}, 9.5rem)${editColWidth}`,
-          }
+          `minmax(0, 1fr) repeat(${Math.max(columns.length - 1, 1)}, 9.5rem)${editColWidth}`
         : undefined;
+
+  const gridStyle = colunas ? ({ '--grid-cols': colunas } as CSSProperties) : undefined;
 
   const tableClass = isChild
     ? 'product-table company-child-grid-table'

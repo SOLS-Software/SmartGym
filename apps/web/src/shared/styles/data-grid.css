@@ -55,7 +55,10 @@
   border-top: 0.0625rem solid var(--color-border-subtle);
   display: grid;
   gap: 0.875rem;
-  grid-template-columns: minmax(0, 1fr);
+  /* Mesmo motivo do .product-row: o template vem da variavel, e nao de estilo
+     inline, para a regra de celular conseguir sobrepor. O padrao e uma coluna
+     porque ha telas que usam esta linha sem template proprio. */
+  grid-template-columns: var(--grid-cols, minmax(0, 1fr));
   min-height: 3.375rem;
   padding: 0 1rem;
   transition: background 220ms ease, box-shadow 260ms ease, min-height 320ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -225,8 +228,17 @@ button.domain-select-row.selected {
   gap: 0.875rem;
   /* 6.875rem (96px com root de 14px) nao cabia CPF (104px) nem CNPJ formatado
      (128px) — o texto quebrava em duas linhas enquanto a coluna de nome sobrava.
-     Mesma largura usada no template inline de RegistrationGrid. */
-  grid-template-columns: minmax(0, 1fr) 9.5rem 9.5rem;
+     Mesma largura usada no template de RegistrationGrid.
+
+     O TEMPLATE VEM DE `--grid-cols`, e nao de estilo inline, e isso e o que faz
+     o mobile funcionar. Escrito direto na propriedade pelo componente, o inline
+     vencia a media query la embaixo — e a 375px uma grade de quatro colunas
+     computava `0px 152px 152px 152px 152px 44px`: 652px de colunas fixas numa
+     tela de 375, com a PRIMEIRA (o titulo do cartao) espremida a zero.
+
+     Na variavel, o componente define so o valor; quem decide a propriedade
+     continua sendo esta folha, e o @media volta a ter a ultima palavra. */
+  grid-template-columns: var(--grid-cols, minmax(0, 1fr) 9.5rem 9.5rem);
   min-height: 3.375rem;
   padding: 0 1rem;
   transition: background 220ms ease, box-shadow 260ms ease, gap 260ms ease,
@@ -827,6 +839,19 @@ html.dark .drawer-backdrop {
   }
 
   .product-row.header {
+    display: none;
+  }
+
+  /* As linhas de dominio (cliente e dominios) ficavam de fora do tratamento de
+     cartao: o cabecalho continuava visivel e as colunas, lado a lado. Agora
+     seguem a mesma regra das demais — uma coluna, cabecalho escondido. */
+  .domain-select-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 0.875rem 1rem;
+  }
+
+  .domain-select-row.header {
     display: none;
   }
 
