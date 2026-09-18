@@ -300,10 +300,17 @@ const ROUTE_RULES: RouteRule[] = [
 
   // --- estrutura fisica ----------------------------------------------------
   { pattern: /^\/equipments(\/|$)/, domain: 'equipment' },
-  // Geocodificacao de endereco: nao le nem grava dado do cliente, e o mesmo
-  // componente de endereco e usado no cadastro de localidade E no de empresa.
-  // Amarrar a um dominio quebraria um dos dois; fica liberado ao autenticado.
+  // Consulta de endereco (CEP e geocodificacao): nao le nem grava dado do
+  // cliente, e o mesmo componente de endereco e usado no cadastro de localidade
+  // E no de empresa. Amarrar a um dominio quebraria um dos dois; fica liberado
+  // ao autenticado.
+  //
+  // As DUAS precisam da mesma regra porque vivem no mesmo formulario: deixar o
+  // CEP cair na regra de `equipment` abaixo daria a falha mais confusa possivel
+  // — no cadastro de empresa o pino do mapa funcionaria e o botao de CEP ao
+  // lado responderia 403, sem nada na tela explicando a diferenca.
   { pattern: /^\/localities\/geocode$/, domain: 'any' },
+  { pattern: /^\/localities\/cep(\/|$)/, domain: 'any' },
   { pattern: /^\/localities(\/|$)/, domain: 'equipment' },
 
   // --- pessoas -------------------------------------------------------------

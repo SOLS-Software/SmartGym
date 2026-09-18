@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { apiUrl, setAuthToken } from '../lib/api/client';
+import { apiUrl, publicFetch, setAuthToken } from '../lib/api/client';
 import {
   lerPreferenciaBiometria,
   limparInatividade,
@@ -46,7 +46,7 @@ export default function LoginScreen() {
 
     try {
       setIsSubmitting(true);
-      const response = await fetch(`${apiUrl}/auth/login`, {
+      const response = await publicFetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // client: 'mobile' => a API emite token de longa duração p/ o app.

@@ -629,3 +629,28 @@ describe('cobertura do mapa de rotas', () => {
     expect(semMapa).toEqual([]);
   });
 });
+
+// Consulta de endereco no cadastro: CEP e geocodificacao vivem no MESMO
+// formulario (shared/registration/AddressLocationPicker), usado tanto no
+// cadastro de localidade quanto no de empresa.
+//
+// O teste compara as duas em vez de fixar o valor de cada uma: o que precisa
+// valer e que elas nao divirjam. Divergindo, a falha aparece so no cadastro de
+// empresa de quem nao tem permissao de estrutura fisica — o pino do mapa
+// funciona, o botao de CEP ao lado da 403, e nada na tela liga uma coisa a
+// outra. `/localities/*` cai em `equipment`, entao o CEP precisa de regra
+// propria para nao herdar dominio por acidente de prefixo.
+describe('consulta de endereco nao herda dominio por prefixo', () => {
+  it('CEP segue a mesma regra da geocodificacao', () => {
+    expect(requiredPermission('GET', '/localities/cep/01001000')).toEqual(
+      requiredPermission('POST', '/localities/geocode'),
+    );
+  });
+
+  it('e nenhuma das duas exige permissao de estrutura fisica', () => {
+    const estruturaFisica = requiredPermission('GET', '/localities/42');
+
+    expect(requiredPermission('GET', '/localities/cep/01001000')).not.toEqual(estruturaFisica);
+    expect(requiredPermission('POST', '/localities/geocode')).not.toEqual(estruturaFisica);
+  });
+});

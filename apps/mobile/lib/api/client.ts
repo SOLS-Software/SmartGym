@@ -146,18 +146,77 @@ export async function travaBiometricaAtiva(): Promise<boolean> {
 // fetch com Authorization: Bearer — usar no lugar do fetch global em chamadas à API.
 // Nas telas, importe com alias para substituir o fetch do módulo:
 //   import { authFetch as fetch } from '../../lib/api/client';
+/**
+ * Traduz falha de TRANSPORTE — quando a requisição não chegou a virar resposta.
+ *
+ * Erro de regra de negócio a API devolve como JSON com `message`, e
+ * `getApiError` cuida dele. Aqui não houve resposta nenhuma, então nada do lado
+ * do servidor teve chance de produzir mensagem: quem produz é o runtime.
+ *
+ * As telas mostram `error.message` direto ao aluno. Sem isto, quem está numa
+ * rede ruim — que no celular é o caso comum, não a exceção — lê "Network
+ * request failed" e não sabe se o problema é a conta dele ou o sinal.
+ */
+function traduzirFalhaDeTransporte(error: unknown): unknown {
+  // Cancelamento DELIBERADO: meu-treino aborta a busca anterior ao trocar de
+  // treino e confere `error.name === 'AbortError'` para ignorar em silêncio.
+  // No React Native esse erro é um Error comum, não um DOMException — por isso
+  // a checagem é pelo nome, e não pelo tipo.
+  if (error instanceof Error && error.name === 'AbortError') {
+    return error;
+  }
+
+  if (error instanceof Error && error.name === 'TimeoutError') {
+    return new Error('O servidor demorou demais para responder. Tente novamente.');
+  }
+
+  // O fetch rejeita com TypeError para tudo que impede a requisição de sair ou
+  // de voltar: sem sinal, DNS, servidor fora do ar. A mensagem nativa do RN é
+  // "Network request failed", em inglês e sem indicar o que fazer.
+  if (error instanceof TypeError) {
+    return new Error('Sem conexão com o servidor. Verifique sua internet e tente novamente.');
+  }
+
+  return error;
+}
+
 export async function authFetch(
   input: string | URL | Request,
   init?: RequestInit,
 ): Promise<Response> {
   const token = await getAuthToken();
-  if (!token) return fetch(input, init);
 
   const headers = new Headers(init?.headers);
-  if (!headers.has('Authorization')) {
+  if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
   }
-  return fetch(input, { ...init, headers });
+
+  try {
+    return await fetch(input, token ? { ...init, headers } : init);
+  } catch (error) {
+    throw traduzirFalhaDeTransporte(error);
+  }
+}
+
+/**
+ * `fetch` para rota PÚBLICA: traduz a falha de rede como o `authFetch`, mas
+ * nunca anexa credencial.
+ *
+ * Existe por causa do login, que roda antes de haver token. Usar o `authFetch`
+ * ali mandaria junto um token velho do cofre numa rota que não o espera; usar o
+ * `fetch` global devolveria "Network request failed" na tela — e é a tela onde
+ * a mensagem mais importa, porque quem não consegue entrar não tem como saber
+ * se o problema é a senha ou o sinal.
+ */
+export async function publicFetch(
+  input: string | URL | Request,
+  init?: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    throw traduzirFalhaDeTransporte(error);
+  }
 }
 
 // Lê { message } do corpo de erro e lança Error (mesma convenção do web getApiError).

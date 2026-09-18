@@ -1,8 +1,10 @@
 import * as SecureStore from 'expo-secure-store';
 import {
+  authFetch,
   bloquearSessao,
   desbloquearToken,
   getAuthToken,
+  publicFetch,
   SessaoBloqueadaError,
   sessaoTrancada,
   setAuthToken,
@@ -149,5 +151,70 @@ describe('logout', () => {
     expect(cofre.deleteItemAsync).toHaveBeenCalledWith('smartgym_token');
     expect(cofre.deleteItemAsync).toHaveBeenCalledWith('smartgym_token_protegido');
     expect(await getAuthToken()).toBeNull();
+  });
+});
+
+// Falha de rede: o que o aluno LÊ quando a requisição não vira resposta.
+//
+// A tela mostra `error.message` direto, então o texto cru do runtime chegava ao
+// usuário. Estes testes existem porque o caso do AbortError é contraintuitivo —
+// ele TEM que passar sem tradução, senão cada busca cancelada (meu-treino
+// aborta a anterior ao trocar de treino) viraria um erro visível na tela.
+describe('tradução de falha de rede', () => {
+  const fetchOriginal = global.fetch;
+
+  afterEach(() => {
+    global.fetch = fetchOriginal;
+  });
+
+  /** Faz o fetch global rejeitar com o erro dado. */
+  function fetchQueFalhaCom(erro: unknown) {
+    global.fetch = jest.fn().mockRejectedValue(erro) as unknown as typeof fetch;
+  }
+
+  it('troca "Network request failed" por instrução em português', async () => {
+    montarCofre();
+    fetchQueFalhaCom(new TypeError('Network request failed'));
+
+    const erro = await publicFetch('https://exemplo.test/x').catch((e: unknown) => e);
+
+    expect((erro as Error).message).toBe(
+      'Sem conexão com o servidor. Verifique sua internet e tente novamente.',
+    );
+  });
+
+  it('NÃO traduz cancelamento deliberado, que as telas ignoram em silêncio', async () => {
+    montarCofre();
+    const abortado = new Error('Aborted');
+    abortado.name = 'AbortError';
+    fetchQueFalhaCom(abortado);
+
+    const erro = await publicFetch('https://exemplo.test/x').catch((e: unknown) => e);
+
+    // Idêntico ao lançado: meu-treino confere `error.name === 'AbortError'`.
+    expect(erro).toBe(abortado);
+    expect((erro as Error).name).toBe('AbortError');
+  });
+
+  it('traduz estouro de tempo com texto próprio', async () => {
+    montarCofre();
+    const estouro = new Error('timed out');
+    estouro.name = 'TimeoutError';
+    fetchQueFalhaCom(estouro);
+
+    const erro = await publicFetch('https://exemplo.test/x').catch((e: unknown) => e);
+
+    expect((erro as Error).message).toBe('O servidor demorou demais para responder. Tente novamente.');
+  });
+
+  it('vale também para chamada autenticada', async () => {
+    montarCofre({ smartgym_token: 'jwt-abc' });
+    fetchQueFalhaCom(new TypeError('Network request failed'));
+
+    const erro = await authFetch('https://exemplo.test/x').catch((e: unknown) => e);
+
+    expect((erro as Error).message).toBe(
+      'Sem conexão com o servidor. Verifique sua internet e tente novamente.',
+    );
   });
 });

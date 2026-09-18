@@ -15,13 +15,15 @@ const LocationPickerMap = dynamic(
 const DEFAULT_LATITUDE = -14.235;
 const DEFAULT_LONGITUDE = -51.9253;
 
-type ViaCepResponse = {
+// Resposta de /localities/cep/:cep. A API já normaliza os nomes do ViaCEP
+// (`localidade` -> cidade, `uf` -> estado) e converte "CEP inexistente" —
+// que o ViaCEP devolve como 200 com `erro` no corpo — em 404.
+type CepLookupResponse = {
   cep?: string;
   logradouro?: string;
   bairro?: string;
-  localidade?: string;
-  uf?: string;
-  erro?: boolean;
+  cidade?: string;
+  estado?: string;
 };
 
 export type AddressLocationValue = {
@@ -80,22 +82,24 @@ export function AddressLocationPicker({
       setIsLookingUpCep(true);
       setAddressFeedback('');
 
-      // ViaCEP is a public service; call it directly (not through the app API).
-      const response = await window.fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      // A consulta ao ViaCEP acontece na API, nao aqui. Chamar o serviço direto
+      // do navegador esbarra na CSP desta aplicação (`connect-src 'self'`), que
+      // só permite falar com o proxy same-origin — e o console reporta isso
+      // como falha de rede/CORS, apontando para o lado errado do problema.
+      const response = await fetch(`${apiUrl}/localities/cep/${digits}`);
       if (!response.ok) {
-        throw new Error('Não foi possível consultar o CEP.');
+        throw new Error(
+          response.status === 404 ? 'CEP não encontrado.' : 'Não foi possível consultar o CEP.',
+        );
       }
 
-      const data = (await response.json()) as ViaCepResponse;
-      if (data.erro) {
-        throw new Error('CEP não encontrado.');
-      }
+      const data = (await response.json()) as CepLookupResponse;
 
       patch({
         logradouro: data.logradouro ?? '',
         bairro: data.bairro ?? '',
-        cidade: data.localidade ?? '',
-        estado: data.uf ?? '',
+        cidade: data.cidade ?? '',
+        estado: data.estado ?? '',
       });
       setAddressFeedback('Endereço preenchido a partir do CEP.');
     } catch (error) {

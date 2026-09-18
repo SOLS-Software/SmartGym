@@ -59,6 +59,52 @@ async function encryptFormData(formData: FormData) {
   return encryptedFormData;
 }
 
+/**
+ * Traduz falha de TRANSPORTE — quando a requisicao nao chegou a virar resposta.
+ *
+ * Erro de regra de negocio a API devolve como JSON com `message`, e
+ * `getApiError` cuida dele. Aqui e o caso em que nao houve resposta nenhuma, e
+ * por isso o mapeamento de erro do servidor (`clientErrorMessage`, na API)
+ * nunca chega a rodar: quem produz a mensagem e o navegador.
+ *
+ * Isso importa porque as telas mostram `error.message` direto ao usuario (mais
+ * de duzentos lugares). Sem traducao, quem esta usando o sistema le "Failed to
+ * fetch".
+ */
+function traduzirFalhaDeTransporte(error: unknown): unknown {
+  // Cancelamento DELIBERADO. Varias telas abortam a busca anterior ao trocar de
+  // registro e conferem `error.name === 'AbortError'` para ignorar em silencio
+  // (ver StudentTrainingAssembly e MyTraining). Trocar o tipo aqui quebraria
+  // essa checagem e transformaria cada troca de aluno em erro na tela.
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return error;
+  }
+
+  if (error instanceof DOMException && error.name === 'TimeoutError') {
+    return new Error('O servidor demorou demais para responder. Tente novamente.');
+  }
+
+  // O fetch rejeita com TypeError para TUDO que impede a requisicao de sair ou
+  // de voltar: rede fora, DNS, TLS invalido, servidor inacessivel — e tambem
+  // bloqueio pela CSP da propria pagina. A mensagem nativa varia por navegador
+  // ("Failed to fetch" no Chrome, "NetworkError..." no Firefox, "Load failed"
+  // no Safari), esta sempre em ingles e nao diz nada a quem usa o sistema.
+  if (error instanceof TypeError) {
+    return new Error('Não foi possível falar com o servidor. Verifique sua conexão e tente novamente.');
+  }
+
+  return error;
+}
+
+/** `fetch` que falha com mensagem legivel em vez do texto cru do navegador. */
+async function fetchLegivel(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    throw traduzirFalhaDeTransporte(error);
+  }
+}
+
 export async function getApiError(response: Response, fallback: string): Promise<never> {
   let message = fallback;
   try {
@@ -75,7 +121,7 @@ export async function apiFetch(
   init?: RequestInit,
 ): Promise<Response> {
   if (!ENCRYPTED) {
-    return fetch(input, init);
+    return fetchLegivel(input, init);
   }
 
   // Encrypt the path + query string
@@ -107,7 +153,7 @@ export async function apiFetch(
     body = encrypted;
   }
 
-  const response = await fetch(input, { ...init, headers, body });
+  const response = await fetchLegivel(input, { ...init, headers, body });
 
   if (response.headers.get('x-encrypted') !== '1') {
     return response;

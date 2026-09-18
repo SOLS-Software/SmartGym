@@ -62,6 +62,15 @@ type NominatimResult = {
   display_name: string;
 };
 
+type ViaCepResult = {
+  cep?: string;
+  logradouro?: string;
+  bairro?: string;
+  localidade?: string;
+  uf?: string;
+  erro?: boolean | string;
+};
+
 export async function registerLocalityRoutes(app: FastifyInstance) {
   // Isolamento de tenant: Localidade pertence ao cliente via Empresa.idCliente.
   // A leitura do registro usa o client normal (sem a coluna geo) so para checagem.
@@ -134,6 +143,60 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({
         message: clientErrorMessage(error, 'Erro ao buscar coordenadas.'),
+      });
+    }
+  });
+
+  // Mesma natureza da rota de geocoding: consulta servico externo, nao le nem
+  // escreve dado de tenant.
+  //
+  // POR QUE ELA EXISTE. O painel consultava o ViaCEP direto do navegador. Isso
+  // colide com a CSP da propria aplicacao, que tem `connect-src 'self'` — o
+  // browser so fala com o proxy same-origin. O tiro sai pela culatra no
+  // diagnostico: o console rotula o bloqueio como erro de rede/CORS, e o
+  // ViaCEP nao tem culpa nenhuma (ele responde `Access-Control-Allow-Origin: *`
+  // para qualquer origem). Quem barra e a pagina, nao o servico.
+  //
+  // Trazer a chamada para ca alinha o CEP ao geocoding, que ja era servidor, e
+  // mantem a CSP intacta — a alternativa seria abrir `connect-src` para um host
+  // externo, afrouxando a regra para todo o painel por causa de um campo.
+  app.get<{ Params: { cep: string } }>('/localities/cep/:cep', async (request, reply) => {
+    try {
+      const digits = (request.params.cep ?? '').replace(/\D/g, '');
+      if (digits.length !== 8) {
+        return reply.code(400).send({ message: 'Informe um CEP valido.' });
+      }
+
+      const response = await fetch(`https://viacep.com.br/ws/${digits}/json/`, {
+        // Mesmo motivo do geocoding: servico externo lento nao pode segurar a
+        // conexao (e uma do pool) por tempo indefinido.
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao consultar o servico de CEP.');
+      }
+
+      const data = (await response.json()) as ViaCepResult;
+
+      // CEP inexistente volta como 200 com `{"erro": ...}`, e o valor ora e o
+      // booleano `true`, ora a string `"true"`. Tratar so o booleano faria um
+      // CEP invalido virar endereco em branco preenchido por cima do que o
+      // usuario ja tinha digitado.
+      if (data.erro === true || String(data.erro) === 'true') {
+        return reply.code(404).send({ message: 'CEP nao encontrado.' });
+      }
+
+      return {
+        cep: data.cep ?? '',
+        logradouro: data.logradouro ?? '',
+        bairro: data.bairro ?? '',
+        cidade: data.localidade ?? '',
+        estado: data.uf ?? '',
+      };
+    } catch (error) {
+      return reply.code(400).send({
+        message: clientErrorMessage(error, 'Erro ao consultar o CEP.'),
       });
     }
   });
