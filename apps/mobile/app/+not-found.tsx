@@ -4,7 +4,7 @@ import { useTokens } from '../lib/theme/tokens';
 
 // Sem este arquivo o expo-router cai na tela padrao dele: "Unmatched Route —
 // Page could not be found", em ingles e com a URL crua. Um deep link errado
-// (smartgym://algo, link velho de notificacao) levava o aluno para la.
+// (solsfit://algo, link velho de notificacao) levava o aluno para la.
 export default function NotFound() {
   const t = useTokens();
 

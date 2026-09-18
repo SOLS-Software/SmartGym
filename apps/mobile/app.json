@@ -2,16 +2,26 @@
   "expo": {
     "name": "SOLSFIT",
     "slug": "solsfit",
-    "scheme": "smartgym",
+    "scheme": "solsfit",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1f7a53"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "plugins": [
       "expo-router",
       [
         "expo-notifications",
         {
+          "icon": "./assets/notification-icon.png",
           "color": "#1f7a53"
         }
       ],
@@ -45,10 +55,18 @@
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.smartgym"
+      "package": "br.com.solssoftwares.solsfit",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/monochrome-icon.png",
+        "backgroundColor": "#1f7a53"
+      }
     },
     "ios": {
-      "bundleIdentifier": "com.smartgym"
+      "bundleIdentifier": "br.com.solssoftwares.solsfit"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     }
   }
 }

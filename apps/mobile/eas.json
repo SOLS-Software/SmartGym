@@ -7,6 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "channel": "development",
       "android": {
         "buildType": "apk"
       },
@@ -16,20 +17,22 @@
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
       "android": {
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://smartgym-jj6m.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://api.solssoftwares.com.br"
       }
     },
     "production": {
       "autoIncrement": true,
+      "channel": "production",
       "android": {
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://smartgym-jj6m.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://api.solssoftwares.com.br"
       }
     }
   },
