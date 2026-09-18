@@ -56,7 +56,49 @@ type GeocodePayload = {
   estado?: string;
 };
 
+/**
+ * Monta a consulta ao Nominatim. Pura e testavel sem rede — pelo mesmo motivo
+ * de shouldAudit e requiredPermission: e uma REGRA, e a regra aqui ja errou uma
+ * vez em silencio.
+ *
+ * O BAIRRO NAO ENTRA, E ISSO E O CONSERTO.
+ *
+ * A versao anterior mandava o bairro no parametro `county`. Parece razoavel e
+ * nao e: no Nominatim `county` e divisao ADMINISTRATIVA, nao bairro. Quando o
+ * bairro nao casa com nenhum county do OpenStreetMap — que e quase sempre, no
+ * Brasil — a busca estruturada nao ignora o parametro: ela devolve VAZIO. O
+ * endereco existia, a rua existia, e mesmo assim a tela dizia "endereco nao
+ * encontrado".
+ *
+ * Reproduzido com o CEP 06401-160 (Av. Henriqueta Mendes Guerra, Vila Sao
+ * Joao, Barueri): com `county=Vila Sao Joao` a resposta e `[]`; sem ele, acha
+ * na hora. Colar o bairro numa busca em texto livre tem o mesmo efeito, entao
+ * nao adianta trocar o formato da consulta — o bairro tem de sair.
+ *
+ * O campo continua sendo ACEITO no corpo da requisicao porque o formulario o
+ * envia junto com o resto do endereco; ele so nao vai para o servico.
+ */
+export function montarBuscaNominatim(params: {
+  street?: string;
+  city?: string;
+  state?: string;
+  postalcode?: string;
+}): URL {
+  const url = new URL('https://nominatim.openstreetmap.org/search');
+  if (params.street) url.searchParams.set('street', params.street);
+  if (params.city) url.searchParams.set('city', params.city);
+  if (params.state) url.searchParams.set('state', params.state);
+  if (params.postalcode) url.searchParams.set('postalcode', params.postalcode);
+  url.searchParams.set('country', 'Brasil');
+  url.searchParams.set('format', 'json');
+  url.searchParams.set('limit', '1');
+  url.searchParams.set('countrycodes', 'br');
+  url.searchParams.set('addressdetails', '0');
+  return url;
+}
+
 type NominatimResult = {
+
   lat: string;
   lon: string;
   display_name: string;
@@ -90,6 +132,32 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
     if (!company) throw new Error('Empresa nao pertence ao cliente.');
   }
 
+  /**
+   * Uma consulta ao Nominatim. Devolve o primeiro resultado, ou null.
+   * A montagem da URL — e a razao de o bairro ficar de fora — esta em
+   * montarBuscaNominatim.
+   */
+  async function consultarNominatim(params: {
+    street?: string;
+    city?: string;
+    state?: string;
+    postalcode?: string;
+  }): Promise<NominatimResult | null> {
+    const response = await fetch(montarBuscaNominatim(params), {
+      headers: { 'User-Agent': 'SOLSFIT/1.0 (contato@solsfit.app)' },
+      // Sem timeout, um Nominatim lento segura a conexao (e uma do pool) por
+      // tempo indefinido. 8s e folgado para geocodificacao.
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!response.ok) {
+      throw new Error('Erro ao consultar o servico de geolocalizacao.');
+    }
+
+    const results = (await response.json()) as NominatimResult[];
+    return results[0] ?? null;
+  }
+
   // Rota global de proposito: apenas consulta o servico externo de geocoding,
   // nao le nem escreve dados de tenant.
   app.post<{
@@ -98,38 +166,34 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
     try {
       const parsedBody = geocodeBodySchema.safeParse(request.body);
       if (!parsedBody.success) return reply.code(400).send({ message: 'Parametros invalidos.' });
-      const { cep, logradouro, numero, bairro, cidade, estado } = parsedBody.data;
+      // O BAIRRO E DESCARTADO DE PROPOSITO — ver a nota em consultarNominatim.
+      const { cep, logradouro, numero, cidade, estado } = parsedBody.data;
       const street = [numero?.trim(), logradouro?.trim()].filter(Boolean).join(' ');
 
       if (!street && !cep?.trim()) {
         return reply.code(400).send({ message: 'Informe ao menos o CEP ou o logradouro.' });
       }
 
-      const url = new URL('https://nominatim.openstreetmap.org/search');
-      if (street) url.searchParams.set('street', street);
-      if (bairro?.trim()) url.searchParams.set('county', bairro.trim());
-      if (cidade?.trim()) url.searchParams.set('city', cidade.trim());
-      if (estado?.trim()) url.searchParams.set('state', estado.trim());
-      if (cep?.trim()) url.searchParams.set('postalcode', cep.trim());
-      url.searchParams.set('country', 'Brasil');
-      url.searchParams.set('format', 'json');
-      url.searchParams.set('limit', '1');
-      url.searchParams.set('countrycodes', 'br');
-      url.searchParams.set('addressdetails', '0');
-
-      const response = await fetch(url, {
-        headers: { 'User-Agent': 'SOLSFIT/1.0 (contato@solsfit.app)' },
-        // Sem timeout, um Nominatim lento segura a conexao (e uma do pool) por
-        // tempo indefinido. 8s e folgado para geocodificacao.
-        signal: AbortSignal.timeout(8000),
+      // Duas tentativas, da mais precisa para a mais tolerante.
+      //
+      // A primeira pede a rua na cidade. Se o OpenStreetMap nao tiver aquele
+      // logradouro — acontece em rua nova e em loteamento recente —, a busca
+      // estruturada devolve VAZIO, sem explicar. A segunda pergunta so pelo
+      // CEP, que poe o pino no quarteirao certo e deixa o resto para o arrasto
+      // no mapa. Errar por 200 metros e melhor que nao marcar nada.
+      //
+      // A segunda so acontece quando a primeira falha, entao o caso comum
+      // continua sendo uma requisicao so ao Nominatim.
+      let result = await consultarNominatim({
+        street,
+        city: cidade?.trim(),
+        state: estado?.trim(),
+        postalcode: cep?.trim(),
       });
 
-      if (!response.ok) {
-        throw new Error('Erro ao consultar o servico de geolocalizacao.');
+      if (!result && cep?.trim()) {
+        result = await consultarNominatim({ postalcode: cep.trim() });
       }
-
-      const results = (await response.json()) as NominatimResult[];
-      const result = results[0];
 
       if (!result) {
         return reply.code(404).send({ message: 'Endereco nao encontrado. Ajuste o pino manualmente no mapa.' });
