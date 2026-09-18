@@ -57,39 +57,80 @@ export default function ProviderAccessPage() {
     jaTrocou.current = true;
 
     const token = new URLSearchParams(window.location.search).get('token');
-    if (!token) {
-      setEstado('erro');
-      setMensagem('Link sem token. Abra o acesso novamente pelo painel.');
-      return;
-    }
 
     // Tira o token da URL antes mesmo da resposta chegar.
-    window.history.replaceState({}, '', window.location.pathname);
+    if (token) window.history.replaceState({}, '', window.location.pathname);
 
     void (async () => {
       try {
-        const res = await fetch(`${apiUrl}/auth/acesso-provedor`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
-        });
-        const dados = (await res.json().catch(() => ({}))) as Resultado & { message?: string };
+        if (token) {
+          const res = await fetch(`${apiUrl}/auth/acesso-provedor`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
+          });
+          const dados = (await res.json().catch(() => ({}))) as Resultado & { message?: string };
 
-        if (!res.ok) {
-          setEstado('erro');
-          setMensagem(dados.message ?? 'Acesso inválido ou expirado.');
+          if (res.ok) {
+            await montarSessoes(dados);
+            setResultado(dados);
+            setEstado('pronto');
+            return;
+          }
+        }
+
+        // SEM TOKEN, OU COM O TOKEN JA QUEIMADO: pode ser alguem VOLTANDO a esta
+        // pagina, e nao um acesso invalido.
+        //
+        // O token vale 5 minutos e abre UMA vez; a sessao que ele emite vale 2
+        // horas. Como esta tela tambem e o menu das tres portas, voltar a ela
+        // para abrir outra portava dava "acesso expirado" — com a sessao viva
+        // do outro lado. Quem responde de verdade e o /auth/verify.
+        const sessao = await sessaoDeImplantacaoAberta();
+        if (sessao) {
+          setResultado(sessao);
+          setEstado('pronto');
           return;
         }
 
-        await montarSessoes(dados);
-        setResultado(dados);
-        setEstado('pronto');
+        setEstado('erro');
+        setMensagem(
+          token
+            ? 'Acesso inválido ou expirado.'
+            : 'Link sem token. Abra o acesso novamente pelo painel.',
+        );
       } catch {
         setEstado('erro');
         setMensagem('Não foi possível validar o acesso. Tente abrir outro pelo painel.');
       }
     })();
   }, []);
+
+  /** A sessao de implantacao ainda esta de pe? Devolve com que dados exibi-la. */
+  async function sessaoDeImplantacaoAberta(): Promise<Resultado | null> {
+    try {
+      const res = await fetch(`${apiUrl}/auth/verify`);
+      if (!res.ok) return null;
+      const dados = (await res.json()) as {
+        id?: number;
+        idCliente?: number;
+        dsCliente?: string | null;
+        name?: string;
+        provedor?: boolean;
+      };
+      // Sessao comum de funcionario nao vira acesso de implantacao por abrir
+      // esta URL: sem `provedor`, esta pagina nao tem o que mostrar.
+      if (!dados.provedor) return null;
+      return {
+        idOperador: dados.id,
+        idCliente: dados.idCliente,
+        dsCliente: dados.dsCliente ?? undefined,
+        dsOperador: dados.name,
+      };
+    } catch {
+      return null;
+    }
+  }
 
   /**
    * Escreve as duas sessoes que as telas do produto esperam encontrar.
@@ -237,6 +278,10 @@ export default function ProviderAccessPage() {
           <p style={{ fontSize: '0.875rem', opacity: 0.7 }}>
             Esta sessão alcança configuração e equipe. Ficha de aluno, avaliação física, treino,
             check-in e pagamento ficam fora — perante a academia, a SOLS é operadora.
+          </p>
+          <p style={{ fontSize: '0.8rem', opacity: 0.6 }}>
+            O link de entrada vale 5 minutos e abre uma única vez; a sessão dura 2 horas. Volte a
+            esta página quando quiser trocar de tela — enquanto a sessão durar, ela abre sem token.
           </p>
         </>
       )}

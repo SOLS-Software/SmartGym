@@ -1185,10 +1185,22 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       // autorizacao nao vazava (o RBAC do provedor e lista fixa no codigo), mas
       // o dado pessoal, sim.
       if (request.user.role === 'provedor') {
-        const operador = await prisma.operadorSols.findUnique({
-          where: { id },
-          select: { dsNome: true },
-        });
+        // O nome do CLIENTE vem junto: a tela de acesso do provedor e reaberta
+        // durante a sessao (e o menu das tres portas), e ela precisa dizer em
+        // qual academia se esta. Custa uma consulta a mais no control-plane, e
+        // so para este papel.
+        // O token de provedor sempre carrega o cliente; o tipo e nulavel por
+        // causa dos outros papeis (o aplicativo do aluno nao tem dominio).
+        const idClienteSessao = request.user.idCliente;
+        const [operador, cliente] = await Promise.all([
+          prisma.operadorSols.findUnique({ where: { id }, select: { dsNome: true } }),
+          idClienteSessao
+            ? prisma.cliente.findUnique({
+                where: { id: idClienteSessao },
+                select: { dsCliente: true },
+              })
+            : null,
+        ]);
         if (!operador) {
           return reply.code(401).send({ message: 'Sessao invalida ou expirada.' });
         }
@@ -1199,6 +1211,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           // O tenant vem do token, que so foi emitido contra um acesso aberto
           // no painel — nunca de parametro da requisicao.
           idCliente: request.user.idCliente,
+          dsCliente: cliente?.dsCliente ?? null,
           name: operador.dsNome,
           type: 'employee' as const,
           // Rotulo proprio no lugar do perfil: quem olha a tela precisa saber
