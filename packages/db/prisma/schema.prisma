@@ -2288,8 +2288,15 @@ model Auditoria {
   // Rotulo de evento de seguranca quando o handler/hook marca algo alem do
   // status HTTP (ex.: "sessao_revogada", "token_ausente").
   dsResultado String?  @db.VarChar(100)
+  /// De onde a acao partiu: "web" ou "mobile". Vem do `cli` do token, que o
+  /// login grava a partir do que o cliente declarou.
+  ///
+  /// NULO nas linhas anteriores a esta coluna e em qualquer request sem token
+  /// (tentativa anonima). Nulo aqui significa "nao da para saber", e nao "web".
+  cnOrigem    String?  @db.VarChar(10)
 
   @@index([dtEvento])
+
   @@index([idCliente, dtEvento])
   @@index([idUsuario, dtEvento])
   @@map("tb_Auditoria")

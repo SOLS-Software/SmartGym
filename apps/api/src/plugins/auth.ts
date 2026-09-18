@@ -26,7 +26,23 @@ export type AuthTokenPayload = {
   // rejeita o token se nao bater com o valor atual no banco — e assim que
   // logout e redefinicao de senha revogam sessoes vivas.
   tv?: number;
+  /**
+   * De onde esta sessao foi aberta: aplicativo ou navegador.
+   *
+   * Existe para a TRILHA. Sem ela, tb_Auditoria nao consegue dizer se um
+   * cadastro saiu do balcao ou do celular do professor — e o unico sinal
+   * disponivel era o IP, que do lado do painel e sempre o mesmo (o container do
+   * proxy). Viaja no token porque o hook de auditoria roda em onResponse e so
+   * enxerga o que o token carrega; perguntar ao corpo da requisicao nao
+   * funcionaria em GET, que e a maioria da trilha.
+   *
+   * NAO e controle de acesso e nao deve virar um: quem emite o token e o
+   * servidor, mas o valor vem do que o cliente DECLAROU no login. Serve para
+   * explicar o passado, nunca para autorizar o presente.
+   */
+  cli?: 'web' | 'mobile';
 };
+
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {

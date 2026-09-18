@@ -1,0 +1,35 @@
+-- De onde a acao partiu: aplicativo ou navegador.
+--
+-- O PROBLEMA
+-- tb_Auditoria respondia quem, quando, qual rota e com que resultado — nunca
+-- DE ONDE. O unico sinal disponivel era `anIp`, e ele nao serve para isso:
+--
+--   * do PAINEL, o navegador nunca fala com a API. Quem fala e a route handler
+--     do Next (/api/proxy), pela rede interna do Docker. Entao toda acao feita
+--     no painel chegava com o MESMO endereco — o do container do proxy — e a
+--     coluna virava uma constante;
+--   * do APLICATIVO, a chamada vai direto ao Traefik e o IP e o do celular.
+--
+-- Ou seja, dava para adivinhar a origem pelo formato do endereco, o que e
+-- frágil, e metade das linhas (as do painel) nao distinguia ninguem de ninguem.
+--
+-- DE ONDE VEM O VALOR
+-- Do `cli` do JWT, que o login grava a partir do que o cliente declarou no
+-- corpo (`client: 'mobile'`). O aplicativo ja mandava esse campo — a API o
+-- usava so para escolher a validade do token e depois o descartava. Agora ele
+-- sobrevive na sessao, que e o unico lugar onde o hook de auditoria consegue
+-- le-lo: a trilha roda em onResponse e nao tem acesso ao corpo da requisicao,
+-- que em GET nem existe.
+--
+-- NULO SIGNIFICA "NAO DA PARA SABER", E NAO "WEB"
+-- Ficam nulas as linhas anteriores a esta coluna, as tentativas anonimas (sem
+-- token) e as sessoes abertas ANTES desta versao subir — essas so passam a
+-- registrar a origem quando a pessoa entrar de novo. Nao ha backfill possivel:
+-- a informacao nao existia em lugar nenhum.
+--
+-- ISTO NAO E CONTROLE DE ACESSO. O valor vem do que o cliente declarou no
+-- login; quem quiser mentir, mente. Serve para explicar o passado numa
+-- auditoria, nunca para autorizar o presente — e nenhuma regra de permissao
+-- deve passar a depender dele.
+
+ALTER TABLE "tb_Auditoria" ADD COLUMN "cnOrigem" VARCHAR(10);

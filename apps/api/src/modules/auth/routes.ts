@@ -324,6 +324,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           idCliente,
           superAdmin: user.boSuperAdmin || undefined,
           tv: user.nrTokenVersion,
+          // Mesma leitura que decide a validade do token logo abaixo: o que nao
+          // se declara `mobile` e tratado como navegador. Nao ha adivinhacao
+          // nova aqui — so o registro de uma decisao que ja era tomada.
+          cli: request.body.client === 'mobile' ? 'mobile' : 'web',
         },
         { expiresIn: request.body.client === 'mobile' ? TOKEN_EXPIRY_MOBILE : TOKEN_EXPIRY_WEB },
       );
@@ -894,6 +898,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
             // O tenant vem do ACESSO, nunca do corpo da requisicao.
             idCliente: acesso.cliente.id,
             tv: acesso.operador.nrTokenVersion,
+            // A quebra de vidro nasce de um link aberto no navegador; nao ha
+            // caminho pelo aplicativo.
+            cli: 'web',
           },
           // Duracao curta: implantacao e trabalho de sessao, nao de turno. Um
           // acesso da SOLS que dura o dia inteiro vira acesso permanente na
@@ -1016,6 +1023,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           idCliente,
           superAdmin: user.boSuperAdmin || undefined,
           tv: user.nrTokenVersion,
+          // A porta do gestor so existe no painel — o prazo fixo de WEB logo
+          // abaixo ja dizia isso.
+          cli: 'web',
         },
         { expiresIn: TOKEN_EXPIRY_WEB },
       );

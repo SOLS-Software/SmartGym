@@ -215,6 +215,33 @@ async function handler(request: NextRequest, { params }: RouteContext) {
     forwardHeaders['authorization'] = `Bearer ${sessionToken}`;
   }
 
+  // IP REAL de quem clicou, repassado para a API.
+  //
+  // O navegador nunca fala com a API: quem fala e este handler, do servidor
+  // Next, pela rede interna do Docker. Sem repassar o header, a API enxerga
+  // como cliente o CONTAINER DO PAINEL, e duas coisas quebram em silencio:
+  //
+  //   1. o rate limit de /auth/login passa a valer para o painel INTEIRO somado
+  //      num balde so — dez pessoas entrando ao mesmo tempo disputam o limite
+  //      de uma, e um ataque de forca bruta divide o limite com usuarios reais;
+  //   2. o `anIp` de tb_Auditoria vira uma constante, e a trilha perde a unica
+  //      coluna que dizia de onde a acao partiu.
+  //
+  // Repassamos o valor que CHEGOU (posto pelo Traefik, que sobrescreve o que
+  // vier de fora) em vez de inventar um: nao somos o primeiro proxy da cadeia,
+  // e o primeiro endereco da lista e o do cliente.
+  //
+  // SO TEM EFEITO SE A API CONFIAR NESTE PROXY. O fastify usa `trustProxy`, e a
+  // variavel TRUST_PROXY precisa conter o CIDR da rede do Docker (ex.:
+  // 172.16.0.0/12). Vazia, o header e ignorado de proposito — confiar em
+  // X-Forwarded-For de qualquer origem deixaria forjar IP e ganhar um balde de
+  // rate limit novo a cada requisicao.
+  const enderecoDeOrigem =
+    request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip');
+  if (enderecoDeOrigem) {
+    forwardHeaders['x-forwarded-for'] = enderecoDeOrigem;
+  }
+
   let body: BodyInit | undefined;
 
   if (request.method !== 'GET' && request.method !== 'HEAD') {

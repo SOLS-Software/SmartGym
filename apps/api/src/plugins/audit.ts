@@ -86,6 +86,17 @@ export function registerAuditPlugin(app: FastifyInstance) {
       nrStatus: reply.statusCode,
       anIp: (request.ip ?? '').slice(0, 64) || null,
       dsResultado: request.auditReason ? request.auditReason.slice(0, 100) : null,
+      // De onde partiu: aplicativo ou navegador.
+      //
+      // O IP nao respondia isso. O painel fala com a API pela rede interna do
+      // Docker, entao TODA acao do navegador chegava com o mesmo endereco — o
+      // do container do proxy. Dava para adivinhar a origem pelo formato do IP,
+      // o que e frágil, e do lado do painel a informacao era inutil porque todo
+      // mundo aparecia igual.
+      //
+      // Nulo quando nao ha token (tentativa anonima) ou quando a sessao foi
+      // aberta antes desta coluna existir. Nulo e "nao da para saber".
+      cnOrigem: user?.cli === 'mobile' || user?.cli === 'web' ? user.cli : null,
     };
     void prisma.auditoria
       .create({ data: evento })
