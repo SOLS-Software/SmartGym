@@ -75,7 +75,13 @@ export function isStudentAllowed(
       // a rota crua aqui deixaria o aluno pontuar de casa escolhendo a regra
       // que mais vale.
       (method === 'POST' && /^\/students\/\d+\/related\/check-ins$/.test(pathname)) ||
+      // EXCLUIR A PROPRIA CONTA (LGPD art. 18, VI). Direito do titular, entao
+      // nao depende de a recepcao estar aberta — e a Play exige o caminho
+      // dentro do app. A rota recusa com matricula viva ou debito aberto, e
+      // quem decide isso e o handler, nao esta lista.
+      (method === 'POST' && /^\/students\/\d+\/account-deletion$/.test(pathname)) ||
       // Marcar o proprio aviso como lido.
+
       (method === 'POST' && /^\/students\/\d+\/notifications\/\d+\/read$/.test(pathname)) ||
       // Gerar o codigo de pagamento da PROPRIA parcela. E POST porque, em conta
       // de gateway, isso cria a cobranca no provedor. A posse da parcela e

@@ -41,6 +41,16 @@ export interface ClientTheme {
    */
   logoUrl?: string | null;
 
+  /**
+   * Endereco da politica de privacidade e da pagina de exclusao DESTA academia.
+   *
+   * Vem do servidor porque so ele conhece o dominio dela: o aplicativo nao tem
+   * hostname, e apontar para um endereco fixo levaria o aluno a politica de
+   * outra academia — ou a nenhuma.
+   */
+  urlPrivacidade?: string | null;
+  urlExclusaoConta?: string | null;
+
 }
 
 export interface ClientLoaderState {

@@ -1,9 +1,19 @@
+import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { apiGet, apiPost } from '../../lib/api/client';
 import { Screen } from '../../lib/components/Screen';
 import { useAuth } from '../../lib/contexts/AuthContext';
+import { useTheme } from '../../lib/contexts/ThemeContext';
 import { useTokens } from '../../lib/theme/tokens';
 import { formatDateDisplay } from '../../lib/utils/format';
 
@@ -162,7 +172,139 @@ export default function ConsentimentosScreen() {
         Revogar a biometria ou as notificações pode limitar recursos ligados a elas (por exemplo,
         liberar a catraca pelo rosto). Você pode reautorizar a qualquer momento. Termo {TERM_VERSION}.
       </Text>
+
+      <PoliticaDePrivacidade />
+
+      <ExcluirConta />
     </Screen>
+  );
+}
+
+/**
+ * Link para a política da ACADEMIA, não para uma política genérica.
+ *
+ * O endereço vem na sessão porque só o servidor conhece o domínio dela — o
+ * aplicativo não tem hostname. Apontar para um endereço fixo levaria o aluno à
+ * política de outra academia, que seria pior que não ter link.
+ *
+ * Sem domínio ativo cadastrado, o link some em vez de aparecer quebrado.
+ */
+function PoliticaDePrivacidade() {
+  const t = useTokens();
+  const tema = useTheme();
+  const url = tema?.urlPrivacidade;
+  if (!url) return null;
+
+  return (
+    <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(url)}>
+      <Text style={[styles.link, { color: t.brand }]}>Ler a política de privacidade</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * Exclusão da conta pelo próprio titular (LGPD art. 18, VI).
+ *
+ * Mora aqui, e não numa tela própria, porque é a mesma conversa das outras
+ * opções desta tela: o que a academia faz com os dados dele. Esconder num canto
+ * separado seria cumprir a exigência sem atender a pessoa.
+ *
+ * DUAS ETAPAS, com a palavra digitada. É destruição irreversível de dado, e o
+ * único jeito honesto de distinguir "eu quero" de "toquei sem querer" é exigir
+ * um gesto que não se faz por acidente. Botão só com "tem certeza?" não separa
+ * os dois: quem tocou sem querer também toca em "sim".
+ */
+function ExcluirConta() {
+  const t = useTokens();
+  const { user, signOut } = useAuth();
+  const [aberto, setAberto] = useState(false);
+  const [confirmacao, setConfirmacao] = useState('');
+  const [excluindo, setExcluindo] = useState(false);
+  const [erro, setErro] = useState('');
+
+  const PALAVRA = 'EXCLUIR';
+
+  async function excluir() {
+    if (!user?.idAluno || excluindo) return;
+    setExcluindo(true);
+    setErro('');
+    try {
+      await apiPost(`/students/${user.idAluno}/account-deletion`, {});
+      // A conta deixou de existir: a sessão tem de ir junto, e não esperar o
+      // primeiro 401. Sair daqui é a última coisa que esta tela faz.
+      await signOut();
+      router.replace('/login');
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível excluir a conta.');
+      setExcluindo(false);
+    }
+  }
+
+  return (
+    <View style={[styles.perigo, { borderColor: t.danger, borderRadius: t.radius }]}>
+      <Text style={[styles.perigoTitulo, { color: t.danger }]}>Excluir minha conta</Text>
+
+      <Text style={[styles.cardDesc, { color: t.textSubtle }]}>
+        Apaga seu nome, CPF, contato, endereço, foto, biometria facial, avaliações físicas e
+        arquivos. É irreversível — não há como desfazer nem recuperar depois.
+      </Text>
+      <Text style={[styles.cardDesc, { color: t.textSubtle }]}>
+        O histórico de pagamentos continua guardado, sem ligação com você, porque a academia é
+        obrigada a manter registro fiscal. E a conta só pode ser excluída depois que sua matrícula
+        terminar e não houver pagamento em aberto.
+      </Text>
+
+      {erro ? <Text style={[styles.feedback, { color: t.danger }]}>{erro}</Text> : null}
+
+      {!aberto ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setAberto(true)}
+          style={[styles.perigoBotao, { borderColor: t.danger, borderRadius: t.radius }]}
+        >
+          <Text style={[styles.perigoBotaoTexto, { color: t.danger }]}>Quero excluir minha conta</Text>
+        </Pressable>
+      ) : (
+        <>
+          <Text style={[styles.cardDesc, { color: t.text }]}>
+            Para confirmar, digite {PALAVRA} abaixo.
+          </Text>
+          <TextInput
+            autoCapitalize="characters"
+            autoCorrect={false}
+            onChangeText={setConfirmacao}
+            placeholder={PALAVRA}
+            placeholderTextColor={t.placeholder}
+            style={[
+              styles.perigoInput,
+              { backgroundColor: t.inputBg, borderColor: t.border, borderRadius: t.radius, color: t.text },
+            ]}
+            value={confirmacao}
+          />
+          <Pressable
+            accessibilityRole="button"
+            disabled={confirmacao.trim().toUpperCase() !== PALAVRA || excluindo}
+            onPress={excluir}
+            style={[
+              styles.perigoBotao,
+              {
+                backgroundColor: t.danger,
+                borderColor: t.danger,
+                borderRadius: t.radius,
+                opacity: confirmacao.trim().toUpperCase() === PALAVRA && !excluindo ? 1 : 0.4,
+              },
+            ]}
+          >
+            <Text style={[styles.perigoBotaoTexto, { color: '#ffffff' }]}>
+              {excluindo ? 'Excluindo...' : 'Excluir definitivamente'}
+            </Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={() => setAberto(false)}>
+            <Text style={[styles.state, { color: t.textSubtle, textAlign: 'center' }]}>Cancelar</Text>
+          </Pressable>
+        </>
+      )}
+    </View>
   );
 }
 
@@ -179,4 +321,10 @@ const styles = StyleSheet.create({
   cardDesc: { fontSize: 13, fontWeight: '500', lineHeight: 19 },
   state: { fontSize: 12, fontWeight: '700' },
   footer: { fontSize: 12, fontWeight: '500', lineHeight: 18, marginTop: 4 },
+  link: { fontSize: 14, fontWeight: '700', textDecorationLine: 'underline', marginTop: 4 },
+  perigo: { borderWidth: 1, padding: 16, gap: 10, marginTop: 8 },
+  perigoTitulo: { fontSize: 16, fontWeight: '800' },
+  perigoBotao: { borderWidth: 1, paddingVertical: 14, alignItems: 'center' },
+  perigoBotaoTexto: { fontSize: 15, fontWeight: '800' },
+  perigoInput: { borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, fontWeight: '700', letterSpacing: 2, textAlign: 'center' },
 });

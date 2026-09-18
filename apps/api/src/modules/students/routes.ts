@@ -523,6 +523,83 @@ export async function registerStudentRoutes(app: FastifyInstance) {
   });
 
   // ---------------------------------------------------------------------------
+  // LGPD art. 18, VI — o PRÓPRIO titular pede a exclusão da conta.
+  //
+  // A rota acima é da EQUIPE. Esta é do aluno, e tem de existir por dois
+  // motivos independentes: o direito é dele e não depende de a recepção estar
+  // aberta; e a Google Play exige, de todo app que cria conta, um caminho de
+  // exclusão DENTRO do app — mais um endereço na web para quem já desinstalou.
+  //
+  // O QUE "EXCLUIR" SIGNIFICA AQUI: a mesma anonimização da rota da equipe.
+  // Apaga identidade, biometria, avaliação física e arquivos; PRESERVA plano e
+  // pagamentos, agora sem dono identificável. Tanto a LGPD (art. 16, I — guarda
+  // para cumprimento de obrigação legal) quanto a política da Play (que abre
+  // exceção para dado retido por lei ou para cobrar saldo devedor) permitem
+  // exatamente isso. Não é meia exclusão: é a exclusão possível.
+  //
+  // POR QUE RECUSAR COM MATRÍCULA VIVA OU DÉBITO ABERTO. Sem identidade não há
+  // como executar o contrato nem cobrar o que se deve, e a LGPD preserva esses
+  // tratamentos (art. 7, V e art. 16). Apagar assim mesmo não protegeria o
+  // aluno — criaria uma dívida órfã e um contrato sem contraparte. A recusa vem
+  // com o motivo E o caminho: cancelar a matrícula é botão que já existe no app.
+  // ---------------------------------------------------------------------------
+  app.post<{ Params: { id: string } }>(
+    '/students/:id/account-deletion',
+    async (request, reply) => {
+      const idCliente = request.user.idCliente;
+      if (!idCliente) return reply.code(403).send({ message: 'Usuario sem cliente vinculado.' });
+
+      // Rota do TITULAR. A equipe tem /anonymize, que não depende de vínculo
+      // ativo — quem responde pela decisão ali é o controlador, não o aluno.
+      if (request.user.role !== 'student' || !request.user.idAluno) {
+        return reply.code(403).send({
+          message: 'Esta rota e do proprio aluno. A equipe usa a anonimizacao do cadastro.',
+        });
+      }
+
+      try {
+        const idAluno = Number(request.params.id);
+        assertValidId(idAluno, 'Aluno invalido.');
+        // O RBAC do aluno ja compara o id do caminho com o do token; esta e a
+        // segunda tranca, para a rota nao depender de o RBAC nunca mudar.
+        if (idAluno !== request.user.idAluno) {
+          return reply.code(403).send({ message: 'Acesso nao autorizado.' });
+        }
+        if (!(await findTenantStudent(request.tenantDb, idAluno, idCliente))) {
+          return reply.code(404).send({ message: 'Registro nao encontrado.' });
+        }
+
+        const situacao = await getStudentAccessStatus(request.tenantDb, idAluno);
+
+        // `planPaused` entra junto: matrícula trancada é contrato que NÃO
+        // acabou — quem tranca volta, e apagar a identidade no meio inviabiliza
+        // a volta e a cobrança do que ficou.
+        const impedimentos: string[] = [];
+        if (situacao.planActive) impedimentos.push('matricula ativa');
+        if (situacao.planPaused) impedimentos.push('matricula trancada');
+        if (situacao.paymentOverdue) impedimentos.push('pagamento em aberto');
+
+        if (impedimentos.length > 0) {
+          return reply.code(409).send({
+            message:
+              'Para excluir a conta, encerre antes o vinculo com a academia: ' +
+              `${impedimentos.join(' e ')}. Peca o cancelamento pelo app ou fale com a recepcao.`,
+            impedimentos,
+          });
+        }
+
+        request.auditReason = 'exclusao_pedida_pelo_titular';
+        return await anonymizeStudent(idAluno, idCliente, { log: request.log });
+      } catch (error) {
+        request.log.error(error);
+        return reply.code(400).send({
+          message: clientErrorMessage(error, 'Erro ao excluir a conta.'),
+        });
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------------
   // Students CRUD
   // ---------------------------------------------------------------------------
 

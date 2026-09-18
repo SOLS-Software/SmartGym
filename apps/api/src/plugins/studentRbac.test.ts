@@ -226,6 +226,26 @@ describe('catalogos que o aluno precisa ler', () => {
     expect(isStudentAllowed('POST', '/students/9/related/plans/3/lock', 7)).toBe(false);
   });
 
+  // Exclusao da propria conta (LGPD art. 18, VI; exigencia da Google Play).
+  // O direito e do TITULAR, e por isso mesmo a rota precisa estar presa ao
+  // proprio id: uma falha aqui deixaria um aluno anonimizar outro — destruicao
+  // de dado alheio, e IRREVERSIVEL.
+  it('exclui a PROPRIA conta, e so a propria', () => {
+    expect(isStudentAllowed('POST', '/students/7/account-deletion', 7)).toBe(true);
+    expect(isStudentAllowed('POST', '/students/9/account-deletion', 7)).toBe(false);
+  });
+
+  it('nao aceita a exclusao por outro metodo', () => {
+    expect(isStudentAllowed('DELETE', '/students/7/account-deletion', 7)).toBe(false);
+    expect(isStudentAllowed('PUT', '/students/7/account-deletion', 7)).toBe(false);
+  });
+
+  // A rota da EQUIPE continua fora do alcance do aluno: ela anonimiza sem
+  // conferir vinculo ativo, e quem responde por aquela decisao e o controlador.
+  it('nao alcanca a anonimizacao da equipe, nem na propria ficha', () => {
+    expect(isStudentAllowed('POST', '/students/7/anonymize', 7)).toBe(false);
+  });
+
   it('nao alcanca nenhum relatorio nem painel analitico', () => {
     for (const rota of [
       '/reports/overview',

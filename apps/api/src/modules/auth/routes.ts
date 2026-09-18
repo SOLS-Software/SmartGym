@@ -214,7 +214,21 @@ async function carregarMarca(idCliente: number | null) {
       raioCardBorder: true,
       boModoEscuro: true,
       anCaminhoLogo: true,
-      cliente: { select: { dsCliente: true } },
+      cliente: {
+        select: {
+          dsCliente: true,
+          // Dominio ATIVO da academia, para o app saber onde mora a politica de
+          // privacidade dela. Preferindo o proprio dominio ao subdominio nosso:
+          // quando a academia tem endereco proprio, e o dela que o aluno
+          // reconhece — e e para ele que a politica aponta.
+          dominios: {
+            where: { boAtivo: true },
+            select: { urlDominio: true },
+            orderBy: { boSubdominio: 'asc' },
+            take: 1,
+          },
+        },
+      },
     },
   });
   if (!marca) return null;
@@ -245,7 +259,20 @@ async function carregarMarca(idCliente: number | null) {
     }
   }
 
-  return { ...cores, dsCliente: cliente?.dsCliente ?? null, logoUrl };
+  // Endereco da politica de privacidade DESTA academia. Montado aqui porque so
+  // o servidor conhece o dominio dela: o aplicativo nao tem hostname, e sem
+  // isto a tela de privacidade teria de apontar para um endereco fixo que nao
+  // seria o da academia de quem esta lendo.
+  const dominio = cliente?.dominios?.[0]?.urlDominio ?? null;
+
+  return {
+    ...cores,
+    dsCliente: cliente?.dsCliente ?? null,
+    logoUrl,
+    urlPrivacidade: dominio ? `https://${dominio}/privacidade` : null,
+    urlExclusaoConta: dominio ? `https://${dominio}/excluir-conta` : null,
+  };
+
 }
 
 export async function registerAuthRoutes(app: FastifyInstance) {
