@@ -708,53 +708,49 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       const url = (request.query.url ?? '').trim().toLowerCase();
       if (!url) return reply.code(204).send();
 
-      // Duas etapas: o dominio e o cliente sao control-plane; o TEMA e dado de
-      // aplicacao. O include que ia de um ao outro e um join que deixa de
-      // existir quando eles moram em bancos diferentes.
+      // UMA consulta, tudo no control-plane. Antes eram duas: o dominio saia
+      // daqui e o tema exigia ABRIR O BANCO DO TENANT (getTenantDb) so para ler
+      // cinco cores — numa rota PUBLICA, que roda antes do login e e a primeira
+      // coisa que o navegador do aluno pede. A marca virou control-plane
+      // (tb_ClientesMarcas) e o `include` voltou a ser um join legitimo, porque
+      // agora os dois lados moram no mesmo banco, sempre.
       const dominio = await prisma.dominioCorporativo.findFirst({
         where: { urlDominio: url, boAtivo: true },
-        include: { cliente: true },
+        include: { cliente: { include: { marca: true } } },
       });
 
       if (!dominio?.cliente) return reply.code(204).send();
 
       const { cliente } = dominio;
-      const tema = await (await getTenantDb(cliente.id)).temaCustomizado.findFirst({
-        where: { idCliente: cliente.id },
-        include: {
-          arquivoLogo: true,
-          arquivoFavicon: true,
-          clienteArquivoLogo: true,
-          clienteArquivoFavicon: true,
-        },
-      });
+      const tema = cliente.marca;
 
       let logoUrl: string | null = null;
       let faviconUrl: string | null = null;
 
-      if (tema) {
-        const logoPath = tema.clienteArquivoLogo?.anCaminho || tema.arquivoLogo?.anCaminho || null;
-        const faviconPath = tema.clienteArquivoFavicon?.anCaminho || tema.arquivoFavicon?.anCaminho || null;
+      if (tema && (tema.anCaminhoLogo || tema.anCaminhoFavicon)) {
+        // O caminho e sempre do bucket de CLIENTES, que e global (do provedor)
+        // e nao por tenant. Antes havia um de-para entre dois buckets porque o
+        // logo podia vir do arquivo da empresa; a marca do tenant nao tem essa
+        // ambiguidade — ela e uma so, e o arquivo dela e nosso.
+        try {
+          const config = getClientSupabaseConfig();
+          const supabase = getSupabaseClient();
 
-        if (logoPath || faviconPath) {
-          try {
-            const isClientLogo = !!tema.clienteArquivoLogo?.anCaminho;
-            const isClientFavicon = !!tema.clienteArquivoFavicon?.anCaminho;
+          if (tema.anCaminhoLogo) {
+            const { data } = await supabase.storage
+              .from(config.bucket)
+              .createSignedUrl(tema.anCaminhoLogo, 3600);
+            logoUrl = data?.signedUrl ?? null;
+          }
 
-            if (logoPath) {
-              const config = isClientLogo ? getClientSupabaseConfig() : getSupabaseConfig();
-              const supabase = getSupabaseClient();
-              const { data } = await supabase.storage.from(config.bucket).createSignedUrl(logoPath, 3600);
-              logoUrl = data?.signedUrl ?? null;
-            }
-
-            if (faviconPath) {
-              const config = isClientFavicon ? getClientSupabaseConfig() : getSupabaseConfig();
-              const supabase = getSupabaseClient();
-              const { data } = await supabase.storage.from(config.bucket).createSignedUrl(faviconPath, 3600);
-              faviconUrl = data?.signedUrl ?? null;
-            }
-          } catch { /* URLs stay null if signed URL generation fails */ }
+          if (tema.anCaminhoFavicon) {
+            const { data } = await supabase.storage
+              .from(config.bucket)
+              .createSignedUrl(tema.anCaminhoFavicon, 3600);
+            faviconUrl = data?.signedUrl ?? null;
+          }
+        } catch {
+          /* sem URL assinada a tela usa o tema padrao; nao vale derrubar o login */
         }
       }
 
@@ -780,6 +776,98 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       });
     }
   });
+
+  /**
+   * QUEBRA DE VIDRO: troca o token emitido pelo painel do provedor por uma
+   * sessao de implantacao dentro do cliente.
+   *
+   * O TOKEN E DE USO UNICO E PRAZO CURTO. Quem o emitiu foi o painel, que gravou
+   * so o HASH em tb_AcessosProvedor — o token claro existe uma vez, no link. Ao
+   * ser trocado, `dtUso` e preenchido e ele nao serve mais: um link reenviado,
+   * colado num chamado ou esquecido no historico do navegador ja nao abre nada.
+   *
+   * ROTA PUBLICA por necessidade: quem chega aqui ainda nao tem sessao neste
+   * sistema. A defesa e o proprio token — 32 bytes aleatorios, guardado como
+   * hash, de uso unico e com prazo — e o rate limit de autenticacao.
+   *
+   * COMPARACAO EM TEMPO CONSTANTE nao e necessaria aqui porque a busca e por
+   * HASH indexado: o que viaja no `where` ja e o digest, e nao o segredo.
+   */
+  app.post<{ Body: { token?: string } }>(
+    '/auth/acesso-provedor',
+    authRateLimit,
+    async (request, reply) => {
+      try {
+        const bruto = (request.body?.token ?? '').trim();
+        if (!bruto) return reply.code(400).send({ message: 'Token ausente.' });
+
+        const hash = createHash('sha256').update(bruto).digest('hex');
+        const acesso = await prisma.acessoProvedor.findUnique({
+          where: { caTokenHash: hash },
+          include: {
+            operador: { select: { id: true, dsNome: true, boInativo: true, nrTokenVersion: true } },
+            cliente: { select: { id: true, dsCliente: true, boInativo: true } },
+          },
+        });
+
+        // Mensagem UNICA para token inexistente, expirado, ja usado, operador
+        // desligado e cliente inativo. Distinguir ajudaria quem esta tentando
+        // adivinhar token a saber que chegou perto.
+        const agora = new Date();
+        const invalido =
+          !acesso ||
+          acesso.dtUso !== null ||
+          acesso.dtExpiracao < agora ||
+          acesso.operador.boInativo ||
+          acesso.cliente.boInativo;
+
+        if (invalido) {
+          request.auditReason = 'acesso_provedor_invalido';
+          return reply.code(401).send({ message: 'Acesso invalido ou expirado.' });
+        }
+
+        // QUEIMA O TOKEN ANTES de emitir a sessao. Se a emissao falhar depois
+        // disso, o operador pede outro acesso — o que custa um clique. A ordem
+        // inversa deixaria uma janela para o mesmo link ser trocado duas vezes.
+        await prisma.acessoProvedor.update({
+          where: { id: acesso.id },
+          // Mesma origem de IP que a trilha de auditoria usa, para os dois
+          // registros contarem a mesma historia.
+          data: { dtUso: agora, anIpUso: (request.ip ?? '').slice(0, 64) || null },
+        });
+
+        const token = app.jwt.sign(
+          {
+            // O `sub` e o OperadorSols, nao um Usuario: o hook de auth trata
+            // este papel antes de procurar em tb_Usuarios.
+            sub: acesso.operador.id,
+            role: 'provedor',
+            idAluno: null,
+            idFuncionario: null,
+            // O tenant vem do ACESSO, nunca do corpo da requisicao.
+            idCliente: acesso.cliente.id,
+            tv: acesso.operador.nrTokenVersion,
+          },
+          // Duracao curta: implantacao e trabalho de sessao, nao de turno. Um
+          // acesso da SOLS que dura o dia inteiro vira acesso permanente na
+          // pratica.
+          { expiresIn: '2h' },
+        );
+
+        return {
+          token,
+          idCliente: acesso.cliente.id,
+          dsCliente: acesso.cliente.dsCliente,
+          dsOperador: acesso.operador.dsNome,
+          dsMotivo: acesso.dsMotivo,
+        };
+      } catch (error) {
+        return reply
+          .code(500)
+          .send({ message: clientErrorMessage(error, 'Erro ao validar o acesso.') });
+      }
+    },
+  );
 
   app.post<{
     Body: LoginPayload & { idCliente?: number };

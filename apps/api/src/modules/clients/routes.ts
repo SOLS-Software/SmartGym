@@ -1,6 +1,7 @@
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import type { PrismaClient } from '@solsfit/db';
 import { prisma } from '../../shared/prisma.js';
 import {
   assertValidId,
@@ -277,17 +278,60 @@ export async function registerClientRoutes(app: FastifyInstance) {
   // Client-level theme
   // ---------------------------------------------------------------------------
 
+  // A MARCA DO CLIENTE MUDOU DE LUGAR: saiu de tb_TemasCustomizados (aplicacao)
+  // para tb_ClientesMarcas (control-plane), para que o painel do provedor possa
+  // configura-la na entrega e para que /auth/theme pare de abrir o banco do
+  // tenant so para ler cinco cores.
+  //
+  // O CONTRATO COM A TELA NAO MUDOU. O web sobe o arquivo em /clients/:id/files,
+  // recebe um ID e salva o tema com `idClienteArquivoLogo`. A marca guarda o
+  // CAMINHO, nao o id — entao a traducao acontece AQUI, nos dois sentidos. Fica
+  // num lugar so, e numa camada que alcanca os dois mundos: esta API pode ler
+  // tanto o control-plane quanto o banco do cliente; o painel do provedor, nao.
+
+  /** Caminho do arquivo -> id, para a tela continuar falando em id. */
+  async function idDoArquivoPorCaminho(
+    db: PrismaClient,
+    idCliente: number,
+    caminho: string | null,
+  ): Promise<number | null> {
+    if (!caminho) return null;
+    const arquivo = await db.clienteArquivo.findFirst({
+      where: { idCliente, anCaminho: caminho },
+      select: { id: true },
+    });
+    return arquivo?.id ?? null;
+  }
+
+  /** id -> caminho, para gravar na marca. */
+  async function caminhoDoArquivoPorId(
+    db: PrismaClient,
+    idCliente: number,
+    idArquivo: number | null,
+  ): Promise<string | null> {
+    if (!idArquivo) return null;
+    const arquivo = await db.clienteArquivo.findFirst({
+      where: { id: idArquivo, idCliente },
+      select: { anCaminho: true },
+    });
+    return arquivo?.anCaminho || null;
+  }
+
   app.get<{ Params: { id: string } }>('/clients/:id/theme', async (request, reply) => {
     try {
       const id = Number(request.params.id);
       assertValidId(id, 'Cliente invalido.');
       if (!assertTenantClient(request, reply, id)) return reply;
-      const tema = await request.tenantDb.temaCustomizado.findUnique({
-        where: { idCliente: id },
-        include: THEME_INCLUDE,
-      });
-      if (!tema) return reply.code(204).send();
-      return tema;
+
+      const marca = await prisma.clienteMarca.findUnique({ where: { idCliente: id } });
+      if (!marca) return reply.code(204).send();
+
+      const [idClienteArquivoLogo, idClienteArquivoFavicon] = await Promise.all([
+        idDoArquivoPorCaminho(request.tenantDb, id, marca.anCaminhoLogo),
+        idDoArquivoPorCaminho(request.tenantDb, id, marca.anCaminhoFavicon),
+      ]);
+
+      return { ...marca, idClienteArquivoLogo, idClienteArquivoFavicon };
     } catch (error) {
       return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao buscar tema.') });
     }
@@ -299,14 +343,34 @@ export async function registerClientRoutes(app: FastifyInstance) {
       assertValidId(id, 'Cliente invalido.');
       if (!assertTenantClient(request, reply, id)) return reply;
       if (!themeBodySchema.safeParse(request.body).success) return reply.code(400).send({ message: 'Parametros invalidos.' });
-      const data = normalizeThemeData(request.body);
-      const tema = await request.tenantDb.temaCustomizado.upsert({
+
+      const dados = normalizeThemeData(request.body);
+      const [anCaminhoLogo, anCaminhoFavicon] = await Promise.all([
+        caminhoDoArquivoPorId(request.tenantDb, id, dados.idClienteArquivoLogo),
+        caminhoDoArquivoPorId(request.tenantDb, id, dados.idClienteArquivoFavicon),
+      ]);
+
+      // As colunas de arquivo do formato antigo nao entram na marca: la o que
+      // existe e o caminho, resolvido acima.
+      const {
+        idArquivoLogo: _logoEmpresa,
+        idArquivoFavicon: _faviconEmpresa,
+        idClienteArquivoLogo: _logoId,
+        idClienteArquivoFavicon: _faviconId,
+        ...cores
+      } = dados;
+
+      const marca = await prisma.clienteMarca.upsert({
         where: { idCliente: id },
-        create: { idCliente: id, ...data },
-        update: data,
-        include: THEME_INCLUDE,
+        create: { idCliente: id, ...cores, anCaminhoLogo, anCaminhoFavicon },
+        update: { ...cores, anCaminhoLogo, anCaminhoFavicon },
       });
-      return tema;
+
+      return {
+        ...marca,
+        idClienteArquivoLogo: dados.idClienteArquivoLogo,
+        idClienteArquivoFavicon: dados.idClienteArquivoFavicon,
+      };
     } catch (error) {
       return reply.code(400).send({ message: clientErrorMessage(error, 'Erro ao salvar tema.') });
     }

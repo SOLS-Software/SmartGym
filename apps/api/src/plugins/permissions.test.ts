@@ -464,6 +464,10 @@ const PUBLIC_ROUTES = new Set([
   '/auth/register-lookup',
   '/auth/forgot-password',
   '/auth/reset-password',
+  // Quebra de vidro: troca o token do painel do provedor por uma sessao de
+  // implantacao. Publica porque quem chega ainda nao tem sessao aqui; a defesa
+  // e o token de uso unico, guardado so como hash e com prazo de minutos.
+  '/auth/acesso-provedor',
   '/auth/theme',
   '/public/leads',
   // Token na URL; a defesa esta no modulo (ver plugins/auth.ts). Duas formas:

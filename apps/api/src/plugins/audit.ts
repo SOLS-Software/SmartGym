@@ -47,6 +47,11 @@ const AUDIT_PII: RegExp[] = [
 // baixo valor (o titular vendo os proprios dados).
 const AUDIT_AUTH: RegExp[] = [
   /^\/auth\/(login|gestor-login|register|register-lookup|forgot-password|reset-password|change-password|logout)$/,
+  // QUEBRA DE VIDRO: a SOLS entrando no sistema de um cliente. E o evento que
+  // mais precisa estar aqui, e escapava: a regra generica so pega 401 e 403,
+  // entao a tentativa RECUSADA era registrada e a bem-sucedida, nao —
+  // exatamente ao contrario do que interessa numa auditoria de acesso.
+  /^\/auth\/acesso-provedor$/,
 ];
 
 // Decide se a requisicao entra na trilha. Pura e testavel sem banco.

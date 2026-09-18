@@ -3,9 +3,16 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { prisma } from '../shared/prisma.js';
 import { getTenantDb } from '../shared/tenantDataSource.js';
 import { isStudentAllowed } from './studentRbac.js';
-import { isEmployeeAllowed } from './permissions.js';
+import { PROVIDER_SETUP_PERMISSIONS, isEmployeeAllowed } from './permissions.js';
 
-export type AuthRole = 'student' | 'employee' | 'gestor';
+/**
+ * `provedor` e a quebra de vidro: um operador da SOLS dentro do sistema de um
+ * cliente, para implantar. Nao e funcionario da academia e nao tem perfil
+ * gravado no banco dela — as permissoes dele sao uma lista FIXA no codigo
+ * (PROVIDER_SETUP_PERMISSIONS), justamente para que ninguem possa amplia-las
+ * editando um perfil.
+ */
+export type AuthRole = 'student' | 'employee' | 'gestor' | 'provedor';
 
 export type AuthTokenPayload = {
   sub: number;
@@ -48,6 +55,11 @@ export const PUBLIC_ROUTES = new Set([
   '/auth/register-lookup',
   '/auth/forgot-password',
   '/auth/reset-password',
+  // Quebra de vidro: troca o token emitido pelo painel do provedor por uma
+  // sessao de implantacao. Publica por necessidade — quem chega ainda nao tem
+  // sessao AQUI. A defesa e o token: 32 bytes aleatorios, guardado so como
+  // hash, de uso unico e com prazo de minutos.
+  '/auth/acesso-provedor',
   '/auth/theme',
   // Formulario de interesse do site: quem o preenche por definicao ainda nao
   // tem conta. E a unica rota de NEGOCIO sem token, e por isso a mais
@@ -139,6 +151,42 @@ export async function registerAuthPlugin(app: FastifyInstance) {
     // join resolvia; com banco por cliente o join deixa de existir. A primeira
     // consulta responde "esta sessao ainda vale?" e a segunda, so para quem tem
     // perfil a aplicar, "o que essa pessoa pode fazer?".
+    // QUEBRA DE VIDRO — tratada ANTES da consulta abaixo, e nao depois.
+    //
+    // O `sub` de um token de provedor e o id de um OperadorSols, que NAO existe
+    // em tb_Usuarios: cair na consulta seguinte devolveria "conta inexistente"
+    // e o acesso nunca funcionaria. Sao identidades de mundos diferentes, e por
+    // isso a validacao e outra.
+    //
+    // As permissoes vem de uma lista FIXA do codigo, nao de um PerfilAcesso do
+    // banco do cliente — assim ninguem amplia o que a SOLS enxerga editando um
+    // perfil, nem a propria SOLS. Mas o filtro e o MESMO isEmployeeAllowed que
+    // vale para a recepcao: uma regra so, e nao um caminho paralelo que alguem
+    // esqueceria de manter no dia em que uma rota nova nascer.
+    if (request.user.role === 'provedor') {
+      const operador = await prisma.operadorSols.findUnique({
+        where: { id: request.user.sub },
+        select: { boInativo: true, nrTokenVersion: true },
+      });
+      if (
+        !operador ||
+        operador.boInativo ||
+        operador.nrTokenVersion !== (request.user.tv ?? 0)
+      ) {
+        request.auditReason = 'acesso_provedor_revogado';
+        return reply.code(401).send({ message: 'Sessao invalida ou expirada.' });
+      }
+
+      const granted = new Set<string>(PROVIDER_SETUP_PERMISSIONS);
+      request.employeePermissions = granted;
+      if (!isEmployeeAllowed(request.method, pathname, granted)) {
+        return reply.code(403).send({
+          message: 'Acesso de implantacao da SOLS: esta area e do cliente.',
+        });
+      }
+      return;
+    }
+
     const account = await prisma.usuario.findUnique({
       where: { id: request.user.sub },
       select: {

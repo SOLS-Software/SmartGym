@@ -132,6 +132,43 @@ export const ALL_PERMISSIONS: PermissionKey[] = PERMISSION_DOMAINS.flatMap((doma
   `${domain.key}.write` as PermissionKey,
 ]);
 
+/**
+ * O que um acesso de IMPLANTACAO da SOLS alcanca no sistema do cliente.
+ *
+ * Perante a academia a SOLS e OPERADORA. Este conjunto existe para que entrar
+ * no sistema dela nao signifique entrar no dado pessoal dos alunos dela: da
+ * para montar a operacao — unidades, equipe, perfis, planos, aulas,
+ * equipamento, catraca, conta de recebimento, dominio — e nao da para abrir uma
+ * ficha de aluno.
+ *
+ * FICAM DE FORA, e cada um por um motivo:
+ *   students     ficha do aluno: nome, CPF, contato
+ *   evaluations  avaliacao fisica — dado de SAUDE, a categoria mais sensivel
+ *   trainings    treino prescrito, que e dado de saude por tabela
+ *   checkins     quando cada aluno entrou e saiu da academia
+ *   payments     o que cada aluno deve e pagou
+ *   sales, points  consumo e fidelidade, que perfilam a pessoa
+ *   reports      agregam tudo isso, e agregado de dado pessoal continua sendo
+ *                dado pessoal quando da para chegar na pessoa
+ *   notifications os modelos de aviso carregam nome e contato de aluno
+ *
+ * E UMA LISTA FIXA NO CODIGO, de proposito. Se viesse de um PerfilAcesso
+ * gravado no banco do cliente, qualquer pessoa com acesso aquele banco poderia
+ * ampliar silenciosamente o que a SOLS enxerga — inclusive a propria SOLS.
+ */
+export const PROVIDER_SETUP_PERMISSIONS: PermissionKey[] = [
+  'companies.read', 'companies.write',
+  'employees.read', 'employees.write',
+  'profiles.read', 'profiles.write',
+  'plans.read', 'plans.write',
+  'activities.read', 'activities.write',
+  'products.read', 'products.write',
+  'equipment.read', 'equipment.write',
+  'turnstiles.read', 'turnstiles.write',
+  'billing.read', 'billing.write',
+  'domains.read', 'domains.write',
+];
+
 const PERMISSION_SET = new Set<string>(ALL_PERMISSIONS);
 
 export function isPermissionKey(value: string): value is PermissionKey {

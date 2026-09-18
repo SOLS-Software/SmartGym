@@ -36,6 +36,16 @@ const CONTROL_PLANE: readonly string[] = [
   // siloado poderia editar os proprios direitos.
   'ProdutoSols',
   'ClienteProduto',
+  // A cara do tenant (cores e logo). Control-plane porque /auth/theme a le
+  // ANTES do login, resolvendo por dominio, e porque o painel do provedor —
+  // que so alcanca o banco central — precisa configura-la na entrega. O
+  // TemaCustomizado continua em application: aquele e o tema por EMPRESA.
+  'ClienteMarca',
+  // Quebra de vidro: o registro de cada acesso da SOLS ao sistema de um
+  // cliente. Control-plane porque o token e validado ANTES de saber em qual
+  // banco o cliente esta — e porque um registro de auditoria que mora no
+  // sistema auditado nao serve para auditar ninguem.
+  'AcessoProvedor',
 ];
 
 // 📚 CATÁLOGO GLOBAL — referência igual para todos; semeado dentro de CADA banco

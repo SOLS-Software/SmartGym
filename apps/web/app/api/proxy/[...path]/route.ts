@@ -12,8 +12,14 @@ const API_PASSPHRASE = 'smartgym-2026-api-payload-key-sols';
 const SESSION_COOKIE = 'smartgym_token';
 const SESSION_COOKIE_MAX_AGE = 12 * 60 * 60; // acompanha TOKEN_EXPIRY_WEB da API
 
-// Rotas de login cuja resposta traz o token a ser movido para o cookie.
-const LOGIN_PATHS = new Set(['auth/login', 'auth/gestor-login']);
+// Rotas cuja resposta traz o token a ser movido para o cookie.
+//
+// A de acesso-provedor entra aqui pelo mesmo motivo das outras: ela DEVOLVE uma
+// sessao. A diferenca esta em quem chega do outro lado — um operador da SOLS
+// entrando para implantar, com permissoes fixas e prazo de duas horas. Para o
+// proxy e so mais um login: o token vai para o cookie HttpOnly e o JavaScript
+// da pagina nunca o ve.
+const LOGIN_PATHS = new Set(['auth/login', 'auth/gestor-login', 'auth/acesso-provedor']);
 
 let _key: CryptoKey | null = null;
 

@@ -1831,6 +1831,10 @@ model Cliente {
   // O que este cliente contratou da SOLS. Control-plane: e a relacao
   // COMERCIAL, nao o negocio da academia.
   produtosSols      ClienteProduto[]
+  // A cara do tenant: cores e logo. Control-plane — ver ClienteMarca.
+  marca             ClienteMarca?
+  // Quebra de vidro: acessos da SOLS ao sistema deste cliente.
+  acessosProvedor   AcessoProvedor[]
 
   @@map("tb_Clientes")
 }
@@ -2358,6 +2362,8 @@ model OperadorSols {
   dtAlteracao    DateTime  @updatedAt
   boInativo      Boolean   @default(false)
 
+  acessos AcessoProvedor[]
+
   @@map("tb_OperadoresSols")
 }
 
@@ -2440,4 +2446,96 @@ model ClienteProduto {
   @@index([idCliente])
   @@index([idProdutoSols])
   @@map("tb_ClientesProdutos")
+}
+
+/// A cara do TENANT: cores e logo que aparecem antes mesmo do login.
+///
+/// POR QUE E CONTROL-PLANE, e nao dado de aplicacao como o TemaCustomizado:
+///
+/// 1. FUNCIONA COM CLIENTE SILOADO. O painel do provedor so alcanca o banco
+///    central; se a marca morasse no banco do cliente, configurar a cor pararia
+///    de funcionar exatamente para quem pagou por banco dedicado.
+/// 2. DEIXA /auth/theme MAIS SIMPLES E RAPIDO. Aquela rota e publica e roda
+///    ANTES do login: resolvia o dominio no central e depois abria o banco do
+///    tenant so para ler cinco cores. Agora e uma consulta so, no mesmo banco.
+/// 3. E CONFIGURACAO DE ENTREGA. Quem monta a cara da academia na implantacao e
+///    o provedor; a academia ajusta depois, no painel dela. Os dois editam.
+///
+/// NAO SUBSTITUI o TemaCustomizado, que continua existindo para o tema por
+/// EMPRESA (unidade) — esse e dado da academia e segue no banco dela.
+///
+/// O LOGO E UM CAMINHO, nao uma FK para tb_ClientesArquivos. O arquivo ja vive
+/// num bucket do PROVEDOR (SUPABASE_STORAGE_BUCKET_CLIENTES, global), entao
+/// nada precisou ser movido — e uma FK atravessaria para tabela de aplicacao,
+/// que e o que esta separacao existe para evitar.
+model ClienteMarca {
+  id        Int @id @default(autoincrement())
+  idCliente Int @unique
+
+  corPrimaria     String  @default("#000000") @db.VarChar(7)
+  corSecundaria   String  @default("#FFFFFF") @db.VarChar(7)
+  corAcentuacao   String  @default("#FF0000") @db.VarChar(7)
+  corTexto        String  @default("#000000") @db.VarChar(7)
+  corFundo        String  @default("#FFFFFF") @db.VarChar(7)
+  fontePrincipal  String  @default("Inter") @db.VarChar(100)
+  fonteSecundaria String  @default("Open Sans") @db.VarChar(100)
+  tamanhoBase     Int     @default(14)
+  espacamentoPadrao Int   @default(16)
+  raioCardBorder  Int     @default(8)
+  boModoEscuro    Boolean @default(false)
+
+  /// Caminho no bucket de clientes. Nulo = sem logo.
+  anCaminhoLogo    String? @db.VarChar(255)
+  anCaminhoFavicon String? @db.VarChar(255)
+
+  dtCadastro  DateTime @default(now())
+  dtAlteracao DateTime @updatedAt
+
+  cliente Cliente @relation(fields: [idCliente], references: [id], onDelete: Cascade)
+
+  @@map("tb_ClientesMarcas")
+}
+
+/// QUEBRA DE VIDRO: um acesso da SOLS ao sistema de um cliente.
+///
+/// Perante a academia a SOLS e OPERADORA, nao controladora. Entrar no sistema
+/// dela nao pode ser navegacao livre: e ato deliberado, com motivo, prazo e
+/// registro (LGPD art. 37/38). Esta tabela E o registro.
+///
+/// COMO FUNCIONA: o painel emite um token de USO UNICO e prazo curto; o SOLSFIT
+/// o troca por uma sessao com permissoes FIXAS de implantacao. O token em si
+/// nunca e guardado — so o hash, como senha. Quem tiver acesso de leitura a
+/// este banco nao consegue entrar em cliente nenhum.
+///
+/// O QUE ESTA SESSAO ALCANCA: configuracao e equipe (unidades, funcionarios,
+/// perfis, planos, atividades, equipamentos, catraca, conta de recebimento,
+/// dominios). NAO alcanca ficha de aluno, avaliacao fisica, treino, check-in,
+/// pagamento de aluno nem fidelidade — a lista vive em plugins/permissions.ts
+/// e nao depende de perfil gravado no banco do cliente.
+model AcessoProvedor {
+  id             Int @id @default(autoincrement())
+  idOperadorSols Int
+  idCliente      Int
+
+  /// Por que este acesso foi aberto. Obrigatorio: um registro sem motivo nao
+  /// responde a pergunta que a trilha existe para responder.
+  dsMotivo String @db.VarChar(200)
+
+  /// SHA-256 do token. O token claro so existe no link, uma vez.
+  caTokenHash String @unique @db.VarChar(64)
+
+  dtCriacao   DateTime  @default(now())
+  /// Prazo para TROCAR o token por uma sessao. Curto de proposito: o link e
+  /// para ser usado na hora, nao guardado.
+  dtExpiracao DateTime
+  /// Quando foi trocado. Preenchido = token queimado, nao serve mais.
+  dtUso       DateTime?
+  anIpUso     String?   @db.VarChar(64)
+
+  operador OperadorSols @relation(fields: [idOperadorSols], references: [id])
+  cliente  Cliente      @relation(fields: [idCliente], references: [id], onDelete: Cascade)
+
+  @@index([idCliente, dtCriacao])
+  @@index([idOperadorSols, dtCriacao])
+  @@map("tb_AcessosProvedor")
 }
