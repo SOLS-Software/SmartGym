@@ -198,7 +198,7 @@ async function carregarPerfil(
  */
 async function carregarMarca(idCliente: number | null) {
   if (!idCliente) return null;
-  return prisma.clienteMarca.findUnique({
+  const marca = await prisma.clienteMarca.findUnique({
     where: { idCliente },
     select: {
       idCliente: true,
@@ -213,8 +213,39 @@ async function carregarMarca(idCliente: number | null) {
       espacamentoPadrao: true,
       raioCardBorder: true,
       boModoEscuro: true,
+      anCaminhoLogo: true,
+      cliente: { select: { dsCliente: true } },
     },
   });
+  if (!marca) return null;
+
+  const { anCaminhoLogo, cliente, ...cores } = marca;
+
+  // URL ASSINADA do logo, com validade de uma hora.
+  //
+  // O arquivo mora num bucket PRIVADO do provedor; nao ha endereco publico para
+  // guardar no banco. A assinatura vence, e o app fica com um endereco morto se
+  // a sessao passar de uma hora aberta — mas o /auth/verify do boot renova, e o
+  // pior caso e a tela aparecer sem o logo, nunca um erro. Trocar isso por
+  // bucket publico seria expor o material de marca de todos os clientes para
+  // economizar uma assinatura.
+  //
+  // Falha de storage NAO derruba o login: quem nao consegue entrar por causa de
+  // uma imagem tem um problema muito maior que a imagem.
+  let logoUrl: string | null = null;
+  if (anCaminhoLogo) {
+    try {
+      const config = getClientSupabaseConfig();
+      const { data } = await getSupabaseClient()
+        .storage.from(config.bucket)
+        .createSignedUrl(anCaminhoLogo, 3600);
+      logoUrl = data?.signedUrl ?? null;
+    } catch {
+      /* sem logo a tela usa so o nome; nao vale derrubar a entrada */
+    }
+  }
+
+  return { ...cores, dsCliente: cliente?.dsCliente ?? null, logoUrl };
 }
 
 export async function registerAuthRoutes(app: FastifyInstance) {
