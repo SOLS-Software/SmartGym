@@ -35,6 +35,38 @@ const PROTEGIDO_KEY = 'smartgym_token_protegido';
 let _cachedToken: string | null | undefined;
 let _protegido: boolean | undefined;
 
+// --- Perda de sessao ---------------------------------------------------------
+//
+// O 401 passava direto. A tela mostrava "Sessao invalida ou expirada." e o app
+// FICAVA ALI: cada toque repetia o erro, e a unica saida era achar o botao de
+// sair — que nem toda tela tem — ou reinstalar. Para quem usa, isso nao parece
+// sessao vencida, parece aplicativo travado.
+//
+// O tratamento fica aqui, e nao em cada tela, porque este e o unico ponto por
+// onde toda chamada autenticada passa. Espalhado pelas telas, a proxima tela a
+// nascer esqueceria dele — e o defeito voltaria em um lugar so, que e a forma
+// mais dificil de perceber.
+let _aoPerderSessao: (() => void) | null = null;
+let _sessaoExpirada = false;
+
+/** Registra quem derruba a sessao local quando a API recusa a credencial. */
+export function registrarPerdaDeSessao(callback: (() => void) | null): void {
+  _aoPerderSessao = callback;
+}
+
+/**
+ * Se a ultima saida do app foi por sessao recusada — e limpa a marca ao ler.
+ *
+ * A tela de login usa para explicar por que a pessoa voltou para ela. Sem isso
+ * o logout parece aleatorio, e quem estava no meio de um cadastro acha que o
+ * app perdeu o que foi digitado por bug.
+ */
+export function consumirSessaoExpirada(): boolean {
+  const expirada = _sessaoExpirada;
+  _sessaoExpirada = false;
+  return expirada;
+}
+
 /** Lê (uma vez) se o token gravado exige autenticação do sistema para ser lido. */
 async function tokenEstaProtegido(): Promise<boolean> {
   if (_protegido !== undefined) return _protegido;
@@ -113,6 +145,9 @@ export async function setAuthToken(
   const protegido = opcoes?.protegido ?? false;
   _cachedToken = token;
   _protegido = protegido;
+  // Login novo zera a marca: senao o proximo logout deliberado exibiria, na
+  // tela de login, o aviso de sessao expirada de uma sessao anterior.
+  if (token) _sessaoExpirada = false;
   try {
     if (token) {
       await SecureStore.setItemAsync(TOKEN_KEY, token, {
@@ -191,11 +226,31 @@ export async function authFetch(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
+  let response: Response;
   try {
-    return await fetch(input, token ? { ...init, headers } : init);
+    response = await fetch(input, token ? { ...init, headers } : init);
   } catch (error) {
     throw traduzirFalhaDeTransporte(error);
   }
+
+  // 401 = a API recusou a CREDENCIAL: o token venceu, foi revogado por um
+  // logout em outro aparelho, ou a conta foi desativada. Erro de PERMISSAO vem
+  // como 403 e nao entra aqui — perder a sessao por tocar numa area que o
+  // perfil nao alcanca seria trocar um aviso por um logout.
+  //
+  // `token &&` NAO e detalhe: com a trava biometrica ligada, getAuthToken()
+  // devolve null de proposito enquanto a sessao esta trancada. A requisicao sai
+  // sem Authorization e volta 401 — e sem esta condicao o app apagaria uma
+  // sessao perfeitamente valida justamente por ela estar protegida.
+  //
+  // `!_sessaoExpirada` evita que varias requisicoes paralelas da mesma tela
+  // disparem o encerramento uma vez cada.
+  if (response.status === 401 && token && !_sessaoExpirada) {
+    _sessaoExpirada = true;
+    _aoPerderSessao?.();
+  }
+
+  return response;
 }
 
 /**

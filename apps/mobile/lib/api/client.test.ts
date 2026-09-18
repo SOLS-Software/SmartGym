@@ -2,6 +2,8 @@ import * as SecureStore from 'expo-secure-store';
 import {
   authFetch,
   bloquearSessao,
+  consumirSessaoExpirada,
+  registrarPerdaDeSessao,
   desbloquearToken,
   getAuthToken,
   publicFetch,
@@ -216,5 +218,103 @@ describe('tradução de falha de rede', () => {
     expect((erro as Error).message).toBe(
       'Sem conexão com o servidor. Verifique sua internet e tente novamente.',
     );
+  });
+});
+
+// Perda de sessão: o 401 passava direto e o app ficava numa tela onde nada
+// funcionava. O tratamento é central (authFetch), e estes testes existem porque
+// a condição que o protege é contraintuitiva — ver o caso da trava biométrica.
+describe('sessão recusada pela API', () => {
+  const fetchOriginal = global.fetch;
+
+  /** Faz o fetch global responder com o status dado, sem corpo. */
+  function fetchQueResponde(status: number) {
+    global.fetch = jest.fn().mockResolvedValue({ status } as Response) as unknown as typeof fetch;
+  }
+
+  beforeEach(() => {
+    // O estado de sessão perdida é de MÓDULO e sobrevive entre testes: consumir
+    // aqui evita que a marca de um teste faça o seguinte passar por engano.
+    consumirSessaoExpirada();
+    registrarPerdaDeSessao(null);
+  });
+
+  afterEach(() => {
+    global.fetch = fetchOriginal;
+    registrarPerdaDeSessao(null);
+  });
+
+  it('derruba a sessão quando a API recusa a credencial enviada', async () => {
+    montarCofre();
+    await setAuthToken('jwt-abc', { protegido: false });
+    const aoPerder = jest.fn();
+    registrarPerdaDeSessao(aoPerder);
+    fetchQueResponde(401);
+
+    const resposta = await authFetch('https://exemplo.test/x');
+
+    expect(resposta.status).toBe(401);
+    expect(aoPerder).toHaveBeenCalledTimes(1);
+    expect(consumirSessaoExpirada()).toBe(true);
+  });
+
+  // O caso que justifica a condição `token &&`. Com a trava ligada e a sessão
+  // trancada, getAuthToken devolve null DE PROPÓSITO: a requisição sai sem
+  // Authorization e volta 401. Tratar isso como sessão perdida apagaria uma
+  // sessão válida justamente por ela estar protegida — o oposto do esperado.
+  it('NÃO derruba a sessão trancada pela biometria, que sai sem credencial', async () => {
+    montarCofre({ smartgym_token: 'jwt-abc', smartgym_token_protegido: '1' });
+    await setAuthToken('jwt-abc', { protegido: true });
+    bloquearSessao();
+    const aoPerder = jest.fn();
+    registrarPerdaDeSessao(aoPerder);
+    fetchQueResponde(401);
+
+    await authFetch('https://exemplo.test/x');
+
+    expect(aoPerder).not.toHaveBeenCalled();
+    expect(consumirSessaoExpirada()).toBe(false);
+  });
+
+  // 403 é PERMISSÃO, não sessão. Derrubar aqui faria o funcionário que tocou
+  // numa área fora do perfil dele ser deslogado em vez de avisado.
+  it('não confunde falta de permissão com sessão vencida', async () => {
+    montarCofre();
+    await setAuthToken('jwt-abc', { protegido: false });
+    const aoPerder = jest.fn();
+    registrarPerdaDeSessao(aoPerder);
+    fetchQueResponde(403);
+
+    await authFetch('https://exemplo.test/x');
+
+    expect(aoPerder).not.toHaveBeenCalled();
+  });
+
+  it('encerra uma vez só quando várias chamadas da tela levam 401 juntas', async () => {
+    montarCofre();
+    await setAuthToken('jwt-abc', { protegido: false });
+    const aoPerder = jest.fn();
+    registrarPerdaDeSessao(aoPerder);
+    fetchQueResponde(401);
+
+    await Promise.all([
+      authFetch('https://exemplo.test/a'),
+      authFetch('https://exemplo.test/b'),
+      authFetch('https://exemplo.test/c'),
+    ]);
+
+    expect(aoPerder).toHaveBeenCalledTimes(1);
+  });
+
+  it('login novo limpa a marca, para o aviso não reaparecer sem motivo', async () => {
+    montarCofre();
+    await setAuthToken('jwt-abc', { protegido: false });
+    registrarPerdaDeSessao(jest.fn());
+    fetchQueResponde(401);
+    await authFetch('https://exemplo.test/x');
+
+    await setAuthToken('jwt-novo', { protegido: false });
+
+    expect(consumirSessaoExpirada()).toBe(false);
   });
 });

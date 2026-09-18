@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -11,7 +11,12 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { apiUrl, publicFetch, setAuthToken } from '../lib/api/client';
+import {
+  apiUrl,
+  consumirSessaoExpirada,
+  publicFetch,
+  setAuthToken,
+} from '../lib/api/client';
 import {
   lerPreferenciaBiometria,
   limparInatividade,
@@ -30,6 +35,17 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Por que a pessoa está de volta nesta tela.
+  //
+  // Sem esta linha o retorno ao login parece aleatório: quem estava no meio de
+  // um cadastro acha que o app perdeu o que digitou por defeito. Dizer que a
+  // sessão venceu transforma um susto em uma instrução.
+  useEffect(() => {
+    if (consumirSessaoExpirada()) {
+      setFeedback('Sua sessão expirou. Entre novamente.');
+    }
+  }, []);
 
   async function handleLogin() {
     setFeedback('');

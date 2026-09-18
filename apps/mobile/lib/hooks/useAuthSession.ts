@@ -1,6 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
-import { apiUrl, authFetch, sessaoTrancada, setAuthToken } from '../api/client';
+import {
+  apiUrl,
+  authFetch,
+  registrarPerdaDeSessao,
+  sessaoTrancada,
+  setAuthToken,
+} from '../api/client';
 import { desregistrarPush, registrarPush } from '../push/registrarPush';
 import type { AuthenticatedUser } from '../types/auth';
 
@@ -49,6 +55,37 @@ export function useAuthSession() {
     // continua saindo por e-mail se o registro falhar.
     void registrarPush();
   }, []);
+
+  /**
+   * Sessão recusada pela API, no meio do uso.
+   *
+   * Diferente do `signOut`, aqui NÃO se avisa o servidor: a sessão que se
+   * encerraria já não vale, e `desregistrarPush` e `POST /auth/logout` sairiam
+   * com a mesma credencial que acabou de ser recusada — duas requisições
+   * condenadas, e o descadastro do aparelho falharia de qualquer jeito porque a
+   * API exige sessão para provar que o telefone é de quem diz ser.
+   *
+   * Zerar o `user` basta para sair da tela: os guards de (aluno) e
+   * (funcionario) redirecionam para o login sozinhos quando não há sessão. É
+   * por isso que este ponto não chama o router — quem decide para onde ir
+   * continua sendo o layout, e não uma navegação disparada do meio do fetch.
+   */
+  const encerrarPorSessaoInvalida = useCallback(async () => {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.warn('Erro ao limpar sessão expirada:', error);
+    }
+    await setAuthToken(null);
+    setUser(null);
+  }, []);
+
+  useEffect(() => {
+    registrarPerdaDeSessao(() => {
+      void encerrarPorSessaoInvalida();
+    });
+    return () => registrarPerdaDeSessao(null);
+  }, [encerrarPorSessaoInvalida]);
 
   useEffect(() => {
     let cancelled = false;
