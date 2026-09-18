@@ -300,7 +300,7 @@ export function getLookupLabel(option: LookupRecord, field: CompanyChildField) {
 }
 
 // onlyDigits/formatCpf/formatCep/isValidCpf/isImageFile viviam duplicados aqui
-// e em apps/mobile/lib/utils/format.ts. Passaram para @smartgym/shared e sao
+// e em apps/mobile/lib/utils/format.ts. Passaram para @solsfit/shared e sao
 // reexportados para nao mexer nos ~30 imports das telas.
 export {
   formatCep,
@@ -311,5 +311,5 @@ export {
   isValidCnpj,
   isValidCpf,
   onlyDigits,
-} from '@smartgym/shared';
+} from '@solsfit/shared';
 

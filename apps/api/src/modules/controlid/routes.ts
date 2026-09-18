@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import type { PrismaClient } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId, optionalNumber } from '../../shared/normalize.js';
 import {
@@ -502,7 +502,7 @@ function processarRespostaDeBootstrap(
       deviceId,
       comando('create_objects', {
         object: 'devices',
-        values: [{ name: 'SmartGym', ip: ONLINE_SERVER_URL, public_key: '' }],
+        values: [{ name: 'SOLSFIT', ip: ONLINE_SERVER_URL, public_key: '' }],
       }),
     );
     return;
@@ -681,7 +681,7 @@ export async function registerControlidRoutes(app: FastifyInstance) {
 
   // -------------------------------------------------------------------
   // Modo de identificacao ONLINE (ver ./online.ts). A catraca pergunta antes
-  // de liberar; quem decide e o SmartGym, pela regra de plano/pagamento.
+  // de liberar; quem decide e o SOLSFIT, pela regra de plano/pagamento.
   //
   // Rate limit proprio e mais folgado: aqui cada requisicao e uma PESSOA na
   // porta esperando a catraca destravar. Se o limite estourar, o equipamento
@@ -1732,7 +1732,7 @@ async function handleControlidPushRequest(request: FastifyRequest, reply: Fastif
   }
 }
 
-// Traduz os `user_id` reportados pela catraca em alunos do SmartGym.
+// Traduz os `user_id` reportados pela catraca em alunos do SOLSFIT.
 //
 // A busca e SEMPRE escopada pelo cliente dono da catraca (catraca -> empresa ->
 // cliente). Era exatamente esse escopo que faltava no `resolveAlunoId` removido

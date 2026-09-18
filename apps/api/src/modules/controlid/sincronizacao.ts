@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
 // Plano B: manter a catraca sabendo quem pode entrar.
 //
 // O modo online (a catraca perguntar ao servidor a cada identificacao) nao
@@ -6,7 +6,7 @@ import type { PrismaClient } from '@smartgym/db';
 // Em vez de esperar a pergunta, empurramos a resposta antes: cada usuario da
 // catraca tem uma JANELA DE VALIDADE (`users.begin_time` / `users.end_time`) que
 // o proprio equipamento respeita offline. Basta mante-la alinhada com a
-// situacao do aluno no SmartGym.
+// situacao do aluno no SOLSFIT.
 //
 // Duas propriedades que o modo online nao teria:
 //
@@ -92,7 +92,7 @@ export type ResultadoSync = {
 };
 
 /**
- * Compara a situacao dos alunos no SmartGym com as validades gravadas na
+ * Compara a situacao dos alunos no SOLSFIT com as validades gravadas na
  * catraca e enfileira apenas as DIFERENCAS.
  *
  * Escreve so o que mudou: em regime, um ciclo nao gera comando nenhum. Reescrever
@@ -201,7 +201,7 @@ export async function reconciliarAcessos(db: PrismaClient, params: {
   //
   // Ficavam de fora da reconciliacao, e um usuario sem prazo (`end_time = 0`)
   // entrava para sempre — cadastro antigo, ex-funcionario, teste esquecido: todos
-  // com acesso vitalicio que o SmartGym nao controla. Passam a ser bloqueados.
+  // com acesso vitalicio que o SOLSFIT nao controla. Passam a ser bloqueados.
   //
   // CONSEQUENCIA OPERACIONAL: quem for cadastrado direto na catraca (funcionario,
   // personal) e barrado no ciclo seguinte ate ser vinculado a um aluno pela tela

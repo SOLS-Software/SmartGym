@@ -1,4 +1,4 @@
-// Manifesto do CATÁLOGO GLOBAL — a referência que toda instalação do SmartGym
+// Manifesto do CATÁLOGO GLOBAL — a referência que toda instalação do SOLSFIT
 // precisa e que é igual em todas elas: exercícios, áreas corporais, esportes,
 // formas de pagamento, níveis, unidades, cargos.
 //

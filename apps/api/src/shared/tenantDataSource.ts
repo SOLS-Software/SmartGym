@@ -1,4 +1,4 @@
-import { PrismaClient } from '@smartgym/db';
+import { PrismaClient } from '@solsfit/db';
 import { prisma } from './prisma.js';
 import { decryptSecret } from './secrets.js';
 import { getSupabaseConfig } from './supabase.js';

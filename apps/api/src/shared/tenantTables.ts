@@ -30,7 +30,7 @@ const CONTROL_PLANE: readonly string[] = [
   'OperadorSols',
   // A RELACAO COMERCIAL entre a SOLS e o cliente: o catalogo do que vendemos e
   // o que cada um contratou. Control-plane por dois motivos, e o segundo e o
-  // que decide: (a) e dado da SOLS, nao da academia; (b) o SmartGym precisa
+  // que decide: (a) e dado da SOLS, nao da academia; (b) o SOLSFIT precisa
   // consultar "este cliente tem direito a X?" ANTES e INDEPENDENTE de abrir o
   // banco de aplicacao dele — se morasse no banco do cliente, um cliente
   // siloado poderia editar os proprios direitos.

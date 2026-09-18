@@ -1,5 +1,5 @@
 {
-  "extends": "@smartgym/config/tsconfig.base.json",
+  "extends": "@solsfit/config/tsconfig.base.json",
   "compilerOptions": {
     "paths": {
       "*": [

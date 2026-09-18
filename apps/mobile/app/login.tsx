@@ -94,7 +94,7 @@ export default function LoginScreen() {
       >
         <View style={styles.container}>
           <View style={styles.brandBlock}>
-            <Text style={[styles.brandMark, { color: t.brand }]}>SmartGym</Text>
+            <Text style={[styles.brandMark, { color: t.brand }]}>SOLSFIT</Text>
             <Text style={[styles.subtitle, { color: t.textSubtle }]}>Acesso do aluno</Text>
           </View>
 

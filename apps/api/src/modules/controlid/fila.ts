@@ -1,7 +1,7 @@
 // Fila de comandos por equipamento.
 //
 // A catraca nao aceita conexao de entrada para receber ordens: ela e quem
-// pergunta, a cada ciclo de push, se ha algo a fazer. Entao tudo que o SmartGym
+// pergunta, a cada ciclo de push, se ha algo a fazer. Entao tudo que o SOLSFIT
 // precisa mandar para o equipamento (configuracao, sincronizacao de acesso)
 // espera aqui ate o proximo `GET /controlid/push` daquele device.
 //

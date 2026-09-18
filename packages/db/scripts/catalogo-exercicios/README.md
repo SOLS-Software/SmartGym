@@ -20,7 +20,7 @@ tenant e RBAC valem também para a carga.
 
 ## Como rodar
 
-A API precisa estar no ar (`pnpm --filter @smartgym/api dev`). Use
+A API precisa estar no ar (`pnpm --filter @solsfit/api dev`). Use
 `127.0.0.1`, não `localhost`: a API escuta em `0.0.0.0` e `localhost` resolve
 para `::1`, que dá `ECONNREFUSED`.
 

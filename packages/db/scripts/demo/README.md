@@ -15,13 +15,13 @@ consulta foi medida sob carga.
 
 ```bash
 # prévia — não grava nada, só diz o que faria
-pnpm --filter @smartgym/db exec tsx scripts/demo/semear.mts
+pnpm --filter @solsfit/db exec tsx scripts/demo/semear.mts
 
 # grava
-pnpm --filter @smartgym/db exec tsx scripts/demo/semear.mts --confirmar
+pnpm --filter @solsfit/db exec tsx scripts/demo/semear.mts --confirmar
 
 # desfaz
-pnpm --filter @smartgym/db exec tsx scripts/demo/limpar.mts --confirmar
+pnpm --filter @solsfit/db exec tsx scripts/demo/limpar.mts --confirmar
 ```
 
 Os dois scripts imprimem o **host do banco alvo** antes de qualquer escrita.

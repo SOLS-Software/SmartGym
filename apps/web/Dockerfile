@@ -1,6 +1,6 @@
 # Imagem do painel web. O contexto de build e a RAIZ do repositorio:
 #
-#   docker build -f apps/web/Dockerfile -t smartgym-web .
+#   docker build -f apps/web/Dockerfile -t solsfit-web .
 #
 # No Coolify: aplicacao do tipo Dockerfile, Base Directory `/`, Dockerfile
 # Location `/apps/web/Dockerfile`.
@@ -26,7 +26,7 @@ COPY . .
 
 RUN pnpm install --frozen-lockfile
 
-RUN pnpm --filter @smartgym/web build
+RUN pnpm --filter @solsfit/web build
 
 
 FROM node:22-slim AS runner

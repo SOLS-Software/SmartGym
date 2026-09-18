@@ -1,6 +1,6 @@
 // CPF/CNPJ/email vinham reimplementados aqui e tambem no web (duas copias) —
 // regra de negocio duplicada sai de sincronia sem ninguem perceber. Agora vem de
-// @smartgym/shared; o re-export mantem os imports internos do modulo intactos.
+// @solsfit/shared; o re-export mantem os imports internos do modulo intactos.
 import {
   FAIXAS,
   LIMITES,
@@ -12,7 +12,7 @@ import {
   isValidHostname,
   isValidPersonName,
   normalizePersonName,
-} from '@smartgym/shared';
+} from '@solsfit/shared';
 
 export { isValidCnpj, isValidCpf, isValidEmail, isValidHexColor, isValidHostname };
 
@@ -179,7 +179,7 @@ export function requiredWithin(value: unknown, maxLength: number, message: strin
 }
 
 /**
- * Numero dentro da faixa declarada em FAIXAS (@smartgym/shared).
+ * Numero dentro da faixa declarada em FAIXAS (@solsfit/shared).
  *
  * `optionalNumber` devolve NaN para lixo ("abc") e nao conhece a precisao da
  * coluna: 1000 num Decimal(5,2) so falhava no banco. Aqui o valor e conferido
@@ -702,7 +702,7 @@ export function normalizeLocalidadePayload(payload: LocalidadePayload) {
 
 export function normalizeRegisterPassword(password: string | undefined) {
   const value = password ?? '';
-  // As cinco regras sairam daqui para @smartgym/shared: a tela de cadastro
+  // As cinco regras sairam daqui para @solsfit/shared: a tela de cadastro
   // reimplementava quatro delas numa checklist, o `pattern` do input cobria
   // tres, e as telas de redefinir e de trocar senha nao cobriam nenhuma. Agora
   // servidor e as tres telas leem a mesma funcao e devolvem o mesmo texto.

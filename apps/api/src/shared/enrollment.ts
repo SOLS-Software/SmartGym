@@ -9,7 +9,7 @@
 // O QUE ELA NAO DECIDE: se o aluno DEVE ser matriculado. Quem decide isso e o
 // chamador — a equipe pela ficha, ou a aprovacao de um pedido que o proprio
 // aluno abriu. Aqui e so a execucao.
-import { Prisma } from '@smartgym/db';
+import { Prisma } from '@solsfit/db';
 import { generateInitialPayments, isRecurringFrequency } from './payments.js';
 
 export type EnrollArgs = {

@@ -1,4 +1,4 @@
--- Modo online: a catraca pergunta ao SmartGym a cada identificacao e nos
+-- Modo online: a catraca pergunta ao SOLSFIT a cada identificacao e nos
 -- respondemos liberado/negado conforme plano e pagamento do aluno.
 --
 -- Duas colunas novas em tb_CatracaEventos:

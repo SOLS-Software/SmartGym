@@ -18,7 +18,7 @@ sendo o usado.
 ## O que você faz (a credencial nunca passa por mim)
 
 1. Crie a conta sandbox em `sandbox.asaas.com` e gere a chave de API.
-2. No SmartGym, **Empresa → Contas de Recebimento → Nova conta**: provedor
+2. No SOLSFIT, **Empresa → Contas de Recebimento → Nova conta**: provedor
    `Asaas`, ambiente `Sandbox`, e cole a chave no campo de credencial. Ela é
    gravada cifrada com subchave própria e **nunca volta inteira** em nenhuma
    leitura — a tela mostra só os últimos dígitos.

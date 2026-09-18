@@ -1,4 +1,4 @@
-# Auditoria adversarial da API SmartGym — 2026-09-09
+# Auditoria adversarial da API SOLSFIT — 2026-09-09
 
 Auditor: revisão AppSec + LGPD. Alvo: árvore de trabalho (não o último commit).
 Migrations `...120000_dono_de_cliente...` e `...130000_login_e_cnpj_unicos...`
@@ -119,7 +119,7 @@ Validação em runtime (API reiniciada): funcionário de perfil mínimo (`studen
 gestor-login → **403** em `/access-profiles`, `/payment-accounts`, `/employees`,
 `/reports/overview` e no `POST /access-profiles`, e **200** em `/students` (o que o perfil
 concede). Gerente legítimo (perfil "Gerente", 38 permissões) → **200** em tudo e **201** ao
-criar perfil (sem regressão). `pnpm --filter @smartgym/api test`: 314/314 passam; typecheck
+criar perfil (sem regressão). `pnpm --filter @solsfit/api test`: 314/314 passam; typecheck
 limpo. **Atenção operacional:** com esta correção todo gestor precisa ter um perfil de acesso
 que conceda o que ele deve alcançar — um "gestor" sem perfil (ou com perfil restrito) perde o
 acesso amplo que o bypass dava. Na base atual os 3 gestores reais têm o perfil "Gerente"
@@ -197,7 +197,7 @@ Validação em runtime (API reiniciada): (1) catraca fantasma nova e já existen
 "aceita SEM prova de identidade". (3) após configurar `caToken` nela: push sem token → **401**,
 com token errado → **401**, com token certo → **persisted:1**. (4) modo online: token exigido
 quando configurado (401), device desconhecido e user inexistente → negado (event 6), porta não
-abre. `pnpm --filter @smartgym/api test`: 314/314; typecheck limpo.
+abre. `pnpm --filter @solsfit/api test`: 314/314; typecheck limpo.
 
 **Refinamento pendente (menor).** O auto-registro anônimo ainda cria a linha em `tb_Catracas`
 (teto global de 50). Com A-1a a catraca fantasma virou inútil ao atacante (eventos
@@ -275,7 +275,7 @@ tenant 1 → **401** (escopo B não tem essa conta); (4) **sem domínio** + senh
 mostra a ficha do tenant certo; register sem domínio com o e-mail do tenant 3 criou a conta em
 `idCliente=3` (não na de menor id). forgot-password **confirmado por leitura** (não disparado:
 o SMTP configurado é de produção e o método proíbe envio externo real). `pnpm --filter
-@smartgym/api test`: 314/314; typecheck da API e do web limpos.
+@solsfit/api test`: 314/314; typecheck da API e do web limpos.
 
 **Nota de produto:** no web, "entrar pela página da academia X" agora **exige** ter conta na X
 — um CPF que só existe na Y não loga pelo domínio da X (é o comportamento pedido). O mobile,
@@ -325,7 +325,7 @@ regenerar o lockfile conferindo que os pins continuam. (c) Adicionar `pnpm audit
   `dependency pnpm ^11.13.0` (erro) foi removida do `package.json` raiz — `pnpm install`
   removeu 145 pacotes por causa disso.
 - **`trustProxy` (consequência do fastify 5.12 — mudança de SEGURANÇA, não só de tipo):** o
-  hop-count numérico (`TRUST_PROXY_HOPS`) que o SmartGym usava **foi desabilitado no runtime**
+  hop-count numérico (`TRUST_PROXY_HOPS`) que o SOLSFIT usava **foi desabilitado no runtime**
   pelo fastify por causa de **CVE-2026-3635 / GHSA-3m5p-2c4r-xxw2** — ele não olha o endereço
   de conexão, então um atacante que alcança a origem por fora do proxy forjava `X-Forwarded-For`
   do mesmo jeito (a defesa que o item 7 do "endurecido" dava por consolidada estava, na
@@ -334,7 +334,7 @@ regenerar o lockfile conferindo que os pins continuam. (c) Adicionar `pnpm audit
   avisa quem ainda tiver `TRUST_PROXY_HOPS` setado. `.env.example` atualizado.
 
 Resultado (`pnpm audit --prod`): **58 → 32** vulnerabilidades, **2 críticos → 0**, **apps/api
-sem nenhuma**. Validação: `pnpm --filter @smartgym/api test` 314/314; typecheck da API e do web
+sem nenhuma**. Validação: `pnpm --filter @solsfit/api test` 314/314; typecheck da API e do web
 limpos; smoke test da API com fastify 5.12 (health 200, login OK, rate limit 10/min → 429).
 
 **Rodada do mobile (2026-09-10): 32 → 4.** O Expo já estava no SDK 54 (o mais recente), então
@@ -489,7 +489,7 @@ uma, que está coberta por regra intencional — pública (allowlist exportada d
 alcançável pelo aluno (`isStudentAllowed`) ou mapeada a permissão (`requiredPermission !==
 unmapped`). Usa o app real, não uma lista curada, para enxergar rotas novas automaticamente.
 Passou verde (>200 rotas, 0 unmapped). **Plugado no CI (2026-09-10):**
-`.github/workflows/ci.yml` roda os testes da API (`pnpm --filter @smartgym/api test`,
+`.github/workflows/ci.yml` roda os testes da API (`pnpm --filter @solsfit/api test`,
 incluindo esta cobertura e a rede de tenant do M-1) e do mobile em push/PR — a
 regressão de autorização passa a quebrar o build.
 

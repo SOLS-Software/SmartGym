@@ -8,14 +8,14 @@ import {
   isValidCpf,
   isValidEmail,
   onlyDigits,
-} from '@smartgym/shared';
+} from '@solsfit/shared';
 
 // Estas funcoes existiam em ate QUATRO copias espalhadas por api/web/mobile e
-// foram unificadas em @smartgym/shared. O teste trava o comportamento das tres
+// foram unificadas em @solsfit/shared. O teste trava o comportamento das tres
 // implementacoes originais para garantir que a consolidacao nao mudou nenhuma
 // regra — em especial a validacao de CPF/CNPJ, que decide se um cadastro entra
 // ou nao no sistema.
-describe('@smartgym/shared — validadores unificados', () => {
+describe('@solsfit/shared — validadores unificados', () => {
   describe('isValidCpf', () => {
     it('aceita CPFs com digitos verificadores corretos', () => {
       expect(isValidCpf('529.982.247-25')).toBe(true);

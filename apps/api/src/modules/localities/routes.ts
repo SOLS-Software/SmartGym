@@ -1,8 +1,8 @@
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
-import type { PrismaClient } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
 import { z } from 'zod';
-import { Prisma } from '@smartgym/db';
+import { Prisma } from '@solsfit/db';
 import { normalizeLocalidadePayload, assertValidId } from '../../shared/normalize.js';
 import type { LocalidadePayload } from '../../shared/api-types.js';
 import { clientErrorMessage } from '../../shared/errors.js';
@@ -109,7 +109,7 @@ export async function registerLocalityRoutes(app: FastifyInstance) {
       url.searchParams.set('addressdetails', '0');
 
       const response = await fetch(url, {
-        headers: { 'User-Agent': 'SmartGym/1.0 (contato@smartgym.app)' },
+        headers: { 'User-Agent': 'SOLSFIT/1.0 (contato@solsfit.app)' },
         // Sem timeout, um Nominatim lento segura a conexao (e uma do pool) por
         // tempo indefinido. 8s e folgado para geocodificacao.
         signal: AbortSignal.timeout(8000),

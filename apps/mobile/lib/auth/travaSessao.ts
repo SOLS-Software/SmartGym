@@ -15,7 +15,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 export const INATIVIDADE_MS = 15 * 60 * 1000;
 
 const ULTIMA_ATIVIDADE_KEY = '@smartgym:ultima_atividade';
-const PREFERENCIA_KEY = '@smartgym:biometria_preferida';
+const PREFERENCIA_KEY = '@solsfit:biometria_preferida';
 
 // A PREFERÊNCIA sobrevive ao logout; a proteção do token, não (o token é
 // apagado). Sem guardar isso à parte, a trava se desligaria sozinha a cada

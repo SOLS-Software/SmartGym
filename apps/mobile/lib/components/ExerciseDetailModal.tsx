@@ -1,6 +1,6 @@
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { parseExerciseInstruction } from '@smartgym/shared';
+import { parseExerciseInstruction } from '@solsfit/shared';
 import { useTokens } from '../theme/tokens';
 import type { ExerciseWithCover } from '../types/training';
 

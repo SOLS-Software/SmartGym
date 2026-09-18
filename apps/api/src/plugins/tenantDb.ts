@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { PrismaClient } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
 import { prisma } from '../shared/prisma.js';
 import { getTenantDb } from '../shared/tenantDataSource.js';
 

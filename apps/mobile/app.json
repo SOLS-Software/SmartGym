@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "SmartGym",
-    "slug": "smartgym",
+    "name": "SOLSFIT",
+    "slug": "solsfit",
     "scheme": "smartgym",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -18,19 +18,19 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Permitir que o SmartGym use a camera para anexar fotos ao cadastro do aluno."
+          "cameraPermission": "Permitir que o SOLSFIT use a camera para anexar fotos ao cadastro do aluno."
         }
       ],
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Permitir que o SmartGym use o Face ID para desbloquear sua sessao."
+          "faceIDPermission": "Permitir que o SOLSFIT use o Face ID para desbloquear sua sessao."
         }
       ],
       [
         "expo-secure-store",
         {
-          "faceIDPermission": "Permitir que o SmartGym use o Face ID para proteger seus dados de acesso."
+          "faceIDPermission": "Permitir que o SOLSFIT use o Face ID para proteger seus dados de acesso."
         }
       ]
     ],

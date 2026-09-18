@@ -18,7 +18,7 @@
 // IDEMPOTENTE: se a parcela ja tem cobranca no provedor, consultamos em vez de
 // criar. Sem isto, dois toques no botao virariam duas cobrancas para o mesmo
 // mes, e o aluno pagaria a que visse primeiro.
-import type { Prisma } from '@smartgym/db';
+import type { Prisma } from '@solsfit/db';
 import { buildPixPayload, isValidPixPayload, normalizePixKey, type PixKeyType } from './pix.js';
 import { decryptSecret } from './secrets.js';
 import { decryptCpfValue } from './pii.js';

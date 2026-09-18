@@ -43,7 +43,7 @@ const employeeRelatedTables: CompanyChildTable[] = [
 ];
 
 // formatPhone (4a copia) e isValidEmail (3a) vinham redefinidos localmente.
-import { formatPhone, isValidEmail } from '@smartgym/shared';
+import { formatPhone, isValidEmail } from '@solsfit/shared';
 
 function isValidDateInput(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {

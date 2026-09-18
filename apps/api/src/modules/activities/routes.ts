@@ -1,6 +1,6 @@
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
-import type { PrismaClient } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
 import { z } from 'zod';
 import {
   assertOrdemDasDatas,
@@ -10,7 +10,7 @@ import {
   optionalNumber,
   requiredWithin,
 } from '../../shared/normalize.js';
-import { LIMITES } from '@smartgym/shared';
+import { LIMITES } from '@solsfit/shared';
 import { clientErrorMessage } from '../../shared/errors.js';
 
 // Data ISO (YYYY-MM-DD) em querystring; string vazia e tratada como ausente.

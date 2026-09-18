@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Clock, LogIn, LogOut } from 'lucide-react';
-import { LIMITES } from '@smartgym/shared';
+import { LIMITES } from '@solsfit/shared';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { useToast } from '../../shared/components/Toast';
 

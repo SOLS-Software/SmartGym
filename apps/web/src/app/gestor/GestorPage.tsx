@@ -255,7 +255,7 @@ export default function GestorPage() {
 
   if (!isLoggedIn || !session) {
     const logoUrl = clientTheme?.logoUrl;
-    const clientName = clientTheme?.dsCliente ?? 'SmartGym';
+    const clientName = clientTheme?.dsCliente ?? 'SOLSFIT';
 
     return (
       <main className="login-page">
@@ -340,7 +340,7 @@ export default function GestorPage() {
           {clientTheme?.logoUrl
             ? <img alt="Logo" src={clientTheme.logoUrl} className="h-8 object-contain rounded" />
             : <Palette size={20} />}
-          <span>{clientTheme?.dsCliente ?? 'SmartGym'} — Gestor de Tema</span>
+          <span>{clientTheme?.dsCliente ?? 'SOLSFIT'} — Gestor de Tema</span>
         </div>
         <div className="gestor-header-user">
           <span>{session.name}</span>

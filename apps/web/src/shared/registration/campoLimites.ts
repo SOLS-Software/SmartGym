@@ -1,4 +1,4 @@
-import { FAIXAS, LIMITES } from '@smartgym/shared';
+import { FAIXAS, LIMITES } from '@solsfit/shared';
 import type { CompanyChildField } from './registrationTypes';
 
 // Restricoes dos campos das tabelas filhas, derivadas da coluna.
@@ -14,7 +14,7 @@ import type { CompanyChildField } from './registrationTypes';
 // 72,4 no peso e 150,50 no valor da parcela antes mesmo do onSubmit: a
 // avaliacao fisica inteira e as telas de dinheiro nao aceitavam decimal.
 //
-// Aqui as restricoes saem de uma fonte so (@smartgym/shared), a mesma que o
+// Aqui as restricoes saem de uma fonte so (@solsfit/shared), a mesma que o
 // normalizador da API le. Cada tela passa a espalhar `limitesDoCampo(field)` no
 // input e para de decidir limite por conta propria.
 

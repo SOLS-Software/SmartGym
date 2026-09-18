@@ -17,7 +17,7 @@ import { assertValidId, optionalNumber } from '../../shared/normalize.js';
 import { clientErrorMessage } from '../../shared/errors.js';
 import { enrollStudentInPlan } from '../../shared/enrollment.js';
 import { getStatusIdByName } from '../../shared/payments.js';
-import type { Prisma } from '@smartgym/db';
+import type { Prisma } from '@solsfit/db';
 
 /**
  * Encerra a matricula antiga e cancela o que ela ainda ia cobrar dali em diante.

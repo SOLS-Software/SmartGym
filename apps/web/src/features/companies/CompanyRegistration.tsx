@@ -16,7 +16,7 @@ import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetc
 import { getSessionClienteId } from '../../shared/auth/sessionUtils';
 import { companyChildTables } from './companyChildTables';
 import { formatCnpj, getSelectedRecord, isValidCnpj } from './companyUtils';
-import { formatPhone } from '@smartgym/shared';
+import { formatPhone } from '@solsfit/shared';
 
 const companyTabIcons = {
   promotions: Tag,

@@ -2,7 +2,7 @@
 //
 // Diferenca em relacao ao push (que so coleta o historico DEPOIS): aqui a
 // catraca identifica a pessoa localmente e, antes de liberar a passagem,
-// pergunta ao SmartGym o que fazer. Nos respondemos `event: 7` (concedido) ou
+// pergunta ao SOLSFIT o que fazer. Nos respondemos `event: 7` (concedido) ou
 // `event: 6` (negado) aplicando a MESMA regra de negocio usada no resto do
 // sistema (getStudentAccessStatus: plano vigente, sem pagamento em atraso, sem
 // cancelamento). E o que permite barrar plano vencido na porta, em vez de
@@ -18,7 +18,7 @@
 //
 // Doc: https://www.controlid.com.br/docs/access-api-pt/modos-de-operacao/eventos-de-identificacao-online/
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import type { PrismaClient } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
 import { prisma } from '../../shared/prisma.js';
 import { creditCheckInPointsSafe } from '../../shared/loyalty.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';

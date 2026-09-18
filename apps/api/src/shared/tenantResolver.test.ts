@@ -18,6 +18,6 @@ describe('normalizeDomain', () => {
   });
 
   it('preserva o host ja normalizado', () => {
-    expect(normalizeDomain('academia.smartgym.com.br')).toBe('academia.smartgym.com.br');
+    expect(normalizeDomain('academia.solsfit.com.br')).toBe('academia.solsfit.com.br');
   });
 });

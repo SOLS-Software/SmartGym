@@ -1,7 +1,7 @@
 // Remove tudo que semear.mts criou.
 //
-//   pnpm --filter @smartgym/db exec tsx scripts/demo/limpar.mts             (previa)
-//   pnpm --filter @smartgym/db exec tsx scripts/demo/limpar.mts --confirmar (apaga)
+//   pnpm --filter @solsfit/db exec tsx scripts/demo/limpar.mts             (previa)
+//   pnpm --filter @solsfit/db exec tsx scripts/demo/limpar.mts --confirmar (apaga)
 //
 // A ORDEM E O QUE FAZ FUNCIONAR
 //

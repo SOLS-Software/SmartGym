@@ -17,7 +17,7 @@ WHERE e."idEventoDispositivo" IS NOT NULL
 
 -- 2) Passa a recusar novas duplicatas no banco, nao so na aplicacao.
 --    `idEventoDispositivo` NULL nao conflita (varios NULLs convivem num unique
---    do Postgres) — proposital: as decisoes tomadas pelo SmartGym no modo online
+--    do Postgres) — proposital: as decisoes tomadas pelo SOLSFIT no modo online
 --    nao tem id de log do equipamento e podem coexistir livremente.
 CREATE UNIQUE INDEX "tb_CatracaEventos_idCatraca_idEventoDispositivo_key"
   ON "tb_CatracaEventos"("idCatraca", "idEventoDispositivo");

@@ -9,7 +9,7 @@ import {
 } from '../../shared/registration/registrationHelpers';
 import type { Student, StudentFile } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
-import { formatPhone } from '@smartgym/shared';
+import { formatPhone } from '@solsfit/shared';
 
 type PixCharge = {
   codigo: string;

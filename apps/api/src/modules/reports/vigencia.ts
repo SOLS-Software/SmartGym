@@ -11,7 +11,7 @@
 // usada pelo /reports/overview, pelo ARPU do /reports/financial e pela base de
 // calculo da retencao, ela mora aqui — tres copias divergiriam no primeiro
 // ajuste e os numeros da tela parariam de fechar entre si.
-import type { Prisma } from '@smartgym/db';
+import type { Prisma } from '@solsfit/db';
 
 /**
  * Filtro de matriculas vigentes em `referencia` dentro do tenant.

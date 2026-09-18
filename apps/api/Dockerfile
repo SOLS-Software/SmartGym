@@ -1,12 +1,12 @@
 # Imagem da API. O contexto de build e a RAIZ do repositorio (workspace pnpm):
 #
-#   docker build -f apps/api/Dockerfile -t smartgym-api .
+#   docker build -f apps/api/Dockerfile -t solsfit-api .
 #
 # No Coolify: aplicacao do tipo Dockerfile, com Base Directory `/` e Dockerfile
 # Location `/apps/api/Dockerfile`.
 #
 # Por que node:22 e por que o estagio final copia o workspace inteiro:
-# o `dist/` compilado importa `@smartgym/db` e `@smartgym/shared` por nome, e o
+# o `dist/` compilado importa `@solsfit/db` e `@solsfit/shared` por nome, e o
 # campo `main` desses dois pacotes aponta para `src/index.ts` — TypeScript, nao
 # JavaScript. Quem executa isso em producao e o type stripping nativo do Node,
 # ligado por padrao a partir do 22.18. Numa imagem mais antiga, ou copiando so o
@@ -35,9 +35,9 @@ RUN pnpm install --frozen-lockfile
 
 # O `allowBuilds` do pnpm-workspace.yaml bloqueia o postinstall do prisma, entao
 # o client nao e gerado sozinho no install. O CI faz exatamente este passo.
-RUN pnpm --filter @smartgym/db db:generate
+RUN pnpm --filter @solsfit/db db:generate
 
-RUN pnpm --filter @smartgym/api build
+RUN pnpm --filter @solsfit/api build
 
 
 FROM node:22-slim AS runner

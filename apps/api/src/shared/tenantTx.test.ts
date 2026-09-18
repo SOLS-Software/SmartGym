@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { PrismaClient } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
 import {
   CENTRAL_OWNER,
   currentTxOwner,

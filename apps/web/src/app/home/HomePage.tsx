@@ -3,7 +3,7 @@
 import type { FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatCpf, formatDateInput, isImageFile, isValidCpf } from '../../shared/registration/registrationHelpers';
-import { REGRAS_SENHA, SENHA_MAX, SENHA_MIN } from '@smartgym/shared';
+import { REGRAS_SENHA, SENHA_MAX, SENHA_MIN } from '@solsfit/shared';
 import type { RegisterLookupRecord } from '../../shared/registration/registrationTypes';
 import { PlanRegistration } from '../../features/plans/PlanRegistration';
 import { StudentPlansView } from '../../features/plans/StudentPlansView';
@@ -1523,7 +1523,7 @@ export default function HomePage() {
               : 'SG'}
           </div>
           <div>
-            <p className="eyebrow">{companyTheme?.dsCliente ?? 'SmartGym'}</p>
+            <p className="eyebrow">{companyTheme?.dsCliente ?? 'SOLSFIT'}</p>
             <h1 id="login-title">
               {loginMode === 'login'
                 ? 'Entrar na sua conta'

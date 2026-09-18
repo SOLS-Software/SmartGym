@@ -19,7 +19,7 @@
 // RBAC: `/students/...` cai em `students` (ver plugins/permissions.ts), entao
 // trancar exige `students.write` — e trabalho de matricula, como deve ser.
 import type { FastifyInstance } from 'fastify';
-import type { PrismaClient } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { clientErrorMessage } from '../../shared/errors.js';

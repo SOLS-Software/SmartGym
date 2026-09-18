@@ -1,5 +1,5 @@
 {
-  "name": "@smartgym/shared",
+  "name": "@solsfit/shared",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -14,7 +14,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@smartgym/config": "workspace:*",
+    "@solsfit/config": "workspace:*",
     "typescript": "^5.7.2"
   }
 }

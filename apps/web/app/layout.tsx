@@ -4,7 +4,7 @@ import { GlobalValidation } from '../src/shared/components/GlobalValidation';
 import { Providers } from '../src/shared/components/Providers';
 
 export const metadata: Metadata = {
-  title: 'SmartGym',
+  title: 'SOLSFIT',
   description: 'Gestão inteligente para academias.',
 };
 

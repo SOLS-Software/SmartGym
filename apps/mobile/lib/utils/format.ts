@@ -2,7 +2,7 @@
 //
 // Isto era a QUARTA cópia de onlyDigits/formatCpf/isValidCpf/formatPhone/
 // isImageFile e a QUINTA implementação das regras de senha. O pacote
-// @smartgym/shared existe justamente para isso, já é dependência do mobile e já
+// @solsfit/shared existe justamente para isso, já é dependência do mobile e já
 // funciona aqui (lib/components/ExerciseDetailModal.tsx importa dele) — a cópia
 // não tinha impedimento técnico, só inércia.
 //
@@ -28,11 +28,11 @@ export {
   isValidPersonName,
   normalizePersonName,
   onlyDigits,
-} from '@smartgym/shared';
+} from '@solsfit/shared';
 
-import { erroDaSenha } from '@smartgym/shared';
+import { erroDaSenha } from '@solsfit/shared';
 
-export { LIMITES, REGRAS_SENHA, SENHA_MAX, SENHA_MIN } from '@smartgym/shared';
+export { LIMITES, REGRAS_SENHA, SENHA_MAX, SENHA_MIN } from '@solsfit/shared';
 
 /**
  * Mensagem da primeira regra de senha violada, ou '' quando a senha serve.

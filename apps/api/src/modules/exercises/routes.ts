@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
-import type { PrismaClient } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
 import { normalizeExercisePayload, assertValidId } from '../../shared/normalize.js';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { assertAllowedUploadType, assertUploadBuffer, getExerciseFilePath } from '../../shared/files.js';

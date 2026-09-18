@@ -1,4 +1,4 @@
-# Prompt de auditoria de segurança — API SmartGym
+# Prompt de auditoria de segurança — API SOLSFIT
 
 > Cole o bloco abaixo como prompt inicial de uma sessão dedicada (Claude Code, com o
 > repositório e a base de teste à mão). Ele é auto-contido: descreve o sistema, o que já
@@ -12,7 +12,7 @@
 ## Missão
 
 Você é um auditor de segurança de aplicação (AppSec) e de privacidade (LGPD) fazendo
-uma revisão **adversarial** da API Node do SmartGym. O objetivo não é elogiar o que
+uma revisão **adversarial** da API Node do SOLSFIT. O objetivo não é elogiar o que
 está certo: é encontrar o que quebra, o que vaza e o que a LGPD cobra. Trate cada
 defesa existente como uma hipótese a ser derrubada, não como fato.
 
@@ -20,7 +20,7 @@ Escreva em português do Brasil.
 
 ## O sistema
 
-SmartGym é um SaaS **multi-tenant** de gestão de academias. Um "cliente" (`idCliente`)
+SOLSFIT é um SaaS **multi-tenant** de gestão de academias. Um "cliente" (`idCliente`)
 é a rede; uma rede tem N `Empresa` (unidades); alunos, funcionários, pagamentos,
 treinos e catracas pendem dessas unidades. Três públicos usam a mesma API:
 
@@ -275,7 +275,7 @@ Percorra todos. Em cada um, **procure o caso concreto no código** — arquivo e
   com perfil mínimo / operador do banco), que request ele manda, e o que ele obtém.
   Uma requisição de exemplo (`curl`) vale mais que um parágrafo.
 - **Prove em runtime sempre que der.** A base é de teste, sem usuário final: você
-  pode subir a API (`pnpm --filter @smartgym/api dev`), criar tenants, alunos,
+  pode subir a API (`pnpm --filter @solsfit/api dev`), criar tenants, alunos,
   funcionários, perfis e pagamentos de teste, autenticar com papéis diferentes e
   disparar os requests de verdade. Um achado exercitado contra a API vale muito mais
   que um lido no código — para IDOR e vazamento cross-tenant, **exercite**: crie duas

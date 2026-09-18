@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
 import { clientErrorMessage } from '../../shared/errors.js';
-import { LIMITES } from '@smartgym/shared';
+import { LIMITES } from '@solsfit/shared';
 
 type RolePayload = {
   dsCargo?: string;

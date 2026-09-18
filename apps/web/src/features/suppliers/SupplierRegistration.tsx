@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatCep, onlyDigits, paginateItems } from '../../shared/registration/registrationHelpers';
-import { LIMITES, formatCnpj, formatPhone, isValidCnpj, isValidEmail } from '@smartgym/shared';
+import { LIMITES, formatCnpj, formatPhone, isValidCnpj, isValidEmail } from '@solsfit/shared';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';

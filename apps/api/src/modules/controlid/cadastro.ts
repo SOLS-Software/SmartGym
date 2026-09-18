@@ -1,9 +1,9 @@
-import type { PrismaClient } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
 // Cadastro de digital pelo painel web — sem app desktop e sem estar na rede da
 // catraca.
 //
 // Isto e possivel porque o canal de push nao e um canal de "coletar log": e um
-// RPC generico para dentro do equipamento. O SmartGym enfileira
+// RPC generico para dentro do equipamento. O SOLSFIT enfileira
 // {endpoint, body}, a catraca executa contra a PROPRIA API local e devolve o
 // resultado em /controlid/result (ver o comentario do handler de push em
 // routes.ts). O bootstrap do modo online ja usava isso para CRIAR objetos no
@@ -160,7 +160,7 @@ export function sessaoAtiva(deviceId: string): boolean {
 }
 
 /**
- * Encerra a espera do SmartGym.
+ * Encerra a espera do SOLSFIT.
  *
  * NAO tira a catraca do modo de captura: o comando ja foi entregue e quem sai
  * dele e o proprio equipamento, pelo timeout interno dele. Cancelar aqui
@@ -193,7 +193,7 @@ function comandoDeCriacaoDeUsuario(idAluno: number, nmAluno: string): ComandoCon
         // O firmware trunca nomes longos silenciosamente; cortamos aqui para
         // que o nome no equipamento seja o mesmo que a tela mostrou.
         name: nmAluno.slice(0, 60),
-        // Matricula no equipamento = id do aluno no SmartGym. Quem abrir a tela
+        // Matricula no equipamento = id do aluno no SOLSFIT. Quem abrir a tela
         // da catraca consegue voltar ao cadastro certo sem adivinhar por nome.
         registration: String(idAluno),
         begin_time: 0,
@@ -348,7 +348,7 @@ export async function processarRespostaDeCadastro(
     } catch {
       return falhar(
         sessao,
-        `Usuario ${idCriado} criado na catraca, mas este numero ja esta vinculado a outro aluno no SmartGym. Desfaca o vinculo antigo e cadastre de novo.`,
+        `Usuario ${idCriado} criado na catraca, mas este numero ja esta vinculado a outro aluno no SOLSFIT. Desfaca o vinculo antigo e cadastre de novo.`,
       );
     }
 

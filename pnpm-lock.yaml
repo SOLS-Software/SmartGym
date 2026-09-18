@@ -61,10 +61,10 @@ importers:
       '@fastify/rate-limit':
         specifier: ^11.1.0
         version: 11.1.0
-      '@smartgym/db':
+      '@solsfit/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@smartgym/shared':
+      '@solsfit/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@supabase/supabase-js':
@@ -92,7 +92,7 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
-      '@smartgym/config':
+      '@solsfit/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@types/bcryptjs':
@@ -122,7 +122,7 @@ importers:
       '@react-native-async-storage/async-storage':
         specifier: ~2.2.0
         version: 2.2.0(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.85.2(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))
-      '@smartgym/shared':
+      '@solsfit/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       expo:
@@ -177,7 +177,7 @@ importers:
       '@babel/core':
         specifier: '>=7.29.6 <8.0.0'
         version: 7.29.7
-      '@smartgym/config':
+      '@solsfit/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@testing-library/react-native':
@@ -207,7 +207,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@smartgym/shared':
+      '@solsfit/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@tailwindcss/postcss':
@@ -235,7 +235,7 @@ importers:
         specifier: ^4.3.0
         version: 4.3.0
     devDependencies:
-      '@smartgym/config':
+      '@solsfit/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@types/leaflet':
@@ -262,7 +262,7 @@ importers:
         specifier: ^6.1.0
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
     devDependencies:
-      '@smartgym/config':
+      '@solsfit/config':
         specifier: workspace:*
         version: link:../config
       prisma:
@@ -281,7 +281,7 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
     devDependencies:
-      '@smartgym/config':
+      '@solsfit/config':
         specifier: workspace:*
         version: link:../config
       typescript:

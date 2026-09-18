@@ -12,7 +12,7 @@ import {
   requiredWithin,
   getMultipartFieldValue,
 } from '../../shared/normalize.js';
-import { LIMITES, isValidCnpj, isValidHostname, onlyDigits } from '@smartgym/shared';
+import { LIMITES, isValidCnpj, isValidHostname, onlyDigits } from '@solsfit/shared';
 import { getClientSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { assertAllowedUploadType, assertUploadBuffer, getClientFilePath } from '../../shared/files.js';
 import { clientErrorMessage } from '../../shared/errors.js';

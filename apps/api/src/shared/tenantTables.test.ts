@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Prisma } from '@smartgym/db';
+import { Prisma } from '@solsfit/db';
 import { TABLE_TIERS, tierOf, tenantAppModels } from './tenantTables.js';
 
 // Cobertura de classificacao de tenancy (multi-tenancy de dados). Toda tabela

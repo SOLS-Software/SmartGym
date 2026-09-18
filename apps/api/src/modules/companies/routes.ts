@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { Prisma } from '@smartgym/db';
+import { Prisma } from '@solsfit/db';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
-import type { PrismaClient } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
 import { prisma } from '../../shared/prisma.js';
 import {
   normalizeCompanyPayload,
@@ -18,7 +18,7 @@ import {
   trimmedWithin,
   getMultipartFieldValue,
 } from '../../shared/normalize.js';
-import { LIMITES } from '@smartgym/shared';
+import { LIMITES } from '@solsfit/shared';
 import { getSupabaseConfig, getSupabaseClient } from '../../shared/supabase.js';
 import { getStudentAccessStatus } from '../../shared/studentAccess.js';
 import { assertAllowedUploadType, assertUploadBuffer, getCompanyFilePath, getPromotionFilePath } from '../../shared/files.js';
@@ -1128,7 +1128,7 @@ export async function registerCompanyRoutes(app: FastifyInstance) {
       //    entao cor ausente gravava '' em vez do padrao. A copia do cliente
       //    usava `|| '#000000'`, que funciona.
       //
-      // As duas copias passam a chamar os mesmos helpers de @smartgym/shared.
+      // As duas copias passam a chamar os mesmos helpers de @solsfit/shared.
       const data = {
         corPrimaria: corDoTema(b.corPrimaria, '#000000', 'A cor primaria'),
         corSecundaria: corDoTema(b.corSecundaria, '#FFFFFF', 'A cor secundaria'),

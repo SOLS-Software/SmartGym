@@ -1,5 +1,5 @@
 {
-  "name": "@smartgym/mobile",
+  "name": "@solsfit/mobile",
   "private": true,
   "version": "0.1.0",
   "main": "expo-router/entry",
@@ -20,13 +20,13 @@
     ],
     "testTimeout": 20000,
     "transformIgnorePatterns": [
-      "node_modules/(?!(?:jest-)?react-native|@react-native|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|@smartgym/.*)"
+      "node_modules/(?!(?:jest-)?react-native|@react-native|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|@solsfit/.*)"
     ]
   },
   "dependencies": {
     "@expo/metro-runtime": "^6.1.2",
     "@react-native-async-storage/async-storage": "~2.2.0",
-    "@smartgym/shared": "workspace:*",
+    "@solsfit/shared": "workspace:*",
     "expo": "^54.0.0",
     "expo-camera": "~17.0.10",
     "expo-clipboard": "~8.0.8",
@@ -46,7 +46,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",
-    "@smartgym/config": "workspace:*",
+    "@solsfit/config": "workspace:*",
     "@testing-library/react-native": "^14.0.1",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.1.0",

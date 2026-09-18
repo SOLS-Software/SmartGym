@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from '@smartgym/db';
+import { PrismaClient, Prisma } from '@solsfit/db';
 import { CENTRAL_OWNER, guardTransactions } from './tenantTx.js';
 
 // Neon (serverless Postgres) closes idle connections, which surfaces as a

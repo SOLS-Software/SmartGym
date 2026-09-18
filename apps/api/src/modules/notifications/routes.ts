@@ -57,7 +57,7 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
         where: { id: idCliente },
         select: { dsCliente: true },
       });
-      const nomeAcademia = cliente?.dsCliente ?? 'SmartGym';
+      const nomeAcademia = cliente?.dsCliente ?? 'SOLSFIT';
 
       const alunos = await request.tenantDb.aluno.findMany({
         where: { idCliente, boInativo: false },

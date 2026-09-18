@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import type { PrismaClient } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
 import { prisma } from '../../shared/prisma.js';
 import {
   normalizeStudentPayload,

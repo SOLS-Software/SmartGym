@@ -1,5 +1,5 @@
 {
-  "name": "@smartgym/web",
+  "name": "@solsfit/web",
   "private": true,
   "version": "0.1.0",
   "scripts": {
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@smartgym/shared": "workspace:*",
+    "@solsfit/shared": "workspace:*",
     "@tailwindcss/postcss": "^4.3.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.16.0",
@@ -21,7 +21,7 @@
     "tailwindcss": "^4.3.0"
   },
   "devDependencies": {
-    "@smartgym/config": "workspace:*",
+    "@solsfit/config": "workspace:*",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^22.10.2",
     "@types/react": "19.1.17",

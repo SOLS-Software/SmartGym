@@ -15,7 +15,7 @@ export function hashPassword(password: string) {
 // resposta do login quando o usuario NAO existe: sem isso, uma conta
 // inexistente responde mais rapido (sem bcrypt) que uma senha errada de conta
 // existente, criando um oraculo de enumeracao por timing. Computado uma vez.
-const DUMMY_HASH = bcrypt.hashSync('smartgym-timing-equalizer', BCRYPT_ROUNDS);
+const DUMMY_HASH = bcrypt.hashSync('solsfit-timing-equalizer', BCRYPT_ROUNDS);
 
 export async function dummyVerify(password: string): Promise<void> {
   try {

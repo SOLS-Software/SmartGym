@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 
-const STORAGE_KEY = '@smartgym:client_id';
+const STORAGE_KEY = '@solsfit:client_id';
 
 export function useCurrentClient() {
   const [clientId, setClientId] = useState<number | null>(null);

@@ -1,7 +1,7 @@
 // Gera dados de demonstracao para os paineis (aba Dashboards e Relatorios).
 //
-//   pnpm --filter @smartgym/db exec tsx scripts/demo/semear.mts            (previa)
-//   pnpm --filter @smartgym/db exec tsx scripts/demo/semear.mts --confirmar (grava)
+//   pnpm --filter @solsfit/db exec tsx scripts/demo/semear.mts            (previa)
+//   pnpm --filter @solsfit/db exec tsx scripts/demo/semear.mts --confirmar (grava)
 //
 // Sem `--confirmar` o script so imprime o que faria. Escrever milhares de
 // linhas num banco compartilhado por engano de tecla e barato demais.

@@ -1,6 +1,6 @@
 # Integração com catraca Control iD
 
-Estado da integração do SmartGym com o equipamento Control iD instalado.
+Estado da integração do SOLSFIT com o equipamento Control iD instalado.
 
 ## Equipamento
 
@@ -15,7 +15,7 @@ Estado da integração do SmartGym com o equipamento Control iD instalado.
 | Hostname | `CID-0G0200-005B6D` |
 | Motor biométrico | Innovatrics (até 6000 registros) |
 | Licença (`system_information`) | `users: 200000`, **`device: 0`, `type: 0`** |
-| Servidor (API SmartGym) | `192.168.15.12:3333` |
+| Servidor (API SOLSFIT) | `192.168.15.12:3333` |
 | Período de push configurado | 5s |
 
 ## O que funciona (validado com o equipamento real)
@@ -36,7 +36,7 @@ Também validados: conversão de fuso do horário do equipamento
 ## Bloqueio por plano e pagamento: sincronização de validade
 
 **Este é o mecanismo em produção.** Como o modo online não engata neste firmware
-(seção seguinte), o bloqueio não depende de a catraca perguntar: o SmartGym
+(seção seguinte), o bloqueio não depende de a catraca perguntar: o SOLSFIT
 mantém, dentro do equipamento, a janela de validade de cada aluno
 (`users.begin_time` / `users.end_time`), que a catraca respeita sozinha.
 
@@ -173,7 +173,7 @@ CONTROLID_ENROLL_SYNC             = false   true = remote_enroll bloqueante
 
 ## O que NÃO funciona: modo online
 
-**Objetivo:** a catraca perguntar ao SmartGym a cada identificação
+**Objetivo:** a catraca perguntar ao SOLSFIT a cada identificação
 (`POST /new_user_identified.fcgi`) e receber `event: 7` (libera) ou `6` (nega)
 conforme plano e pagamento do aluno — hoje ela decide sozinha pela regra local
 e um aluno inadimplente entra normalmente.
@@ -198,7 +198,7 @@ O `server_id` referencia um objeto `devices` criado no próprio equipamento:
 
 ```json
 {"object": "devices",
- "values": [{"name": "SmartGym", "ip": "http://192.168.15.12:3333/controlid", "public_key": ""}]}
+ "values": [{"name": "SOLSFIT", "ip": "http://192.168.15.12:3333/controlid", "public_key": ""}]}
 ```
 
 ### Tentativas já feitas
@@ -292,7 +292,7 @@ consultar o servidor a cada identificação?** Especificamente:
 ## Diagnóstico rápido
 
 ```bash
-pnpm --filter @smartgym/db exec tsx --env-file=.env scripts/catraca-status.ts
+pnpm --filter @solsfit/db exec tsx --env-file=.env scripts/catraca-status.ts
 ```
 
 Mostra catracas cadastradas, há quanto tempo cada uma falou com a API e os

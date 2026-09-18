@@ -3,7 +3,7 @@
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { KeyRound } from 'lucide-react';
-import { REGRAS_SENHA, SENHA_MAX, SENHA_MIN, erroDaSenha } from '@smartgym/shared';
+import { REGRAS_SENHA, SENHA_MAX, SENHA_MIN, erroDaSenha } from '@solsfit/shared';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { useToast } from '../../shared/components/Toast';

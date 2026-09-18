@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Plus, Save, Trash2, Upload } from 'lucide-react';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { GridPagination, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
-import { LIMITES, isValidHexColor, isValidHostname } from '@smartgym/shared';
+import { LIMITES, isValidHexColor, isValidHostname } from '@solsfit/shared';
 
 type CompanyFile = { id: number; dsArquivo: string; anCaminho: string };
 

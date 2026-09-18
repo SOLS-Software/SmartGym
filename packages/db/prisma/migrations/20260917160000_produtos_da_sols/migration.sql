@@ -20,14 +20,14 @@
 -- academia nao ter contratado catraca.
 --
 -- CONTROL-PLANE, e o motivo importa
--- Alem de ser dado da SOLS e nao da academia, o SmartGym precisa consultar os
+-- Alem de ser dado da SOLS e nao da academia, o SOLSFIT precisa consultar os
 -- direitos ANTES e INDEPENDENTE de abrir o banco de aplicacao do cliente. Se
 -- estas tabelas morassem no banco dele, um cliente siloado teria acesso de
 -- escrita aos proprios direitos.
 
 CREATE TABLE "tb_ProdutosSols" (
     "id" SERIAL NOT NULL,
-    -- CHAVE ESTAVEL: e o contrato entre os dois sistemas. O SmartGym pergunta
+    -- CHAVE ESTAVEL: e o contrato entre os dois sistemas. O SOLSFIT pergunta
     -- "tem direito a 'catraca'?", nunca "qual produto assinou?". Assim
     -- renomear o produto comercial nao quebra o produto de software.
     "caCodigo" VARCHAR(40) NOT NULL,

@@ -1,6 +1,6 @@
 import { toBool } from '../../shared/normalize.js';
 import type { FastifyInstance } from 'fastify';
-import type { PrismaClient } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
 import { z } from 'zod';
 import { assertValidId, getMultipartFieldValue, normalizeProductPayload } from '../../shared/normalize.js';
 import { assertAllowedUploadType, assertUploadBuffer, getProductFilePath } from '../../shared/files.js';

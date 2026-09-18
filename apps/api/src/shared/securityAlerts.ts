@@ -78,7 +78,7 @@ export function notifyOnAuditEvent(ev: AuditEvent, log: DeviceLogger): void {
         });
         if (n >= limiar && podeAlertar(`bruteforce:${ip}`)) {
           await enviarEmail(
-            '[SmartGym] Possivel brute force de login',
+            '[SOLSFIT] Possivel brute force de login',
             `O IP ${ip} acumulou ${n} falhas de login em ${JANELA_BRUTE_FORCE_MIN} minutos ` +
               `(limiar ${limiar}). Verifique /reports/security-signals.`,
             log,
@@ -95,7 +95,7 @@ export function notifyOnAuditEvent(ev: AuditEvent, log: DeviceLogger): void {
     const alvo = ev.idUsuario ?? ev.anIp ?? 'desconhecido';
     if (podeAlertar(`revogada:${alvo}`)) {
       void enviarEmail(
-        '[SmartGym] Uso de sessao revogada',
+        '[SOLSFIT] Uso de sessao revogada',
         `Uso de token invalido/revogado (${ev.dsResultado}): usuario ${ev.idUsuario ?? '-'}, ` +
           `IP ${ev.anIp ?? '-'}, rota ${ev.dsRota}. Pode ser um token vazado tentando reentrar.`,
         log,

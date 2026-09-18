@@ -2,7 +2,7 @@
 
 import { Suspense, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { REGRAS_SENHA, SENHA_MAX, SENHA_MIN, erroDaSenha } from '@smartgym/shared';
+import { REGRAS_SENHA, SENHA_MAX, SENHA_MIN, erroDaSenha } from '@solsfit/shared';
 import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
 
 function ResetPasswordForm() {
@@ -68,7 +68,7 @@ function ResetPasswordForm() {
         <div className="brand">
           <div className="logo" aria-hidden="true">SG</div>
           <div>
-            <p className="eyebrow">SmartGym</p>
+            <p className="eyebrow">SOLSFIT</p>
             <h1 id="reset-title">Redefinir senha</h1>
           </div>
         </div>

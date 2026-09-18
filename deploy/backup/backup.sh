@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Backup diario dos DOIS bancos do SmartGym para o Cloudflare R2.
+# Backup diario dos DOIS bancos do SOLSFIT para o Cloudflare R2.
 #
 # Por que dois: o Neon guarda o sistema; o Postgres do CompreFace guarda os
 # rostos cadastrados. Perder o segundo nao perde nenhum dado de negocio, mas
@@ -28,7 +28,7 @@
 #
 #   3. Agende. No Coolify, um "Scheduled Task" diario chamando este arquivo, ou
 #      um cron do sistema:
-#        0 3 * * * /opt/smartgym/backup.sh >> /var/log/smartgym-backup.log 2>&1
+#        0 3 * * * /opt/solsfit/backup.sh >> /var/log/solsfit-backup.log 2>&1
 #
 #   4. UMA VEZ POR MES, restaure o dump mais recente num banco descartavel.
 #      Backup nunca restaurado nao e backup — e um arquivo.

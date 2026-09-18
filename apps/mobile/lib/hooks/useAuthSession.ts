@@ -4,7 +4,7 @@ import { apiUrl, authFetch, sessaoTrancada, setAuthToken } from '../api/client';
 import { desregistrarPush, registrarPush } from '../push/registrarPush';
 import type { AuthenticatedUser } from '../types/auth';
 
-const STORAGE_KEY = '@smartgym:auth_user';
+const STORAGE_KEY = '@solsfit:auth_user';
 
 // Persiste o AuthenticatedUser completo (inclui idAluno) e revalida via /auth/verify
 // no boot. Espelha o padrão do web (sessionUtils), sem a camada de criptografia.

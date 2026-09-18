@@ -1,6 +1,6 @@
-# SmartGym
+# SOLSFIT
 
-Monorepo para o SmartGym com API em Node.js/TypeScript, web em Next.js, mobile em Expo e banco com Prisma.
+Monorepo para o SOLSFIT com API em Node.js/TypeScript, web em Next.js, mobile em Expo e banco com Prisma.
 
 ## Estrutura
 
@@ -49,7 +49,7 @@ Crie um banco PostgreSQL em um provedor como Supabase, Neon ou Railway. Depois c
 Exemplo:
 
 ```env
-DATABASE_URL="postgresql://usuario:senha@host:5432/smartgym?schema=public"
+DATABASE_URL="postgresql://usuario:senha@host:5432/solsfit?schema=public"
 ```
 
 Depois rode:

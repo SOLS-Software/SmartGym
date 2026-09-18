@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, CreditCard, FileText, Receipt, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatCep, formatChildCell, formatChildSearchValue, formatCpf, formatDateInput, formatDddPhone, getLookupLabel, isImageFile, isValidCpf, joinDddPhone, onlyDigits, paginateItems, splitDddPhone } from '../../shared/registration/registrationHelpers';
-import { LIMITES } from '@smartgym/shared';
+import { LIMITES } from '@solsfit/shared';
 import { limitesDoCampo } from '../../shared/registration/campoLimites';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { RegistrationField } from '../../shared/registration/RegistrationField';

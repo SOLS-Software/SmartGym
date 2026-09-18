@@ -1,9 +1,9 @@
-// formatPhone era a 3a de quatro copias identicas. Vem de @smartgym/shared.
+// formatPhone era a 3a de quatro copias identicas. Vem de @solsfit/shared.
 // A regra de nome e a mensagem dela chegaram em duas copias identicas — esta e
-// a do mobile (lib/utils/format.ts). Passaram para @smartgym/shared, que ja e a
+// a do mobile (lib/utils/format.ts). Passaram para @solsfit/shared, que ja e a
 // casa de isValidCpf e das regras de senha: uma edicao muda o texto nas duas
 // telas e no servidor.
-export { formatPhone, getStudentNameError, normalizePersonName } from '@smartgym/shared';
+export { formatPhone, getStudentNameError, normalizePersonName } from '@solsfit/shared';
 
 export function toApiDate(value: string) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {

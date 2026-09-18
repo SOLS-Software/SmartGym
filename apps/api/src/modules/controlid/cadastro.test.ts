@@ -11,7 +11,7 @@
 // tenant a funcao recebe o client como 1o parametro (antes alcancava o
 // singleton por fora), entao o duble entra pela porta da frente.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PrismaClient } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
 
 const { alunoUpdate } = vi.hoisted(() => ({ alunoUpdate: vi.fn() }));
 
@@ -61,7 +61,7 @@ describe('cadastro de digital pelo painel', () => {
 
     const valores = (comando?.body.values as Record<string, unknown>[])[0] ?? {};
     expect(valores.name).toBe('Ana');
-    // Matricula no equipamento = id do aluno no SmartGym.
+    // Matricula no equipamento = id do aluno no SOLSFIT.
     expect(valores.registration).toBe('10');
     expect(valores.begin_time).toBe(0);
     // Validade ja encerrada: um inadimplente cadastrado agora nao passa antes do

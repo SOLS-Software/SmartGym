@@ -18,7 +18,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['@smartgym/shared'],
+  transpilePackages: ['@solsfit/shared'],
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },

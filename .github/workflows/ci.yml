@@ -49,7 +49,7 @@ jobs:
       - name: Gerar Prisma Client
         # O `allowBuilds` do pnpm-workspace.yaml impede o postinstall do prisma,
         # entao geramos o client explicitamente (sem DB — le so o schema).
-        run: pnpm --filter @smartgym/db db:generate
+        run: pnpm --filter @solsfit/db db:generate
 
       - name: Typecheck
         # `pnpm -r` (nao `turbo`) roda o tsc de cada pacote via pnpm direto,
@@ -57,10 +57,10 @@ jobs:
         run: pnpm -r run typecheck
 
       - name: Testes da API (vitest)
-        run: pnpm --filter @smartgym/api test
+        run: pnpm --filter @solsfit/api test
 
       - name: Testes do mobile (jest)
-        run: pnpm --filter @smartgym/mobile test
+        run: pnpm --filter @solsfit/mobile test
 
       - name: Auditoria de dependencias
         # Falha em qualquer vulnerabilidade NOVA high/critical nas deps de

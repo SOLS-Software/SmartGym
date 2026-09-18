@@ -415,9 +415,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         await transporter.sendMail({
           from: process.env.SMTP_FROM,
           to: email,
-          subject: 'Redefinicao de senha - SmartGym',
-          text: `Recebemos um pedido de redefinicao de senha da sua conta SmartGym. Acesse o link para criar uma nova senha (valido por 1 hora): ${resetUrl}\n\nSe voce nao solicitou, ignore este email — nenhuma acao foi tomada.`,
-          html: `<p>Recebemos um pedido de redefinicao de senha da sua conta SmartGym.</p><p><a href="${resetUrl}">Clique aqui para criar uma nova senha</a> (link valido por 1 hora).</p><p>Se voce nao solicitou, ignore este email — nenhuma acao foi tomada.</p>`,
+          subject: 'Redefinicao de senha - SOLSFIT',
+          text: `Recebemos um pedido de redefinicao de senha da sua conta SOLSFIT. Acesse o link para criar uma nova senha (valido por 1 hora): ${resetUrl}\n\nSe voce nao solicitou, ignore este email — nenhuma acao foi tomada.`,
+          html: `<p>Recebemos um pedido de redefinicao de senha da sua conta SOLSFIT.</p><p><a href="${resetUrl}">Clique aqui para criar uma nova senha</a> (link valido por 1 hora).</p><p>Se voce nao solicitou, ignore este email — nenhuma acao foi tomada.</p>`,
         });
       }
 

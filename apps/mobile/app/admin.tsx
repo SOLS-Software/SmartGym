@@ -479,7 +479,7 @@ function CompanyRegistration() {
       <Text style={styles.sectionLabel}>Empresa</Text>
       <Text style={styles.formTitle}>Cadastro de Empresa</Text>
       <Text style={styles.formDescription}>
-        Cadastre e gerencie as empresas que usam a plataforma SmartGym.
+        Cadastre e gerencie as empresas que usam a plataforma SOLSFIT.
       </Text>
 
       <View style={styles.productGridSection}>
@@ -553,7 +553,7 @@ function CompanyRegistration() {
 
         {/* Sem mascara e sem conferencia do digito verificador, o CNPJ so era
             recusado pela API depois do envio — enquanto o web ja validava na
-            digitacao. Mesma funcao dos dois lados (@smartgym/shared). */}
+            digitacao. Mesma funcao dos dois lados (@solsfit/shared). */}
         <Text style={styles.label}>CNPJ</Text>
         <TextInput
           editable={isFormEnabled}
@@ -2612,7 +2612,7 @@ export default function HomeScreen() {
           <View style={[styles.logo, { backgroundColor: primary, borderRadius: r }]}>
             <Text style={styles.logoText}>SG</Text>
           </View>
-          <Text style={[styles.sectionLabel, { color: primary }]}>SmartGym</Text>
+          <Text style={[styles.sectionLabel, { color: primary }]}>SOLSFIT</Text>
           <Text style={styles.selectedTitle}>Painel principal</Text>
           <Text style={styles.selectedText}>
             Acompanhe os módulos da academia e acesse os cadastros pela barra
@@ -2640,14 +2640,14 @@ export default function HomeScreen() {
           <Text style={[styles.sectionLabel, { color: primary }]}>Empresa</Text>
           <Text style={styles.selectedTitle}>Academia Cliente</Text>
           <Text style={styles.selectedText}>
-            Informações principais da empresa ativa na plataforma SmartGym.
+            Informações principais da empresa ativa na plataforma SOLSFIT.
           </Text>
 
           <View style={styles.summaryCard}>
             <Text style={styles.label}>Nome</Text>
             <Text style={styles.selectLikeText}>Academia Cliente</Text>
             <Text style={styles.label}>Tema</Text>
-            <Text style={styles.selectLikeText}>Padrao SmartGym</Text>
+            <Text style={styles.selectLikeText}>Padrao SOLSFIT</Text>
           </View>
         </ScrollView>
       );
@@ -2934,7 +2934,7 @@ export default function HomeScreen() {
               <Text style={styles.logoText}>SG</Text>
             </View>
             <View>
-              <Text style={[styles.eyebrow, { color: primary }]}>SmartGym</Text>
+              <Text style={[styles.eyebrow, { color: primary }]}>SOLSFIT</Text>
               <Text style={styles.title}>Sua conta</Text>
             </View>
           </View>
@@ -2974,7 +2974,7 @@ export default function HomeScreen() {
                 <Text style={styles.logoText}>SG</Text>
               </View>
               <View>
-                <Text style={[styles.eyebrow, { color: primary }]}>SmartGym</Text>
+                <Text style={[styles.eyebrow, { color: primary }]}>SOLSFIT</Text>
                 <Text style={styles.title}>
                   {loginMode === 'login'
                     ? 'Entrar na sua conta'

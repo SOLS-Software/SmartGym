@@ -7,7 +7,7 @@ import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetc
 import { GridPagination, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import { formatCnpj, isValidCnpj } from '../companies/companyUtils';
-import { LIMITES } from '@smartgym/shared';
+import { LIMITES } from '@solsfit/shared';
 import { useToast } from '../../shared/components/Toast';
 
 type Client = {

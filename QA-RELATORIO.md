@@ -1,4 +1,4 @@
-# Relatório de QA — SmartGym Web
+# Relatório de QA — SOLSFIT Web
 
 **Data:** 2026-08-04
 **Escopo:** 23 módulos do painel web, testados no navegador em 1280x800 (desktop) e 375x812 (mobile).
@@ -69,7 +69,7 @@ absoluto do servidor e o código-fonte da rota:
 
 ```
 Invalid `tx.empresa.create()` invocation in
-C:\Dev\SmartGym\apps\api\src\modules\companies\routes.ts:391:42
+C:\Dev\SOLSFIT\apps\api\src\modules\companies\routes.ts:391:42
   388 const data = normalizeCompanyPayload({ ...request.body, idCliente });
   ...
 Unique constraint failed on the fields: (`caCNPJ`)
@@ -133,7 +133,7 @@ sem nenhuma forma de rolar até eles.
 
 Campo `anCEP` do cadastro de aluno: `maxLength=8`, placeholder "Somente numeros", exibe `01234567`.
 Em Empresas, Localidades e Fornecedores o mesmo dado usa máscara `00000-000` (`maxLength=9`).
-Existe `formatCep()` em `@smartgym/shared` que não é usado no formulário de aluno.
+Existe `formatCep()` em `@solsfit/shared` que não é usado no formulário de aluno.
 
 ---
 

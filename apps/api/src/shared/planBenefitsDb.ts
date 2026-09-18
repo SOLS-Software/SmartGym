@@ -9,7 +9,7 @@
 // Duas portas chegam aqui — o balcão de vendas ("baixa do produto") e o painel
 // da recepção ("entregar benefício") — e as duas passam por esta função para
 // não divergirem.
-import type { Prisma } from '@smartgym/db';
+import type { Prisma } from '@solsfit/db';
 import {
   escolherBeneficioDeProduto,
   saldosDoPlano,

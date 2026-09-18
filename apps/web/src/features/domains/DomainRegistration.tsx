@@ -21,7 +21,7 @@ import type {
 } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 import { limitesDoCampo } from '../../shared/registration/campoLimites';
-import { LIMITES } from '@smartgym/shared';
+import { LIMITES } from '@solsfit/shared';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 
 const domainItems = [

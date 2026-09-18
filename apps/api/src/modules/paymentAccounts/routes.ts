@@ -1,7 +1,7 @@
 // Contas de recebimento: por onde a academia recebe o dinheiro do aluno.
 //
 // A conta e do CLIENTE. O dinheiro vai direto do aluno para a conta dele e o
-// SmartGym so faz a ponte — nada aqui movimenta valor, e essa e a razao de o
+// SOLSFIT so faz a ponte — nada aqui movimenta valor, e essa e a razao de o
 // modulo existir separado: manter o dinheiro fora do nosso fluxo.
 //
 // REGRA QUE GOVERNA O ARQUIVO INTEIRO: nenhuma rota de LEITURA devolve segredo.
@@ -11,7 +11,7 @@
 // qualquer permissao mal configurada em vazamento de credencial.
 import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
-import { Prisma } from '@smartgym/db';
+import { Prisma } from '@solsfit/db';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { assertValidId, optionalNumber } from '../../shared/normalize.js';

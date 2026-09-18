@@ -1,7 +1,7 @@
 'use client';
 
 import { Dumbbell } from 'lucide-react';
-import { parseExerciseInstruction } from '@smartgym/shared';
+import { parseExerciseInstruction } from '@solsfit/shared';
 import { RegistrationDrawer } from './RegistrationDrawer';
 import type { ExerciseWithCover } from './registrationTypes';
 

@@ -1,4 +1,4 @@
--- Vinculo entre o usuario cadastrado NO EQUIPAMENTO e o aluno do SmartGym.
+-- Vinculo entre o usuario cadastrado NO EQUIPAMENTO e o aluno do SOLSFIT.
 --
 -- A catraca reporta o acesso com o `user_id` dela (ex.: 1000013). Ate aqui esse
 -- numero era gravado cru em tb_CatracaEventos."nrUsuarioCatraca" e morria ali:

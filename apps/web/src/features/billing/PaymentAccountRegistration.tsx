@@ -11,7 +11,7 @@ import type { Company } from '../../shared/registration/registrationTypes';
 // Contas de recebimento — por onde a academia recebe o dinheiro do aluno.
 //
 // A conta é do cliente. O dinheiro vai direto do aluno para a conta dele; o
-// SmartGym só faz a ponte. Por isso esta tela guarda dado do cliente e nenhum
+// SOLSFIT só faz a ponte. Por isso esta tela guarda dado do cliente e nenhum
 // valor passa por aqui.
 //
 // O QUE ESTA TELA NUNCA MOSTRA: a chave Pix e a credencial em claro. A API
@@ -285,7 +285,7 @@ export function PaymentAccountRegistration() {
 
       <div className="form-view billing">
         <p className="billing-intro">
-          Onde o dinheiro dos alunos cai. A conta é da academia — o SmartGym só faz a
+          Onde o dinheiro dos alunos cai. A conta é da academia — o SOLSFIT só faz a
           ponte, e nenhum valor passa por nós.
         </p>
 

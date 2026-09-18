@@ -1882,11 +1882,11 @@ model CatracaEvento {
   dsPortal            String   @default("") @db.VarChar(20)
   dsDirecao           String   @default("") @db.VarChar(20)
   anIpOrigem          String   @default("") @db.VarChar(45)
-  // Motivo em pt-BR quando o SmartGym nega o acesso ("Pagamento em atraso.",
+  // Motivo em pt-BR quando o SOLSFIT nega o acesso ("Pagamento em atraso.",
   // "Aluno nao possui plano ativo."). Vazio nos eventos vindos do log do
   // equipamento, que nao carregam justificativa.
   dsMotivo            String   @default("") @db.VarChar(200)
-  // true = decisao tomada pelo SmartGym no modo online (a catraca perguntou e
+  // true = decisao tomada pelo SOLSFIT no modo online (a catraca perguntou e
   // nos respondemos). false = registro coletado do log do proprio equipamento.
   // Uma mesma passagem gera os dois: a decisao na hora e, depois, o log que a
   // catraca guardou. Esta flag e o que permite separar um do outro no relatorio
@@ -1901,7 +1901,7 @@ model CatracaEvento {
 
   // Um id de log do equipamento so pode existir uma vez por catraca. Sem isso,
   // dois ciclos de coleta em voo gravam o mesmo acesso duas vezes e inflam a
-  // frequencia do aluno. NULL nao conflita: as decisoes tomadas pelo SmartGym
+  // frequencia do aluno. NULL nao conflita: as decisoes tomadas pelo SOLSFIT
   // no modo online nao tem id de log do equipamento.
   @@unique([idCatraca, idEventoDispositivo])
   @@index([idCatraca, dtEvento])
@@ -2109,7 +2109,7 @@ model UsuarioDispositivo {
 // Por onde a academia RECEBE o dinheiro do aluno.
 //
 // A conta e do CLIENTE, nao nossa: o dinheiro vai direto da mao do aluno para a
-// conta da academia, e o SmartGym so faz a ponte. Isso e deliberado e nao e
+// conta da academia, e o SOLSFIT so faz a ponte. Isso e deliberado e nao e
 // detalhe de implementacao — manter o dinheiro fora do nosso fluxo evita virar
 // intermediario financeiro, com o repasse e o risco regulatorio que isso traz.
 //
@@ -2383,7 +2383,7 @@ model ProdutoSols {
   id Int @id @default(autoincrement())
   // CHAVE ESTAVEL, e o contrato entre os dois sistemas.
   //
-  // O SmartGym pergunta "este cliente tem direito a 'catraca'?" — nunca "qual
+  // O SOLSFIT pergunta "este cliente tem direito a 'catraca'?" — nunca "qual
   // produto ele assinou?". A pergunta pelo codigo e estavel; o nome comercial e
   // embalagem, e muda quando o marketing quiser. Se o produto perguntasse pelo
   // nome, renomear "Essencial" para "Start" quebraria o sistema.

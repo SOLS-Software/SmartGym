@@ -8,7 +8,7 @@
 #
 # No Coolify: recurso do tipo "Docker Compose", com "Connect To Predefined
 # Network" LIGADO. E isso que coloca estes containers na mesma rede da API do
-# SmartGym e faz `COMPREFACE_URL=http://compreface-ui` resolver. Sem esse toggle,
+# SOLSFIT e faz `COMPREFACE_URL=http://compreface-ui` resolver. Sem esse toggle,
 # cada stack fica na sua propria rede e a API nao enxerga o CompreFace.
 #
 # Depois de subir, o primeiro acesso a interface e por tunel SSH — nao por
@@ -24,7 +24,7 @@
 #
 # La voce cria a conta de admin, cria um Application, dentro dele um servico do
 # tipo Recognition, e copia a API key: e ela que vai para
-# COMPREFACE_RECOGNITION_API_KEY na API do SmartGym. A chave da instalacao
+# COMPREFACE_RECOGNITION_API_KEY na API do SOLSFIT. A chave da instalacao
 # antiga nao vem junto — esta e nova.
 
 services:
@@ -79,7 +79,7 @@ services:
       - POSTGRES_URL=jdbc:postgresql://${postgres_domain:-compreface-postgres-db}:${postgres_port:-5432}/${postgres_db:-frs}
       - SPRING_PROFILES_ACTIVE=dev
       # Oficial usa -Xmx4g. Num VPS de 8 GB que tambem roda a API e o painel do
-      # SmartGym, -Xmx4g nao "reserva" 4 GB, mas permite que a JVM cresca ate
+      # SOLSFIT, -Xmx4g nao "reserva" 4 GB, mas permite que a JVM cresca ate
       # estourar a maquina — e quem morre e o kernel escolhendo uma vitima, nao
       # a JVM com um erro legivel. 1g e folgado para uma academia; suba se o
       # reconhecimento ficar lento com varias catracas simultaneas.
@@ -95,7 +95,7 @@ services:
       - MAX_FILE_SIZE=${max_file_size:-5MB}
       - MAX_REQUEST_SIZE=${max_request_size:-10M}
       - CONNECTION_TIMEOUT=${connection_timeout:-10000}
-      # A API do SmartGym corta em 15s (AbortSignal.timeout no compreface.ts).
+      # A API do SOLSFIT corta em 15s (AbortSignal.timeout no compreface.ts).
       # Manter o read_timeout do CompreFace ABAIXO disso faz o erro chegar como
       # falha do CompreFace, com mensagem, em vez de timeout mudo do lado de ca.
       - READ_TIMEOUT=${read_timeout:-12000}
@@ -136,7 +136,7 @@ services:
       # E 8001, nao 8000, porque o dashboard do Coolify ja ocupa a 8000 no host.
       # Com 8000 aqui, o container nao sobe — conflito de porta, nao erro de app.
       #
-      # A API do SmartGym nao usa esta porta: ela fala pela rede interna do
+      # A API do SOLSFIT nao usa esta porta: ela fala pela rede interna do
       # Docker, em http://compreface-ui.
       - "127.0.0.1:8001:80"
     mem_limit: 256m

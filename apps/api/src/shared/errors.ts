@@ -1,11 +1,11 @@
-import { Prisma } from '@smartgym/db';
+import { Prisma } from '@solsfit/db';
 
 // As rotas respondiam `error instanceof Error ? error.message : fallback`. Erros do
 // Prisma sao Error, entao a excecao inteira chegava ao navegador — incluindo o
 // caminho absoluto do arquivo no servidor e o trecho de codigo da query:
 //
 //   Invalid `tx.empresa.create()` invocation in
-//   C:\Dev\SmartGym\apps\api\src\modules\companies\routes.ts:391:42
+//   C:\Dev\SOLSFIT\apps\api\src\modules\companies\routes.ts:391:42
 //   ...
 //   Unique constraint failed on the fields: (`caCNPJ`)
 //
@@ -57,7 +57,7 @@ export function clientErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     switch (error.code) {
       // Valor maior que a coluna. Cai aqui quando algum campo escapou dos
-      // limites de @smartgym/shared/LIMITES — a rota generica dizia so "Erro ao
+      // limites de @solsfit/shared/LIMITES — a rota generica dizia so "Erro ao
       // salvar", sem indicar o campo, e a pessoa reduzia texto no escuro.
       case 'P2000':
         return `O campo ${describeFields(targetFields(error))} excede o tamanho permitido.`;

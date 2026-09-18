@@ -16,6 +16,6 @@ export function formatCnpj(value: string) {
 }
 
 // Segunda copia de isValidCnpj (a outra estava na API). Unificada em
-// @smartgym/shared e reexportada daqui para os imports existentes seguirem.
-export { isValidCnpj } from '@smartgym/shared';
+// @solsfit/shared e reexportada daqui para os imports existentes seguirem.
+export { isValidCnpj } from '@solsfit/shared';
 

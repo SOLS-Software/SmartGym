@@ -1,5 +1,5 @@
 {
-  "name": "smartgym",
+  "name": "solsfit",
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@10.33.2",
@@ -9,12 +9,12 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "format": "prettier --write .",
-    "db:generate": "pnpm --filter @smartgym/db db:generate",
-    "db:migrate": "pnpm --filter @smartgym/db db:migrate",
-    "db:seed:demo": "pnpm --filter @smartgym/db db:seed:demo",
-    "db:catalogo:export": "pnpm --filter @smartgym/db db:catalogo:export",
-    "db:catalogo:seed": "pnpm --filter @smartgym/db db:catalogo:seed",
-    "db:studio": "pnpm --filter @smartgym/db db:studio"
+    "db:generate": "pnpm --filter @solsfit/db db:generate",
+    "db:migrate": "pnpm --filter @solsfit/db db:migrate",
+    "db:seed:demo": "pnpm --filter @solsfit/db db:seed:demo",
+    "db:catalogo:export": "pnpm --filter @solsfit/db db:catalogo:export",
+    "db:catalogo:seed": "pnpm --filter @solsfit/db db:catalogo:seed",
+    "db:studio": "pnpm --filter @solsfit/db db:studio"
   },
   "devDependencies": {
     "prettier": "^3.3.3",

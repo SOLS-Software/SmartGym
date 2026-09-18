@@ -28,7 +28,7 @@ type Step = {
 
 const employeeSteps: Step[] = [
   {
-    title: 'Bem-vindo ao SmartGym!',
+    title: 'Bem-vindo ao SOLSFIT!',
     description: 'Vamos fazer um tour rápido pelas principais funcionalidades do sistema.',
     features: [
       { icon: LayoutDashboard, label: 'Painel', detail: 'Visão geral com métricas e atalhos rápidos' },
@@ -58,7 +58,7 @@ const employeeSteps: Step[] = [
 
 const studentSteps: Step[] = [
   {
-    title: 'Bem-vindo ao SmartGym!',
+    title: 'Bem-vindo ao SOLSFIT!',
     description: 'Vamos conhecer as funcionalidades disponíveis para você.',
     features: [
       { icon: LayoutDashboard, label: 'Painel', detail: 'Seus check-ins, streak e plano ativo' },

@@ -1,5 +1,5 @@
 {
-  "name": "@smartgym/db",
+  "name": "@solsfit/db",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -21,7 +21,7 @@
     "@prisma/client": "^6.1.0"
   },
   "devDependencies": {
-    "@smartgym/config": "workspace:*",
+    "@solsfit/config": "workspace:*",
     "prisma": "^6.1.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"

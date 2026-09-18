@@ -16,8 +16,8 @@
 //
 // Todas caem em `reports.read` pelo padrao /reports(/|$) de plugins/permissions.
 import type { FastifyInstance } from 'fastify';
-import type { PrismaClient } from '@smartgym/db';
-import { Prisma } from '@smartgym/db';
+import type { PrismaClient } from '@solsfit/db';
+import { Prisma } from '@solsfit/db';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { clientErrorMessage } from '../../shared/errors.js';

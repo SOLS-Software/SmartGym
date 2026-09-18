@@ -24,7 +24,7 @@
 // inferir a unidade pelo historico de acesso, que e chute. Mesma decisao ja
 // tomada em /reports/inactive-students.
 import type { FastifyInstance } from 'fastify';
-import { Prisma } from '@smartgym/db';
+import { Prisma } from '@solsfit/db';
 import { z } from 'zod';
 import { clientErrorMessage } from '../../shared/errors.js';
 import { matriculaAtivaWhere, matriculaVigenteWhere } from './vigencia.js';
