@@ -10,7 +10,9 @@ const API_PASSPHRASE = 'smartgym-2026-api-payload-key-sols';
 // Cookie HttpOnly com o JWT da API: o browser nunca ve o token — o proxy
 // injeta o Authorization ao encaminhar cada requisicao para o backend.
 const SESSION_COOKIE = 'smartgym_token';
-const SESSION_COOKIE_MAX_AGE = 12 * 60 * 60; // acompanha TOKEN_EXPIRY_WEB da API
+// Prazo usado quando nao der para ler o `exp` do token. Acompanha o
+// TOKEN_EXPIRY_WEB da API, que e a sessao mais longa que esta aplicacao emite.
+const SESSION_COOKIE_FALLBACK_MAX_AGE = 12 * 60 * 60;
 
 // Rotas cuja resposta traz o token a ser movido para o cookie.
 //
@@ -54,13 +56,47 @@ async function encryptPayload(plaintext: string): Promise<string> {
   return btoa(String.fromCharCode(...combined));
 }
 
+/**
+ * Prazo do cookie tirado do PROPRIO token, e nao de uma constante.
+ *
+ * As sessoes desta aplicacao nao duram todas o mesmo: o login do painel vale
+ * 12 horas e a quebra de vidro da SOLS, 2. Com um numero fixo aqui, o cookie
+ * da implantacao sobrevivia 10 horas ao token que carrega — o navegador seguia
+ * mandando credencial morta e a tela parecia logada ate alguma requisicao
+ * devolver 401. Nao era buraco, porque a API recusa; era o momento de o vidro
+ * se fechar ficando invisivel.
+ *
+ * NAO verificamos a assinatura, e nao precisamos: o token acabou de chegar do
+ * nosso proprio backend, e o que se le aqui e so o prazo, para decidir quanto
+ * tempo guardar. Quem valida de verdade e a API, a cada requisicao.
+ */
+function cookieMaxAge(token: string): number {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return SESSION_COOKIE_FALLBACK_MAX_AGE;
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const json = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
+    const { exp } = JSON.parse(json) as { exp?: unknown };
+    if (typeof exp !== 'number') return SESSION_COOKIE_FALLBACK_MAX_AGE;
+
+    const restante = Math.floor(exp - Date.now() / 1000);
+    // Token que ja chega vencido nao vira maxAge negativo — isso apagaria o
+    // cookie no mesmo instante e a tela voltaria ao login sem explicacao. Cai
+    // no padrao, e a API o recusa no primeiro uso, que e o lugar certo para
+    // esse erro aparecer.
+    return restante > 0 ? restante : SESSION_COOKIE_FALLBACK_MAX_AGE;
+  } catch {
+    return SESSION_COOKIE_FALLBACK_MAX_AGE;
+  }
+}
+
 function setSessionCookie(response: NextResponse, token: string) {
   response.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: SESSION_COOKIE_MAX_AGE,
+    maxAge: cookieMaxAge(token),
   });
 }
 

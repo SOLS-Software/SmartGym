@@ -1284,6 +1284,32 @@ export async function registerAuthRoutes(app: FastifyInstance) {
   // descarta a credencial (cookie/SecureStore) do seu lado.
   app.post('/auth/logout', async (request, reply) => {
     try {
+      // QUEBRA DE VIDRO: aqui o `sub` e um OperadorSols, e nao um Usuario.
+      //
+      // O update abaixo e por id em tb_Usuarios. Numa sessao de implantacao ele
+      // incrementaria a versao de token do FUNCIONARIO da academia cujo id
+      // coincidisse — derrubando uma pessoa real de todos os aparelhos dela, em
+      // silencio, porque o catch engole o P2025 de quando nao ha ninguem. Hoje
+      // nao ha colisao (1 operador; os usuarios comecam no 5), e e so por isso
+      // que isto nunca apareceu. A partir do quinto operador, apareceria.
+      // Mesmo desvio que /auth/me, /auth/verify, /auth/change-password e
+      // /auth/push-token ja fazem.
+      //
+      // E NAO incrementamos OperadorSols.nrTokenVersion no lugar, ainda que
+      // fosse a troca obvia: esse contador e o mesmo que autentica o PAINEL DA
+      // SOLS (lib/autenticacao.ts, no outro repositorio). Sair do sistema de um
+      // cliente derrubaria o operador do proprio painel, e junto qualquer
+      // implantacao aberta em outro cliente — acoplando pela revogacao dois
+      // sistemas que tem segredos separados de proposito.
+      //
+      // Revogar esta sessao com precisao pede marcar o encerramento em
+      // tb_AcessosProvedor, o que e migration nova e ainda daria a trilha o
+      // "quando saiu" que hoje falta. Ate la, o que encerra a implantacao e o
+      // descarte do cookie — que o proxy faz — e o prazo de 2 horas do token.
+      if (request.user.role === 'provedor') {
+        return reply.code(204).send();
+      }
+
       await prisma.usuario.update({
         where: { id: request.user.sub },
         data: { nrTokenVersion: { increment: 1 } },
