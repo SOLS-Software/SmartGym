@@ -1,3 +1,17 @@
+# Quando este arquivo existe, o EAS Build o usa NO LUGAR do .gitignore para
+# decidir o que entra no pacote enviado ao servidor. Ele e, de proposito, uma
+# copia do .gitignore com UMA linha a menos: a do google-services.json.
+#
+# Por que: esse arquivo ficou fora do git por decisao, mas o app.json aponta
+# para ele (`android.googleServicesFile`). Sem ele no upload, o build falha no
+# servidor procurando um caminho que nao existe.
+#
+# ARMADILHA: como esta e uma copia, ela NAO acompanha mudancas no .gitignore.
+# Ao acrescentar uma regra la, acrescente aqui tambem — senao arquivo que voce
+# acha que nao sobe passa a subir. A chave `*firebase-adminsdk*.json` continua
+# excluida aqui tambem: o EAS ja tem essa credencial pelo `eas credentials`, e
+# ela nao tem por que viajar dentro do codigo-fonte.
+
 node_modules
 .turbo
 .next
@@ -41,4 +55,3 @@ package-lock.json
 # so ignorado aqui NAO chegaria ao servidor e o build quebraria ao procurar o
 # caminho do app.json — por isso existe o .easignore ao lado, que reinclui este
 # arquivo no pacote enviado.
-apps/mobile/google-services.json

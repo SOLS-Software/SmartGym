@@ -2,6 +2,7 @@
   "expo": {
     "name": "SOLSFIT",
     "slug": "solsfit",
+    "owner": "solscorps-team",
     "scheme": "solsfit",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -11,7 +12,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1f7a53"
+      "backgroundColor": "#01245b"
     },
     "runtimeVersion": {
       "policy": "appVersion"
@@ -22,7 +23,7 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#1f7a53"
+          "color": "#0461b9"
         }
       ],
       [
@@ -56,10 +57,11 @@
         "android.permission.RECORD_AUDIO"
       ],
       "package": "br.com.solssoftwares.solsfit",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/monochrome-icon.png",
-        "backgroundColor": "#1f7a53"
+        "backgroundColor": "#01245b"
       }
     },
     "ios": {
@@ -67,6 +69,14 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4a5883bb-4562-4f0d-9db1-2ca87b4e2697"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/4a5883bb-4562-4f0d-9db1-2ca87b4e2697"
     }
   }
 }
