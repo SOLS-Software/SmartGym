@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { apiFetch as fetch, apiUrl } from '../../shared/api/apiFetch';
+
 type Resultado = {
   dsCliente?: string;
   dsOperador?: string;
@@ -50,7 +52,14 @@ export default function ProviderAccessPage() {
 
     void (async () => {
       try {
-        const res = await fetch('/api/proxy/auth/acesso-provedor', {
+        // apiFetch, e NAO o fetch do navegador. Em producao o proxy cifra o
+        // CAMINHO: ele recebe /api/proxy/<base64> e decifra para descobrir a rota.
+        // Um caminho em texto claro faz essa decifragem lancar ANTES do try que
+        // envolve a chamada a API, e a rota devolve 500 — que esta tela exibia
+        // como "acesso invalido ou expirado", culpando o token por um erro que
+        // nunca chegou perto dele. O apelido `fetch` no import existe para que
+        // uma chamada crua nao passe despercebida numa revisao.
+        const res = await fetch(`${apiUrl}/auth/acesso-provedor`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token }),
