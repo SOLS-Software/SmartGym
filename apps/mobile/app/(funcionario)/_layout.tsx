@@ -1,13 +1,9 @@
 import { Redirect, Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { TabIcon } from '../../lib/components/TabIcon';
 import { TravaSessao } from '../../lib/components/TravaSessao';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { useTokens } from '../../lib/theme/tokens';
 import { podeFuncionario } from '../../lib/types/auth';
-
-function TabIcon({ emoji, color }: { emoji: string; color: string }) {
-  return <Text style={{ fontSize: 20, color }}>{emoji}</Text>;
-}
 
 // Área da EQUIPE, irmã do grupo (aluno).
 //
@@ -65,7 +61,7 @@ export default function FuncionarioLayout() {
           name="ponto"
           options={{
             title: 'Ponto',
-            tabBarIcon: ({ color }) => <TabIcon color={color} emoji="⏱️" />,
+            tabBarIcon: ({ color, focused }) => <TabIcon color={color} focused={focused} nome="ponto" />,
           }}
         />
         <Tabs.Screen
@@ -73,7 +69,7 @@ export default function FuncionarioLayout() {
           options={{
             title: 'Alunos',
             href: aba('students.read'),
-            tabBarIcon: ({ color }) => <TabIcon color={color} emoji="👥" />,
+            tabBarIcon: ({ color, focused }) => <TabIcon color={color} focused={focused} nome="alunos" />,
           }}
         />
         <Tabs.Screen
@@ -81,7 +77,7 @@ export default function FuncionarioLayout() {
           options={{
             title: 'Treinos',
             href: aba('trainings.write', 'students.read'),
-            tabBarIcon: ({ color }) => <TabIcon color={color} emoji="📋" />,
+            tabBarIcon: ({ color, focused }) => <TabIcon color={color} focused={focused} nome="ficha" />,
           }}
         />
         <Tabs.Screen
@@ -89,7 +85,7 @@ export default function FuncionarioLayout() {
           options={{
             title: 'Venda',
             href: aba('sales.write', 'students.read', 'products.read'),
-            tabBarIcon: ({ color }) => <TabIcon color={color} emoji="🛒" />,
+            tabBarIcon: ({ color, focused }) => <TabIcon color={color} focused={focused} nome="venda" />,
           }}
         />
 

@@ -1,12 +1,8 @@
 import { Redirect, Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { TabIcon } from '../../lib/components/TabIcon';
 import { TravaSessao } from '../../lib/components/TravaSessao';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { useTokens } from '../../lib/theme/tokens';
-
-function TabIcon({ emoji, color }: { emoji: string; color: string }) {
-  return <Text style={{ fontSize: 20, color }}>{emoji}</Text>;
-}
 
 export default function AlunoLayout() {
   const { user, isLoaded } = useAuth();
@@ -42,35 +38,35 @@ export default function AlunoLayout() {
           name="meu-treino"
           options={{
             title: 'Meu Treino',
-            tabBarIcon: ({ color }) => <TabIcon color={color} emoji="🏋️" />,
+            tabBarIcon: ({ color, focused }) => <TabIcon color={color} focused={focused} nome="treino" />,
           }}
         />
         <Tabs.Screen
           name="exercicios"
           options={{
             title: 'Exercícios',
-            tabBarIcon: ({ color }) => <TabIcon color={color} emoji="💪" />,
+            tabBarIcon: ({ color, focused }) => <TabIcon color={color} focused={focused} nome="exercicios" />,
           }}
         />
         <Tabs.Screen
           name="treino"
           options={{
             title: 'Treino',
-            tabBarIcon: ({ color }) => <TabIcon color={color} emoji="📋" />,
+            tabBarIcon: ({ color, focused }) => <TabIcon color={color} focused={focused} nome="ficha" />,
           }}
         />
         <Tabs.Screen
           name="atividades"
           options={{
             title: 'Atividades',
-            tabBarIcon: ({ color }) => <TabIcon color={color} emoji="📅" />,
+            tabBarIcon: ({ color, focused }) => <TabIcon color={color} focused={focused} nome="agenda" />,
           }}
         />
         <Tabs.Screen
           name="mais"
           options={{
             title: 'Mais',
-            tabBarIcon: ({ color }) => <TabIcon color={color} emoji="☰" />,
+            tabBarIcon: ({ color, focused }) => <TabIcon color={color} focused={focused} nome="mais" />,
           }}
         />
         {/* Telas secundárias — acessíveis pelo menu Mais, fora da barra de abas */}
