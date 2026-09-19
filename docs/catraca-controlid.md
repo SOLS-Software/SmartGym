@@ -99,6 +99,33 @@ caem no pool compartilhado: nada quebra para o parque instalado. Reapontar só �
 antigo, ele não acha a catraca no banco novo e tenta auto-registrar uma
 duplicata. O passo está no runbook de `docs/multi-tenancy-dados.md`.
 
+## Cadastro de uma catraca nova (pelo painel)
+
+O caminho inteiro cabe na aba **Catracas**, sem chamada manual na API:
+
+1. **Endereço do equipamento** — o bloco no topo da aba mostra o endereço pronto
+   (`GET /controlid/endereco`) com botão de copiar. É o que se digita na tela de
+   push do equipamento, sem barra no fim e sem `/push`.
+2. **Aguardando ativação** — no primeiro push a catraca se auto-registra
+   inativa e sem empresa (`idEmpresa = null`), e aparece nessa seção com série,
+   IP e último contato. Dá-se um nome, escolhe-se a unidade e clica em *Ativar*:
+   é o `PUT /controlid/catracas/:id`, o único caminho que tira o equipamento do
+   limbo — o `PATCH .../status` recusa catraca sem empresa de propósito, para
+   que um tenant não consiga ligar/desligar equipamento que ainda não é dele.
+3. **Equipamentos** — daí em diante a catraca sai da fila de pendentes e entra
+   na lista da unidade, com *Editar* (nome, série, fabricante, modelo, IP
+   permitido, MAC) e *Ativar/Inativar*.
+
+O botão **Cadastrar catraca** existe para o caso inverso: registrar o
+equipamento antes de ele falar, ou consertar um registro. A unidade é
+obrigatória no painel — cadastrar sem empresa criaria, de novo, uma catraca de
+ninguém.
+
+Dois campos não têm caixa na tela e andam junto no salvamento mesmo assim:
+`anIp`, que quem escreve é o próprio equipamento a cada push, e `caToken`,
+inviável neste firmware. O `PUT` manda o registro inteiro — deixar de enviá-los
+apagaria o valor guardado.
+
 ## Cadastro de digital pelo painel (a validar em campo)
 
 O canal de push **não é** um canal de "coletar log": é um RPC genérico para
