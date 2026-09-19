@@ -6,6 +6,7 @@ import { Plus, Save } from 'lucide-react';
 import { GRID_PAGE_SIZE, GridPagination, formatCpf, formatDateDisplay, paginateItems } from '../../shared/registration/registrationHelpers';
 import type { Employee, Exercise, Student, StudentTraining, Training, TrainingExercise, TrainingMethod } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 
 type StudentTrainingAssemblyProps = {
   loggedEmployeeId: number | null;
@@ -16,6 +17,7 @@ export function StudentTrainingAssembly({
   loggedEmployeeId,
   loggedEmployeeName,
 }: StudentTrainingAssemblyProps) {
+  const { enviando, envolver } = useEnvio();
   const [students, setStudents] = useState<Student[]>([]);
   const [studentTrainings, setStudentTrainings] = useState<StudentTraining[]>([]);
   const [selectedTrainingExercises, setSelectedTrainingExercises] = useState<TrainingExercise[]>([]);
@@ -1101,7 +1103,7 @@ export function StudentTrainingAssembly({
               ) : null}
             </section>
 
-            <form className="registration-form workout-training-form" onSubmit={handleSaveStudentTraining}>
+            <form className="registration-form workout-training-form" onSubmit={envolver(handleSaveStudentTraining)}>
               <div className="collapsible-panel-header">
                 <div>
                   <p className="section-label">Treinos</p>
@@ -1192,7 +1194,7 @@ export function StudentTrainingAssembly({
                 >
                   Limpar
                 </button>
-                <button disabled={!isSaveEnabled} type="submit">
+                <button disabled={!isSaveEnabled || enviando} type="submit">
                   <Save size={16} />
                   Salvar
                 </button>

@@ -29,6 +29,7 @@ import type {
   Promotion,
 } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 
 const promotionRelatedTables: CompanyChildTable[] = [
   {
@@ -89,6 +90,7 @@ const promotionRelatedTables: CompanyChildTable[] = [
 ];
 
 export function PromotionRegistration() {
+  const { enviando, envolver } = useEnvio();
   const { showToast } = useToast();
   const promotionFileInputRef = useRef<HTMLInputElement | null>(null);
   const promotionNameInputRef = useRef<HTMLInputElement | null>(null);
@@ -756,7 +758,7 @@ export function PromotionRegistration() {
           onClose={() => setIsDrawerOpen(false)}
         >
           {drawerMode === 'promotion' ? (
-            <form className="drawer-fields" onSubmit={handleSavePromotion}>
+            <form className="drawer-fields" onSubmit={envolver(handleSavePromotion)}>
               {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
               <RegistrationField htmlFor="promotionCompany" label="Empresa" required size="lg">
                 <select id="promotionCompany" onChange={(event) => setPromotionCompanyId(event.target.value)} required value={promotionCompanyId}>
@@ -795,11 +797,11 @@ export function PromotionRegistration() {
               </RegistrationField>
               <div className="form-actions" style={{ flex: '1 1 100%' }}>
                 <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-                <button type="submit"><Save size={16} />Salvar promoção</button>
+                <button disabled={enviando} type="submit"><Save size={16} />Salvar promoção</button>
               </div>
             </form>
           ) : (
-            <form className="drawer-fields" onSubmit={handleSaveRelated}>
+            <form className="drawer-fields" onSubmit={envolver(handleSaveRelated)}>
               {relatedFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{relatedFeedback}</div> : null}
               {isFileTable ? (
                 <>
@@ -856,7 +858,7 @@ export function PromotionRegistration() {
               )}
               <div className="form-actions" style={{ flex: '1 1 100%' }}>
                 <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-                {!isFileTable ? (<button disabled={!isRelatedFormEnabled} type="submit"><Save size={16} />Salvar {relatedConfig?.labelSingular ?? relatedConfig?.label}</button>) : null}
+                {!isFileTable ? (<button disabled={!isRelatedFormEnabled || enviando} type="submit"><Save size={16} />Salvar {relatedConfig?.labelSingular ?? relatedConfig?.label}</button>) : null}
               </div>
             </form>
           )}

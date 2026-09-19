@@ -12,6 +12,7 @@ import { useToast } from '../../shared/components/Toast';
 const _employeeTabIcons = { files: FileText };
 import type { AccessProfileOption, Company, CompanyChildRecord, CompanyChildTable, Employee, LookupRecord, Role } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 type EmployeeValidationField =
   | 'name'
   | 'cpf'
@@ -73,6 +74,7 @@ function isValidPastDate(value: string) {
 type DrawerMode = 'employee' | 'related';
 
 export function EmployeeRegistration() {
+  const { enviando, envolver } = useEnvio();
   const { showToast } = useToast();
   const employeeFileInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -857,7 +859,7 @@ export function EmployeeRegistration() {
           onClose={() => setIsDrawerOpen(false)}
         >
           {drawerMode === 'employee' ? (
-            <form className="drawer-fields" onSubmit={handleSaveEmployee}>
+            <form className="drawer-fields" onSubmit={envolver(handleSaveEmployee)}>
               {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
               <RegistrationField error={employeeErrors.name} htmlFor="employeeName" label="Nome do funcionário" required size="full" touched={touchedEmployeeFields.name}>
                 <input className={touchedEmployeeFields.name && employeeErrors.name ? 'invalid' : ''} id="employeeName" maxLength={255} onBlur={() => validateEmployeeField('name')} onChange={(event) => { const value = event.target.value; setEmployeeName(value); if (touchedEmployeeFields.name) { setEmployeeErrors((current) => ({ ...current, name: value.trim() ? undefined : 'Informe o nome do funcionário.' })); } }} placeholder="Ex.: Joao Souza" ref={nameInputRef} type="text" value={employeeName} />
@@ -905,11 +907,11 @@ export function EmployeeRegistration() {
               </RegistrationField>
               <div className="form-actions" style={{ flex: '1 1 100%' }}>
                 <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-                <button type="submit"><Save size={16} />Salvar funcionário</button>
+                <button disabled={enviando} type="submit"><Save size={16} />Salvar funcionário</button>
               </div>
             </form>
           ) : (
-            <form className="drawer-fields" onSubmit={handleSaveEmployeeRelated}>
+            <form className="drawer-fields" onSubmit={envolver(handleSaveEmployeeRelated)}>
               {employeeRelatedFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{employeeRelatedFeedback}</div> : null}
               <RegistrationField htmlFor="employeeFileType" label="Tipo de arquivo" size="md">
                 <select disabled={!selectedEmployeeId || isUploadingEmployeeFile} id="employeeFileType" onChange={(event) => setEmployeeRelatedFormValues((current) => ({ ...current, idTiposArquivos: event.target.value }))} value={employeeRelatedFormValues.idTiposArquivos ?? ''}>

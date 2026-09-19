@@ -12,6 +12,7 @@ import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import type { CompanyChildRecord, LookupRecord, Student, StudentFile, StudentValidationErrors, StudentValidationField } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 import { useToast } from '../../shared/components/Toast';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { getSessionClienteId } from '../../shared/auth/sessionUtils';
@@ -28,6 +29,7 @@ const studentTabIcons = {
 };
 
 export function StudentRegistration() {
+  const { enviando, envolver } = useEnvio();
   const { showToast } = useToast();
   const nameInputRef = useRef<HTMLInputElement>(null);
   const cpfInputRef = useRef<HTMLInputElement>(null);
@@ -1110,7 +1112,7 @@ export function StudentRegistration() {
           onClose={() => setIsDrawerOpen(false)}
         >
           {drawerMode === 'student' ? (
-            <form className="drawer-fields" onSubmit={handleSaveStudent}>
+            <form className="drawer-fields" onSubmit={envolver(handleSaveStudent)}>
               {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
               {/* Nome */}
               <RegistrationField error={studentErrors.name} htmlFor="nmAluno" label="Nome" required size="full" touched={touchedStudentFields.name}>
@@ -1161,7 +1163,7 @@ export function StudentRegistration() {
               </RegistrationField>
               <div className="form-actions" style={{ flex: '1 1 100%' }}>
                 <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-                <button type="submit"><Save size={16} />Salvar aluno</button>
+                <button disabled={enviando} type="submit"><Save size={16} />Salvar aluno</button>
               </div>
             </form>
           ) : drawerMode === 'files' ? (
@@ -1208,7 +1210,7 @@ export function StudentRegistration() {
               </div>
             </div>
           ) : studentRelatedConfig ? (
-            <form className="drawer-fields" onSubmit={handleSaveStudentRelated}>
+            <form className="drawer-fields" onSubmit={envolver(handleSaveStudentRelated)}>
               {studentRelatedFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{studentRelatedFeedback}</div> : null}
               {studentRelatedConfig.fields.map((field) => (
                 <RegistrationField htmlFor={`studentRelated-${field.key}`} key={field.key} label={field.label} required={field.required} size="full">
@@ -1233,7 +1235,7 @@ export function StudentRegistration() {
               </RegistrationField>
               <div className="form-actions" style={{ flex: '1 1 100%' }}>
                 <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-                <button disabled={!isStudentRelatedFormEnabled} type="submit"><Save size={16} />Salvar {studentRelatedConfig.labelSingular ?? studentRelatedConfig.label}</button>
+                <button disabled={!isStudentRelatedFormEnabled || enviando} type="submit"><Save size={16} />Salvar {studentRelatedConfig.labelSingular ?? studentRelatedConfig.label}</button>
               </div>
             </form>
           ) : null}
@@ -1295,7 +1297,7 @@ export function StudentRegistration() {
           >
             Voltar
           </button>
-          <button type="submit">Cancelar plano</button>
+          <button disabled={enviando} type="submit">Cancelar plano</button>
         </div>
       </form>
     </RegistrationDrawer>

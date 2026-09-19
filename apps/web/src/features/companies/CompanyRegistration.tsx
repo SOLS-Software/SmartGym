@@ -13,6 +13,7 @@ import { useToast } from '../../shared/components/Toast';
 import { AddressLocationPicker, emptyAddressLocation, type AddressLocationValue } from '../../shared/registration/AddressLocationPicker';
 import type { Company, CompanyChildColumn, CompanyChildField, CompanyChildRecord, CompanyValidationErrors, CompanyValidationField, LookupRecord } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 import { getSessionClienteId } from '../../shared/auth/sessionUtils';
 import { companyChildTables } from './companyChildTables';
 import { formatCnpj, getSelectedRecord, isValidCnpj } from './companyUtils';
@@ -32,6 +33,7 @@ const companyTabIcons = {
 
 
 export function CompanyRegistration() {
+  const { enviando, envolver } = useEnvio();
   const { showToast } = useToast();
   const companyFileInputRef = useRef<HTMLInputElement>(null);
   const companyNameInputRef = useRef<HTMLInputElement | null>(null);
@@ -804,7 +806,7 @@ export function CompanyRegistration() {
         onClose={() => setIsDrawerOpen(false)}
       >
         {drawerMode === 'company' ? (
-          <form className="drawer-fields" onSubmit={handleSaveCompany}>
+          <form className="drawer-fields" onSubmit={envolver(handleSaveCompany)}>
             {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
             <RegistrationField error={companyErrors.name} htmlFor="dsEmpresa" label="Empresa" size="full" touched={touchedCompanyFields.name}>
               <input
@@ -897,11 +899,11 @@ export function CompanyRegistration() {
             </RegistrationField>
             <div className="form-actions" style={{ flex: '1 1 100%' }}>
               <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-              <button type="submit"><Save size={16} />Salvar empresa</button>
+              <button disabled={enviando} type="submit"><Save size={16} />Salvar empresa</button>
             </div>
           </form>
         ) : childTableConfig ? (
-          <form className="drawer-fields" onSubmit={handleSaveChild}>
+          <form className="drawer-fields" onSubmit={envolver(handleSaveChild)}>
             {childFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{childFeedback}</div> : null}
             {isFileChildTable ? (
               <>
@@ -1115,7 +1117,7 @@ export function CompanyRegistration() {
                 </RegistrationField>
                 <div className="form-actions" style={{ flex: '1 1 100%' }}>
                   <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-                  <button disabled={!isChildFormEnabled} type="submit"><Save size={16} />Salvar {childTableConfig.label}</button>
+                  <button disabled={!isChildFormEnabled || enviando} type="submit"><Save size={16} />Salvar {childTableConfig.label}</button>
                 </div>
               </>
             )}

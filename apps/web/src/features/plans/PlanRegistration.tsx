@@ -12,6 +12,7 @@ import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import { useToast } from '../../shared/components/Toast';
 import type { CompanyChildRecord, CompanyChildTable, Frequency, LookupRecord, Plan } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 
 const planTabIcons = { values: DollarSign, products: Package, companies: Building2, activities: Activity, benefits: Gift, promotionPlans: Tag, promotionProducts: CreditCard };
 
@@ -181,6 +182,7 @@ const planRelatedTables: CompanyChildTable[] = [
 ];
 
 export function PlanRegistration() {
+  const { enviando, envolver } = useEnvio();
   const { showToast } = useToast();
   const planFileInputRef = useRef<HTMLInputElement | null>(null);
   const planNameInputRef = useRef<HTMLInputElement | null>(null);
@@ -844,7 +846,7 @@ export function PlanRegistration() {
         onClose={() => setIsDrawerOpen(false)}
       >
         {drawerMode === 'plan' ? (
-          <form className="drawer-fields" onSubmit={handleSavePlan}>
+          <form className="drawer-fields" onSubmit={envolver(handleSavePlan)}>
             {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
             <RegistrationField htmlFor="planName" label="Nome do plano" required size="full">
               <input id="planName" maxLength={255} onChange={(event) => setPlanName(event.target.value)} ref={planNameInputRef} required type="text" value={planName} />
@@ -887,11 +889,11 @@ export function PlanRegistration() {
             </RegistrationField>
             <div className="form-actions" style={{ flex: '1 1 100%' }}>
               <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-              <button type="submit"><Save size={16} />Salvar plano</button>
+              <button disabled={enviando} type="submit"><Save size={16} />Salvar plano</button>
             </div>
           </form>
         ) : (
-          <form className="drawer-fields" onSubmit={handleSavePlanRelated}>
+          <form className="drawer-fields" onSubmit={envolver(handleSavePlanRelated)}>
             {planRelatedFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{planRelatedFeedback}</div> : null}
             {isPlanRelatedFileTable ? (
               <>
@@ -962,7 +964,7 @@ export function PlanRegistration() {
             )}
             <div className="form-actions" style={{ flex: '1 1 100%' }}>
               <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-              {!isPlanRelatedFileTable ? (<button disabled={!isPlanRelatedFormEnabled} type="submit"><Save size={16} />Salvar {planRelatedConfig?.labelSingular ?? planRelatedConfig?.label}</button>) : null}
+              {!isPlanRelatedFileTable ? (<button disabled={!isPlanRelatedFormEnabled || enviando} type="submit"><Save size={16} />Salvar {planRelatedConfig?.labelSingular ?? planRelatedConfig?.label}</button>) : null}
             </div>
           </form>
         )}

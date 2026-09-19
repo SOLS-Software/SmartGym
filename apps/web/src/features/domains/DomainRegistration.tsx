@@ -20,6 +20,7 @@ import type {
   LookupRecord,
 } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 import { limitesDoCampo } from '../../shared/registration/campoLimites';
 import { LIMITES } from '@solsfit/shared';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
@@ -112,6 +113,7 @@ function mapDomainRecord(item: Record<string, unknown>, config: DomainConfig): D
 }
 
 export function DomainRegistration() {
+  const { enviando, envolver } = useEnvio();
   const [selectedDomain, setSelectedDomain] = useState(domainItems[0]);
   const [records, setRecords] = useState<DomainRecord[]>([]);
   const [recordsPage, setRecordsPage] = useState(1);
@@ -460,7 +462,7 @@ export function DomainRegistration() {
           </div>
 
           <RegistrationDrawer isOpen={isDrawerOpen} title={config ? config.label : 'Domínio'} onClose={() => setIsDrawerOpen(false)}>
-            <form className="drawer-fields" onSubmit={handleSave}>
+            <form className="drawer-fields" onSubmit={envolver(handleSave)}>
               {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
               <div className="field field-size-full">
                 <label htmlFor="domainName">{config?.label ?? 'Nome'}</label>
@@ -528,7 +530,7 @@ export function DomainRegistration() {
               </div>
               <div className="form-actions" style={{ flex: '1 1 100%' }}>
                 <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-                <button type="submit"><Save size={16} />{config?.saveLabel ?? 'Salvar'}</button>
+                <button disabled={enviando} type="submit"><Save size={16} />{config?.saveLabel ?? 'Salvar'}</button>
               </div>
             </form>
           </RegistrationDrawer>

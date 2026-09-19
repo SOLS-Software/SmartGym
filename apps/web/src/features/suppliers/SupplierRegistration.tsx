@@ -10,9 +10,11 @@ import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Supplier } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 import { useToast } from '../../shared/components/Toast';
 
 export function SupplierRegistration() {
+  const { enviando, envolver } = useEnvio();
   const { showToast } = useToast();
   const nameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -283,7 +285,7 @@ export function SupplierRegistration() {
           title={isCreating ? 'Novo Fornecedor' : 'Editar Fornecedor'}
           onClose={() => setIsDrawerOpen(false)}
         >
-          <form className="drawer-fields" onSubmit={handleSave}>
+          <form className="drawer-fields" onSubmit={envolver(handleSave)}>
             {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
             <RegistrationField error={supplierErrors.name} htmlFor="fornecedorNome" label="Nome" required size="full" touched={touchedSupplierFields.name}>
               <input className={touchedSupplierFields.name && supplierErrors.name ? 'invalid' : ''} disabled={!isFormEnabled} id="fornecedorNome" maxLength={LIMITES.fornecedor.dsFornecedor} onBlur={() => validateSupplierField('name')} onChange={(event) => setDsFornecedor(event.target.value)} placeholder="Ex.: Distribuidora Fit Ltda" ref={nameInputRef} required type="text" value={dsFornecedor} />
@@ -325,7 +327,7 @@ export function SupplierRegistration() {
             </RegistrationField>
             <div className="form-actions" style={{ flex: '1 1 100%' }}>
               <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-              <button disabled={!isFormEnabled} type="submit"><Save size={16} />Salvar fornecedor</button>
+              <button disabled={!isFormEnabled || enviando} type="submit"><Save size={16} />Salvar fornecedor</button>
             </div>
           </form>
         </RegistrationDrawer>

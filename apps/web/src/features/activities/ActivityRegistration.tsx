@@ -10,6 +10,7 @@ import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Activity, Company, Sport } from '../../shared/registration/registrationTypes';
 import { useToast } from '../../shared/components/Toast';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 
 type ActivityRegistrationProps = {
   readOnly?: boolean;
@@ -21,6 +22,7 @@ function getTodayInputValue() {
 }
 
 export function ActivityRegistration({ readOnly = false }: ActivityRegistrationProps) {
+  const { enviando, envolver } = useEnvio();
   const { showToast } = useToast();
   const activityNameInputRef = useRef<HTMLInputElement | null>(null);
   const defaultDateRange = getDefaultActivityDateRange();
@@ -260,7 +262,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
           title={isCreating ? 'Nova Atividade' : 'Editar Atividade'}
           onClose={() => { clearActivityForm(); setIsDrawerOpen(false); }}
         >
-          <form className="drawer-fields" onSubmit={handleSaveActivity}>
+          <form className="drawer-fields" onSubmit={envolver(handleSaveActivity)}>
             {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
             <RegistrationField htmlFor="activityCompany" label="Empresa" size="lg">
               <select disabled={!isFormEnabled} id="activityCompany" onChange={(e) => setSelectedCompanyId(e.target.value)} value={selectedCompanyId}>
@@ -284,7 +286,7 @@ export function ActivityRegistration({ readOnly = false }: ActivityRegistrationP
             </RegistrationField>
             <div className="form-actions" style={{ flex: '1 1 100%' }}>
               <button className="secondary-button" onClick={() => { clearActivityForm(); setIsDrawerOpen(false); }} type="button">Cancelar</button>
-              <button disabled={!isFormEnabled} type="submit"><Save size={16} />Salvar atividade</button>
+              <button disabled={!isFormEnabled || enviando} type="submit"><Save size={16} />Salvar atividade</button>
             </div>
           </form>
         </RegistrationDrawer>

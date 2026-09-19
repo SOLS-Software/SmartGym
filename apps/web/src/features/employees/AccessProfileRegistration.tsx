@@ -7,6 +7,7 @@ import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 import { useToast } from '../../shared/components/Toast';
 
 type PermissionDomain = {
@@ -26,6 +27,7 @@ type AccessProfile = {
 };
 
 export function AccessProfileRegistration() {
+  const { enviando, envolver } = useEnvio();
   const { showToast } = useToast();
   const nameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -230,7 +232,7 @@ export function AccessProfileRegistration() {
           title={isCreating ? 'Novo Perfil de Acesso' : 'Editar Perfil de Acesso'}
           onClose={() => setIsDrawerOpen(false)}
         >
-          <form className="drawer-fields" onSubmit={handleSave}>
+          <form className="drawer-fields" onSubmit={envolver(handleSave)}>
             {feedback ? (
               <div className="form-feedback" style={{ flex: '1 1 100%' }}>
                 {feedback}
@@ -311,7 +313,7 @@ export function AccessProfileRegistration() {
               <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">
                 Cancelar
               </button>
-              <button type="submit">
+              <button disabled={enviando} type="submit">
                 <Save size={16} />
                 {isCreating ? 'Criar perfil' : 'Salvar perfil'}
               </button>

@@ -13,6 +13,7 @@ import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import { RegistrationTabs } from '../../shared/registration/RegistrationTabs';
 import type { Activity, CompanyChildField, CompanyChildRecord, LookupRecord } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 
 type DrawerMode = 'schedule' | 'scheduleEmployee' | 'scheduleStudent';
 
@@ -36,6 +37,7 @@ const scheduleFields: CompanyChildField[] = [
 
 export function ScheduleRegistration() {
   // Activities (filter dropdown only)
+  const { enviando, envolver } = useEnvio();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [selectedActivityId, setSelectedActivityId] = useState<number | null>(null);
 
@@ -560,7 +562,7 @@ export function ScheduleRegistration() {
       >
         {/* Schedule form */}
         {drawerMode === 'schedule' ? (
-          <form className="drawer-fields" onSubmit={handleSaveSchedule}>
+          <form className="drawer-fields" onSubmit={envolver(handleSaveSchedule)}>
             {scheduleFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{scheduleFeedback}</div> : null}
             {scheduleFields.map((field) => (
               <RegistrationField htmlFor={`sched-${field.key}`} key={field.key} label={field.label} required={field.required} size={field.size}>
@@ -583,14 +585,14 @@ export function ScheduleRegistration() {
             </RegistrationField>
             <div className="form-actions" style={{ flex: '1 1 100%' }}>
               <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-              <button disabled={!isScheduleFormEnabled} type="submit"><Save size={16} />Salvar agenda</button>
+              <button disabled={!isScheduleFormEnabled || enviando} type="submit"><Save size={16} />Salvar agenda</button>
             </div>
           </form>
         ) : null}
 
         {/* Schedule employee form */}
         {drawerMode === 'scheduleEmployee' ? (
-          <form className="drawer-fields" onSubmit={handleSaveScheduleEmployee}>
+          <form className="drawer-fields" onSubmit={envolver(handleSaveScheduleEmployee)}>
             {scheduleEmployeeFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{scheduleEmployeeFeedback}</div> : null}
             {!selectedScheduleId ? <div className="form-hint" style={{ flex: '1 1 100%' }}>Selecione uma agenda antes de adicionar profissionais.</div> : null}
             <RegistrationField htmlFor="seCompany" label="Empresa" size="lg">
@@ -612,14 +614,14 @@ export function ScheduleRegistration() {
             </RegistrationField>
             <div className="form-actions" style={{ flex: '1 1 100%' }}>
               <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-              <button disabled={!isScheduleEmployeeFormEnabled} type="submit"><Save size={16} />Salvar profissional</button>
+              <button disabled={!isScheduleEmployeeFormEnabled || enviando} type="submit"><Save size={16} />Salvar profissional</button>
             </div>
           </form>
         ) : null}
 
         {/* Schedule student form */}
         {drawerMode === 'scheduleStudent' ? (
-          <form className="drawer-fields" onSubmit={handleSaveScheduleStudent}>
+          <form className="drawer-fields" onSubmit={envolver(handleSaveScheduleStudent)}>
             {scheduleStudentFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{scheduleStudentFeedback}</div> : null}
             {!selectedScheduleId ? <div className="form-hint" style={{ flex: '1 1 100%' }}>Selecione uma agenda antes de adicionar alunos.</div> : null}
             <RegistrationField htmlFor="ssCompany" label="Empresa" size="lg">
@@ -641,7 +643,7 @@ export function ScheduleRegistration() {
             </RegistrationField>
             <div className="form-actions" style={{ flex: '1 1 100%' }}>
               <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-              <button disabled={!isScheduleStudentFormEnabled} type="submit"><Save size={16} />Salvar aluno</button>
+              <button disabled={!isScheduleStudentFormEnabled || enviando} type="submit"><Save size={16} />Salvar aluno</button>
             </div>
           </form>
         ) : null}

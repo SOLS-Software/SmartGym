@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Plus, Save, Trash2, Upload } from 'lucide-react';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 import { GridPagination, isImageFile, paginateItems } from '../../shared/registration/registrationHelpers';
 import { LIMITES, isValidHexColor, isValidHostname } from '@solsfit/shared';
 
@@ -80,6 +81,7 @@ export function ThemeRegistration({
   allowedCompanyIds,
   canManageDomains = false,
 }: Props = {}) {
+  const { enviando, envolver } = useEnvio();
   const domainUrlRef = useRef<HTMLInputElement>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const faviconFileInputRef = useRef<HTMLInputElement>(null);
@@ -618,7 +620,7 @@ export function ThemeRegistration({
 
       <GridPagination onChange={setDomainsPage} page={domainsPage} totalItems={domains.length} />
 
-      <form className="theme-domain-form" onSubmit={handleSaveDomain}>
+      <form className="theme-domain-form" onSubmit={envolver(handleSaveDomain)}>
         {!canManageDomains ? (
           <div className="form-hint">
             O domínio é o que identifica a sua academia no acesso. Para incluir ou alterar um,
@@ -694,7 +696,7 @@ export function ThemeRegistration({
           >
             Limpar
           </button>
-          <button disabled={!isDomainFormEnabled} type="submit">
+          <button disabled={!isDomainFormEnabled || enviando} type="submit">
             <Save size={16} />
             Salvar domínio
           </button>
@@ -720,7 +722,7 @@ export function ThemeRegistration({
       {isGestorMode && (
         <form
           className="registration-form domain-form-panel theme-form"
-          onSubmit={handleSaveClientTheme}
+          onSubmit={envolver(handleSaveClientTheme)}
         >
           <div>
             <p className="section-label">Tema Principal</p>
@@ -800,7 +802,7 @@ export function ThemeRegistration({
           {renderThemeFields(clientTheme, setClientThemeField, 'client', [])}
 
           <div className="form-actions">
-            <button disabled={isSavingClientTheme} type="submit">
+            <button disabled={isSavingClientTheme || enviando} type="submit">
               <Save size={16} />
               Salvar tema do cliente
             </button>
@@ -862,7 +864,7 @@ export function ThemeRegistration({
           ) : (
             <form
               className="registration-form domain-form-panel theme-form"
-              onSubmit={handleSaveCompanyTheme}
+              onSubmit={envolver(handleSaveCompanyTheme)}
             >
               <div>
                 <p className="section-label">{isGestorMode ? 'Tema por Empresa' : 'Tema'}</p>
@@ -878,7 +880,7 @@ export function ThemeRegistration({
               {renderThemeFields(theme, setThemeField, 'company', companyFiles)}
 
               <div className="form-actions">
-                <button disabled={isSavingTheme} type="submit">
+                <button disabled={isSavingTheme || enviando} type="submit">
                   <Save size={16} />
                   Salvar tema
                 </button>

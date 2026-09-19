@@ -923,7 +923,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
               </aside>
             </div>
           ) : drawerMode === 'training' ? (
-            <form className="drawer-fields" onSubmit={handleSaveTraining}>
+            <form className="drawer-fields" onSubmit={envolver(handleSaveTraining)}>
               {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
 
               <RegistrationField htmlFor="trainingName" label="Nome do treino" required size="full">
@@ -992,14 +992,14 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                 >
                   Limpar
                 </button>
-                <button disabled={!isTrainingFormEnabled} type="submit">
+                <button disabled={!isTrainingFormEnabled || enviando} type="submit">
                   <Save size={16} />
                   Salvar treino
                 </button>
               </div>
             </form>
           ) : (
-            <form className="drawer-fields" onSubmit={handleSaveExercise}>
+            <form className="drawer-fields" onSubmit={envolver(handleSaveExercise)}>
               {trainingRelatedFeedback ? (
                 <div className="form-feedback" style={{ flex: '1 1 100%' }}>{trainingRelatedFeedback}</div>
               ) : null}
@@ -1095,7 +1095,7 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
                 >
                   Limpar
                 </button>
-                <button disabled={!isExerciseFormEnabled} type="submit">
+                <button disabled={!isExerciseFormEnabled || enviando} type="submit">
                   <Save size={16} />
                   Salvar {trainingRelatedConfig.labelSingular ?? trainingRelatedConfig.label}
                 </button>

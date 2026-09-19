@@ -10,6 +10,7 @@ import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Company, CompanyChildRecord, CompanyChildTable, LookupRecord, Product } from '../../shared/registration/registrationTypes';
 import { useToast } from '../../shared/components/Toast';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 
 const productRelatedTables: CompanyChildTable[] = [
   {
@@ -44,6 +45,7 @@ function getProductFileTypeOptions(options: LookupRecord[]) {
 }
 
 export function ProductRegistration() {
+  const { enviando, envolver } = useEnvio();
   const { showToast } = useToast();
   const productFileInputRef = useRef<HTMLInputElement>(null);
   const productNameInputRef = useRef<HTMLInputElement | null>(null);
@@ -663,7 +665,7 @@ export function ProductRegistration() {
           onClose={() => { setIsDrawerOpen(false); }}
         >
           {drawerMode === 'product' ? (
-            <form className="drawer-fields" onSubmit={handleSaveProduct}>
+            <form className="drawer-fields" onSubmit={envolver(handleSaveProduct)}>
               {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
               {/* A opcao era "Sem empresa", mas POST/PUT /products recusam
                   idEmpresa vazio ("Informe a empresa do produto."): a tela
@@ -693,11 +695,11 @@ export function ProductRegistration() {
               </RegistrationField>
               <div className="form-actions" style={{ flex: '1 1 100%' }}>
                 <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-                <button disabled={!isFormEnabled} type="submit"><Save size={16} />Salvar produto</button>
+                <button disabled={!isFormEnabled || enviando} type="submit"><Save size={16} />Salvar produto</button>
               </div>
             </form>
           ) : (
-            <form className="drawer-fields" onSubmit={handleSaveRelated}>
+            <form className="drawer-fields" onSubmit={envolver(handleSaveRelated)}>
               {relatedFeedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{relatedFeedback}</div> : null}
               <RegistrationField htmlFor="productFileType" label="Tipo de arquivo" size="md">
                 <select disabled={!selectedProductId || isUploadingRelatedFile} id="productFileType" onChange={(event) => setRelatedFormValues((current) => ({ ...current, idTiposArquivos: event.target.value }))} value={relatedFormValues.idTiposArquivos ?? ''}>

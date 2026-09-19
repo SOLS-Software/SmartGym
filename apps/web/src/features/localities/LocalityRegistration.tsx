@@ -12,6 +12,7 @@ import {
 } from '../../shared/registration/AddressLocationPicker';
 import type { Company, Localidade } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 import { useToast } from '../../shared/components/Toast';
 
 const LOCALITY_TYPE_OPTIONS = [
@@ -24,6 +25,7 @@ type LocalityRegistrationProps = {
 };
 
 export function LocalityRegistration({ readOnly = false }: LocalityRegistrationProps) {
+  const { enviando, envolver } = useEnvio();
   const { showToast } = useToast();
   const localityNameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -306,7 +308,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
           title={isCreating ? 'Nova Localidade' : 'Editar Localidade'}
           onClose={handleCloseDrawer}
         >
-          <form className="drawer-fields" onSubmit={handleSaveLocality}>
+          <form className="drawer-fields" onSubmit={envolver(handleSaveLocality)}>
             {feedback ? <div className="form-feedback field-size-full">{feedback}</div> : null}
 
             <div className="field field-size-full">
@@ -399,7 +401,7 @@ export function LocalityRegistration({ readOnly = false }: LocalityRegistrationP
               >
                 Limpar
               </button>
-              <button disabled={!isFormEnabled} type="submit">
+              <button disabled={!isFormEnabled || enviando} type="submit">
                 <Save size={16} />
                 Salvar localidade
               </button>

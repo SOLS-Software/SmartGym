@@ -8,6 +8,7 @@ import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
 import type { Company } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 import { useToast } from '../../shared/components/Toast';
 
 type Pontuacao = {
@@ -34,6 +35,7 @@ type PointsEntry = {
 };
 
 export function PointsRegistration() {
+  const { enviando, envolver } = useEnvio();
   const { showToast } = useToast();
   const nameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -456,7 +458,7 @@ export function PointsRegistration() {
           title={isCreating ? 'Nova Pontuação' : 'Editar Pontuação'}
           onClose={() => setIsDrawerOpen(false)}
         >
-          <form className="drawer-fields" onSubmit={handleSave}>
+          <form className="drawer-fields" onSubmit={envolver(handleSave)}>
             {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
             <RegistrationField
               hint="A regra padrão credita sozinha a cada check-in do aluno. Marcar esta desmarca a anterior."
@@ -513,7 +515,7 @@ export function PointsRegistration() {
             </RegistrationField>
             <div className="form-actions" style={{ flex: '1 1 100%' }}>
               <button className="secondary-button" onClick={() => setIsDrawerOpen(false)} type="button">Cancelar</button>
-              <button disabled={!isFormEnabled} type="submit"><Save size={16} />Salvar pontuação</button>
+              <button disabled={!isFormEnabled || enviando} type="submit"><Save size={16} />Salvar pontuação</button>
             </div>
           </form>
         </RegistrationDrawer>

@@ -7,6 +7,7 @@ import { GRID_PAGE_SIZE, GridPagination, formatDateInput, isImageFile, paginateI
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
 import type { Equipamento, EquipamentoArquivo, EquipamentoManutencao } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 import { useToast } from '../../shared/components/Toast';
 
 type EquipmentRegistrationProps = {
@@ -18,6 +19,7 @@ function toApiDate(value: string) {
 }
 
 export function EquipmentRegistration({ readOnly = false }: EquipmentRegistrationProps) {
+  const { enviando, envolver } = useEnvio();
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const equipmentNameInputRef = useRef<HTMLInputElement | null>(null);
@@ -465,7 +467,7 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
           title={isCreating ? 'Novo Equipamento' : 'Editar Equipamento'}
           onClose={handleCloseDrawer}
         >
-          <form className="drawer-fields" onSubmit={handleSaveEquipment}>
+          <form className="drawer-fields" onSubmit={envolver(handleSaveEquipment)}>
             {feedback ? <div className="form-feedback field-size-full">{feedback}</div> : null}
 
             <div className="field field-size-full">
@@ -545,7 +547,7 @@ export function EquipmentRegistration({ readOnly = false }: EquipmentRegistratio
               >
                 Limpar
               </button>
-              <button disabled={!isFormEnabled} type="submit">
+              <button disabled={!isFormEnabled || enviando} type="submit">
                 <Save size={16} />
                 Salvar equipamento
               </button>
