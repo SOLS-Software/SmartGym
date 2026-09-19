@@ -343,47 +343,28 @@
   width: 100%;
 }
 
-.menu-nav-collapsed button::before,
-.menu-nav-collapsed button::after {
-  opacity: 0;
-  pointer-events: none;
-  position: absolute;
-  top: 50%;
-  transition: opacity 200ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
+/* O TOOLTIP ESTILIZADO DO TRILHO FOI REMOVIDO, e o motivo e um conflito que
+   nao tem saida em CSS.
 
-.menu-nav-collapsed button::before {
-  border: 6px solid transparent;
-  border-right-color: #ffffff;
-  content: '';
-  filter: drop-shadow(-2px 0 3px rgba(23, 33, 28, 0.12));
-  left: calc(100% + 0.5rem);
-  transform: translateY(-50%) translateX(-0.375rem);
-  z-index: 101;
-}
+   Ele era um balao em `::after` com `content: attr(title)`, posicionado FORA da
+   faixa estreita — e por isso `.menu-collapsed .side-menu` precisava de
+   `overflow: visible`. So que o trilho tem mais itens do que cabe numa tela
+   (medido: 1381px numa janela de 940px). Sem recorte, ele esticava a pagina
+   inteira e, pior, os icones de baixo ficavam INALCANCAVEIS — nao havia rolagem
+   que chegasse neles.
 
-.menu-nav-collapsed button::after {
-  background: var(--color-surface);
-  border-left: 3px solid var(--color-accent);
-  border-radius: 0.5rem;
-  box-shadow: 0 8px 24px rgba(23, 33, 28, 0.14), 0 2px 8px rgba(23, 33, 28, 0.08);
-  color: var(--color-text);
-  content: attr(title);
-  font-size: 0.75rem;
-  font-weight: 700;
-  left: calc(100% + 1.125rem);
-  letter-spacing: 0.01em;
-  padding: 0.4rem 0.75rem;
-  transform: translateY(-50%) translateX(-0.5rem);
-  white-space: nowrap;
-  z-index: 100;
-}
+   E nao da para ter os dois: em CSS, se um eixo do `overflow` nao e `visible`,
+   o outro vira `auto`. Rolar e deixar o balao escapar sao mutuamente
+   exclusivos no mesmo elemento.
 
-.menu-nav-collapsed button:hover::before,
-.menu-nav-collapsed button:hover::after {
-  opacity: 1;
-  transform: translateY(-50%) translateX(0);
-}
+   A troca sai barata porque o balao era uma DUPLICATA: o botao ja carrega
+   `title` e `aria-label` com o mesmo texto (HomePage.tsx). O tooltip nativo
+   continua aparecendo, sem recorte, e o leitor de tela nunca dependeu do balao.
+   Perde-se o estilo e a resposta instantanea; ganha-se um menu inteiro
+   acessivel e uma pagina do tamanho do seu conteudo.
+
+   Para ter os dois de volta, o balao precisaria sair do fluxo do trilho —
+   elemento posicionado por JS, ou ancoragem CSS quando der para depender dela. */
 
 .menu-nav-collapsed button:hover,
 .menu-nav-collapsed button.active {
@@ -393,7 +374,11 @@
 
 .menu-collapsed .side-menu {
   align-items: center;
-  overflow: visible;
+  /* SEM `overflow: visible` aqui. Ele existia para o balao de tooltip escapar
+     da faixa, e vencia por especificidade o `overflow: hidden auto` da regra
+     base — entao o trilho colapsado seguia esticando a pagina mesmo depois de
+     a regra base ganhar teto de altura. O balao foi removido (ver a nota acima
+     dos botoes); o recorte volta a valer e o trilho rola. */
   padding: 1.25rem 0.625rem;
 }
 
@@ -429,13 +414,6 @@
   width: 2.375rem;
 }
 
-html.dark .menu-nav-collapsed button::before {
-  border-right-color: var(--color-surface);
-}
-
-html.dark .menu-nav-collapsed button::after {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
-}
 
 
 /* ── Bottom nav (hidden on desktop) ── */
