@@ -39,6 +39,44 @@ async function decryptPayload(base64: string): Promise<string> {
 
 export const apiUrl = '/api/proxy';
 
+/**
+ * Teto de tempo de uma requisição do painel.
+ *
+ * POR QUE PRECISA EXISTIR: sem ele, uma requisição que nunca responde — queda
+ * de rede no meio, aba suspensa, servidor engasgado — fica pendurada para
+ * sempre. O `finally` de quem chamou nunca roda, e o botão de salvar guardado
+ * por `useEnvio` fica morto até a pessoa recarregar a página, perdendo o
+ * formulário preenchido.
+ *
+ * POR QUE 30s, e não menos: o proxy já corta a perna SERVIDOR em 9s
+ * (app/api/proxy/[...path]/route.ts). Este teto cobre a outra perna, entre o
+ * navegador e o Next, e fica bem acima do que o servidor permite — então não
+ * corta nada que hoje funciona, inclusive relatório lento ou envio de arquivo.
+ * É rede de segurança, não política de desempenho.
+ */
+const TEMPO_LIMITE_MS = 30_000;
+
+/**
+ * Combina o tempo limite com o sinal de quem chamou.
+ *
+ * Telas que trocam de seleção rápido (montagem de treino) abortam a busca
+ * anterior com um AbortController próprio, e checam `name === 'AbortError'`
+ * para ignorar em silêncio. Substituir esse sinal pelo do tempo limite
+ * quebraria o cancelamento; por isso os dois são combinados, e vale o que
+ * disparar primeiro.
+ *
+ * Sem `AbortSignal.any`, preferimos o sinal do CHAMADOR: perder o teto de tempo
+ * é um defeito raro; perder o cancelamento seria um defeito comum.
+ */
+function comTempoLimite(sinalDoChamador?: AbortSignal | null): AbortSignal {
+  const doTempo = AbortSignal.timeout(TEMPO_LIMITE_MS);
+  if (!sinalDoChamador) return doTempo;
+  if (typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([doTempo, sinalDoChamador]);
+  }
+  return sinalDoChamador;
+}
+
 function isFormDataBody(body: BodyInit | null | undefined): body is FormData {
   return typeof FormData !== 'undefined' && body instanceof FormData;
 }
@@ -96,10 +134,16 @@ function traduzirFalhaDeTransporte(error: unknown): unknown {
   return error;
 }
 
-/** `fetch` que falha com mensagem legivel em vez do texto cru do navegador. */
+/**
+ * `fetch` com teto de tempo e mensagem legivel em vez do texto cru do navegador.
+ *
+ * O teto entra AQUI porque este e o unico ponto por onde os dois caminhos do
+ * apiFetch passam — o legivel, de desenvolvimento, e o cifrado, de producao.
+ * Posto em cada um deles, o proximo caminho a nascer esqueceria dele.
+ */
 async function fetchLegivel(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   try {
-    return await fetch(input, init);
+    return await fetch(input, { ...init, signal: comTempoLimite(init?.signal) });
   } catch (error) {
     throw traduzirFalhaDeTransporte(error);
   }
