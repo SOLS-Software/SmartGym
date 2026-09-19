@@ -36,6 +36,8 @@ type RegistrationGridProps<T extends { id: number }> = {
   totalItems?: number;
   onPageChange?: (page: number) => void;
   gridTemplateColumns?: string;
+  /** Botão extra na barra da grade, à esquerda do "Novo". */
+  acaoExtra?: ReactNode;
 };
 
 export function RegistrationGrid<T extends { id: number }>({
@@ -60,6 +62,7 @@ export function RegistrationGrid<T extends { id: number }>({
   totalItems,
   onPageChange,
   gridTemplateColumns,
+  acaoExtra,
 }: RegistrationGridProps<T>) {
   const [sort, setSort] = useState<SortState>(null);
 
@@ -180,6 +183,7 @@ export function RegistrationGrid<T extends { id: number }>({
               value={draftSearch}
             />
           </label>
+          {acaoExtra}
           {showNewButton ? (
             <button className="new-button" disabled={newDisabled} onClick={onNew} type="button">
               <Plus size={16} />

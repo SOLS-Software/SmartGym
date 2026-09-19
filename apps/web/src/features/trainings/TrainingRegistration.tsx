@@ -2,7 +2,7 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Dumbbell, Save } from 'lucide-react';
+import { Dumbbell, LayoutList, Save, Trash2 } from 'lucide-react';
 import { GRID_PAGE_SIZE, formatChildCell, formatChildSearchValue, getLookupLabel, paginateItems } from '../../shared/registration/registrationHelpers';
 import { RegistrationField } from '../../shared/registration/RegistrationField';
 import { RegistrationGrid } from '../../shared/registration/RegistrationGrid';
@@ -11,6 +11,7 @@ import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer
 import type { Company, CompanyChildField, CompanyChildRecord, CompanyChildTable, Level, LookupRecord, Training } from '../../shared/registration/registrationTypes';
 import { useToast } from '../../shared/components/Toast';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
+import { useEnvio } from '../../shared/registration/useEnvio';
 
 
 const trainingRelatedConfig: CompanyChildTable = {
@@ -41,7 +42,29 @@ const trainingRelatedConfig: CompanyChildTable = {
   ],
 };
 
-type DrawerMode = 'training' | 'exercise';
+/**
+ * O campo de exercício da configuração acima, isolado porque a montagem em lote
+ * precisa dele para rotular cada opção (`getLookupLabel` pede o campo, não a
+ * chave). Buscar por `find` a cada render seria varrer a lista à toa.
+ */
+const campoDoExercicio = trainingRelatedConfig.fields.find(
+  (field) => field.key === 'idExercicio',
+) as CompanyChildField;
+
+type DrawerMode = 'training' | 'exercise' | 'lote';
+
+/**
+ * Um exercicio ja escolhido para a montagem em lote, com os numeros que ele vai
+ * receber. Guarda o NOME junto do id porque a pre-visualizacao precisa
+ * mostra-lo sem revarrer a lista de lookup a cada render.
+ */
+type ItemDoLote = {
+  idExercicio: number;
+  dsExercicio: string;
+  nrSeries: string;
+  nrRepeticoes: string;
+  qtDescanso: string;
+};
 
 type TrainingRegistrationProps = {
   readOnly?: boolean;
@@ -84,6 +107,17 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
   // Drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<DrawerMode>('training');
+
+  // Montagem em lote dos exercicios do treino.
+  const { enviando, envolver } = useEnvio();
+  const [loteItens, setLoteItens] = useState<ItemDoLote[]>([]);
+  const [loteBusca, setLoteBusca] = useState('');
+  const [loteSeries, setLoteSeries] = useState('3');
+  const [loteRepeticoes, setLoteRepeticoes] = useState('12');
+  const [loteDescanso, setLoteDescanso] = useState('60');
+  const [loteMetodoId, setLoteMetodoId] = useState('');
+  const [loteUnidadeId, setLoteUnidadeId] = useState('');
+  const [loteFeedback, setLoteFeedback] = useState('');
 
   const isTrainingFormEnabled = selectedTrainingId !== null || isCreating;
   const isExerciseFormEnabled = Boolean(selectedTrainingId) && (selectedTrainingRelatedRecordId !== null || isCreatingTrainingRelated);
@@ -326,6 +360,132 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
     setIsDrawerOpen(false);
   }
 
+  // ── Montagem em lote ────────────────────────────────────────────
+  //
+  // Mesmo desenho da montagem de agenda: o formulário à esquerda define o que
+  // vale para todos, e a pré-visualização à direita mostra o que será criado —
+  // já editável, para não precisar de uma segunda passada corrigindo linha por
+  // linha depois de salvar.
+  //
+  // Montar um treino de dez exercícios pelo caminho antigo custava dez idas ao
+  // drawer: abrir, escolher, preencher seis campos, salvar, repetir.
+
+  /**
+   * Opções do seletor: filtradas pela busca, e SEM os exercícios que o treino
+   * já tem — reoferecer um que já está lá só produziria linha duplicada.
+   */
+  const exerciciosDisponiveis = (trainingRelatedLookups['idExercicio'] ?? []).filter((option) => {
+    const jaNoTreino = trainingRelatedRecords.some(
+      (registro) => Number(registro.idExercicio) === Number(option.id),
+    );
+    if (jaNoTreino) return false;
+    const busca = loteBusca.trim().toLowerCase();
+    if (!busca) return true;
+    return getLookupLabel(option, campoDoExercicio).toLowerCase().includes(busca);
+  });
+
+  function handleAbrirLote() {
+    setLoteItens([]);
+    setLoteBusca('');
+    setLoteFeedback('');
+    setLoteMetodoId('');
+    setLoteUnidadeId('');
+    setDrawerMode('lote');
+    setIsDrawerOpen(true);
+  }
+
+  /** Marca ou desmarca um exercício. O clique é o mesmo nos dois sentidos. */
+  function alternarNoLote(exercicio: LookupRecord) {
+    const id = Number(exercicio.id);
+    setLoteItens((atual) => {
+      const jaEsta = atual.some((item) => item.idExercicio === id);
+      if (jaEsta) return atual.filter((item) => item.idExercicio !== id);
+      return [
+        ...atual,
+        {
+          idExercicio: id,
+          dsExercicio: getLookupLabel(exercicio, campoDoExercicio),
+          // Os padrões entram no momento da escolha, e não na hora de salvar:
+          // assim, mudar o padrão depois não reescreve o que já foi ajustado à
+          // mão na pré-visualização.
+          nrSeries: loteSeries,
+          nrRepeticoes: loteRepeticoes,
+          qtDescanso: loteDescanso,
+        },
+      ];
+    });
+  }
+
+  function atualizarItemDoLote(idExercicio: number, campo: keyof ItemDoLote, valor: string) {
+    setLoteItens((atual) =>
+      atual.map((item) => (item.idExercicio === idExercicio ? { ...item, [campo]: valor } : item)),
+    );
+  }
+
+  async function handleSalvarLote() {
+    if (!selectedTrainingId) {
+      setLoteFeedback('Selecione um treino.');
+      return;
+    }
+    if (loteItens.length === 0) {
+      setLoteFeedback('Escolha ao menos um exercício.');
+      return;
+    }
+
+    // A ordem continua de onde o treino parou, em vez de recomeçar do 1 — senão
+    // um lote adicionado a um treino que já tem exercícios embaralharia a
+    // sequência que o aluno segue.
+    const maiorOrdem = trainingRelatedRecords.reduce(
+      (maior, registro) => Math.max(maior, Number(registro.nrOrdem ?? 0)),
+      0,
+    );
+
+    try {
+      setLoteFeedback('');
+      let criados = 0;
+      for (const [indice, item] of loteItens.entries()) {
+        const response = await fetch(
+          `${apiUrl}/trainings/${selectedTrainingId}/related/${trainingRelatedConfig.endpoint}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              idExercicio: item.idExercicio,
+              idEmpresa: selectedCompanyId || null,
+              idMetodoTreino: loteMetodoId || null,
+              idUnidadeMedida: loteUnidadeId || null,
+              nrOrdem: maiorOrdem + indice + 1,
+              nrSeries: Number(item.nrSeries || 0),
+              nrRepeticoes: Number(item.nrRepeticoes || 0),
+              qtDescanso: Number(item.qtDescanso || 0),
+              boInativo: false,
+            }),
+          },
+        );
+        if (!response.ok) {
+          // Para no primeiro erro e diz QUANTOS entraram. O laço não é
+          // transação: sem esse número, a pessoa não saberia se recomeça do
+          // zero ou continua de onde parou.
+          await getApiError(
+            response,
+            `Não foi possível adicionar "${item.dsExercicio}". ${criados} de ${loteItens.length} foram salvos.`,
+          );
+        }
+        criados += 1;
+      }
+
+      showToast(`${criados} exercício${criados !== 1 ? 's' : ''} adicionado${criados !== 1 ? 's' : ''}.`);
+      setIsDrawerOpen(false);
+      setLoteItens([]);
+      await loadExercises();
+    } catch (error) {
+      setLoteFeedback(error instanceof Error ? error.message : 'Erro ao adicionar os exercícios.');
+      // Recarrega mesmo com erro: parte do lote pode ter entrado, e a grade tem
+      // de refletir o que existe de verdade.
+      await loadExercises();
+    }
+  }
+
   function getLevelLabel(levelId: number | null) {
     return levels.find((level) => level.id === levelId)?.dsNivel ?? '-';
   }
@@ -541,6 +701,19 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
               onNew={handleNewExercise}
               newDisabled={!selectedTrainingId}
               showNewButton={!readOnly}
+              acaoExtra={
+                readOnly ? undefined : (
+                  <button
+                    className="secondary-button"
+                    disabled={!selectedTrainingId}
+                    onClick={handleAbrirLote}
+                    type="button"
+                  >
+                    <LayoutList size={16} />
+                    Em lote
+                  </button>
+                )
+              }
               variant="child"
             />
           </section>
@@ -550,10 +723,206 @@ export function TrainingRegistration({ readOnly = false }: TrainingRegistrationP
       {!readOnly ? (
         <RegistrationDrawer
           isOpen={isDrawerOpen}
-          title={drawerMode === 'training' ? 'Cadastro de Treino' : trainingRelatedConfig.label}
+          title={
+            drawerMode === 'training'
+              ? 'Cadastro de Treino'
+              : drawerMode === 'lote'
+                ? 'Montagem do treino'
+                : trainingRelatedConfig.label
+          }
           onClose={handleCloseDrawer}
         >
-          {drawerMode === 'training' ? (
+          {drawerMode === 'lote' ? (
+            <div className="schedule-drawer-layout">
+              <form className="schedule-drawer-form" onSubmit={envolver(handleSalvarLote)}>
+                {loteFeedback ? (
+                  <div className="form-feedback" style={{ gridColumn: '1 / -1' }}>{loteFeedback}</div>
+                ) : null}
+
+                <RegistrationField htmlFor="loteSeries" label="Séries" size="xs">
+                  <input
+                    id="loteSeries"
+                    min={0}
+                    onChange={(e) => setLoteSeries(e.target.value)}
+                    type="number"
+                    value={loteSeries}
+                  />
+                </RegistrationField>
+
+                <RegistrationField htmlFor="loteRepeticoes" label="Repetições" size="xs">
+                  <input
+                    id="loteRepeticoes"
+                    min={0}
+                    onChange={(e) => setLoteRepeticoes(e.target.value)}
+                    type="number"
+                    value={loteRepeticoes}
+                  />
+                </RegistrationField>
+
+                <RegistrationField htmlFor="loteDescanso" label="Descanso (s)" size="sm">
+                  <input
+                    id="loteDescanso"
+                    min={0}
+                    onChange={(e) => setLoteDescanso(e.target.value)}
+                    type="number"
+                    value={loteDescanso}
+                  />
+                </RegistrationField>
+
+                <RegistrationField htmlFor="loteMetodo" label="Método de treino" size="md">
+                  <select
+                    id="loteMetodo"
+                    onChange={(e) => setLoteMetodoId(e.target.value)}
+                    value={loteMetodoId}
+                  >
+                    <option value="">Selecione</option>
+                    {(trainingRelatedLookups['idMetodoTreino'] ?? []).map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {getLookupLabel(option, { key: 'idMetodoTreino', label: '', lookupLabelKey: 'nmMetodoTreino' } as CompanyChildField)}
+                      </option>
+                    ))}
+                  </select>
+                </RegistrationField>
+
+                <RegistrationField htmlFor="loteUnidade" label="Unidade" size="sm">
+                  <select
+                    id="loteUnidade"
+                    onChange={(e) => setLoteUnidadeId(e.target.value)}
+                    value={loteUnidadeId}
+                  >
+                    <option value="">Selecione</option>
+                    {(trainingRelatedLookups['idUnidadeMedida'] ?? []).map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {getLookupLabel(option, { key: 'idUnidadeMedida', label: '', lookupLabelKey: 'cnUnidade' } as CompanyChildField)}
+                      </option>
+                    ))}
+                  </select>
+                </RegistrationField>
+
+                <p className="form-hint" style={{ gridColumn: '1 / -1' }}>
+                  Os valores acima entram nos exercícios que você marcar a partir de agora. O que já
+                  está na lista ao lado não muda — ajuste lá o que for diferente.
+                </p>
+
+                <div className="lote-escolha" style={{ gridColumn: '1 / -1' }}>
+                  <label className="search-field">
+                    <span>Exercícios</span>
+                    <input
+                      maxLength={100}
+                      onChange={(e) => setLoteBusca(e.target.value)}
+                      placeholder="Buscar exercício"
+                      type="search"
+                      value={loteBusca}
+                    />
+                  </label>
+
+                  <div className="lote-opcoes" role="group" aria-label="Exercícios disponíveis">
+                    {exerciciosDisponiveis.length === 0 ? (
+                      <p className="form-hint">Nenhum exercício encontrado.</p>
+                    ) : (
+                      exerciciosDisponiveis.map((exercicio) => {
+                        const marcado = loteItens.some((item) => item.idExercicio === Number(exercicio.id));
+                        return (
+                          <label className={`lote-opcao${marcado ? ' marcada' : ''}`} key={exercicio.id}>
+                            <input
+                              checked={marcado}
+                              onChange={() => alternarNoLote(exercicio)}
+                              type="checkbox"
+                            />
+                            <span>{getLookupLabel(exercicio, campoDoExercicio)}</span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
+                  <button className="secondary-button" onClick={handleCloseDrawer} type="button">
+                    Cancelar
+                  </button>
+                  <button disabled={enviando || loteItens.length === 0} type="submit">
+                    <Save size={16} />
+                    {enviando
+                      ? 'Adicionando...'
+                      : `Adicionar ${loteItens.length || ''} ao treino`.trim()}
+                  </button>
+                </div>
+              </form>
+
+              <aside className="schedule-drawer-preview">
+                <div className="activity-schedule-preview-header">
+                  <div>
+                    <p className="section-label">Pré-visualização</p>
+                    <h4>Exercícios do treino</h4>
+                  </div>
+                  <strong>{loteItens.length}</strong>
+                </div>
+
+                {loteItens.length === 0 ? (
+                  <div className="form-hint">
+                    Marque os exercícios à esquerda. Eles aparecem aqui na ordem em que foram
+                    escolhidos, e é essa a ordem em que o aluno vai executar.
+                  </div>
+                ) : (
+                  <ol className="lote-previsao">
+                    {loteItens.map((item, indice) => (
+                      <li key={item.idExercicio}>
+                        <div className="lote-previsao-topo">
+                          <strong>
+                            {indice + 1}. {item.dsExercicio}
+                          </strong>
+                          <button
+                            aria-label={`Remover ${item.dsExercicio}`}
+                            className="lote-remover"
+                            onClick={() => alternarNoLote({ id: item.idExercicio } as LookupRecord)}
+                            type="button"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                        <div className="lote-previsao-numeros">
+                          <label>
+                            <span>Séries</span>
+                            <input
+                              min={0}
+                              onChange={(e) =>
+                                atualizarItemDoLote(item.idExercicio, 'nrSeries', e.target.value)
+                              }
+                              type="number"
+                              value={item.nrSeries}
+                            />
+                          </label>
+                          <label>
+                            <span>Reps</span>
+                            <input
+                              min={0}
+                              onChange={(e) =>
+                                atualizarItemDoLote(item.idExercicio, 'nrRepeticoes', e.target.value)
+                              }
+                              type="number"
+                              value={item.nrRepeticoes}
+                            />
+                          </label>
+                          <label>
+                            <span>Descanso</span>
+                            <input
+                              min={0}
+                              onChange={(e) =>
+                                atualizarItemDoLote(item.idExercicio, 'qtDescanso', e.target.value)
+                              }
+                              type="number"
+                              value={item.qtDescanso}
+                            />
+                          </label>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </aside>
+            </div>
+          ) : drawerMode === 'training' ? (
             <form className="drawer-fields" onSubmit={handleSaveTraining}>
               {feedback ? <div className="form-feedback" style={{ flex: '1 1 100%' }}>{feedback}</div> : null}
 
