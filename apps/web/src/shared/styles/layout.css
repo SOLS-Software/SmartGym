@@ -193,10 +193,28 @@
   grid-column: 1;
   grid-row: 2;
   gap: 1rem;
-  min-height: calc(100vh - 5.125rem);
-  overflow: hidden;
+  /* O MENU NAO PODE ESTICAR A PAGINA, e nao podia engolir os proprios itens.
+     Ele e item de grade e, sem limite, a linha inteira crescia junto: medido
+     num notebook, o trilho COLAPSADO tinha 1381px, a pagina ia a 1538px e o
+     `home-content` herdava 1467px de espaco quase todo vazio ao lado de um menu
+     cortado. E como o corte era `overflow: hidden`, os icones abaixo dele
+     ficavam inalcancaveis — nao havia rolagem que chegasse neles.
+
+     `align-self: start` tira o menu da conta da altura da linha; o teto de uma
+     tela mais a rolagem propria devolvem o acesso aos itens de baixo; e
+     `sticky` o mantem a vista enquanto o conteudo rola, que e o que se espera
+     de um menu lateral.
+
+     `overflow-x` segue escondido: a animacao de colapso desloca o conteudo para
+     fora e nao deve criar barra horizontal. */
+  align-self: start;
+  max-height: calc(100dvh - 5.125rem);
+  min-height: calc(100dvh - 5.125rem);
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 1.25rem;
-  position: relative;
+  position: sticky;
+  top: 5.125rem;
   transition: padding 420ms cubic-bezier(0.22, 1, 0.36, 1), align-items 420ms ease;
 }
 

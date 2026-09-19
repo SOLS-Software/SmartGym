@@ -158,7 +158,7 @@ export function ClientRegistration() {
     <>
     <header className="module-page-header">
       <p className="section-label">Empresa</p>
-      <h2 className="module-page-title">CADASTRO DE CLIENTES</h2>
+      <h2 className="module-page-title">CADASTRO DA MATRIZ</h2>
     </header>
     <div className="form-view">
 
@@ -167,7 +167,7 @@ export function ClientRegistration() {
           <div className="grid-toolbar">
             <div>
               <p className="section-label">Lista</p>
-              <h3>Clientes</h3>
+              <h3>Matriz</h3>
             </div>
             <button className="new-button" onClick={handleNew} type="button">
               <Plus size={16} />
@@ -185,13 +185,13 @@ export function ClientRegistration() {
             />
           </label>
 
-          <div className="domain-select-table" role="table" aria-label="Clientes">
+          <div className="domain-select-table" role="table" aria-label="Matriz">
             <div
               className="domain-select-row header"
               role="row"
               style={{ '--grid-cols': 'minmax(0, 1fr) 2.75rem' } as CSSProperties}
             >
-              <span role="columnheader">Cliente</span>
+              <span role="columnheader">Matriz</span>
               <span role="columnheader"></span>
             </div>
             {paginatedClients.map((c) => (

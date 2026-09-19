@@ -275,6 +275,13 @@ function getMenuItemLabel(item: string, userType: AuthUserType) {
   // A chave interna continua 'Montar Treino' (usada no roteamento por
   // activeItem); so o rotulo exibido muda.
   if (item === 'Montar Treino') return 'Montagem de Treino';
+  // "Clientes" e o nome da tabela, nao o do negocio. Na tela de uma academia,
+  // "cliente" e o ALUNO — e o item levava para o cadastro da propria academia,
+  // que e outra coisa inteira. "Matriz" diz o que o registro e: a entidade que
+  // contrata, da qual as "Empresas" do item vizinho sao as unidades.
+  // A chave interna segue 'Clientes' (roteamento por activeItem e sessao
+  // gravada no localStorage); so o rotulo muda.
+  if (item === 'Clientes') return 'Matriz';
   return item;
 }
 
