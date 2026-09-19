@@ -14,7 +14,8 @@
     "db:seed:demo": "pnpm --filter @solsfit/db db:seed:demo",
     "db:catalogo:export": "pnpm --filter @solsfit/db db:catalogo:export",
     "db:catalogo:seed": "pnpm --filter @solsfit/db db:catalogo:seed",
-    "db:studio": "pnpm --filter @solsfit/db db:studio"
+    "db:studio": "pnpm --filter @solsfit/db db:studio",
+    "test": "turbo test"
   },
   "devDependencies": {
     "prettier": "^3.3.3",
