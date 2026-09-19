@@ -102,6 +102,26 @@ export function AddressLocationPicker({
         estado: data.estado ?? '',
       });
       setAddressFeedback('Endereço preenchido a partir do CEP.');
+
+      // O CEP já é o endereço: emendar a busca de coordenadas poupa um clique
+      // que a pessoa daria em seguida de qualquer jeito. Vai o endereço
+      // RECÉM-BUSCADO, e não o `value` — que só é atualizado na próxima
+      // renderização e ainda guarda o endereço anterior.
+      //
+      // Silencioso de propósito: se o OpenStreetMap não achar, a operação que a
+      // pessoa PEDIU (o CEP) deu certo, e um erro vermelho ali diria o
+      // contrário. O pino fica para ajuste manual no mapa, como sempre foi.
+      await buscarCoordenadas(
+        {
+          cep: digits,
+          logradouro: data.logradouro ?? '',
+          numero: value.numero,
+          bairro: data.bairro ?? '',
+          cidade: data.cidade ?? '',
+          estado: data.estado ?? '',
+        },
+        true,
+      );
     } catch (error) {
       setAddressFeedback(error instanceof Error ? error.message : 'Erro ao consultar o CEP.');
     } finally {
@@ -109,26 +129,46 @@ export function AddressLocationPicker({
     }
   }
 
-  async function handleGeocodeAddress() {
-    if (!value.cep && !value.logradouro) {
-      setAddressFeedback('Informe o CEP ou o logradouro para buscar as coordenadas.');
+  type EnderecoParaGeocodificar = {
+    cep?: string;
+    logradouro?: string;
+    numero?: string;
+    bairro?: string;
+    cidade?: string;
+    estado?: string;
+  };
+
+  /**
+   * Busca as coordenadas de um endereço EXPLÍCITO.
+   *
+   * Recebe o endereço por parâmetro em vez de ler `value` porque quem chama
+   * logo depois do CEP ainda não tem o `value` atualizado: o `patch` agenda
+   * uma re-renderização, e ler o estado no mesmo tick devolveria o endereço
+   * ANTERIOR. O sintoma seria pior que um erro — coordenadas do endereço
+   * errado, gravadas sem ninguém perceber.
+   */
+  async function buscarCoordenadas(endereco: EnderecoParaGeocodificar, silencioso = false) {
+    if (!endereco.cep && !endereco.logradouro) {
+      if (!silencioso) {
+        setAddressFeedback('Informe o CEP ou o logradouro para buscar as coordenadas.');
+      }
       return;
     }
 
     try {
       setIsGeocoding(true);
-      setAddressFeedback('');
+      if (!silencioso) setAddressFeedback('');
 
       const response = await fetch(`${apiUrl}/${geocodeEndpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cep: value.cep,
-          logradouro: value.logradouro,
-          numero: value.numero,
-          bairro: value.bairro,
-          cidade: value.cidade,
-          estado: value.estado,
+          cep: endereco.cep,
+          logradouro: endereco.logradouro,
+          numero: endereco.numero,
+          bairro: endereco.bairro,
+          cidade: endereco.cidade,
+          estado: endereco.estado,
         }),
       });
 
@@ -145,10 +185,27 @@ export function AddressLocationPicker({
       });
       setAddressFeedback('Coordenadas encontradas. Confirme o ponto no mapa.');
     } catch (error) {
-      setAddressFeedback(error instanceof Error ? error.message : 'Erro ao buscar coordenadas.');
+      // No modo silencioso o erro NÃO vira mensagem vermelha: a pessoa pediu o
+      // CEP, e o CEP funcionou. Dizer "endereço não encontrado" ali faria
+      // parecer que o preenchimento falhou. O pino fica para ser ajustado à
+      // mão, que é o mesmo caminho de sempre.
+      if (!silencioso) {
+        setAddressFeedback(error instanceof Error ? error.message : 'Erro ao buscar coordenadas.');
+      }
     } finally {
       setIsGeocoding(false);
     }
+  }
+
+  async function handleGeocodeAddress() {
+    await buscarCoordenadas({
+      cep: value.cep,
+      logradouro: value.logradouro,
+      numero: value.numero,
+      bairro: value.bairro,
+      cidade: value.cidade,
+      estado: value.estado,
+    });
   }
 
   function handleMapPositionChange(nextLatitude: number, nextLongitude: number) {
