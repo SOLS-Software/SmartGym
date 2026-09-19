@@ -355,6 +355,16 @@ export function SaleRegistration() {
           <RegistrationGrid<Sale>
             ariaLabel="Vendas registradas"
             label="Vendas"
+            /* Sem template proprio, o padrao da grade da `1fr` a PRIMEIRA coluna
+               e 9.5rem fixos a todas as outras. Aqui a primeira e a Data, que
+               precisa de dez caracteres, e quem sobrava eram Produto e Aluno —
+               os dois campos de texto longo — espremidos no mesmo espaco que a
+               Qtd, que tem tres digitos.
+
+               Agora a largura acompanha o conteudo: Produto e Aluno dividem o
+               que sobra, e Data, Qtd, Total e Situacao ficam com o que de fato
+               ocupam. */
+            gridTemplateColumns="7rem minmax(0, 1.4fr) minmax(0, 1.4fr) 4.5rem 8rem 7.5rem"
             columns={[
               {
                 label: 'Data',
