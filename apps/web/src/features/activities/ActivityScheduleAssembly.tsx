@@ -11,6 +11,7 @@ import {
   paginateItems,
 } from '../../shared/registration/registrationHelpers';
 import { RegistrationDrawer } from '../../shared/registration/RegistrationDrawer';
+import { useEnvio } from '../../shared/registration/useEnvio';
 import type { Activity, Company, Employee, Localidade, LookupRecord, Sport } from '../../shared/registration/registrationTypes';
 import { apiFetch as fetch, apiUrl, getApiError } from '../../shared/api/apiFetch';
 
@@ -59,6 +60,7 @@ type ActivityScheduleAssemblyProps = {
 };
 
 export function ActivityScheduleAssembly({ loggedEmployeeId }: ActivityScheduleAssemblyProps) {
+  const { enviando, envolver } = useEnvio();
   const scheduleStartInputRef = useRef<HTMLInputElement | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [schedules, setSchedules] = useState<ActivitySchedule[]>([]);
@@ -713,7 +715,7 @@ export function ActivityScheduleAssembly({ loggedEmployeeId }: ActivityScheduleA
       >
         <div className="schedule-drawer-layout">
           {/* Formulário */}
-          <form className="schedule-drawer-form" onSubmit={handleSaveSchedule}>
+          <form className="schedule-drawer-form" onSubmit={envolver(handleSaveSchedule)}>
             {scheduleFeedback ? <div className="form-feedback" style={{ gridColumn: '1 / -1' }}>{scheduleFeedback}</div> : null}
 
             <div className="field">
@@ -831,8 +833,11 @@ export function ActivityScheduleAssembly({ loggedEmployeeId }: ActivityScheduleA
             </div>
 
             <div className="form-actions schedule-drawer-actions">
-              <button className="secondary-button" onClick={handleCloseDrawer} type="button">Cancelar</button>
-              <button type="submit"><Save size={16} />Salvar montagem</button>
+              <button className="secondary-button" disabled={enviando} onClick={handleCloseDrawer} type="button">Cancelar</button>
+              <button disabled={enviando} type="submit">
+                <Save size={16} />
+                {enviando ? 'Salvando...' : 'Salvar montagem'}
+              </button>
             </div>
           </form>
 
