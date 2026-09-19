@@ -743,6 +743,20 @@ html.dark .drawer-backdrop {
 .drawer-fields .field-size-sm   { flex: 1 1 7rem; max-width: 10rem; }
 .drawer-fields .field-size-xs   { flex: 1 1 5rem; max-width: 7rem; }
 
+/* Piso para o campo de DATA.
+   O controle nativo precisa de ~156px para caber "dd/mm/aaaa" mais o icone do
+   calendario (medido neste motor, com esta tipografia). Marcados como `sm`,
+   eles tinham base de 7rem (112px) e encolhiam no flex ate o ANO ser cortado —
+   a tela mostrava "01/09/2" e a pessoa nao tinha como conferir o que digitou.
+
+   O piso vai no INPUT, e nao no campo, de proposito: item flex tem
+   `min-width: auto`, entao o tamanho minimo do conteudo sobe sozinho e impede o
+   campo de encolher — sem precisar de `:has()` para descobrir o que ha dentro.
+
+   min-width vence max-width no CSS, entao isto tambem protege um campo marcado
+   como `xs` por engano: melhor furar a grade do que cortar a data. */
+.drawer-fields input[type="date"] { min-width: 9.75rem; }
+
 
 @media (max-width: 47.5rem) {
   .domain-workspace,

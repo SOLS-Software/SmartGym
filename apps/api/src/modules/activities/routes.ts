@@ -211,15 +211,36 @@ export async function registerActivityRoutes(app: FastifyInstance) {
         ...activityTenantFilter(idCliente),
         ...(includeInactive ? {} : { boInativo: false }),
         ...(search ? { dsAtividade: { contains: search, mode: 'insensitive' } } : {}),
+        // Janela de datas: filtra pelas AGENDAS, porque e a agenda que tem data
+        // — a atividade em si e o catalogo ("Spinning", "Pilates").
+        //
+        // A ATIVIDADE SEM AGENDA NENHUMA ENTRA SEMPRE. Sem esta segunda
+        // condicao, uma atividade recem-criada sumia: ela nasce sem agenda, o
+        // `some` dava falso e ela desaparecia da unica tela onde se cria a
+        // agenda dela. O cadastro salvava sem erro e o registro ficava
+        // inalcancavel — o pior tipo de defeito, porque parece que nao salvou.
+        //
+        // E e coerente com o que o filtro significa: a janela pergunta "o que
+        // acontece neste periodo". Uma atividade que ainda nao acontece em data
+        // nenhuma nao pode ser excluida por data.
         ...(dateRangeFilter
           ? {
-              atividadeAgendas: {
-                some: {
-                  boInativo: false,
-                  empresa: { idCliente },
-                  dtInicial: dateRangeFilter,
+              OR: [
+                {
+                  atividadeAgendas: {
+                    some: {
+                      boInativo: false,
+                      empresa: { idCliente },
+                      dtInicial: dateRangeFilter,
+                    },
+                  },
                 },
-              },
+                {
+                  atividadeAgendas: {
+                    none: { boInativo: false, empresa: { idCliente } },
+                  },
+                },
+              ],
             }
           : {}),
       },

@@ -306,10 +306,20 @@
 @media (max-width: 47.5rem) {
 
 
-  /* Grid Principal (esquerda) + TAB (direita) na mesma linha */
+  /* Grid Principal (esquerda) + TAB (direita) na mesma linha.
+     A COLOCACAO EXPLICITA FICA SO NAS ABAS, logo abaixo. Ela estava tambem
+     aqui, e `.data-grid-section` e classe GENERICA: onze telas tem DUAS dessas
+     secoes irmas — a grade principal e a do registro filho — e as duas caiam na
+     MESMA celula (1,1), uma exatamente em cima da outra. No celular a tela
+     ficava ilegivel: duas barras de busca sobrepostas e o vazio da grade filha
+     escrito por cima das linhas da principal.
+
+     Sem a colocacao, o posicionamento automatico resolve os dois casos: a
+     secao principal ocupa (1,1); onde ha abas, elas ficam na coluna 2 da mesma
+     linha (o trilho vertical de icones que esta tela quer no celular); onde nao
+     ha, a segunda secao desce para a linha 2 — que e o empilhamento que um
+     telefone pede. */
   .data-grid-section {
-    grid-column: 1;
-    grid-row: 1;
     min-width: 0;
     overflow: hidden;
   }
